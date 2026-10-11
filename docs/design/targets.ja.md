@@ -20,7 +20,7 @@ Nativeは[HIR→MIR→x86-64 LIR](native-mir.ja.md)を通ります。MIRは共�
 
 `run`／`run-ir`の[IR Executor](ir-executor.ja.md)は、完成済みCerune IRを直接実行する経路です。新しい成果物を生成せず、ターゲットABIの選択も行いません。出力経路の表とは別に扱います。`run-vm`はBytecode → VMです。`run-mir`は[独立したMIR実行器](mir-executor.ja.md)で、HIR→MIRを経て実行します。`emit-mir`はその表現を観測する操作です。
 
-`run-mir --ssa`はSSAを直接評価します。LIRはNative生成の内部段階で、`run-lir`やLIR専用の観測コマンドはありません。[段階別の現状](development-status.ja.md)を参照してください。
+`run-mir --ssa`はSSAを直接評価します。LIRは`emit-lir`でtargetを明示して表示します。`run-lir`は[調査の結果、保留](lir-observation.ja.md)です。
 
 ### ターゲット
 

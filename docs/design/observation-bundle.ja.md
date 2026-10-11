@@ -6,7 +6,7 @@
 
 [#60](https://github.com/Hokutaka/Cerune/issues/60)の最初の実装として、一回のfrontend処理からHIR、非SSAのMIR、注釈付きNative ASMを保存します。manifestは索引であり、新しいIRではありません。
 
-`cerune observe <file> [--ssa] --target <triple> -o <new-directory>`で保存します。Windows/Linuxのx86-64 targetは必須です。既存のheap予算オプションも使えます。
+`cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>`で保存します。Windows/Linuxのx86-64 targetは必須です。既存のheap予算オプションも使えます。
 
 | ファイル | 内容 |
 | --- | --- |
@@ -56,7 +56,7 @@ SSA付きmanifestは`cerune-observation-v3`です。v2のSSA観測にSSA→MIR�
 
 プログラムの実行、外部ツールの起動、リンクは行いません。[#104](https://github.com/Hokutaka/Cerune/issues/104)の副作用再実行やrecord/replayは追加しません。`build`／`release`の完成成果物ではなく、IR/MIRのloaderも追加しません。
 
-LIR本体も未収録です。ASMにはMIR→LIRの対応番号がありますが、専用のLIR snapshotではありません。[LIR観測の残件](development-status.ja.md)は最適化とは別に扱います。
+`--lir`を明示するとv4形式で`program.lir.txt`を追加します。`--ssa --lir`では`program.ssa.lir.txt`も追加し、合計12ファイルです（SSAなしは6ファイル）。それぞれのLIRとASMは同じModuleから生成します。manifestの`mir-lir-v1`と`artifact_inputs`にMIR→LIR→ASMを記録します。指定なしのv1と`--ssa`のみのv3は維持します。[形式と検証範囲](lir-observation.ja.md)を参照してください。
 
 Object・逆アセンブル・bytecode・C/LLVM/QBE/WAT・Leanの同梱、実行結果、最適化比較は後続です。未収録を生成失敗や対応済みと混同しません。個別`emit-*`は引き続き使えます。
 

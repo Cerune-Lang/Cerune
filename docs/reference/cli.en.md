@@ -6,7 +6,7 @@ This document defines the command-line interface of Cerune v0.1.
 
 IR/VM/Native [build / release](../design/owned-routes.en.md) and [Lean output](../design/lean-verification.en.md) are at the design/experiment stage and are not current CLI commands.
 
-`emit-lir`/`run-lir` are also unimplemented. LIR is an internal Native generation stage; independent evaluation currently covers HIR, MIR, SSA, and Bytecode. See the [stage inventory](../design/development-status.en.md).
+`emit-lir` displays Native LIR with an explicit target and optional `--ssa`. See [LIR observation and validation](../design/lir-observation.en.md). `run-lir` is deferred; independent execution covers HIR, MIR, SSA, and Bytecode.
 
 ## Save observations together
 
@@ -18,10 +18,11 @@ The current CLI provides the following commands:
 
 ```text
 cerune check <file>
-cerune observe <file> --target <triple> -o <new-directory>
+cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>
 cerune emit-sources <file> [-o <sources.json>]
 cerune emit-ir <file> [-o <output.ceir>]
 cerune emit-mir <file> [-o <output.txt>]
+cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
 cerune emit-c <file> [-o <output.c>]
 cerune emit-llvm <file> [--target <triple>] [-o <output.ll>]
 cerune emit-wat <file> [-o <output.wat>]

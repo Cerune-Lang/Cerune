@@ -4,6 +4,7 @@
 
 | Example | 確認すること | 実行結果 |
 | --- | --- | --- |
+| [lir_layout.ceru](lir_layout.ceru) | 7整数引数と構造体戻り値。target別の引数位置・frame・集約copyをLIRで観測 | `6`、`22`、`LIR → ASM` |
 | [native_calls.ceru](native_calls.ceru) | MIRからNativeへ変換。型の異なる7引数、continue／break、main呼出し | 見出しとi=0・2の引数、計算結果`4` |
 | [owned_values.ceru](owned_values.ceru) | 関数へ渡す動的配列の独立性、不変文字列、continueを通る解放 | 元配列・装飾後の配列・`["反復"]` |
 | [ssa_values.ceru](ssa_values.ceru) | 分岐で値を選ぶ・continue後の更新・反復ごとの値の入替え。SSA変換・実行比較用 | `14`、`16`、`20`、`10`の4行 |
@@ -78,3 +79,16 @@ cargo run --quiet -- observe examples/ir_stages/owned_values.ceru --target x86_6
 `sources.json`、`program.ceir`、`program.mir.txt`、`program.origins.s`、`manifest.json`が生成されます。Windows向けはtargetを`x86_64-pc-windows-msvc`に変更します。再実行には別の新規保存先を指定してください。
 
 `program.mir.txt`の`hir=#N`とASMの`cerune-mir`注釈を辿ると、同じ式がどの命令へ変換されたか確認できます。同じheap予算・targetで個別の`emit-ir`・`emit-mir`・`emit-asm --annotate-origins`を使った出力と一致します。実行結果は別途`run`・`run-mir`・`run-vm`で比較します。[保存形式と範囲](../../docs/design/observation-bundle.ja.md)を参照してください。
+
+## LIRを見比べる
+
+`emit-lir`で命令本体、`observe --lir`で同じLIRから作ったASMとの対応を確認できます。`--ssa --lir`は基準／SSA経由を別々に保存し、指定なしの生成過程を残します。
+
+```sh
+cargo run --quiet -- run examples/ir_stages/lir_layout.ceru
+cargo run --quiet -- emit-lir examples/ir_stages/lir_layout.ceru --target x86_64-pc-windows-msvc
+cargo run --quiet -- emit-lir examples/ir_stages/lir_layout.ceru --target x86_64-unknown-linux-gnu
+cargo run --quiet -- observe examples/ir_stages/lir_layout.ceru --ssa --lir --target x86_64-unknown-linux-gnu -o target/lir-observation
+```
+
+Windowsでは5個目から、SysVでは7個目からstack引数です。LIRの番号は関数内の順序で、注釈付きASMのLIR番号と対応します。[検証範囲と直接実行を保留した理由](../../docs/design/lir-observation.ja.md)を参照してください。

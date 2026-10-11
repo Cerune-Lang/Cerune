@@ -48,6 +48,90 @@ fn observe(input: &Path, target: &str, output: &Path) -> Output {
 }
 
 #[test]
+fn lir_bundle_keeps_old_artifacts_and_matches_individual_emits() {
+    let scratch = Scratch::new();
+    let input = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/ir_stages/lir_layout.ceru");
+    for (ti, target) in TARGETS.iter().enumerate() {
+        for ssa in [false, true] {
+            let old = scratch.0.join(format!("{ti}-{ssa}-old"));
+            let new = scratch.0.join(format!("{ti}-{ssa}-new"));
+            let mut options = vec!["--target", target, "-o", old.to_str().unwrap()];
+            if ssa {
+                options.push("--ssa");
+            }
+            success(&cli("observe", &input, &options));
+            options[3] = new.to_str().unwrap();
+            options.push("--lir");
+            success(&cli("observe", &input, &options));
+            for entry in fs::read_dir(&old).unwrap() {
+                let name = entry.unwrap().file_name();
+                if name != "manifest.json" {
+                    assert_eq!(
+                        fs::read(old.join(&name)).unwrap(),
+                        fs::read(new.join(&name)).unwrap()
+                    );
+                }
+            }
+            let manifest = fs::read_to_string(new.join("manifest.json")).unwrap();
+            assert!(manifest.contains("cerune-observation-v4"));
+            assert!(manifest.contains(r#""assembly": "lir""#));
+            assert!(manifest.contains(r#""optimization_passes": []"#));
+            let base = cli("emit-lir", &input, &["--target", target]);
+            success(&base);
+            assert_eq!(base.stdout, fs::read(new.join("program.lir.txt")).unwrap());
+            if ssa {
+                let emitted = cli("emit-lir", &input, &["--target", target, "--ssa"]);
+                success(&emitted);
+                assert_eq!(
+                    emitted.stdout,
+                    fs::read(new.join("program.ssa.lir.txt")).unwrap()
+                );
+                assert!(manifest.contains(r#""ssa_assembly": "ssa_lir""#));
+            }
+        }
+    }
+    let output = scratch.0.join("invalid");
+    for args in [
+        vec!["-o", output.to_str().unwrap()],
+        vec![
+            "--target",
+            TARGETS[0],
+            "--annotate-origins",
+            "-o",
+            output.to_str().unwrap(),
+        ],
+        vec![
+            "--target",
+            TARGETS[0],
+            "--ssa",
+            "--ssa",
+            "-o",
+            output.to_str().unwrap(),
+        ],
+    ] {
+        assert!(!cli("emit-lir", &input, &args).status.success());
+        assert!(!output.exists());
+    }
+    assert!(
+        !cli(
+            "observe",
+            &input,
+            &[
+                "--target",
+                TARGETS[0],
+                "--lir",
+                "--lir",
+                "-o",
+                output.to_str().unwrap()
+            ]
+        )
+        .status
+        .success()
+    );
+    assert!(!output.exists());
+}
+
+#[test]
 fn ssa_bundle_keeps_baseline_and_records_the_separate_transformation() {
     let scratch = Scratch::new();
     for (index, example) in [

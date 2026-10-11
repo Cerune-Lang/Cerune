@@ -51,6 +51,7 @@ fn run() -> Result<(), String> {
         "observe" => {
             let input = required_path(args.next(), "missing input file")?;
             let (rest, ssa) = parse_ssa_option(args.collect())?;
+            let (rest, lir) = parse_flag(rest, "--lir")?;
             let (output, target, _) = parse_native_options(&rest, "observe", "observation/")?;
             let output = output.ok_or("observe requires -o <new-directory>")?;
             let target = target.ok_or("observe requires an explicit --target")?;
@@ -58,7 +59,7 @@ fn run() -> Result<(), String> {
                 .ok_or("unsupported observation target; expected x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc")?;
             let source = read_source(&input)?;
             let hir = ir_for(&source, string_heap_limit, array_heap_limit)?;
-            observation_bundle::save(&source, &hir, target, &output, ssa)
+            observation_bundle::save(&source, &hir, target, &output, ssa, lir)
         }
 
         // Cerune IR 生成
@@ -211,6 +212,26 @@ fn run() -> Result<(), String> {
             )?;
 
             write_or_print(output, qbe)
+        }
+
+        // Native LIRの構造と出典を観測します。
+        "emit-lir" => {
+            let input = required_path(args.next(), "missing input file")?;
+            let (rest, ssa) = parse_ssa_option(args.collect())?;
+            let (output, target, _) = parse_native_options(&rest, "emit-lir", "lir.txt")?;
+            let target = target.ok_or("emit-lir requires an explicit --target")?;
+            let target = cerune_lang::codegen::x86_64::Target::parse(&target)
+                .ok_or("unsupported native LIR target")?;
+            let source = read_source(&input)?;
+            let hir = ir_for(&source, string_heap_limit, array_heap_limit)?;
+            let mir = native_mir_for(&source, &hir, ssa)?;
+            let lir = render_compilation_result(
+                cerune_lang::codegen::x86_64::lower_mir(&mir, target),
+                &source,
+            )?;
+            let text =
+                render_compilation_result(cerune_lang::codegen::x86_64::lir::emit(&lir), &source)?;
+            write_or_print(output, text)
         }
 
         // Direct Assembly コード生成
@@ -408,15 +429,18 @@ fn ssa_for(
 
 // --ssaを受け付ける経路だけが使います。ほかのオプションの値は解釈しません。
 fn parse_ssa_option(args: Vec<String>) -> Result<(Vec<String>, bool), String> {
+    parse_flag(args, "--ssa")
+}
+fn parse_flag(args: Vec<String>, flag: &str) -> Result<(Vec<String>, bool), String> {
     let mut rest = Vec::new();
-    let mut ssa = false;
+    let mut present = false;
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
-        if arg == "--ssa" {
-            if ssa {
-                return Err("duplicate --ssa".into());
+        if arg == flag {
+            if present {
+                return Err(format!("duplicate {flag}"));
             }
-            ssa = true;
+            present = true;
         } else {
             let takes_value = matches!(
                 arg.as_str(),
@@ -428,7 +452,7 @@ fn parse_ssa_option(args: Vec<String>) -> Result<(Vec<String>, bool), String> {
             }
         }
     }
-    Ok((rest, ssa))
+    Ok((rest, present))
 }
 
 fn ir_for(
@@ -469,6 +493,7 @@ fn parse_heap_limits(args: Vec<String>, command: &str) -> Result<(Vec<String>, u
                 | "emit-llvm"
                 | "emit-qbe"
                 | "emit-wat"
+                | "emit-lir"
                 | "emit-asm"
                 | "emit-obj"
         ) {
@@ -549,7 +574,7 @@ fn parse_native_options(
             }
             _ => {
                 return Err(if route == "observe" {
-                    "usage: cerune observe <file> [--ssa] --target <triple> -o <new-directory>"
+                    "usage: cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>"
                         .to_owned()
                 } else {
                     format!(
@@ -586,9 +611,10 @@ fn print_help() {
            cerune emit-llvm <file> [--target <triple>] [--annotate-origins] [-o <output.ll>]\n\
            cerune emit-wat <file> [-o <output.wat>]\n\
            cerune emit-qbe <file> [--target <triple>] [-o <output.ssa>]\n\
+           cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]\n\
            cerune emit-asm <file> [--ssa] [--target <triple>] [--annotate-origins] [-o <output.s>]\n\
            cerune emit-obj <file> [--ssa] --target <triple> [--annotate-origins] -o <output.o>\n\
-           cerune observe <file> [--ssa] --target <triple> -o <new-directory>\n\
+           cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>\n\
            cerune emit-mir <file> [--ssa] [-o <output.txt>]\n\
            cerune emit-bytecode <file> [-o <output.cebc>]\n\
            cerune run <file> [--diagnostic-format runtime-v1]\n\
@@ -598,7 +624,7 @@ fn print_help() {
            cerune --version\n\n\
          run / run-ir: direct Cerune IR execution; run-mir: HIR -> MIR execution; run-vm: Bytecode -> VM.\n\
          run / run-ir / run-mir / run-vm / observe / emit-* (except emit-sources): --string-heap-limit <bytes> / --array-heap-limit <bytes>\n\
-         --ssa: explicit scalar SSA construction for emit-mir / run-mir / emit-asm / emit-obj / observe; no optimization.\n\
+         --ssa: explicit scalar SSA construction for emit-mir / run-mir / emit-lir / emit-asm / emit-obj / observe; no optimization.\n\
          Default: 67108864 bytes per heap; compile-time string budget is independent.\n",
         env!("CARGO_PKG_VERSION")
     );

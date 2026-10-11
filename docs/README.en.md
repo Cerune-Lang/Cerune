@@ -12,6 +12,7 @@ Each document links to its Japanese counterpart.
 - [Naming and migration](design/naming.en.md)
 - [Compiler architecture](design/architecture.en.md)
 - [IR stages and pass observation](design/ir-stages.en.md)
+- [LIR observation, validation, and executor decision](design/lir-observation.en.md)
 - [MIR SSA construction](design/mir-ssa.en.md)
 - [Observation bundle](design/observation-bundle.en.md)
 - [Observability contract](design/observability.en.md)

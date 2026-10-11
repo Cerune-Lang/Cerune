@@ -12,7 +12,7 @@ Current implementation and plans are summarized below.
 | Implemented | Non-SSA MIR types/lowering/validation, `emit-mir`, [independent execution](mir-executor.en.md), and [MIR→Native generation](native-mir.en.md) |
 | Implemented | [Observation bundle](observation-bundle.en.md): sources, HIR, MIR, and annotated ASM from one compilation |
 | Implemented | [SSA](mir-ssa.en.md) construction, direct execution, CLI/bundles, SSA→MIR/Native, and finite-fixture Lean verification |
-| Internal stage implemented | x86-64 LIR; no separate public observation, structural validator, or direct execution ([inventory](development-status.en.md)) |
+| Implemented | x86-64 LIR lowering, display, saving, and structural validation; direct execution deferred ([design](lir-observation.en.md)) |
 | Designed, implementation deferred | [Constant-folding pass](ssa-constant-folding.en.md); no implicit optimization |
 | Planned, unimplemented | IR/VM/Native [build / release](owned-routes.en.md), with C-like routes classified as emit-only |
 
@@ -47,7 +47,7 @@ Source → Lexer / Parser → AST → Common frontend → Cerune IR (HIR)
                                                   └→ C / LLVM / QBE / WAT IR → emit-*
 ```
 
-LIR is an internal Native generation stage, with no dedicated `emit-lir`/`run-lir`. Reconstructed MIR also follows the same LIR→ASM→Object path. The [stage inventory and priorities](development-status.en.md) distinguish representation, observation, direct execution, and distribution.
+LIR is a Native generation stage observable through `emit-lir` / `observe --lir`. Reconstructed MIR follows the same LIR→ASM→Object path. Direct `run-lir` execution is [deferred after investigation](lir-observation.en.md).
 
 The frontend resolves names, types, and contextual floats, and expands generics, enum/match, and ownership. The [IR Executor](ir-executor.en.md) directly executes completed HIR statements/expressions; generating routes translate resolved meaning into target representations.
 
@@ -213,7 +213,7 @@ Each command accepts `<file>`. The [CLI reference](../reference/cli.en.md) defin
 
 ### Internal backend IR is not an observation contract
 
-Exposing internal Rust structures as a compatibility format would freeze implementation details, so v0.1 does not include stable serialization of those structures. LIR can be inspected through Rust APIs and ASM/Object correspondence, but `emit-lir` is unimplemented. New public observation points require a concrete use and defined format.
+Internal Rust structures are not part of a stable v0.1 serialization contract. `emit-lir` provides [versioned observation text](lir-observation.en.md), not a loadable distribution format.
 
 ## Code generation
 

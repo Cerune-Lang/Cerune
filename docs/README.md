@@ -12,6 +12,7 @@
 - [命名と移行](design/naming.ja.md)
 - [コンパイラ構成](design/architecture.ja.md)
 - [IR段階と変換の観測](design/ir-stages.ja.md)
+- [LIRの観測・構造検証と直接実行の採否](design/lir-observation.ja.md)
 - [MIRのSSA変換（段階実装）](design/mir-ssa.ja.md)
 - [観測結果の一括保存](design/observation-bundle.ja.md)
 - [可観測性の契約](design/observability.ja.md)

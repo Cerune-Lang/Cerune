@@ -48,6 +48,42 @@ fn execute(p: &mir::Program, expected: &str) {
     );
 }
 #[test]
+fn observed_lir_snapshot_drives_asm_and_object_execution() {
+    let mut lir = x86_64::lower_mir(
+        &mir::lower(&compile_to_ir("print(1);").unwrap()).unwrap(),
+        host_target(),
+    )
+    .unwrap();
+    for i in &mut lir.instructions {
+        if let x86_64::ir::Instruction::MovI64ImmediateToRax(n) = i {
+            *n = 42;
+        }
+    }
+    let before = lir.clone();
+    let observed = x86_64::lir::emit(&lir).unwrap();
+    assert!(observed.contains("MovI64ImmediateToRax(42)"));
+    for (bytes, ext) in [
+        (
+            x86_64::emit_asm_from_lir(&lir, true).unwrap().into_bytes(),
+            "s",
+        ),
+        (x86_64::emit_object_from_lir(&lir, true).unwrap(), "o"),
+    ] {
+        if let Some(actual) = native_process::execute(&bytes, ext) {
+            assert!(actual.status.success(), "{actual:?}");
+            assert!(actual.stderr.is_empty());
+            assert_eq!(
+                String::from_utf8(actual.stdout)
+                    .unwrap()
+                    .replace("\r\n", "\n"),
+                "42\n"
+            );
+        }
+    }
+    assert_eq!(lir, before);
+}
+
+#[test]
 fn native_consumes_modified_mir_without_rebuilding_hir() {
     let hir = compile_to_ir("print(1);").unwrap();
     let mut p = mir::lower(&hir).unwrap();

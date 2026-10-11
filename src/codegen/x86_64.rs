@@ -5,6 +5,7 @@ mod emit;
 mod failure;
 mod heap;
 pub mod ir;
+pub mod lir;
 mod lower;
 mod object;
 mod rounding;
@@ -69,11 +70,25 @@ pub fn emit_asm_from_mir(
     target: Target,
     annotate_origins: bool,
 ) -> Result<String, Diagnostic> {
-    Ok(emit::emit_with_origins(
-        &lower_mir(program, target)?,
-        annotate_origins,
-    ))
+    emit_asm_from_lir(&lower_mir(program, target)?, annotate_origins)
 }
+/// 表示・保存したものと同じLIRを検証してASMを生成します。
+pub fn emit_asm_from_lir(
+    module: &ir::Module,
+    annotate_origins: bool,
+) -> Result<String, Diagnostic> {
+    lir::validate(module)?;
+    Ok(emit::emit_with_origins(module, annotate_origins))
+}
+
+/// 同じLIRから自前encoderでObjectを生成します。
+pub fn emit_object_from_lir(
+    module: &ir::Module,
+    annotate_origins: bool,
+) -> Result<Vec<u8>, Diagnostic> {
+    object::assemble(&emit_asm_from_lir(module, annotate_origins)?, module.target)
+}
+
 pub fn emit_object_from_mir(
     program: &crate::mir::Program,
     target: Target,

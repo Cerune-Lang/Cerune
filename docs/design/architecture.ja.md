@@ -12,7 +12,7 @@ Ceruneは静的型付きの実験言語です。型・意味の決定と、実�
 | 実装済み | 非SSAのMIRの型・変換・検証・`emit-mir`・[独立実行](mir-executor.ja.md)、[MIR→Native生成](native-mir.ja.md) |
 | 実装済み | [観測bundle](observation-bundle.ja.md)：sources・HIR・MIR・注釈付きASMを同じコンパイルから保存 |
 | 実装済み | [SSA](mir-ssa.ja.md)の変換・直接実行・CLI／bundle・SSA→MIR／Native。有限例のLean検証も対応 |
-| 内部段階を実装 | x86-64 LIR。独立した公開観測・構造検証・直接実行は未実装（[棚卸し](development-status.ja.md)） |
+| 実装済み | x86-64 LIRの変換・表示・保存・構造検証。直接実行は保留（[設計](lir-observation.ja.md)） |
 | 設計済み・実装保留 | [定数畳み込みpass](ssa-constant-folding.ja.md)。最適化は暗黙に行わない |
 | 計画・未実装 | IR・VM・Nativeの[build / release](owned-routes.ja.md)。C等はemit-onlyとして整理 |
 
@@ -47,7 +47,7 @@ Source → Lexer / Parser → AST → 共通frontend → Cerune IR (HIR)
                                                └→ C / LLVM / QBE / WAT向けIR → emit-*
 ```
 
-LIRはNative生成の内部段階です。専用の`emit-lir`／`run-lir`はありません。SSAから戻したMIRも同じLIR→ASM→Objectを通ります。[段階別の現状と優先順位](development-status.ja.md)で、表現・観測・直接実行・配布を区別します。
+LIRはNative生成の段階です。`emit-lir`／`observe --lir`で観測できます。SSAから戻したMIRも同じLIR→ASM→Objectを通ります。`run-lir`の追加は[調査の結果、保留](lir-observation.ja.md)としました。
 
 frontendは名前・型・文脈上の浮動小数点型を解決し、generic・enum/match・所有処理を共通展開します。[IR Executor](ir-executor.ja.md)は完成済みHIRの文・式を直接実行し、生成経路は確定済みの意味を対象の表現へ変換します。
 
@@ -213,7 +213,7 @@ VMは実行エラーをbytecode命令番号で報告します。`run_vm`はそ�
 
 ### 内部バックエンドIRは観測契約ではない
 
-内部のRust構造を公開互換形式にすると実装詳細まで固定するため、v0.1では安定したシリアライズ契約に含めません。LIRはRust APIとASM/Objectの対応情報から調べられますが、`emit-lir`は未実装です。新しい公開観測点は、具体的な必要性と形式を定めて追加します。
+内部のRust構造は、v0.1の安定したserialization契約に含めません。`emit-lir`は[バージョン付き観測テキスト](lir-observation.ja.md)であり、load可能な配布形式ではありません。
 
 ## コード生成
 

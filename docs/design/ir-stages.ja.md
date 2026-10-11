@@ -18,7 +18,7 @@
 
 ここでのSSAは共通MIRのscalar SSA変換です。生成先のLLVM／QBEが持つSSA形式とは区別します。
 
-LIRの生成段階は存在しますが、専用の観測テキスト・構造検証器・直接実行器はありません。MIR→LIR対応をASM注釈で追えることと、LIR本体を独立して観測・評価できることを分けます。[現状の棚卸し](development-status.ja.md)と[#123](https://github.com/Cerune-Lang/Cerune/issues/123)で追跡します。
+LIRの生成・専用テキスト・構造検証・bundle保存は実装済みです。[直接実行器は調査を終えて保留](lir-observation.ja.md)としました。観測と直接評価は別の機能として扱います。
 
 ## 既存コードから分かること
 
@@ -127,7 +127,7 @@ HIRのNodeIdは引き続き意味上の元の文・式を指します。MIRのBl
 
 ## CLI・bundle・Leanとの関係
 
-`emit-mir <file> [-o <output.txt>]`を実装しました。`run-mir`で独立実行できます。`emit-hir`／`emit-lir`とpass指定は**候補であって未実装**です。観測テキストは`Cerune MIR v0.1`で、専用拡張子・load形式・配布用snapshotは未確定です。`emit-ir`の互換性を維持し、MIR実行器の追加だけで新しい配布用routeやbuild形式まで増やしません。
+`emit-mir <file> [-o <output.txt>]`を実装しました。`run-mir`で独立実行できます。[`emit-lir`とLIRの構造検証](lir-observation.ja.md)も実装済みです。`emit-hir`とpass指定は未実装です。観測テキストは`Cerune MIR v0.1`で、専用拡張子・load形式・配布用snapshotは未確定です。`emit-ir`の互換性を維持し、MIR実行器の追加だけで新しい配布用routeやbuild形式まで増やしません。
 
 [#60の観測bundle](observation-bundle.ja.md)は、一回のfrontend処理からsources・HIR・MIR・注釈付きASMを保存します。manifestはtarget・heap予算・pass列（現状は空）と成果物を結ぶ索引であり、新しい意味IRではありません。Objectや他backendの同梱は後続です。
 

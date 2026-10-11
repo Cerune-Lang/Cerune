@@ -18,7 +18,7 @@ The inspected baseline is `f39f55e`, merging Native dynamic arrays. **Common MIR
 
 SSA here means scalar SSA construction for common MIR, distinct from SSA representations in external LLVM/QBE output.
 
-LIR generation exists, but dedicated observation text, structural validation, and direct execution do not. Tracing MIR→LIR through ASM annotations is distinct from independently observing or evaluating LIR bodies. See the [status inventory](development-status.en.md) and [#123](https://github.com/Cerune-Lang/Cerune/issues/123).
+LIR generation, dedicated text, structural validation, and bundle saving are implemented. [Direct execution is deferred after investigation](lir-observation.en.md). Observation and direct evaluation remain distinct capabilities.
 
 ## Findings from the code
 
@@ -127,7 +127,7 @@ Observations are detached, read-only information. They do not expose mutable com
 
 ## CLI, bundles, and Lean
 
-`emit-mir <file> [-o <output.txt>]` is implemented. `run-mir` independently executes MIR. `emit-hir` / `emit-lir` and pass selection remain **unimplemented candidates**. Observation text is versioned as `Cerune MIR v0.1`; a dedicated extension, loading format, and distribution snapshot remain undecided. Preserve `emit-ir` compatibility; an interpreter does not automatically create another distribution route or build format.
+`emit-mir <file> [-o <output.txt>]` is implemented. `run-mir` independently executes MIR. [`emit-lir` and LIR structural validation](lir-observation.en.md) are also implemented. `emit-hir` and pass selection remain unimplemented. Observation text is versioned as `Cerune MIR v0.1`; a dedicated extension, loading format, and distribution snapshot remain undecided. Preserve `emit-ir` compatibility; an interpreter does not automatically create another distribution route or build format.
 
 The [#60 observation bundle](observation-bundle.en.md) saves sources, HIR, MIR, and annotated ASM from one frontend invocation. Its manifest indexes target, heap budgets, passes (currently empty), and artifacts; it is not another semantic IR. Objects and other backends remain future extensions.
 

@@ -55,7 +55,7 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 | 初期範囲を実装 | [観測bundle](observation-bundle.ja.md) | 同一コンパイルのsources・HIR・MIR・注釈付きASM・manifestを保存。`--ssa`でSSA・変換後MIR・対応・SSA経由ASMも追加。その他の成果物は後続（[#60](https://github.com/Hokutaka/Cerune/issues/60)） |
 | 一部実験済み | [Lean検証](lean-verification.ja.md) | u8のincrement・choose・advanceでHIR→Lean／HIR→MIRの対応と性質を検証。if・短絡・while／for・break／continue・入れ子・更新停止出自と明示上限内の完了まで対象。全言語・全lowering・処理系全体の証明や公開`emit-lean`は未実装 |
 | 一部実装済み | [SSA変換](mir-ssa.ja.md)・後続の最適化pass | scalar SSAと残存slotの表現・構造検証・観測テキスト・自動変換・Rust APIでの直接実行を実装。公開CLI・bundleもSSAに対応。SSA→MIR／Nativeも対応。MIR→SSA→MIRの有限例のLean検証も対応。定数畳み込みは設計済み・未実装で当面保留。一般の証明も後続 |
-| 内部段階を実装 | LIRの観測・検証・実行 | MIR→x86-64 LIR→ASM/Objectは実装済み。専用の観測形式・構造検証器・直接実行器は未実装。[#123](https://github.com/Cerune-Lang/Cerune/issues/123)で観測と実行の採否を分ける |
+| 実装済み | [LIRの観測・構造検証](lir-observation.ja.md) | `emit-lir`・`observe --lir`・検証器・両targetのexample比較。直接実行は調査を終えて保留 |
 | 計画・未実装 | [IR・VM・Nativeのbuild / release](owned-routes.ja.md) | [#81](https://github.com/Hokutaka/Cerune/issues/81)の責務整理を基準に、完成成果物・配布を最適化と分ける |
 
 ## 次に持つべきもの：提案する順序
@@ -66,7 +66,7 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 
 | 優先 | 作業・現在の状態 | 最初の完了条件 |
 | --- | --- | --- |
-| 先に設計確認 | [LIRの観測・構造検証と直接実行の採否](development-status.ja.md)（[#123](https://github.com/Cerune-Lang/Cerune/issues/123)） | 同じLIRから命令本体・target・frame・出自を保存する範囲を決める。LIR Executorの完成は機能追加の前提にしない |
+| 完了した区切り | [LIR観測・構造検証と直接実行の採否](lir-observation.ja.md)（[#123](https://github.com/Cerune-Lang/Cerune/issues/123)） | 基準／SSA経由のLIR表示・保存・構造検証とexample比較を実装。直接実行器は保留し、次の言語機能へ戻る |
 | 1：次の機能追加 | [動的配列の `array_repeat`](owned-arrays.ja.md)（[#122](https://github.com/Cerune-Lang/Cerune/issues/122)）。意味の案あり・未実装 | 実行時の個数から配列を作る。値→個数の評価順、0個でも評価、負の個数・予算超過、入れ子の独立コピーを設計確認し、example・生成過程・既存経路の実行を揃える |
 | 2 | 標準入出力（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。`print`以外は未設計・未実装 | まず入力した操作で分岐する小さな対話例。入力単位、EOFと空入力、UTF-8・NUL・CR/LF、予算、失敗の返し方、出力の順序とflushを決める。同じ入力・操作列を各経路で比較する |
 | 3 | 小さな標準ライブラリ。標準モジュールの配置・APIは未設計 | 入出力で必要になった文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntimeが必要な操作を分け、既存importと明示的な失敗処理を使う。汎用Option/Resultやパッケージ管理を先に必須化しない |

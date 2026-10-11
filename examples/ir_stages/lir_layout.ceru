@@ -1,0 +1,10 @@
+type Pair { first: i64, last: i64, }
+
+fn pack(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64) -> Pair {
+    return Pair { first: a + b + c, last: d + e + f + g, };
+}
+
+value: Pair = pack(1, 2, 3, 4, 5, 6, 7);
+print(value.first);
+print(value.last);
+print("LIR → ASM");

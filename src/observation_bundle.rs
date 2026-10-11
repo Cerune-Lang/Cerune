@@ -12,10 +12,12 @@ pub(super) fn save(
     target: x86_64::Target,
     output: &Path,
     use_ssa: bool,
+    use_lir: bool,
 ) -> Result<(), String> {
     // frontendもMIR変換も繰り返さず、観測するsnapshotをNativeへ渡します。
     let mir = mir::lower(hir).map_err(|e| source.render(&e.diagnostic()))?;
-    let assembly = x86_64::emit_asm_from_mir(&mir, target, true).map_err(|e| source.render(&e))?;
+    let lir = x86_64::lower_mir(&mir, target).map_err(|e| source.render(&e))?;
+    let assembly = x86_64::emit_asm_from_lir(&lir, true).map_err(|e| source.render(&e))?;
     let ssa = use_ssa
         .then(|| mir::ssa::construct(&mir))
         .transpose()
@@ -26,6 +28,12 @@ pub(super) fn save(
         ("program.mir.txt", mir::text::emit(&mir)),
         ("program.origins.s", assembly),
     ];
+    if use_lir {
+        files.push((
+            "program.lir.txt",
+            x86_64::lir::emit(&lir).map_err(|e| source.render(&e))?,
+        ));
+    }
     if let Some(ssa) = &ssa {
         files.push((
             "program.ssa.txt",
@@ -36,8 +44,14 @@ pub(super) fn save(
             mir::ssa::mapping::emit(ssa).map_err(|e| source.render(&e.diagnostic()))?,
         ));
         let lowered = mir::ssa::lower(ssa).map_err(|e| source.render(&e.diagnostic()))?;
-        let assembly = x86_64::emit_asm_from_mir(&lowered.program, target, true)
-            .map_err(|e| source.render(&e))?;
+        let lir = x86_64::lower_mir(&lowered.program, target).map_err(|e| source.render(&e))?;
+        let assembly = x86_64::emit_asm_from_lir(&lir, true).map_err(|e| source.render(&e))?;
+        if use_lir {
+            files.push((
+                "program.ssa.lir.txt",
+                x86_64::lir::emit(&lir).map_err(|e| source.render(&e))?,
+            ));
+        }
         files.push((
             "program.ssa-lowered.mir.txt",
             mir::text::emit(&lowered.program),
@@ -60,6 +74,33 @@ pub(super) fn save(
         )
     } else {
         ("cerune-observation-v1", "", "")
+    };
+    // v1/v3は維持し、LIRを明示した場合だけv4へ拡張します。
+    let mut transformations = transformations.to_string();
+    let mut artifacts = artifacts.to_string();
+    let schema = if use_lir {
+        if use_ssa {
+            transformations = transformations.replace("\n  ],", concat!(
+                ",\n    {\"order\": 2, \"kind\": \"representation\", \"pass\": \"mir-lir-v1\", \"options\": {}, \"input\": \"mir\", \"output\": \"lir\"},",
+                "\n    {\"order\": 3, \"kind\": \"representation\", \"pass\": \"mir-lir-v1\", \"options\": {}, \"input\": \"ssa_lowered_mir\", \"output\": \"ssa_lir\"}\n  ],"
+            ));
+            transformations = transformations
+                .replace(r#""assembly": "mir""#, r#""lir": "mir", "assembly": "lir""#)
+                .replace(
+                    r#""ssa_assembly": "ssa_lowered_mir""#,
+                    r#""ssa_lir": "ssa_lowered_mir", "ssa_assembly": "ssa_lir""#,
+                );
+            artifacts.push_str("    \"ssa_lir\": \"program.ssa.lir.txt\",\n");
+        } else {
+            transformations = concat!(
+                "  \"transformations\": [{\"order\": 0, \"kind\": \"representation\", \"pass\": \"mir-lir-v1\", \"options\": {}, \"input\": \"mir\", \"output\": \"lir\"}],\n",
+                "  \"artifact_inputs\": {\"hir\": \"sources\", \"mir\": \"hir\", \"lir\": \"mir\", \"assembly\": \"lir\"},\n"
+            ).into();
+        }
+        artifacts.push_str("    \"lir\": \"program.lir.txt\",\n");
+        "cerune-observation-v4"
+    } else {
+        schema
     };
     let manifest = format!(
         concat!(

@@ -15,7 +15,7 @@ Windows/Linux ASM and self-encoded COFF/ELF now use completed HIRâ†’non-SSA MIRâ
 
 Checks in LIR still expand into multiple machine instructions in the emitter. A LIR instruction index is not a final machine-instruction index. Existing target rules are retained; the host OS does not choose a target.
 
-LIR Module generation exists, but dedicated LIR text output, bundle snapshots, structural validation, and direct execution do not. Current correspondence is visible through ASM annotations and Object symbols. See the [observation/execution/validation inventory](development-status.en.md) and [#123](https://github.com/Cerune-Lang/Cerune/issues/123) for separate remaining tasks.
+[Dedicated LIR display, bundle saving, and structural validation](lir-observation.en.md) are implemented. `emit-lir` / `observe --lir` expose instructions, frames, and provenance from the same Module. A direct LIR executor is deferred.
 
 ## Explicit SSA route
 
