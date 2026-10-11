@@ -15,3 +15,4 @@ experiments/lean/** -linguist-detectable
 tests/**/*.cjs -linguist-detectable
 tests/**/*.lean -linguist-detectable
 tests/fixtures/observation/**/expected/** -linguist-detectable
+examples/io_protocol/*.stdout text eol=lf

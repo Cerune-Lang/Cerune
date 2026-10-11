@@ -68,7 +68,7 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | --- | --- | --- |
 | 完了した区切り | [LIR観測・構造検証と直接実行の採否](lir-observation.ja.md)（[#123](https://github.com/Cerune-Lang/Cerune/issues/123)） | 基準／SSA経由のLIR表示・保存・構造検証とexample比較を実装。直接実行器は保留し、次の言語機能へ戻る |
 | 実装した機能 | [動的配列の `array_repeat`](owned-arrays.ja.md)（[#122](https://github.com/Cerune-Lang/Cerune/issues/122)） | 実行時の個数、0個・負の個数、評価順、予算超過、入れ子の独立コピーを実装。example・生成過程・既存経路の比較テストを追加 |
-| 1：次の設計確認 | 標準入出力（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。`print`以外は未設計・未実装 | まず入力した操作で分岐する小さな対話例。入力単位、EOFと空入力、UTF-8・NUL・CR/LF、予算、失敗の返し方、出力の順序とflushを決める。同じ入力・操作列を各経路で比較する |
+| 1：次の実装単位 | [標準入出力の設計](standard-io.ja.md)（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。方針整理済み、入力・flushは未実装 | 出力収集と実行用I/O接続を分け、出力・flush・失敗の契約から揃える。その後、上限付きUTF-8行入力と対話例。同じ入力・操作列を比較し、観測は読み取り専用に保つ |
 | 2 | 小さな標準ライブラリ。標準モジュールの配置・APIは未設計 | 入出力で必要になった文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntimeが必要な操作を分け、既存importと明示的な失敗処理を使う。汎用Option/Resultやパッケージ管理を先に必須化しない |
 | 3：独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
 | 4 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
@@ -88,7 +88,7 @@ Native buildは新しい入力や標準ライブラリがなくても、現在�
 | 標準入力・引数 | プログラムから受け取る一般的なAPIはない | stdinを最初の用途とし、CLI引数・ファイル・FFI・ネットワークは後続として個別に範囲を決める |
 | 標準ライブラリ | 組込み操作と利用者のmoduleはある。標準moduleの配布・探索・互換方針はない | 言語の組込み、runtimeの外部接続、Ceruneで書くライブラリを区別する |
 
-入出力のAPI名、戻り値の型、エラーを値として返す範囲は未決定です。EOFや読取り失敗を既存の異常停止と混同せず、現在のenumで表せるかも比較します。比較テストには同じ入力と制御できる出力先を使い、実環境での接続確認を分けます。record/replayや汎用effect systemの一括実装は前提にしません。
+[標準入出力の設計](standard-io.ja.md)に責務と実装順を整理しました。[入力値の分岐例](../../examples/io_protocol/README.md)は実行できますが、標準入力は使いません。入出力のAPI名、戻り値の型、エラーを値として返す範囲は未決定です。EOFや読取り失敗を既存の異常停止と混同せず、現在のenumで表せるかも比較します。比較テストには同じ入力と制御できる出力先を使い、実環境での接続確認を分けます。record/replayや汎用effect systemの一括実装は前提にしません。
 
 [固定容量の使用数](../../examples/bounded_sequence.ceru)と[範囲コピー](../../examples/array_window.ceru)の例は現行機能で実行できます。動的配列や借用スライスの実装済みサンプルではありません。
 

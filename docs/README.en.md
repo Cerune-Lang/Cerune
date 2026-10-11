@@ -21,6 +21,7 @@ Each document links to its Japanese counterpart.
 - [MIR execution](design/mir-executor.en.md)
 - [IR Executor](design/ir-executor.en.md)
 - [VM embedding](design/vm-embedding.en.md)
+- [Standard I/O: execution, control, and observation (design)](design/standard-io.en.md)
 - [Owned routes and build / release](design/owned-routes.en.md)
 - [Lean verification](design/lean-verification.en.md)
 - [Output routes and targets](design/targets.en.md)
