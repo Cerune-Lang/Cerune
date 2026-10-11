@@ -105,10 +105,12 @@ The shared frontend, IR, and runtime semantics must not depend on individual opt
 Emitters depend on shared contracts; the CLI composes available routes. Do not prematurely freeze crate splitting or a plugin ABI.
 
 1. Record responsibilities and open questions here; begin Lean with a separate verification experiment.
-2. Decide Native artifact kind, linker selection, runtime dependencies, and build failure contracts.
+2. Decide Native artifact kind, linker selection, runtime dependencies, and build failure contracts; Native build can then be implemented independently.
 3. Design and implement IR/Bytecode Image formats, verifiers, and loaders.
-4. Implement build/release for the three routes, comparing saved, reloaded, and distributed execution.
+4. Implement IR/VM build and add release as each route's completed artifacts stabilize; compare saved, reloaded, and distributed execution.
 5. Separate optional emitters at boundaries justified by actual use.
+
+The [roadmap](language-roadmap.en.md) tracks overall priorities. Native build need not wait for optimization, recursion, new I/O, a standard library, or IR/VM Image loaders. Start with current examples, updating runtime dependencies and manifests as I/O is added.
 
 Each stage includes examples, failure cases, and observations.
 This classification does not close existing coverage gaps such as dynamic arrays in compiled routes.

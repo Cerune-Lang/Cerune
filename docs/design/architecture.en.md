@@ -11,7 +11,9 @@ Current implementation and plans are summarized below.
 | Implemented | Direct execution of completed Cerune IR (HIR), bytecode VM, C/LLVM/QBE/WAT generation |
 | Implemented | Non-SSA MIR types/lowering/validation, `emit-mir`, [independent execution](mir-executor.en.md), and [MIR→Native generation](native-mir.en.md) |
 | Implemented | [Observation bundle](observation-bundle.en.md): sources, HIR, MIR, and annotated ASM from one compilation |
-| Planned, unimplemented | SSA and optimization passes; the [stage design](ir-stages.en.md) defines semantic preservation and observation |
+| Implemented | [SSA](mir-ssa.en.md) construction, direct execution, CLI/bundles, SSA→MIR/Native, and finite-fixture Lean verification |
+| Internal stage implemented | x86-64 LIR; no separate public observation, structural validator, or direct execution ([inventory](development-status.en.md)) |
+| Designed, implementation deferred | [Constant-folding pass](ssa-constant-folding.en.md); no implicit optimization |
 | Planned, unimplemented | IR/VM/Native [build / release](owned-routes.en.md), with C-like routes classified as emit-only |
 
 ## Principles
@@ -39,10 +41,13 @@ Source → Lexer / Parser → AST → Common frontend → Cerune IR (HIR)
                                                   ├→ IR Executor: run / run-ir
                                                   ├→ MIR lowering / validation
                                                   │    ├→ emit-mir / run-mir
+                                                  │    ├→ SSA → SSA execution / MIR with copies → x86-64 LIR
                                                   │    └→ x86-64 LIR → ASM → self-encoded object
                                                   ├→ Bytecode → emit-bytecode / run-vm
                                                   └→ C / LLVM / QBE / WAT IR → emit-*
 ```
+
+LIR is an internal Native generation stage, with no dedicated `emit-lir`/`run-lir`. Reconstructed MIR also follows the same LIR→ASM→Object path. The [stage inventory and priorities](development-status.en.md) distinguish representation, observation, direct execution, and distribution.
 
 The frontend resolves names, types, and contextual floats, and expands generics, enum/match, and ownership. The [IR Executor](ir-executor.en.md) directly executes completed HIR statements/expressions; generating routes translate resolved meaning into target representations.
 
@@ -52,7 +57,7 @@ Responsibilities and identifier meanings remain explicit.
 
 1. Backends do not consume AST directly. They use HIR after common semantic/type resolution; Native first lowers HIR into MIR.
 2. A lowerer reads its input and output IRs. An emitter reads its backend IR without redetermining semantics from AST or semantic-analysis state.
-3. Backend-specific Rust IR is internal. Public observations are HIR/MIR text and generated artifacts, not stable serialization of internal structures.
+3. Backend-specific Rust IR is internal. Public observations are HIR/MIR/SSA text and generated artifacts, not stable serialization of internal structures.
 4. Optimization is never implicit; future passes expose selection and transformation.
 5. Bindings have deterministic compilation-local IDs that distinguish references across shadowing.
 6. HIR retains `if`, `while`, `for`, `break`, and `continue`, including separate for initializer/condition/body/update. MIR, bytecode, and backend lowering introduce branches, merges, updates, back edges, and exits.

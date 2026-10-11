@@ -15,6 +15,8 @@ Windows/Linux ASM and self-encoded COFF/ELF now use completed HIR→non-SSA MIR�
 
 Checks in LIR still expand into multiple machine instructions in the emitter. A LIR instruction index is not a final machine-instruction index. Existing target rules are retained; the host OS does not choose a target.
 
+LIR Module generation exists, but dedicated LIR text output, bundle snapshots, structural validation, and direct execution do not. Current correspondence is visible through ASM annotations and Object symbols. See the [observation/execution/validation inventory](development-status.en.md) and [#123](https://github.com/Cerune-Lang/Cerune/issues/123) for separate remaining tasks.
+
 ## Explicit SSA route
 
 `emit-asm --ssa` / `emit-obj --ssa` use HIR→original MIR→SSA→MIR with copies→LIR. Defaults retain the non-optimized baseline. Pass the `program` returned by [SSA lowering](mir-ssa.en.md), `mir::ssa::lower(&ssa)`, to existing MIR-input APIs.

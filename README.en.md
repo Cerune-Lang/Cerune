@@ -107,7 +107,7 @@ WSL needs its own Rust installation. Shell scripts default to `target/unix` for 
 ## Documentation and Related Tools
 
 - [Examples by type and purpose](examples/README.en.md) · [Language](docs/reference/language.en.md) · [CLI](docs/reference/cli.en.md)
-- [Design docs](docs/README.md) · [Roadmap](docs/design/language-roadmap.en.md) · [Migrating from Primer](docs/design/naming.en.md)
+- [Design docs](docs/README.en.md) · [Roadmap](docs/design/language-roadmap.en.md) · [Migrating from Primer](docs/design/naming.en.md)
 - [Tint\*](https://github.com/Hokutaka/Tint-St.): inspect source and generated representations side by side.
 - [Whitebase](https://github.com/Hokutaka/Whitebase): measure and compare Rust, C++, Assembly, and Cerune execution paths.
 - [Stelle](https://github.com/Hokutaka/stelle): an early dogfooding experiment building a tiny CLI RPG entirely in Cerune.

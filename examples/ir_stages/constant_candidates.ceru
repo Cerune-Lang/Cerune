@@ -1,0 +1,25 @@
+// 定数計算、短絡、呼出し順、loopの更新を最適化前の基準として観測します。
+fn reported(value: u8) -> u8 {
+    print(value);
+    return value;
+}
+
+fn would_overflow() -> bool {
+    limit: u8 = 255;
+    return limit + 1 > 0;
+}
+
+answer: u8 = 6 * 7;
+print(answer);
+largest: u64 = 18446744073709551614 + 1;
+print(largest);
+print(2 + 3 < 8);
+print(false && would_overflow());
+print(true || would_overflow());
+print(reported(4) + (2 * 3));
+
+mut total: u8 = 1;
+for (mut index: u8 = 0; index < 3; index = index + 1) {
+    total = total + (1 + 1);
+}
+print(total);

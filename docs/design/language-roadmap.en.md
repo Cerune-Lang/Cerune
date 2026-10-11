@@ -2,7 +2,9 @@
 
 [日本語](language-roadmap.ja.md)
 
-This inventory records capabilities, execution routes, and next steps as of 2026-10-08. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+This inventory records capabilities, execution routes, and next steps as of 2026-10-11. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+
+The [execution and unfinished-work inventory](development-status.en.md) maps representations, observation, and execution—including LIR—and all issues.
 
 ## Properties Cerune should preserve
 
@@ -52,20 +54,41 @@ Language features are tracked separately from compiler stages, distribution, and
 | Implemented | [Native lowering from MIR](native-mir.en.md) | Before/after execution comparisons and MIR→LIR→ASM/Object provenance verified |
 | Initial scope implemented | [Observation bundle](observation-bundle.en.md) | Saves sources, HIR, MIR, annotated ASM, and manifest from one compilation; `--ssa` adds SSA, reconstructed MIR, mappings, and SSA-derived ASM. Additional artifacts remain future work ([#60](https://github.com/Hokutaka/Cerune/issues/60)) |
 | Partial experiment | [Lean verification](lean-verification.en.md) | HIR→Lean/HIR→MIR correspondence and properties checked for u8 increment/choose/advance, including if/short-circuiting/while/for/break/continue/nesting, update-failure origins, and completion within explicit bounds; no whole-language, general-lowering, or whole-compiler proof, or public `emit-lean` |
-| Partly implemented | [SSA construction](mir-ssa.en.md) and later optimization passes | Scalar SSA/residual-slot representation, structural validator, observation text, automatic construction, and direct execution through the Rust API implemented; public SSA CLI/bundle support also implemented; SSA→MIR/Native also implemented; finite-fixture Lean checks for MIR→SSA→MIR implemented; individual optimization passes and general proofs follow later |
+| Partly implemented | [SSA construction](mir-ssa.en.md) and later optimization passes | Scalar SSA/residual-slot representation, structural validator, observation text, automatic construction, and direct execution through the Rust API implemented; public SSA CLI/bundle support also implemented; SSA→MIR/Native also implemented; finite-fixture Lean checks for MIR→SSA→MIR implemented; constant folding is designed but unimplemented and deferred; general proofs also remain future work |
+| Internal stage implemented | LIR observation, validation, and execution | MIR→x86-64 LIR→ASM/Object exists; dedicated observation format, structural validation, and direct execution do not. [#123](https://github.com/Cerune-Lang/Cerune/issues/123) separates observation from execution adoption |
 | Planned, unimplemented | [IR/VM/Native build / release](owned-routes.en.md) | Follow [#81](https://github.com/Hokutaka/Cerune/issues/81), keeping completed artifacts and distribution separate from optimization |
 
 ## Proposed priorities
 
-Proceed in the order below, pairing a small design with examples, known expected results, and cross-route comparisons. Each stage determines syntax and adoption.
+Pause SSA expansion after construction, direct execution, Native lowering, and finite-fixture Lean verification. Retain the [constant-folding design](ssa-constant-folding.en.md) and baseline examples, but defer pass implementation. Keep baseline MIR, explicit SSA selection, existing observations, and comparison tests.
 
-| Order | Next work | First contract and example |
+Prioritize the programs users can write and the artifacts they can use. This is a work priority, not a chain in which every item requires the previous one to finish.
+
+| Priority | Work and current status | Initial completion criteria |
 | --- | --- | --- |
-| 1 | Stage comparisons | Initial bundle and finite HIR→MIR proofs implemented. Follow the [SSA design](mir-ssa.en.md): MIR→SSA construction, direct evaluation, and public CLI/bundle and SSA→MIR/Native implemented → finite-fixture SSA Lean checks implemented. Next specify preservation and observation for individual passes. Track heap and other proof extensions separately; apply #103 refactoring where needed |
-| 2 | [Additional dynamic-array operations](owned-arrays.en.md) | Existing operations work across routes; consider `array_repeat` later; borrowed slices need separate lifetime and mutation type rules |
-| 3 | Recursion and external I/O | Define call storage, resource limits, I/O failure, and cleanup |
-| 4 | Module distribution | Re-exports, dependencies/versions, reproducible builds; extend explicit imports |
-| Experiment | GPU numeric computation | Narrow the supported types, memory, synchronization, and diagnostics; compare independent element computations with the CPU |
+| Design check first | [LIR observation/validation and execution adoption](development-status.en.md) ([#123](https://github.com/Cerune-Lang/Cerune/issues/123)) | Define saving instruction bodies, target, frames, and origins from the same LIR; executor completion does not gate language features |
+| 1: next language feature | [Dynamic-array `array_repeat`](owned-arrays.en.md) ([#122](https://github.com/Cerune-Lang/Cerune/issues/122)). Proposed semantics; unimplemented | Construct an array from a runtime count. Confirm value-then-count evaluation, evaluation for zero count, negative counts/budget failures, and independent nested copies; add examples, observable lowering, and comparisons across existing routes |
+| 2 | Standard I/O ([#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#104](https://github.com/Cerune-Lang/Cerune/issues/104)). Beyond `print`, undesigned and unimplemented | Start with a small interactive command example. Define input units, EOF versus empty input, UTF-8/NUL/CR/LF, budgets, failure results, output order, and flushing; compare identical input and operation sequences across routes |
+| 3 | Small standard library. Standard module layout/APIs undecided | Select text/numeric parsing helpers required by I/O. Separate functions expressible in Cerune from runtime operations; use existing imports and explicit failure handling. Do not require generic Option/Result or package management first |
+| 4: independently actionable | [Native build](owned-routes.en.md). Responsibilities outlined; CLI/link management unimplemented | An executable is the proposed first artifact. Define explicit target, external linker, dependencies, failures, and observation records; build/link current examples and compare with IR/VM |
+| 5 | IR/VM Images and release for three routes. Unimplemented | Validate versions, types, references, ownership, and budgets before loading; compare saved/reloaded execution. As each route's artifact stabilizes, verify distribution contents, compatibility, and failure origins |
+| Later | Recursion, array growth/borrowing, more string operations, module distribution | Design call storage/limits/cleanup, borrowing lifetimes/mutation, re-exports, dependency versions, and reproducibility around actual uses |
+| Deferred/experimental | Optimization passes, broader proofs, added AST/LIR execution, GPU/FPGA | Resume for concrete needs; these do not gate language features, I/O, or build |
+
+Native build can serve current programs without new input or standard-library features. `array_repeat` is not an implementation prerequisite for input either; it comes first to complete a bounded piece of existing design. Release is not another name for optimization. Do not treat observation text as a runnable artifact by bypassing IR/VM Image validation.
+
+### Standard I/O and standard-library status
+
+Separate existing behavior from decisions for the next design.
+
+| Area | Current behavior | Next decisions |
+| --- | --- | --- |
+| Standard output | `print` displays values; `run`/`run-mir`/`run-vm` display collected output after execution or failure | Interactive output and flushing; show prompts before waiting for input |
+| Standard error | Used for compiler/runtime diagnostics; no general program-facing write API | Distinguish program output from runtime diagnostics and define write failures |
+| Standard input/arguments | No general program-facing API | Use stdin as the first use case; scope CLI arguments, files, FFI, and networking separately later |
+| Standard library | Built-ins and user modules exist; standard-module distribution, lookup, and compatibility policies do not | Distinguish language built-ins, runtime connections to external resources, and libraries written in Cerune |
+
+API names, result types, and which errors are returned as values remain undecided. Distinguish EOF and read failures from existing runtime traps, and consider representation using current enums. Compare with identical inputs and controlled output destinations, testing real connections separately. A general record/replay or effect system is not a prerequisite.
 
 The [fixed-capacity used-length](../../examples/bounded_sequence.ceru) and [range-copy](../../examples/array_window.ceru) examples run with current features; they do not implement dynamic arrays or borrowed slices.
 
@@ -85,6 +108,8 @@ The roadmap records priorities, dependencies, and current progress; each issue h
 | [#103 Code organization](https://github.com/Hokutaka/Cerune/issues/103) | Separate responsibilities in small steps where features touch them; preserve outputs/failures/origins rather than splitting solely by file size |
 | [#104 Comparison and external effects](https://github.com/Hokutaka/Cerune/issues/104) | With #89 I/O design, separate reproducible inputs/operation traces from real effects; the initial bundle does not execute |
 | [#105 Binding/conditional syntax](https://github.com/Hokutaka/Cerune/issues/105) | Consider omitted `infer`, then `else if`; align with #90 `let`. `?:` needs separate semantics; formatter/for coverage remains undecided |
+| [#118 Sharing observation artifacts](https://github.com/Cerune-Lang/Cerune/issues/118) | Separate recommended local output paths from published fixtures; address when expanding I/O recordings and release sharing |
+| [#119 License investigation](https://github.com/Cerune-Lang/Cerune/issues/119) | Current MIT remains unchanged; any change is undecided. Revisit for distribution work without blocking language features |
 | [#93 FPGA](https://github.com/Hokutaka/Cerune/issues/93) | Investigate another realization of the same IR semantics, without splitting language meaning |
 
 Experiment topics belong to the [idea catalog](../idea/idea-catalog.en.md), not the adoption/order commitments. Issues hold details/discussion, the roadmap tracks progress/dependencies, and references describe implemented behavior.

@@ -20,6 +20,8 @@ Native uses [HIR→MIR→x86-64 LIR](native-mir.en.md). MIR is a shared executio
 
 The [IR Executor](ir-executor.en.md), selected by `run` or `run-ir`, directly executes completed Cerune IR. It produces no new artifact and selects no target ABI, so it is separate from the output-route table. `run-vm` selects Bytecode → VM. `run-mir` executes HIR→MIR using the [independent MIR executor](mir-executor.en.md); `emit-mir` observes that representation.
 
+`run-mir --ssa` evaluates SSA directly. LIR is an internal Native generation stage, with no `run-lir` or dedicated LIR observation command. See the [stage inventory](development-status.en.md).
+
 ### Target
 
 A target describes the execution environment assumed by an artifact. It has the following elements when they are relevant:

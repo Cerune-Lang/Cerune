@@ -7,9 +7,9 @@
 `emit-obj` encodes x86-64 instructions and writes Linux ELF64 or Windows COFF objects entirely within Cerune. It does not require an external assembler or launch a JIT or executable. Linking remains the responsibility of an explicitly selected external linker.
 
 ```text
-Cerune IR → shared x86-64 instructions → internally generated ASM
-                                          ├→ emit-asm → external assembler
-                                          └→ restricted ASM reader → encoder → ELF/COFF
+HIR → MIR (optionally through explicit SSA) → x86-64 LIR → internal ASM
+                                                          ├→ emit-asm → external assembler
+                                                          └→ restricted ASM reader → encoder → ELF/COFF
 ```
 
 Language semantics and instruction selection are shared with the existing path. This first boundary is a small assembler for internally generated ASM, rather than a public general-purpose assembler; there is no arbitrary-ASM input command. It does not repeat type inference, failure checks, evaluation order, or value-copy rules. A future typed machine-instruction IR can replace this internal text boundary.

@@ -6,6 +6,8 @@
 
 IR・VM・Nativeの[build / release](../design/owned-routes.ja.md)と[Lean出力](../design/lean-verification.ja.md)は設計・検証段階です。現行CLIには追加されていません。
 
+`emit-lir`／`run-lir`も未実装です。LIRはNative生成の内部段階であり、現行の独立実行はHIR・MIR・SSA・Bytecodeです。[段階別の現状](../design/development-status.ja.md)を参照してください。
+
 ## 観測結果の一括保存
 
 `observe`はsources・HIR・MIR・注釈付きASMとmanifestを[同じコンパイルから保存](../design/observation-bundle.ja.md)します。`--target`と`-o`は必須で、両heap予算を指定できます。既存出力先は拒否します。親ディレクトリは事前に作成してください。入力名・ソース本文も保存しますが、プログラム実行・外部ツール起動・リンクは行いません。Objectや他backendの同梱は未対応です。

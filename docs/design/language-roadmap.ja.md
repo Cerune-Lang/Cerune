@@ -2,7 +2,9 @@
 
 [English](language-roadmap.en.md)
 
-2026-10-08時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
+2026-10-11時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
+
+[実行経路と未完了作業の棚卸し](development-status.ja.md)に、LIRを含む段階別の表現・観測・実行と全Issueの位置づけをまとめています。
 
 ## Ceruneが持つべき性質
 
@@ -52,20 +54,41 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 | 実装済み | [NativeのMIR入力](native-mir.ja.md) | 旧経路との実行比較、MIR→LIR→ASM/Objectの出自対応を検証 |
 | 初期範囲を実装 | [観測bundle](observation-bundle.ja.md) | 同一コンパイルのsources・HIR・MIR・注釈付きASM・manifestを保存。`--ssa`でSSA・変換後MIR・対応・SSA経由ASMも追加。その他の成果物は後続（[#60](https://github.com/Hokutaka/Cerune/issues/60)） |
 | 一部実験済み | [Lean検証](lean-verification.ja.md) | u8のincrement・choose・advanceでHIR→Lean／HIR→MIRの対応と性質を検証。if・短絡・while／for・break／continue・入れ子・更新停止出自と明示上限内の完了まで対象。全言語・全lowering・処理系全体の証明や公開`emit-lean`は未実装 |
-| 一部実装済み | [SSA変換](mir-ssa.ja.md)・後続の最適化pass | scalar SSAと残存slotの表現・構造検証・観測テキスト・自動変換・Rust APIでの直接実行を実装。公開CLI・bundleもSSAに対応。SSA→MIR／Nativeも対応。MIR→SSA→MIRの有限例のLean検証も対応。個別の最適化passと一般の証明は後続 |
+| 一部実装済み | [SSA変換](mir-ssa.ja.md)・後続の最適化pass | scalar SSAと残存slotの表現・構造検証・観測テキスト・自動変換・Rust APIでの直接実行を実装。公開CLI・bundleもSSAに対応。SSA→MIR／Nativeも対応。MIR→SSA→MIRの有限例のLean検証も対応。定数畳み込みは設計済み・未実装で当面保留。一般の証明も後続 |
+| 内部段階を実装 | LIRの観測・検証・実行 | MIR→x86-64 LIR→ASM/Objectは実装済み。専用の観測形式・構造検証器・直接実行器は未実装。[#123](https://github.com/Cerune-Lang/Cerune/issues/123)で観測と実行の採否を分ける |
 | 計画・未実装 | [IR・VM・Nativeのbuild / release](owned-routes.ja.md) | [#81](https://github.com/Hokutaka/Cerune/issues/81)の責務整理を基準に、完成成果物・配布を最適化と分ける |
 
 ## 次に持つべきもの：提案する順序
 
-未対応の作業は次の順で、小さな設計・example・既知の期待値・経路間比較を一組として進めます。構文や採用は各段階の設計で確定します。
+SSAは構築・直接実行・Nativeへの変換・有限例のLean検証までで一区切りにします。[定数畳み込み](ssa-constant-folding.ja.md)は設計と基準exampleを保存し、passの実装は当面の優先作業から外します。非最適化MIR、明示的なSSA選択、既存の観測と比較テストは維持します。
 
-| 順序 | 次の作業 | 最初に決める契約・確認例 |
+利用者が書ける処理を増やすことと、完成成果物を使えることを優先します。以下は作業の優先順であり、全項目が直前の完了を必要とするわけではありません。
+
+| 優先 | 作業・現在の状態 | 最初の完了条件 |
 | --- | --- | --- |
-| 1 | 段階間の検証 | bundleとHIR→MIRの有限例検証は実装済み。[SSA設計](mir-ssa.ja.md)に沿って、MIR→SSA変換・直接評価・公開CLI/bundleを実装済み。SSA→MIR／Nativeも対応済み。SSAの有限例のLean検証を追加。次は個別passの保存条件と観測方法を定義する。heap等の証明拡張は別途追跡し、#103の整理は必要箇所ごとに行う |
-| 2 | [動的配列の追加操作](owned-arrays.ja.md) | 既存操作は全経路対応済み。`array_repeat`を後続として検討。借用スライスは寿命と更新の型規則を別途定義 |
-| 3 | 再帰・外部入出力 | 呼び出し領域・資源上限・入出力失敗・終了処理を定義 |
-| 4 | モジュールの配布 | 再export、依存・版・再現可能なビルド。現行の明示importを基準に拡張 |
-| 実験枠 | GPUの数値計算 | 対応型・メモリ・同期・診断を限定し、要素ごとの独立した計算をCPUと比較 |
+| 先に設計確認 | [LIRの観測・構造検証と直接実行の採否](development-status.ja.md)（[#123](https://github.com/Cerune-Lang/Cerune/issues/123)） | 同じLIRから命令本体・target・frame・出自を保存する範囲を決める。LIR Executorの完成は機能追加の前提にしない |
+| 1：次の機能追加 | [動的配列の `array_repeat`](owned-arrays.ja.md)（[#122](https://github.com/Cerune-Lang/Cerune/issues/122)）。意味の案あり・未実装 | 実行時の個数から配列を作る。値→個数の評価順、0個でも評価、負の個数・予算超過、入れ子の独立コピーを設計確認し、example・生成過程・既存経路の実行を揃える |
+| 2 | 標準入出力（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。`print`以外は未設計・未実装 | まず入力した操作で分岐する小さな対話例。入力単位、EOFと空入力、UTF-8・NUL・CR/LF、予算、失敗の返し方、出力の順序とflushを決める。同じ入力・操作列を各経路で比較する |
+| 3 | 小さな標準ライブラリ。標準モジュールの配置・APIは未設計 | 入出力で必要になった文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntimeが必要な操作を分け、既存importと明示的な失敗処理を使う。汎用Option/Resultやパッケージ管理を先に必須化しない |
+| 4：独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
+| 5 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
+| 後続 | 再帰、配列の成長・借用、文字列操作の拡張、モジュール配布 | 再帰の呼出し領域・上限・終了処理、借用の寿命・更新規則、再export・依存の版・再現性を用途ごとに設計する |
+| 保留・実験 | 最適化pass、証明範囲の拡張、AST／LIR直接実行の追加、GPU／FPGA | 具体的な必要性から再開。言語機能・入出力・buildの着手条件にはしない |
+
+Native buildは新しい入力や標準ライブラリがなくても、現在のプログラムを対象に進められます。`array_repeat`も入力実装の技術的な前提ではなく、既存設計を小さく完結させるため先に置きます。releaseは最適化の別名ではありません。IR/VMのImage検証を省略して、観測テキストを実行可能な完成品と扱うこともしません。
+
+### 標準入出力と標準ライブラリの現状
+
+現在できることと、次の設計で決めることを分けます。
+
+| 項目 | 現状 | 次に決めること |
+| --- | --- | --- |
+| 標準出力 | `print`で値を表示できる。`run`／`run-mir`／`run-vm`は実行結果または停止前出力をまとめて表示 | 対話中の出力とflush。質問を表示してから入力を待てることを確認する |
+| 標準エラー | 処理系の診断に使用。プログラム用の一般的な書込みAPIはない | プログラムの出力と処理系の停止診断を区別し、書込み失敗も定義する |
+| 標準入力・引数 | プログラムから受け取る一般的なAPIはない | stdinを最初の用途とし、CLI引数・ファイル・FFI・ネットワークは後続として個別に範囲を決める |
+| 標準ライブラリ | 組込み操作と利用者のmoduleはある。標準moduleの配布・探索・互換方針はない | 言語の組込み、runtimeの外部接続、Ceruneで書くライブラリを区別する |
+
+入出力のAPI名、戻り値の型、エラーを値として返す範囲は未決定です。EOFや読取り失敗を既存の異常停止と混同せず、現在のenumで表せるかも比較します。比較テストには同じ入力と制御できる出力先を使い、実環境での接続確認を分けます。record/replayや汎用effect systemの一括実装は前提にしません。
 
 [固定容量の使用数](../../examples/bounded_sequence.ceru)と[範囲コピー](../../examples/array_window.ceru)の例は現行機能で実行できます。動的配列や借用スライスの実装済みサンプルではありません。
 
@@ -85,6 +108,8 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 | [#103 コード構成](https://github.com/Hokutaka/Cerune/issues/103) | 機能追加に触れる責務から小さく分離。ファイルサイズだけで分割せず、出力・停止・出自を維持 |
 | [#104 比較と外部副作用](https://github.com/Hokutaka/Cerune/issues/104) | #89の外部I/O設計時に、同じ入力・操作列の比較と実際の副作用を分ける。今回のbundleは実行しない |
 | [#105 束縛・条件構文](https://github.com/Hokutaka/Cerune/issues/105) | `infer`省略→`else if`の順で検討。#90の`let`と整合させる。`?:`は別の意味設計、formatter・forの適用範囲は未決定 |
+| [#118 観測成果物の共有](https://github.com/Cerune-Lang/Cerune/issues/118) | ローカル観測の推奨先と公開fixtureを区別する。入出力記録・releaseの共有方法を広げる際に扱う |
+| [#119 ライセンスの検討](https://github.com/Cerune-Lang/Cerune/issues/119) | 現行MITを維持した検討事項。変更は未決定であり、配布の拡張時に確認する。言語機能追加の前提にしない |
 | [#93 FPGA](https://github.com/Hokutaka/Cerune/issues/93) | 同じIRの意味を別の実装形態で実現できるかを調査。言語の意味を分けない |
 
 実験題材は[アイデアカタログ](../idea/idea-catalog.ja.md)に分けています。題材の掲載は採用・実装順の決定ではありません。Issueは詳細と議論、ロードマップは到達点と依存順、referenceは実装済み仕様を管理します。

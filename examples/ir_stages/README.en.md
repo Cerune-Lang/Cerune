@@ -7,6 +7,7 @@
 | [native_calls.ceru](native_calls.ceru) | MIR→Native, seven mixed arguments, continue/break, main call | Header, arguments for i=0 and 2, result `4` |
 | [owned_values.ceru](owned_values.ceru) | Independent dynamic-array arguments, immutable strings, cleanup through continue | Original array, decorated array, `["反復"]` |
 | [ssa_values.ceru](ssa_values.ceru) | Branch-selected values, updates after continue, and swaps across iterations; SSA construction and execution comparisons | Four lines: `14`, `16`, `20`, `10` |
+| [constant_candidates.ceru](constant_candidates.ceru) | Unoptimized baseline: constant arithmetic, short-circuiting, call order, loop updates | `42`, u64 maximum, `true`, `false`, `true`, `4`, `10`, `7` |
 | [control_flow.ceru](control_flow.ceru) | Short circuit skips a call; for-continue enters the update and break enters the exit | Two lines: `2`, `4` |
 
 Run the same source and inspect both representations with these commands.
@@ -40,6 +41,18 @@ In `control_flow`, at `i=0`, `accept` is skipped. At `i=1`, continue enters the 
 In MIR, `bbN` identifies a block, `%N` a typed local/temporary, and `iN` an instruction within a function. Follow jump/branch and `derived=short-circuit-rhs`, `derived=for-update`, `derived=loop-exit` to inspect control flow. Each operation retains `hir=#N source=N bytes=A..B` to locate its input IR and source span. Emitting MIR does not execute the program.
 
 For array copies and allocation failure, see [lowering_order.ceru](../dynamic_arrays/lowering_order.ceru). `run-mir` uses the [independent MIR executor](../../docs/design/mir-executor.en.md). [Native now consumes MIR](../../docs/design/native-mir.en.md). Use `--ssa` to select SSA construction, execution, and observation. SSA bundles separately retain original MIR, SSA, reconstructed MIR, and baseline/SSA-derived ASM. No optimization occurs. See the [stage design](../../docs/design/ir-stages.en.md) for types and validation limits.
+
+## Observe constant arithmetic
+
+`constant_candidates` includes `6 * 7`, addition reaching the u64 maximum, comparisons, and short-circuiting. `reported(4)` prints 4 before the outer addition prints 10. The loop starts at 1 and adds 2 three times to reach 7. A skipped function contains overflowing arithmetic that remains unexecuted.
+
+```sh
+cargo run --quiet -- run examples/ir_stages/constant_candidates.ceru
+cargo run --quiet -- run-mir examples/ir_stages/constant_candidates.ceru --ssa
+cargo run --quiet -- emit-mir examples/ir_stages/constant_candidates.ceru --ssa -o target/constant_candidates.ssa.txt
+```
+
+No optimization is performed yet. The [constant-folding design](../../docs/design/ssa-constant-folding.en.md) separates preserving original operations/origins from selecting operations to replace with literals. The [unused-result overflow example](../runtime_failures/constant_overflow.ceru) intentionally stops after printing 7.
 
 ## Generate Native through SSA
 

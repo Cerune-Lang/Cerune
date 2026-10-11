@@ -199,7 +199,7 @@ SSAの構造検証では、次を必須にします。
 | 3（実装済み） | SSA直接評価・CLI・bundle | 基準例と既存MIR/runtime testsでHIR・MIR・SSA・VMを比較。heap予算・先行出力・停止出自も比較 |
 | 4（実装済み） | SSA→MIR・Native | 並列copy・辺の補助blockを観測し、Windows/LinuxでASM・Objectの結果を照合 |
 | 5（有限例を実装済み） | Lean対応 | 具体例のMIR→SSA→MIR対応を独立したSSA制御モデルで検査。詳細は以下 |
-| 6 | 個別の最適化pass | 各passの保存条件・前後snapshot・対応を別に定義してから実装 |
+| 6（設計済み・実装保留） | [最初の定数畳み込みpass](ssa-constant-folding.ja.md) | ブロック内の成功する整数・bool演算だけを置換。元MIR・SSA前後・置換根拠を保存し、再開時はRust APIと記録から実装。現在の優先順は[ロードマップ](language-roadmap.ja.md)を参照 |
 
 途中の実装で未対応操作が残る間は明示診断し、元MIRの実行へ黙ってfallbackしません。一般公開するSSA実行では現在の言語機能を扱えることを目標にし、残存slotも比較対象にします。
 

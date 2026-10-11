@@ -56,6 +56,8 @@ SSA付きmanifestは`cerune-observation-v3`です。v2のSSA観測にSSA→MIR�
 
 プログラムの実行、外部ツールの起動、リンクは行いません。[#104](https://github.com/Hokutaka/Cerune/issues/104)の副作用再実行やrecord/replayは追加しません。`build`／`release`の完成成果物ではなく、IR/MIRのloaderも追加しません。
 
+LIR本体も未収録です。ASMにはMIR→LIRの対応番号がありますが、専用のLIR snapshotではありません。[LIR観測の残件](development-status.ja.md)は最適化とは別に扱います。
+
 Object・逆アセンブル・bytecode・C/LLVM/QBE/WAT・Leanの同梱、実行結果、最適化比較は後続です。未収録を生成失敗や対応済みと混同しません。個別`emit-*`は引き続き使えます。
 
 ## 確認
