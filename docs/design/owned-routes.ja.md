@@ -107,10 +107,12 @@ manifestには入力・Cerune・形式の識別情報、経路、ターゲット
 emitterが共通契約を参照し、CLIが利用可能な経路を組み合わせます。現行crateの分割方法やplugin ABIを先行して固定しません。
 
 1. 本文書で責務と未確定事項を整理する。Leanは別の検証実験から開始する。
-2. Nativeの完成成果物・リンカ指定・runtime依存と、build失敗の契約を決める。
+2. Nativeの完成成果物・リンカ指定・runtime依存と、build失敗の契約を決める。これが決まればNativeのbuildを先に実装できる。
 3. IR・BytecodeのImage形式、検証器、loaderを設計・実装する。
-4. 3経路のbuildとreleaseを実装し、保存・再読込・配布後の実行を比較する。
+4. IR・VMのbuildを実装し、各経路の完成成果物が安定した段階でreleaseを追加する。保存・再読込・配布後の実行を比較する。
 5. 必要な境界からoptional emitterを分離する。
+
+全体の優先順は[ロードマップ](language-roadmap.ja.md)で管理します。Nativeのbuildは、最適化・再帰・新しい入出力・標準ライブラリ・IR/VMのImage loaderの完成を待つ必要はありません。既存exampleで開始し、入出力を追加した際はruntime依存とmanifestを更新します。
 
 各段階にexample、異常系、観測成果物を含めます。
 現行の動的配列などの経路間の未対応を、今回の分類によって解決済みとはしません。

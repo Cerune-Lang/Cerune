@@ -199,7 +199,7 @@ Implement in these units.
 | 3 (implemented) | Direct SSA evaluation, CLI, and bundle integration | Compare HIR/MIR/SSA/VM using baseline examples and existing MIR/runtime tests, including heap budgets, prior output, and failure origins |
 | 4 (implemented) | SSA→MIR and Native | Observe parallel copies/helper edge blocks; compare ASM/Object execution on Windows/Linux |
 | 5 (finite fixtures implemented) | Lean correspondence | Check concrete MIR→SSA→MIR fixtures with independent SSA control semantics; see below |
-| 6 (designed, not implemented) | [First constant-folding pass](ssa-constant-folding.en.md) | Replace successful block-local integer/bool operations; retain original MIR, before/after SSA, and replacement evidence. Implement the Rust API and records first |
+| 6 (designed, implementation deferred) | [First constant-folding pass](ssa-constant-folding.en.md) | Replace successful block-local integer/bool operations; retain original MIR, before/after SSA, and replacement evidence. Resume with the Rust API and records; see the [roadmap](language-roadmap.en.md) for current priorities |
 
 While intermediate implementations lack operations, diagnose them explicitly rather than silently falling back to input MIR execution. Public SSA execution should target current language features, including comparisons involving residual slots.
 

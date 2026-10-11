@@ -103,6 +103,8 @@ Compare the baseline across HIR, MIR, SSA, reconstructed MIR, and VM, plus Nativ
 4. Use the independent Lean SSA model to check concrete before/after examples and completion, initially including successful u8 addition and overflow; reject wrong types, values, and origins. Multiplication and other operations exceed today's Lean exporter, so extend it with explicit scope.
 5. Test unchanged CLI defaults, explicit pass recording, and distinct artifact inputs. Do not generalize execution comparisons or finite-fixture proofs to proofs of all types or the whole transformer.
 
-## Next implementation units
+## Implementation units when resumed
 
-Implement the Rust pass API, replacement records, and tests first; then CLI/bundle and Native integration, followed by finite-fixture Lean checks. Treat instruction deletion, CFG simplification, and cross-block propagation as separate passes/versions. Completion requires tracing each substitution while keeping the original operations and branches observable.
+**Implementation is deferred.** Follow the [roadmap](language-roadmap.en.md) to prioritize language features, I/O, and completed artifacts. Retain this design and its baseline examples; optimization is not a prerequisite for new features.
+
+When resumed, implement the Rust pass API, replacement records, and tests first; then CLI/bundle and Native integration, followed by finite-fixture Lean checks. Treat instruction deletion, CFG simplification, and cross-block propagation as separate passes/versions. Completion requires tracing each substitution while keeping the original operations and branches observable.
