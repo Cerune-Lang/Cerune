@@ -7,6 +7,7 @@
 | [native_calls.ceru](native_calls.ceru) | MIRからNativeへ変換。型の異なる7引数、continue／break、main呼出し | 見出しとi=0・2の引数、計算結果`4` |
 | [owned_values.ceru](owned_values.ceru) | 関数へ渡す動的配列の独立性、不変文字列、continueを通る解放 | 元配列・装飾後の配列・`["反復"]` |
 | [ssa_values.ceru](ssa_values.ceru) | 分岐で値を選ぶ・continue後の更新・反復ごとの値の入替え。SSA変換・実行比較用 | `14`、`16`、`20`、`10`の4行 |
+| [constant_candidates.ceru](constant_candidates.ceru) | 最適化前の基準。定数計算・短絡・呼出し順・loopの更新 | `42`、u64最大値、`true`、`false`、`true`、`4`、`10`、`7` |
 | [control_flow.ceru](control_flow.ceru) | 短絡で呼出しを省く。forのcontinueは更新、breakは出口へ進む | `2`、`4`の2行 |
 
 次のコマンドで、同じソースの実行結果と変換前後を確認できます。
@@ -40,6 +41,18 @@ cargo run --quiet -- emit-mir examples/ir_stages/control_flow.ceru -o target/con
 MIRでは`bbN`がブロック、`%N`が型付き局所値／一時値、`iN`が関数内の命令番号です。`derived=short-circuit-rhs`、`derived=for-update`、`derived=loop-exit`とjump／branchを読むと制御の行き先が分かります。各操作の`hir=#N source=N bytes=A..B`で元のIRとファイル内の範囲へ戻れます。MIRを生成するだけではプログラムは実行されません。
 
 配列コピーと確保失敗も確認する場合は[lowering_order.ceru](../dynamic_arrays/lowering_order.ceru)を使います。`run-mir`は[独立したMIR実行器](../../docs/design/mir-executor.ja.md)です。[NativeもMIR入力へ移行済み](../../docs/design/native-mir.ja.md)です。`--ssa`でSSA変換・実行・観測を選べます。SSA付きbundleは元MIR・SSA・変換後MIR・基準とSSA経由の両ASMを別々に保持します。最適化は行いません。型・検証範囲は[段階設計](../../docs/design/ir-stages.ja.md)に記載しています。
+
+## 定数計算を観測する
+
+`constant_candidates`は `6 * 7`、u64最大値になる加算、比較と短絡を含みます。`reported(4)`が4を表示してから外側の加算結果10を表示し、loopでは1から2ずつ3回加えて7になります。短絡した関数内にはoverflowする計算が残っていますが、実行されません。
+
+```sh
+cargo run --quiet -- run examples/ir_stages/constant_candidates.ceru
+cargo run --quiet -- run-mir examples/ir_stages/constant_candidates.ceru --ssa
+cargo run --quiet -- emit-mir examples/ir_stages/constant_candidates.ceru --ssa -o target/constant_candidates.ssa.txt
+```
+
+現在は最適化しません。[定数畳み込みの設計](../../docs/design/ssa-constant-folding.ja.md)で、元の演算・出自を残すことと、どの演算をliteralへ置換できるかを分けて説明します。[未使用結果でもoverflowする例](../runtime_failures/constant_overflow.ceru)は7を出力した後に停止する異常例です。
 
 ## SSA経由でNativeを生成する
 

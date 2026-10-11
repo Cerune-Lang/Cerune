@@ -84,6 +84,8 @@ fn execute(p: &ssa::Program) {
 fn native_ssa_examples_and_failures_match_direct_execution() {
     for source in [
         include_str!("../examples/ir_stages/ssa_values.ceru"),
+        include_str!("../examples/ir_stages/constant_candidates.ceru"),
+        include_str!("../examples/runtime_failures/constant_overflow.ceru"),
         include_str!("../examples/ir_stages/native_calls.ceru"),
         include_str!("../examples/ir_stages/owned_values.ceru"),
         include_str!("../examples/string_origins.ceru"),

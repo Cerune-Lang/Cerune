@@ -1,0 +1,5 @@
+// 結果を使わなくても、実行されたchecked加算と停止前の出力を残します。
+print(7);
+limit: u8 = 255;
+unused: u8 = limit + 1;
+print(99);

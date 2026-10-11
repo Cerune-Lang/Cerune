@@ -112,6 +112,19 @@ fn ssa_bodies_drive_execution_without_running_original_mir() {
 fn known_outputs_and_heap_budget_boundaries() {
     let source = include_str!("../examples/ir_stages/ssa_values.ceru");
     assert_eq!(executor::run(&program(source)).unwrap(), "14\n16\n20\n10\n");
+    let constants = include_str!("../examples/ir_stages/constant_candidates.ceru");
+    compare(&compile_to_ir(constants).unwrap());
+    assert_eq!(
+        executor::run(&program(constants)).unwrap(),
+        "42\n18446744073709551615\ntrue\nfalse\ntrue\n4\n10\n7\n"
+    );
+    let failure = include_str!("../examples/runtime_failures/constant_overflow.ceru");
+    compare(&compile_to_ir(failure).unwrap());
+    let error = executor::run(&program(failure)).unwrap_err();
+    assert_eq!(error.output(), "7\n");
+    let stop = error.runtime_failure().unwrap();
+    assert_eq!(stop.code.name(), "integer-overflow");
+    assert_eq!(&failure[stop.span.start()..stop.span.end()], "limit + 1");
     let owned = include_str!("../examples/ir_stages/owned_values.ceru");
     assert_eq!(
         executor::run(&program(owned)).unwrap(),

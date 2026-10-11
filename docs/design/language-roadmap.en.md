@@ -2,7 +2,7 @@
 
 [日本語](language-roadmap.ja.md)
 
-This inventory records capabilities, execution routes, and next steps as of 2026-10-08. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+This inventory records capabilities, execution routes, and next steps as of 2026-10-11. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
 ## Properties Cerune should preserve
 
@@ -61,7 +61,7 @@ Proceed in the order below, pairing a small design with examples, known expected
 
 | Order | Next work | First contract and example |
 | --- | --- | --- |
-| 1 | Stage comparisons | Initial bundle and finite HIR→MIR proofs implemented. Follow the [SSA design](mir-ssa.en.md): MIR→SSA construction, direct evaluation, and public CLI/bundle and SSA→MIR/Native implemented → finite-fixture SSA Lean checks implemented. Next specify preservation and observation for individual passes. Track heap and other proof extensions separately; apply #103 refactoring where needed |
+| 1 | Stage comparisons | Initial bundle and finite HIR→MIR proofs implemented. Follow the [SSA design](mir-ssa.en.md): MIR→SSA construction, direct evaluation, and public CLI/bundle and SSA→MIR/Native implemented → finite-fixture SSA Lean checks implemented. Preservation and observation for the [first constant-folding pass](ssa-constant-folding.en.md) are designed. Next implement the Rust API and replacement records. Track heap and other proof extensions separately; apply #103 refactoring where needed |
 | 2 | [Additional dynamic-array operations](owned-arrays.en.md) | Existing operations work across routes; consider `array_repeat` later; borrowed slices need separate lifetime and mutation type rules |
 | 3 | Recursion and external I/O | Define call storage, resource limits, I/O failure, and cleanup |
 | 4 | Module distribution | Re-exports, dependencies/versions, reproducible builds; extend explicit imports |
