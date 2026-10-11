@@ -49,8 +49,10 @@ Records exclude paths, source text, and runtime values. Interpret them with the 
 | `conversion-not-finite` | NaN or infinity cannot convert to an integer |
 | `conversion-nan` | Changing float types cannot preserve NaN |
 | `conversion-negative-zero` | Integer conversion cannot preserve negative zero's sign |
-| `allocation-size-overflow` | String length or allocation layout is unrepresentable |
-| `allocation-limit-exceeded` | Live dynamic string payload exceeds its configured budget |
+| `array-range-out-of-bounds` | Invalid array-copy range |
+| `array-length-out-of-range` | Negative `array_repeat` count |
+| `allocation-size-overflow` | String/array length or allocation layout is unrepresentable |
+| `allocation-limit-exceeded` | Live string contents or array element storage exceeds its respective budget |
 | `allocation-failed` | Allocation reports failure after validation |
 | `array-index-out-of-bounds` | Array index is outside its bounds |
 

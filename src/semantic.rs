@@ -242,7 +242,12 @@ pub(crate) fn analyze_lowered(program: &Program) -> SemanticResult<SemanticModel
             if ast::Type::from_name(&d.name).is_some()
                 || matches!(
                     d.name.as_str(),
-                    "byte_len" | "array_len" | "concat" | "array_copy" | "array_copy_range"
+                    "byte_len"
+                        | "array_len"
+                        | "concat"
+                        | "array_copy"
+                        | "array_copy_range"
+                        | "array_repeat"
                 )
                 || model.function_names.contains_key(&d.name)
                 || model.type_names.contains_key(&d.name)
@@ -339,7 +344,12 @@ fn register_function_names(program: &Program) -> SemanticResult<HashMap<String, 
         };
         if matches!(
             definition.name.as_str(),
-            "byte_len" | "array_len" | "concat" | "array_copy" | "array_copy_range"
+            "byte_len"
+                | "array_len"
+                | "concat"
+                | "array_copy"
+                | "array_copy_range"
+                | "array_repeat"
         ) {
             return Err(Diagnostic::new(
                 format!(
@@ -623,6 +633,9 @@ fn collect_calls_in_expr(expr: &Expr, model: &SemanticModel, calls: &mut Vec<(Fu
                 pending.push(condition);
             }
             ExprKind::Match { .. } => unreachable!("matches are lowered before recursion checks"),
+            ExprKind::GenericCall(call) if call.name == "array_repeat" => {
+                pending.extend(call.arguments.iter().rev())
+            }
             ExprKind::GenericCall(_) => {
                 unreachable!("generic calls are lowered before recursion checks")
             }
@@ -1086,6 +1099,17 @@ fn check_statements(
             }
 
             StmtKind::Call { value } => {
+                if matches!(&value.kind, ExprKind::GenericCall(call) if call.name == "array_repeat")
+                {
+                    let ty = model.type_of_expr(value, &bindings)?;
+                    return Err(Diagnostic::new(
+                        format!(
+                            "the {} result of function `array_repeat` must be used",
+                            model.type_name(ty)
+                        ),
+                        value.span,
+                    ));
+                }
                 let ExprKind::Call {
                     name,
                     name_span,
@@ -1374,6 +1398,47 @@ fn type_of_expr_expected(
                 }
             }
             Ok(target_ty)
+        }
+        ExprKind::GenericCall(call) if call.name == "array_repeat" => {
+            let [ast::GenericArgument::Type(element)] = call.generic_arguments.as_slice() else {
+                return Err(Diagnostic::new(
+                    "array_repeat requires exactly one explicit element type",
+                    expr.span,
+                ));
+            };
+            if call.arguments.len() != 2 {
+                return Err(Diagnostic::new(
+                    "array_repeat expects 2 arguments",
+                    expr.span,
+                ));
+            }
+            let element = model.resolve_type_ref(element)?;
+            let actual =
+                model.type_of_expr_expected(&call.arguments[0], bindings, Some(element.clone()))?;
+            if actual != element {
+                return Err(Diagnostic::new(
+                    format!(
+                        "array_repeat expected {}, found {}",
+                        model.type_name(element),
+                        model.type_name(actual)
+                    ),
+                    call.arguments[0].span,
+                ));
+            }
+            let count = model.type_of_expr_expected(
+                &call.arguments[1],
+                bindings,
+                Some(Type::Integer(IntegerType::I64)),
+            )?;
+            if count != Type::Integer(IntegerType::I64) {
+                return Err(Diagnostic::new(
+                    "array_repeat count must be i64",
+                    call.arguments[1].span,
+                ));
+            }
+            Ok(Type::DynamicArray {
+                element: Box::new(element),
+            })
         }
         ExprKind::GenericCall(call) => {
             let name = model
@@ -1824,6 +1889,12 @@ fn check_call(
     bindings: &Bindings,
     model: &SemanticModel,
 ) -> SemanticResult<ReturnType> {
+    if name == "array_repeat" {
+        return Err(Diagnostic::new(
+            "array_repeat requires explicit ::<T> element type",
+            name_span,
+        ));
+    }
     if matches!(name, "array_copy" | "array_copy_range") {
         let count = if name == "array_copy" { 1 } else { 3 };
         if arguments.len() != count {

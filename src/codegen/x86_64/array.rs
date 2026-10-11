@@ -42,6 +42,10 @@ pub(super) fn emit(
             stride,
             label,
         } => {
+            let length_ok = format!(".L{prefix}_array_length_ok_{label}");
+            writeln!(out, "  testq %rax, %rax\n  jns {length_ok}").unwrap();
+            reporter.emit(Failure::ArrayLengthOutOfRange, out);
+            writeln!(out, "{length_ok}:").unwrap();
             writeln!(out, "  movq %rax, {first}\n  movabsq \u{24}{width}, {second}\n  movabsq \u{24}{stride}, {third}\n  callq cerune_array_allocate").unwrap();
             let done = format!(".L{prefix}_array_allocated_{label}");
             let limit = format!(".L{prefix}_array_limit_{label}");

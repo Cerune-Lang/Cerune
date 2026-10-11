@@ -574,6 +574,16 @@ impl Lowerer {
             }
             return self.copy_owned(read.value, body);
         }
+        if let ExprKind::ArrayRepeat { value: seed, count } = value.kind {
+            let seed = self.read(*seed, body);
+            let count = self.owned(*count, body);
+            let input = self.copy(&seed.value);
+            let result = self.repeat(input, count, span, body);
+            if seed.owned {
+                self.manage(seed.value, false, body);
+            }
+            return result;
+        }
         if let ExprKind::ArrayCopy {
             value: source,
             range,

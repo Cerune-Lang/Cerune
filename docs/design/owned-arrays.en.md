@@ -2,7 +2,7 @@
 
 [日本語](owned-arrays.ja.md)
 
-**`[T]`, `array_copy`, `array_copy_range`, and the array budget are implemented in common IR, IR Executor/VM, generated C, LLVM, QBE, WAT, Windows/Linux ASM, and self-encoded COFF/ELF. `array_repeat` is pending.** Runnable examples cover [copies](../../examples/dynamic_arrays/copy.ceru) and [nesting, functions, and enums](../../examples/dynamic_arrays/nested.ceru). It builds on [implemented string ownership](dynamic-data.en.md), but mutable array storage must be copied independently.
+**`[T]`, `array_copy`, `array_copy_range`, `array_repeat`, and the array budget are implemented in common IR, IR Executor/VM, generated C, LLVM, QBE, WAT, Windows/Linux ASM, and self-encoded COFF/ELF.** Runnable examples cover [copies](../../examples/dynamic_arrays/copy.ceru) and [nesting, functions, and enums](../../examples/dynamic_arrays/nested.ceru). It builds on [implemented string ownership](dynamic-data.en.md), but mutable array storage must be copied independently.
 
 ## Implementation progress
 
@@ -11,14 +11,14 @@
 | Argument ownership transfer | Implemented: pass caller-prepared ownership once; the callee releases it. IR distinguishes ownership from internal reading |
 | Reads and owned-value preparation | Implemented: common IR marks `read` bindings and preserves temporary projection/release order |
 | Dynamic array types, allocation, and independent copies | Implemented in IR/VM/C/LLVM/QBE/WAT/ASM/native objects, including ranges, display/equality/iteration, aggregates, and functions |
-| `array_repeat` | Pending operation |
+| `array_repeat::<T>` | Implemented: independent copies from a runtime count, expanded into common IR allocation, loops, and release |
 | Dynamic arrays across backends and the completion criteria below | C, LLVM, QBE, WAT, Windows/Linux ASM, and self-encoded COFF/ELF implemented |
 
 Dynamic arrays are also compared across all routes for results, failure reasons, source origins, and prior output. See [call ownership](dynamic-data.en.md#ownership-across-calls), [read preparation](dynamic-data.en.md#reads-and-owned-value-preparation), and the [argument](../../examples/owned_arguments.ceru) and [read](../../examples/borrowed_reads.ceru) examples.
 
 ## Types and initial operations
 
-| Spelling (`array_repeat` remains proposed) | Meaning |
+| Spelling | Meaning |
 | --- | --- |
 | `[T]` | An owned array with a runtime length; length is not part of its type |
 | `[T; N]` | The existing fixed array, with its syntax and meaning preserved |
@@ -28,9 +28,9 @@ Dynamic arrays are also compared across all routes for results, failure reasons,
 | `array_len(values)` | Return a fixed or dynamic array's element count as i64 |
 | `values[index]` | Read through an i64 index; a mut array binding permits element updates |
 
-Implemented operation names follow `array_len`. Existing example functions named `copy_range` and `append` remain ordinary functions. Definitions colliding with `array_copy` or `array_copy_range` are diagnosed.
+Implemented operation names follow `array_len`. Existing example functions named `copy_range` and `append` remain ordinary functions. Definitions colliding with `array_copy`, `array_copy_range`, or `array_repeat` are diagnosed.
 
-There is no implicit fixed/dynamic conversion. `[1, 2]` remains a fixed-array literal. Initially no dynamic-array literal is added. Empty values come from an empty range. The future `array_repeat::<T>(seed, 0)` proposal also evaluates seed for zero elements. Existing restrictions on `[T; 0]` and empty literals are unchanged.
+There is no implicit fixed/dynamic conversion. `[1, 2]` remains a fixed-array literal. Initially no dynamic-array literal is added. Empty values come from an empty range. `array_repeat::<T>(seed, 0)` also creates an empty array, but evaluates seed even for zero elements. Existing restrictions on `[T; 0]` and empty literals are unchanged.
 
 The following runs through all routes:
 
@@ -82,15 +82,22 @@ For `array_copy_range`, evaluate target, start, and end once from left to right.
 
 A negative start value does not skip evaluating end if the start expression itself succeeded. A failure in end therefore precedes a range diagnostic. Empty ranges at the beginning or end are valid and allocate no result element storage.
 
-For `array_repeat(value, count)`, evaluate value and count before checking that count is nonnegative. Both expressions run for zero elements, and temporary values are released.
+`array_repeat::<T>(value, count)` requires an explicit element type `T`, a value of type `T`, and an `i64` count. It does not infer `T` or implicitly convert other integer types.
+
+1. Read value once as the copy source, then evaluate count once. Keep the source alive until completion without an extra preliminary deep copy.
+2. Check that count is nonnegative, validate logical/physical sizes and the budget, and allocate result storage.
+3. Copy elements independently in ascending order, including nested dynamic arrays; retain immutable string contents.
+4. Transfer result ownership and release a temporary source.
+
+Zero elements still evaluate both expressions and release temporaries, but allocate no result storage and perform no element copies. Failure in value skips count; failure in count preserves its own diagnostic. A budget failure during element copying retains the repeat expression origin and prior output. See the [table example](../../examples/dynamic_arrays/repeat.ceru) and [zero-count example](../../examples/dynamic_arrays/repeat_empty.ceru).
 
 For indexed assignment, evaluate and check each index before later indices or the right-hand side. In `a[bad][later()] = rhs()`, a failed first check skips both later and rhs. Do not release the previous element before right-hand evaluation and copying succeed.
 
-| Proposed diagnostic | Cause and origin |
+| Diagnostic | Cause and origin |
 | --- | --- |
 | `array-index-out-of-bounds` (existing) | The indexed access expression |
 | `array-range-out-of-bounds` | An invalid range at the array_copy_range expression |
-| `array-length-out-of-range` (planned) | A negative count at the array_repeat expression |
+| `array-length-out-of-range` | A negative count at the array_repeat expression |
 | `allocation-size-overflow` (existing) | An unrepresentable size product/sum, length, or layout size |
 | `allocation-limit-exceeded` (existing) | An explicit array or string budget is exceeded |
 | `allocation-failed` (existing) | Allocator or memory.grow failure despite passing the budget check |
@@ -119,7 +126,7 @@ Release bindings in reverse order at block exit, return, break, and continue; re
 
 ## What the generation process exposes
 
-`array_copy`, `array_copy_range`, and value copies now expand into ordinary common-IR loops and branches. Primitive spellings are `array.check-range`, `array.allocate-elements width=N`, `array.initialize-next`, `array.release-owner-last`, and `array.free-elements`. Lowering exposes:
+`array_copy`, `array_copy_range`, `array_repeat`, and value copies now expand into ordinary common-IR loops and branches. Primitive spellings are `array.check-range`, `array.allocate-elements width=N`, `array.initialize-next`, `array.release-owner-last`, and `array.free-elements`. Lowering exposes:
 
 - Once-only source evaluation, distinguishing reads, value copies, and temporary ownership transfers.
 - Index, range, length, size, and budget checks.
@@ -163,7 +170,7 @@ Following the existing QBE layout, string and dynamic-array pointers physically 
 
 The [SSA fixture](../../tests/fixtures/dynamic-arrays/qbe.ssa) retains copy/equality/display/reverse-release loops, element store/blit, and initialization completion. Checks receive the original operation's NodeId/Span. An internal ownership `hlt` alone is not a language diagnostic. Tests verify zero live budget after success, size overflow, and both allocator failures.
 
-Explicitly select `amd64_sysv` for Linux or `amd64_win` for Windows. QBE 1.3 tests compare IR/VM/C/LLVM/QBE/WAT/ASM/native objects, including the [returned-batches example](../../examples/dynamic_arrays/batches.ceru) and arrays combined with the [Windows argument rules](qbe-windows.en.md). `array_repeat` remains pending.
+Explicitly select `amd64_sysv` for Linux or `amd64_win` for Windows. QBE 1.3 tests compare IR/VM/C/LLVM/QBE/WAT/ASM/native objects, including the [returned-batches example](../../examples/dynamic_arrays/batches.ceru) and arrays combined with the [Windows argument rules](qbe-windows.en.md). `array_repeat` uses the same common IR and storage management.
 
 ## WAT support
 

@@ -265,6 +265,11 @@ pub struct Expr {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExprKind {
+    /// 所有展開前の反復生成。値と個数を一度評価してから各要素をコピーします。
+    ArrayRepeat {
+        value: Box<Expr>,
+        count: Box<Expr>,
+    },
     /// 所有展開前の明示コピー。展開後は確保・通常のループ・要素格納になります。
     ArrayCopy {
         value: Box<Expr>,

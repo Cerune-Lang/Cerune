@@ -2,7 +2,7 @@
 
 [日本語](development-status.ja.md) · [Roadmap](language-roadmap.en.md)
 
-This page records the audit baseline below. Since then, [LIR observation and structural validation](lir-observation.en.md) have been implemented and direct execution deferred. See the [roadmap](language-roadmap.en.md) for current priorities.
+This page records the audit baseline below. Since then, [LIR observation and structural validation](lir-observation.en.md) have been implemented and direct execution deferred. The subsequent language feature, `array_repeat`, is also implemented. See the [roadmap](language-roadmap.en.md) for current priorities.
 
 ## Audit baseline and conclusion
 

@@ -265,7 +265,7 @@ fn operation<R: Copy>(
                 return Err(Fault::invalid("array allocate type"));
             };
             let length = u64::try_from(frame.get(*length)?.integer(IntegerType::I64)?)
-                .map_err(|_| Fault::failure(FailureCode::AllocationSizeOverflow))?;
+                .map_err(|_| Fault::failure(FailureCode::ArrayLengthOutOfRange))?;
             Value::DynamicArray {
                 element: *element.clone(),
                 storage: executor.state().arrays.allocate(length, *element_width)?,

@@ -398,6 +398,13 @@ fn emit_expr(expr: &Expr, program: &Program, output: &mut String) {
     write!(output, "#{} ", expr.id.0).unwrap();
 
     match &expr.kind {
+        ExprKind::ArrayRepeat { value, count } => {
+            output.push_str("array.repeat(");
+            emit_expr(value, program, output);
+            output.push_str(", ");
+            emit_expr(count, program, output);
+            output.push(')');
+        }
         ExprKind::ArrayCopy { value, range } => {
             output.push_str("array.copy(");
             emit_expr(value, program, output);

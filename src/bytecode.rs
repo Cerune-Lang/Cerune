@@ -784,7 +784,9 @@ impl Compiler {
 
     fn emit_expr(&mut self, expr: &Expr) {
         match &expr.kind {
-            ExprKind::ArrayCopy { .. } => unreachable!("copies are expanded in common IR"),
+            ExprKind::ArrayCopy { .. } | ExprKind::ArrayRepeat { .. } => {
+                unreachable!("copies are expanded in common IR")
+            }
             ExprKind::ArrayAllocate {
                 length,
                 element_width,

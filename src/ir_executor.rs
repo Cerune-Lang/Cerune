@@ -444,7 +444,9 @@ impl Executor<'_> {
     }
     fn expr_inner(&mut self, e: &Expr, frame: &mut Frame) -> Result<Value> {
         Ok(match &e.kind {
-            E::ArrayCopy { .. } => return Err(Fault::invalid("array copy must be lowered")),
+            E::ArrayCopy { .. } | E::ArrayRepeat { .. } => {
+                return Err(Fault::invalid("array copy must be lowered"));
+            }
             E::ArrayAllocate {
                 length,
                 element_width,
@@ -454,7 +456,7 @@ impl Executor<'_> {
                 };
                 let count = self.expr(length, frame)?.integer(IntegerType::I64)?;
                 let count = u64::try_from(count)
-                    .map_err(|_| Fault::failure(FailureCode::AllocationSizeOverflow))?;
+                    .map_err(|_| Fault::failure(FailureCode::ArrayLengthOutOfRange))?;
                 let storage = self
                     .arrays
                     .allocate(count, *element_width)

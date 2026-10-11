@@ -1,0 +1,15 @@
+// Zero elements still evaluate both arguments, then release the temporary.
+fn seed() -> [string] {
+    print("seed");
+    return array_copy([concat("予定:", "月")]);
+}
+fn count() -> i64 {
+    print("count");
+    return 0;
+}
+empty: [[string]] = array_repeat::<[string]>(seed(), count());
+print(empty);
+print(array_len(empty));
+for (row: [string] in empty) {
+    print("unreachable");
+}

@@ -193,7 +193,14 @@ pub fn runtime_boundaries(program: &ir::Program) {
         assert_eq!(actual.stdout, expected.output().as_bytes());
         checked_failure(
             &actual,
-            &record.replace("allocation-limit-exceeded", "allocation-size-overflow"),
+            &record.replace(
+                "allocation-limit-exceeded",
+                if length == "-1" {
+                    "array-length-out-of-range"
+                } else {
+                    "allocation-size-overflow"
+                },
+            ),
         );
     }
     for nth in [1, 2] {

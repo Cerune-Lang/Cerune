@@ -1,0 +1,2 @@
+count: i64 = 2;
+print(array_repeat::<i64>(7, count));

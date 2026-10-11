@@ -100,7 +100,17 @@ fn allocation_size_and_malloc_failures_preserve_origin_and_prior_output() {
                 assert!(changed);
                 emit::emit_with_origins(&module, true)
             },
-            |actual| failure(actual, "allocation-size-overflow", &record),
+            |actual| {
+                failure(
+                    actual,
+                    if length < 0 {
+                        "array-length-out-of-range"
+                    } else {
+                        "allocation-size-overflow"
+                    },
+                    &record,
+                )
+            },
         );
     }
     p.array_heap_limit = 64;

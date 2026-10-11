@@ -37,7 +37,12 @@ pub(super) fn resolve(units: &[Unit]) -> Result<Program, Diagnostic> {
                 || (kind != Kind::Type
                     && matches!(
                         name.as_str(),
-                        "byte_len" | "array_len" | "concat" | "array_copy" | "array_copy_range"
+                        "byte_len"
+                            | "array_len"
+                            | "concat"
+                            | "array_copy"
+                            | "array_copy_range"
+                            | "array_repeat"
                     ))
             {
                 return Err(Diagnostic::new(
@@ -415,6 +420,17 @@ impl Resolver<'_> {
                 *arms = new_arms;
             }
             ExprKind::GenericCall(call) => {
+                if call.name == "array_repeat" {
+                    for argument in &mut call.generic_arguments {
+                        if let GenericArgument::Type(ty) = argument {
+                            self.ty(ty, false)?;
+                        }
+                    }
+                    for argument in &mut call.arguments {
+                        self.expr(argument)?;
+                    }
+                    return Ok(());
+                }
                 call.name = self.name(&call.name, call.name_span, Kind::Function, false)?;
                 let parameters = &self
                     .names
@@ -457,7 +473,12 @@ impl Resolver<'_> {
             } => {
                 if !matches!(
                     name.as_str(),
-                    "byte_len" | "array_len" | "concat" | "array_copy" | "array_copy_range"
+                    "byte_len"
+                        | "array_len"
+                        | "concat"
+                        | "array_copy"
+                        | "array_copy_range"
+                        | "array_repeat"
                 ) {
                     *name = self.name(name, *name_span, Kind::Function, false)?;
                 }

@@ -25,7 +25,7 @@ function l $cerune_array_size(l %length, l %width, l %origin, l %origin_len) {
 function l $cerune_array_allocate(l %length, l %width, l %stride, l %origin, l %origin_len) {
 @start
   %negative =w csltl %length, 0
-  jnz %negative, @size_fail, @sizes
+  jnz %negative, @length_fail, @sizes
 @sizes
   %bytes =l call $cerune_array_size(l %length, l %width, l %origin, l %origin_len)
   %physical =l call $cerune_array_size(l %length, l %stride, l %origin, l %origin_len)
@@ -72,8 +72,8 @@ function l $cerune_array_allocate(l %length, l %width, l %stride, l %origin, l %
   %total =l add %live, %bytes
   storel %total, $cerune_array_live
   ret %p
-@size_fail
-  call $cerune_fail_allocation_size_overflow(l %origin, l %origin_len)
+@length_fail
+  call $cerune_fail_array_length_out_of_range(l %origin, l %origin_len)
   hlt
 @limit_fail
   call $cerune_fail_allocation_limit_exceeded(l %origin, l %origin_len)

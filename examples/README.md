@@ -100,7 +100,7 @@ cargo run --quiet -- emit-c examples/linear_regression.ceru
 
 | 型の形 | サンプル | 確認すること |
 | --- | --- | --- |
-| 動的配列 `[T]` | [copy.ceru](dynamic_arrays/copy.ceru)、[nested.ceru](dynamic_arrays/nested.ceru) | 空範囲、独立コピー、入れ子・関数・enum・反復 |
+| 動的配列 `[T]` | [copy.ceru](dynamic_arrays/copy.ceru)、[nested.ceru](dynamic_arrays/nested.ceru) | 空範囲、独立コピー、入れ子・関数・enum・反復。[repeat](dynamic_arrays/repeat.ceru)は実行時の個数から作成 |
 | 固定長配列 `[T; N]` | [fixed_arrays.ceru](fixed_arrays.ceru)、[bubble_sort.ceru](bubble_sort.ceru) | 添字、要素の更新、コピー後の独立性 |
 | 構造体 `type Point { ... }` | [product-point.ceru](product-point.ceru)、[product_arrays.ceru](product_arrays.ceru) | フィールド・既定値と、構造体を要素にする配列 |
 | 入れ子の配列・構造体 | [function_values.ceru](function_values.ceru)、[u64_values.ceru](u64_values.ceru)、[string_lookup.ceru](string_lookup.ceru) | 数値や文字列を組み合わせ、関数へ値として渡す |

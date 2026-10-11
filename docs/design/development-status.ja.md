@@ -2,7 +2,7 @@
 
 [English](development-status.en.md) · [ロードマップ](language-roadmap.ja.md)
 
-このページは下記時点の監査記録です。その後、[LIRの観測・構造検証](lir-observation.ja.md)を実装し、直接実行器は保留としました。現在の優先順位は[ロードマップ](language-roadmap.ja.md)を参照してください。
+このページは下記時点の監査記録です。その後、[LIRの観測・構造検証](lir-observation.ja.md)を実装し、直接実行器は保留としました。その後の言語機能として`array_repeat`も実装しました。現在の優先順位は[ロードマップ](language-roadmap.ja.md)を参照してください。
 
 ## 調査基点と結論
 

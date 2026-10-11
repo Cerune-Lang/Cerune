@@ -568,7 +568,7 @@ impl<'a> Builder<'a> {
                 element_width: *element_width,
             },
             E::ArrayReleaseOwner { value } => Operation::ArrayReleaseOwner(self.expr(value)?),
-            E::ArrayCopy { .. } | E::Let { .. } | E::Conditional { .. } => {
+            E::ArrayRepeat { .. } | E::ArrayCopy { .. } | E::Let { .. } | E::Conditional { .. } => {
                 return Err(Error::new(
                     "incomplete HIR: common expansion is required before MIR lowering",
                     o,

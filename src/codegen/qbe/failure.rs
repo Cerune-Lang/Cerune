@@ -120,6 +120,7 @@ pub(super) fn emit(module: &Module, output: &mut String) {
     }
     if module.array_heap_limit.is_some() {
         codes.push(ArrayRangeOutOfBounds);
+        codes.push(ArrayLengthOutOfRange);
     }
     for code in codes {
         data(

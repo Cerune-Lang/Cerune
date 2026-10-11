@@ -353,7 +353,7 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
     }
 
     let kind = match &expr.kind {
-        cerune_ir::ExprKind::ArrayCopy { .. } => {
+        cerune_ir::ExprKind::ArrayCopy { .. } | cerune_ir::ExprKind::ArrayRepeat { .. } => {
             unreachable!("array copies are expanded in common IR")
         }
         cerune_ir::ExprKind::ArrayAllocate {
@@ -567,7 +567,7 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
     fn visit_expr(expr: &cerune_ir::Expr, types: &mut Vec<Type>) {
         add(&expr.ty, types);
         match &expr.kind {
-            cerune_ir::ExprKind::ArrayCopy { .. } => {
+            cerune_ir::ExprKind::ArrayCopy { .. } | cerune_ir::ExprKind::ArrayRepeat { .. } => {
                 unreachable!("array copies are expanded in common IR")
             }
             cerune_ir::ExprKind::ArrayAllocate { length: value, .. }

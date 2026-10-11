@@ -114,7 +114,8 @@ typedef struct cerune_dynamic_array {
 static uint64_t cerune_array_live_bytes;
 static cerune_dynamic_array cerune_array_allocate_elements(
     int64_t length, uint64_t width, size_t element_size, const char *origin) {
-    if (length < 0 || (width && (uint64_t)length > (uint64_t)INT64_MAX / width) ||
+    if (length < 0) cerune_runtime_fail("array-length-out-of-range", origin);
+    if ((width && (uint64_t)length > (uint64_t)INT64_MAX / width) ||
         (element_size && (uint64_t)length > (uint64_t)SIZE_MAX / element_size) ||
         (element_size && (uint64_t)length > (uint64_t)PTRDIFF_MAX / element_size))
         cerune_runtime_fail("allocation-size-overflow", origin);

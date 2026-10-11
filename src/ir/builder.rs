@@ -435,6 +435,14 @@ impl Builder<'_> {
                 expr.span,
             ));
         }
+        if !self.constant_stack.borrow().is_empty()
+            && matches!(&expr.kind, ast::ExprKind::GenericCall(call) if call.name == "array_repeat")
+        {
+            return Err(Diagnostic::new(
+                "array_repeat is not allowed in constant expressions",
+                expr.span,
+            ));
+        }
         let id = self.allocate_node_id();
         let ty = self.model.type_of_expr_expected(expr, bindings, expected)?;
 
@@ -556,6 +564,23 @@ impl Builder<'_> {
                 then_value: Box::new(self.build_expr(then_value, Some(ty.clone()), bindings)?),
                 else_value: Box::new(self.build_expr(else_value, Some(ty.clone()), bindings)?),
             },
+            ast::ExprKind::GenericCall(call) if call.name == "array_repeat" => {
+                let semantic::Type::DynamicArray { element } = &ty else {
+                    unreachable!()
+                };
+                ExprKind::ArrayRepeat {
+                    value: Box::new(self.build_expr(
+                        &call.arguments[0],
+                        Some(*element.clone()),
+                        bindings,
+                    )?),
+                    count: Box::new(self.build_expr(
+                        &call.arguments[1],
+                        Some(semantic::Type::Integer(IntegerType::I64)),
+                        bindings,
+                    )?),
+                }
+            }
             ast::ExprKind::GenericCall(_) => unreachable!("generic calls are lowered before IR"),
             ast::ExprKind::Boolean(value) => ExprKind::Boolean(*value),
             ast::ExprKind::String(value) => ExprKind::String(value.clone()),
