@@ -326,52 +326,58 @@ fn run() -> Result<(), String> {
             let source = read_source(&input)?;
 
             let ir = ir_for(&source, string_heap_limit, array_heap_limit)?;
-            let output = if command == "run-mir" {
+            let stdout = std::io::stdout();
+            let mut output = cerune_lang::runtime::output::Output::new(stdout.lock());
+            let result = if command == "run-mir" {
                 let mir = render_compilation_result(
                     cerune_lang::mir::lower(&ir).map_err(|e| e.diagnostic()),
                     &source,
                 )?;
                 if ssa {
                     let ssa = ssa_for(&mir, &source)?;
-                    cerune_lang::ssa_executor::run(&ssa).map_err(|error| {
-                        print!("{}", error.output());
+                    cerune_lang::ssa_executor::run_with_output(&ssa, &mut output).map_err(|error| {
                         if runtime_format && let Some(failure) = error.runtime_failure() {
                             return failure.record();
                         }
                         source.render(&error.diagnostic())
-                    })?
+                    })
                 } else {
-                    cerune_lang::mir_executor::run(&mir).map_err(|error| {
-                        print!("{}", error.output());
+                    cerune_lang::mir_executor::run_with_output(&mir, &mut output).map_err(|error| {
                         if runtime_format && let Some(failure) = error.runtime_failure() {
                             return failure.record();
                         }
                         source.render(&error.diagnostic())
-                    })?
+                    })
                 }
             } else if command != "run-vm" {
-                cerune_lang::ir_executor::run(&ir).map_err(|error| {
-                    print!("{}", error.output());
+                cerune_lang::ir_executor::run_with_output(&ir, &mut output).map_err(|error| {
                     if runtime_format && let Some(failure) = error.runtime_failure() {
                         return failure.record();
                     }
                     source.render(&error.diagnostic())
-                })?
+                })
             } else {
                 let bytecode =
                     render_compilation_result(cerune_lang::bytecode::lower(&ir), &source)?;
-                cerune_lang::run_bytecode(&bytecode).map_err(|error| {
-                    print!("{}", error.vm_error().output());
+                cerune_lang::run_bytecode_with_output(&bytecode, &mut output).map_err(|error| {
                     if runtime_format && let Some(failure) = error.runtime_failure() {
                         return failure.record();
                     }
                     source.render_execution(&error)
-                })?
+                })
             };
 
-            print!("{output}");
-
-            Ok(())
+            // 出力済みの内容は再送しません。既存の停止理由もflush失敗で上書きしません。
+            let flush = if output.failure().is_none() {
+                output.flush().map_err(|e| e.to_string())
+            } else {
+                Ok(())
+            };
+            match (result, flush) {
+                (Err(error), Err(flush)) => Err(format!("{error}\n{flush}")),
+                (Err(error), _) | (_, Err(error)) => Err(error),
+                (Ok(()), Ok(())) => Ok(()),
+            }
         }
 
         "--version" | "-V" | "version" => {

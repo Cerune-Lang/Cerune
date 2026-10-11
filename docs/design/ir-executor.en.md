@@ -18,6 +18,8 @@ Existing frontend and common expansion
 
 Input is the completed program returned by compile_to_ir or modules::Compilation::to_ir. Existing generic, enum/match, aggregate display/equality, and string ownership expansion remain shared. IR construction, including constant evaluation, retains its current Bytecode/VM use. Execution after receiving IR is independent. Parsing textual .ceir files is a separate feature.
 
+Use `run_with_output` for incremental delivery; existing `run` retains captured output. The CLI uses incremental delivery without printing output again. See [standard I/O](standard-io.en.md) for connections, partial writes, I/O failures, and read-only records.
+
 ## API and execution responsibilities
 
 The entry point is `ir_executor::run(&ir::Program) -> Result<String, ExecutionError>`. A constructed IR can be run repeatedly without recompilation, with fresh state per call. Execution does not mutate IR, perform hidden optimization, or build a separate executable IR.

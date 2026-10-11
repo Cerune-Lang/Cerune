@@ -1,5 +1,6 @@
 //! MIRとSSAで共有する個々の演算・所有操作です。CFGの実行や値の参照方式は含みません。
 use super::{Fault, Result};
+use crate::runtime::output::{self, Sink};
 use crate::{
     ir,
     mir::{self, InstructionKind as I, Operation as O},
@@ -13,15 +14,15 @@ use crate::{
     types::IntegerType,
 };
 
-pub(crate) struct State {
-    pub output: String,
+pub(crate) struct State<'a> {
+    pub output: &'a mut dyn Sink,
     pub strings: StringHeap,
     pub arrays: ArrayHeap<Value>,
 }
-impl State {
-    pub fn new(string_limit: u64, array_limit: u64) -> Self {
+impl<'a> State<'a> {
+    pub fn new(string_limit: u64, array_limit: u64, output: &'a mut dyn Sink) -> Self {
         Self {
-            output: String::new(),
+            output,
             strings: StringHeap::new(string_limit),
             arrays: ArrayHeap::new(array_limit),
         }
@@ -44,14 +45,15 @@ pub(crate) trait Frame<R: Copy> {
         args.iter().map(|id| self.get(*id)).collect()
     }
 }
-pub(crate) trait Calls {
-    fn state(&mut self) -> &mut State;
+pub(crate) trait Calls<'a> {
+    fn state(&mut self) -> &mut State<'a>;
     fn types(&self) -> &[mir::TypeDefinition];
     fn call(&mut self, id: ir::FunctionId, args: Vec<Value>) -> Result<Option<Value>>;
 }
-pub(crate) fn instruction<R: Copy>(
-    executor: &mut impl Calls,
+pub(crate) fn instruction<'a, R: Copy>(
+    executor: &mut impl Calls<'a>,
     i: &I<R>,
+    origin: mir::Origin,
     frame: &mut impl Frame<R>,
 ) -> Result<()> {
     match i {
@@ -99,14 +101,24 @@ pub(crate) fn instruction<R: Copy>(
             quoted,
         } => {
             let text = frame.get(*v)?.text()?;
+            let mut rendered = String::new();
             if *quoted {
-                value::write_quoted(&mut executor.state().output, &text);
+                value::write_quoted(&mut rendered, &text);
             } else {
-                executor.state().output.push_str(&text);
+                rendered.push_str(&text);
             }
             if *newline {
-                executor.state().output.push('\n');
+                rendered.push('\n');
             }
+            let origin = origin.source().map(|o| output::Origin {
+                node_id: o.node_id,
+                span: o.span,
+            });
+            executor
+                .state()
+                .output
+                .write(&rendered, origin)
+                .map_err(Fault::output)?;
         }
         I::ArrayInitialize { array, value } => {
             let array = dynamic(frame.get(*array)?)?;
@@ -138,8 +150,8 @@ pub(crate) fn instruction<R: Copy>(
     }
     Ok(())
 }
-fn operation<R: Copy>(
-    executor: &mut impl Calls,
+fn operation<'a, R: Copy>(
+    executor: &mut impl Calls<'a>,
     op: &O<R>,
     ty: &ir::Type,
     frame: &impl Frame<R>,

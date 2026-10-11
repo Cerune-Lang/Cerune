@@ -37,6 +37,12 @@ cerune run-vm <file> [--diagnostic-format runtime-v1]
 cerune --version
 ```
 
+## Standard output during execution
+
+`run`, `run-ir`, `run-mir` (including `--ssa`), and `run-vm` deliver output during execution. Destination buffering still applies; this does not guarantee delivery of every byte before program termination. Unless the connection failed, the CLI flushes at both normal completion and language failure, without printing prior output again.
+
+Write/flush failures produce diagnostics and exit code 1. If both language execution and the final flush fail, both are reported. Stdin and a Cerune source-level flush operation remain unimplemented. See the [output connection contract](../design/standard-io.en.md) for APIs and coverage.
+
 ## Dynamic string budget
 
 `observe`, `run`, `run-ir`, `run-mir`, `run-vm`, `emit-ir`, `emit-mir`, `emit-bytecode`, `emit-c`, `emit-llvm`, `emit-qbe`, `emit-wat`, `emit-asm`, and `emit-obj` accept `--string-heap-limit <bytes>`. The default is 67108864 (64 MiB). Values are decimal integers from 0 through 9223372036854775807; missing, duplicate, and negative values are rejected. `check` and `emit-sources` do not accept this option.

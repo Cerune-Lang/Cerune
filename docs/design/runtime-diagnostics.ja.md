@@ -68,7 +68,7 @@ cerune run examples/runtime_failures/function_division.ceru --diagnostic-format 
 
 `run`／`run-ir`は停止理由とソース位置、`run-vm`は従来のソース位置・bytecode位置付き診断を使います。`--diagnostic-format runtime-v1`で言語の検査失敗を共通形式にします。VMは終了コード1です。`ExecutionError::runtime_failure()`で構造化された理由と範囲を取得できます。
 
-失敗より前に実行した`print`は取り消しません。VMは`VmError::output()`にその出力を保持し、CLIもstdoutへ表示します。直接ASM・自前objectでは、失敗時に既存のstdoutバッファをflushしてからstderrへレコードを書きます。Linuxは`ud2`、Windowsは`FAST_FAIL_FATAL_APP_EXIT`（rcx=7、`int 0x29`、終了状態`0xc0000409`）で停止します。stdoutとstderrを混ぜた表示順までは保証しません。Windowsで文字列を含むプログラムのstdoutは従来通りバイナリ出力です。
+失敗より前に実行した`print`は取り消しません。収集型のVM APIは`VmError::output()`に出力を保持します。逐次出力APIでは接続先へ既に渡しているため`output()`は空です。CLIは逐次出力し、接続が失敗していなければ最後にflushします。終了時に再表示しません。[出力接続](standard-io.ja.md)の失敗は言語の検査失敗とは区別します。直接ASM・自前objectでは、失敗時に既存のstdoutバッファをflushしてからstderrへレコードを書きます。Linuxは`ud2`、Windowsは`FAST_FAIL_FATAL_APP_EXIT`（rcx=7、`int 0x29`、終了状態`0xc0000409`）で停止します。stdoutとstderrを混ぜた表示順までは保証しません。Windowsで文字列を含むプログラムのstdoutは従来通りバイナリ出力です。
 
 書き込みは明示したターゲットのLinux `write` / Windows `_write`を使います。stderrの改行は比較時にCRLF/LFを揃えます。標準エラーが閉じられている、書き込みが途中で失敗する、等の場合にもターゲットに応じた停止を試みますが、完全な診断の配送までは保証しません。観測ツールは欠けたレコードを合格にしません。
 

@@ -1,6 +1,13 @@
-# 入力値による操作の分岐
+# 入出力の動作例
 
 [English](README.en.md)
+
+[output_sequence.ceru](output_sequence.ceru)は、関数引数の評価と出力順、日本語・NUL・CR/LFの保持を確認します。[期待値](output_sequence.stdout)は各経路で同じです。CLIは実行中に出力先へ渡します。標準入力とソース内のflushは使いません。
+
+```sh
+cargo run --quiet -- run examples/io_protocol/output_sequence.ceru
+cargo test --test execution_output --test execution_output_cli
+```
 
 [input_flow.ceru](input_flow.ceru)は、ソース内で用意した入力値で操作を選ぶ例です。**標準入力は読みません。** 状態と操作の規則はCerune側に置きます。
 

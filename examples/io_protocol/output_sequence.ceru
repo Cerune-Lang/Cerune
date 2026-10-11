@@ -1,0 +1,9 @@
+// Output and evaluation order; no stdin or language-level flush.
+fn announce(value: i64) -> i64 {
+    print(value);
+    return value + 1;
+}
+print("start");
+print([announce(1), announce(2)]);
+print("日本\0\r\n");
+print("end");

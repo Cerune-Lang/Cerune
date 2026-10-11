@@ -245,6 +245,15 @@ pub fn run_bytecode(bytecode: &bytecode::BytecodeProgram) -> Result<String, Exec
     vm::run(bytecode).map_err(|vm_error| ExecutionError::from_vm_error(bytecode, vm_error))
 }
 
+/// 逐次出力するVM実行でも、bytecodeとソースの出自を対応させます。
+pub fn run_bytecode_with_output<W: std::io::Write>(
+    bytecode: &bytecode::BytecodeProgram,
+    output: &mut runtime::output::Output<W>,
+) -> Result<(), ExecutionError> {
+    vm::run_with_output(bytecode, output)
+        .map_err(|vm_error| ExecutionError::from_vm_error(bytecode, vm_error))
+}
+
 /// ソースの構築・MIR変換と、MIR実行中の停止を区別します。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirRunError {

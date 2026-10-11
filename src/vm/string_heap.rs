@@ -52,7 +52,7 @@ mod lifetime_tests {
                 &code,
                 crate::vm::Frame::Entry,
                 vec![],
-                &mut String::new(),
+                &mut crate::runtime::output::Capture::default(),
                 &mut heap,
                 &mut crate::runtime::array_heap::ArrayHeap::new(code.array_heap_limit),
             )

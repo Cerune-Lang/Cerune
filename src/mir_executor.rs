@@ -12,6 +12,7 @@ use crate::{
 };
 
 pub(crate) mod semantics;
+use crate::runtime::output::{self, Capture, Sink};
 use semantics::{Calls, Frame as _, State};
 
 /// emit-mir内の関数・ブロック・命令を識別します。Noneは入口の本体です。
@@ -23,6 +24,7 @@ pub struct Location {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
+    Output(Box<output::Failure>),
     Validation(Box<mir::Error>),
     Runtime(FailureCode),
     InvalidMir(&'static str),
@@ -62,6 +64,7 @@ impl ExecutionError {
             return e.diagnostic();
         }
         let message = match &self.kind {
+            ErrorKind::Output(failure) => failure.to_string(),
             ErrorKind::Runtime(code) => format!("runtime error: {}", code.name()),
             ErrorKind::InvalidMir(reason) => format!("invalid Cerune MIR: {reason}"),
             ErrorKind::Validation(_) => unreachable!(),
@@ -87,6 +90,13 @@ pub(crate) struct Fault {
 }
 pub(crate) type Result<T> = std::result::Result<T, Fault>;
 impl Fault {
+    pub(crate) fn output(failure: output::Failure) -> Self {
+        Self {
+            kind: ErrorKind::Output(Box::new(failure)),
+            origin: None,
+            location: None,
+        }
+    }
     pub(crate) fn invalid(reason: &'static str) -> Self {
         Self {
             kind: ErrorKind::InvalidMir(reason),
@@ -170,17 +180,31 @@ impl semantics::Frame<mir::LocalId> for Frame<'_> {
             .ok_or_else(|| Fault::invalid("unknown MIR local"))
     }
 }
-struct Executor<'a> {
+struct Executor<'a, 'o> {
     program: &'a mir::Program,
-    state: State,
+    state: State<'o>,
     active: Vec<Option<ir::FunctionId>>,
 }
 /// コンパイラ内で構築したMIRを検証後、新しい実行状態で実行します。
 /// 成功時にも論理的な領域が残っていたら内部不整合として返します。
 /// 外部の不正入力に対するsandboxや、実行時間の制限を提供するAPIではありません。
 pub fn run(program: &mir::Program) -> std::result::Result<String, ExecutionError> {
+    run_sink(program, &mut Capture::default())
+}
+
+/// 接続先へ逐次出力します。自動flushや出力の再収集は行いません。
+pub fn run_with_output<W: std::io::Write>(
+    program: &mir::Program,
+    output: &mut output::Output<W>,
+) -> std::result::Result<(), ExecutionError> {
+    run_sink(program, output).map(|_| ())
+}
+fn run_sink(
+    program: &mir::Program,
+    output: &mut dyn Sink,
+) -> std::result::Result<String, ExecutionError> {
     mir::validate(program).map_err(validation_error)?;
-    let mut executor = Executor::new(program);
+    let mut executor = Executor::new(program, output);
     let result = executor.entry();
     finish(result, executor.state)
 }
@@ -194,23 +218,23 @@ pub(crate) fn validation_error(e: mir::Error) -> ExecutionError {
 }
 pub(crate) fn finish(
     result: Result<()>,
-    state: State,
+    state: State<'_>,
 ) -> std::result::Result<String, ExecutionError> {
     match result {
-        Ok(()) => Ok(state.output),
+        Ok(()) => Ok(state.output.captured().to_owned()),
         Err(e) => Err(ExecutionError {
             kind: e.kind,
             origin: e.origin,
             location: e.location,
-            output: state.output,
+            output: state.output.captured().to_owned(),
         }),
     }
 }
-impl<'a> Executor<'a> {
-    fn new(program: &'a mir::Program) -> Self {
+impl<'a, 'o> Executor<'a, 'o> {
+    fn new(program: &'a mir::Program, output: &'o mut dyn Sink) -> Self {
         Self {
             program,
-            state: State::new(program.string_heap_limit, program.array_heap_limit),
+            state: State::new(program.string_heap_limit, program.array_heap_limit, output),
             active: vec![],
         }
     }
@@ -256,7 +280,7 @@ impl<'a> Executor<'a> {
                 .get(current.0)
                 .ok_or_else(|| Fault::invalid("unknown MIR block"))?;
             for i in &b.instructions {
-                semantics::instruction(self, &i.kind, frame).map_err(|e| {
+                semantics::instruction(self, &i.kind, i.origin, frame).map_err(|e| {
                     e.at(
                         Location {
                             function: f.id,
@@ -304,8 +328,8 @@ impl<'a> Executor<'a> {
         }
     }
 }
-impl Calls for Executor<'_> {
-    fn state(&mut self) -> &mut State {
+impl<'o> Calls<'o> for Executor<'_, 'o> {
+    fn state(&mut self) -> &mut State<'o> {
         &mut self.state
     }
     fn types(&self) -> &[mir::TypeDefinition] {
@@ -333,7 +357,8 @@ mod tests {
             ),
         ] {
             let p = crate::mir::lower(&crate::compile_to_ir(src).unwrap()).unwrap();
-            let mut executor = Executor::new(&p);
+            let mut captured = Capture::default();
+            let mut executor = Executor::new(&p, &mut captured);
             if array {
                 executor.state.arrays.fail_next_allocation();
             } else {
@@ -341,7 +366,7 @@ mod tests {
             }
             let e = executor.entry().unwrap_err();
             assert_eq!(e.kind, ErrorKind::Runtime(FailureCode::AllocationFailed));
-            assert_eq!(executor.state.output, "before\n");
+            assert_eq!(executor.state.output.captured(), "before\n");
             let o = e.origin.unwrap();
             assert_eq!(&src[o.span.start()..o.span.end()], expected);
             assert!(e.location.is_some());

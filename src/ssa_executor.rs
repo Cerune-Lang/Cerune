@@ -1,5 +1,6 @@
 //! SSAのblock・辺の引数・値・残存slotを直接実行します。
 //! 元MIRへの逆変換や、HIR/VM実行へのfallbackは行いません。
+use crate::runtime::output::{self, Capture, Sink};
 use crate::{
     ir,
     mir::{
@@ -130,26 +131,41 @@ impl Frame<'_> {
         Ok(edge.target)
     }
 }
-struct Executor<'a> {
+struct Executor<'a, 'o> {
     program: &'a ssa::Program,
-    state: State,
+    state: State<'o>,
     active: Vec<Option<ir::FunctionId>>,
 }
 /// 検証済みのSSAを新しいheapとframeで直接実行します。
 /// 時間制限や外部Imageのsandboxを提供するAPIではありません。
 pub fn run(program: &ssa::Program) -> std::result::Result<String, ExecutionError> {
+    run_sink(program, &mut Capture::default())
+}
+
+/// 接続先へ逐次出力します。自動flushや出力の再収集は行いません。
+pub fn run_with_output<W: std::io::Write>(
+    program: &ssa::Program,
+    output: &mut output::Output<W>,
+) -> std::result::Result<(), ExecutionError> {
+    run_sink(program, output).map(|_| ())
+}
+fn run_sink(
+    program: &ssa::Program,
+    output: &mut dyn Sink,
+) -> std::result::Result<String, ExecutionError> {
     ssa::validate(program).map_err(|e| error(program, mir_executor::validation_error(e)))?;
-    let mut executor = Executor::new(program);
+    let mut executor = Executor::new(program, output);
     let result = executor.entry();
     mir_executor::finish(result, executor.state).map_err(|e| error(program, e))
 }
-impl<'a> Executor<'a> {
-    fn new(program: &'a ssa::Program) -> Self {
+impl<'a, 'o> Executor<'a, 'o> {
+    fn new(program: &'a ssa::Program, output: &'o mut dyn Sink) -> Self {
         Self {
             program,
             state: State::new(
                 program.original.string_heap_limit,
                 program.original.array_heap_limit,
+                output,
             ),
             active: vec![],
         }
@@ -203,7 +219,7 @@ impl<'a> Executor<'a> {
                 .get(current.0)
                 .ok_or_else(|| Fault::invalid("unknown SSA block"))?;
             for i in &b.instructions {
-                semantics::instruction(self, &i.kind, frame).map_err(|e| {
+                semantics::instruction(self, &i.kind, i.origin, frame).map_err(|e| {
                     e.at(
                         mir_executor::Location {
                             function: frame.original.id,
@@ -251,8 +267,8 @@ impl<'a> Executor<'a> {
         }
     }
 }
-impl Calls for Executor<'_> {
-    fn state(&mut self) -> &mut State {
+impl<'o> Calls<'o> for Executor<'_, 'o> {
+    fn state(&mut self) -> &mut State<'o> {
         &mut self.state
     }
     fn types(&self) -> &[mir::TypeDefinition] {
@@ -340,7 +356,8 @@ mod tests {
             ),
         ] {
             let p = program(source);
-            let mut executor = Executor::new(&p);
+            let mut captured = Capture::default();
+            let mut executor = Executor::new(&p, &mut captured);
             if array {
                 executor.state.arrays.fail_next_allocation();
             } else {

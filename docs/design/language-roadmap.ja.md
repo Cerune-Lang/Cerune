@@ -68,7 +68,7 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | --- | --- | --- |
 | 完了した区切り | [LIR観測・構造検証と直接実行の採否](lir-observation.ja.md)（[#123](https://github.com/Cerune-Lang/Cerune/issues/123)） | 基準／SSA経由のLIR表示・保存・構造検証とexample比較を実装。直接実行器は保留し、次の言語機能へ戻る |
 | 実装した機能 | [動的配列の `array_repeat`](owned-arrays.ja.md)（[#122](https://github.com/Cerune-Lang/Cerune/issues/122)） | 実行時の個数、0個・負の個数、評価順、予算超過、入れ子の独立コピーを実装。example・生成過程・既存経路の比較テストを追加 |
-| 1：次の実装単位 | [標準入出力の設計](standard-io.ja.md)（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。方針整理済み、入力・flushは未実装 | 出力収集と実行用I/O接続を分け、出力・flush・失敗の契約から揃える。その後、上限付きUTF-8行入力と対話例。同じ入力・操作列を比較し、観測は読み取り専用に保つ |
+| 1：次の実装単位 | [標準入出力の設計](standard-io.ja.md)（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。4実行器とCLIの逐次出力を実装済み。標準入力・言語側flushは未実装 | 次は言語側のflushと生成経路の書込み・flush・失敗契約を揃える。その後、上限付きUTF-8行入力と対話例。同じ入力・操作列を比較し、観測は読み取り専用に保つ |
 | 2 | 小さな標準ライブラリ。標準モジュールの配置・APIは未設計 | 入出力で必要になった文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntimeが必要な操作を分け、既存importと明示的な失敗処理を使う。汎用Option/Resultやパッケージ管理を先に必須化しない |
 | 3：独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
 | 4 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
@@ -83,7 +83,7 @@ Native buildは新しい入力や標準ライブラリがなくても、現在�
 
 | 項目 | 現状 | 次に決めること |
 | --- | --- | --- |
-| 標準出力 | `print`で値を表示できる。`run`／`run-mir`／`run-vm`は実行結果または停止前出力をまとめて表示 | 対話中の出力とflush。質問を表示してから入力を待てることを確認する |
+| 標準出力 | `print`で値を表示できる。`run`／`run-mir`／`run-vm`は実行中に接続先へ出力し、最後にflush。収集型のRust APIも維持 | 言語側のflushと生成経路のI/O失敗契約。質問を表示してから入力を待つ対話テスト |
 | 標準エラー | 処理系の診断に使用。プログラム用の一般的な書込みAPIはない | プログラムの出力と処理系の停止診断を区別し、書込み失敗も定義する |
 | 標準入力・引数 | プログラムから受け取る一般的なAPIはない | stdinを最初の用途とし、CLI引数・ファイル・FFI・ネットワークは後続として個別に範囲を決める |
 | 標準ライブラリ | 組込み操作と利用者のmoduleはある。標準moduleの配布・探索・互換方針はない | 言語の組込み、runtimeの外部接続、Ceruneで書くライブラリを区別する |

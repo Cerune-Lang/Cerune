@@ -37,6 +37,12 @@ cerune run-vm <file> [--diagnostic-format runtime-v1]
 cerune --version
 ```
 
+## 実行中の標準出力
+
+`run`・`run-ir`・`run-mir`（`--ssa`含む）・`run-vm`は、実行中に標準出力へ渡します。出力先のバッファリングは残り、プログラム終了前に全バイトの配送を保証するものではありません。接続が失敗していなければ、正常終了・言語停止の最後にflushします。先行出力を終了時に再表示しません。
+
+書込み・flush失敗は診断して終了コード1を返します。言語停止と終了時flushの両方が失敗した場合は、両方を表示します。標準入力やCeruneソース内のflush構文は未実装です。[出力接続の契約](../design/standard-io.ja.md)にAPIと対応範囲を記載しています。
+
 ## 動的文字列の予算
 
 `observe`・`run`・`run-ir`・`run-mir`・`run-vm`・`emit-ir`・`emit-mir`・`emit-bytecode`・`emit-c`・`emit-llvm`・`emit-qbe`・`emit-wat`・`emit-asm`・`emit-obj`では`--string-heap-limit <bytes>`を指定できます。既定は67108864（64 MiB）。値は0〜9223372036854775807の十進整数で、省略・重複・負数を拒否します。`check`・`emit-sources`では受け付けません。

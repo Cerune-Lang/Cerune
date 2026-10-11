@@ -16,6 +16,8 @@
 
 MIRからHIRやbytecodeを再構築して実行することはありません。MIR実行の追加は、新しいbuild／release成果物の追加でもありません。[Nativeも同じMIRを入力に使います](native-mir.ja.md)。[SSA変換と直接実行](mir-ssa.ja.md)はRust APIと明示的な`--ssa`で利用できます。最適化と外部MIRのloaderは未実装です。
 
+逐次出力には`run_with_output`を使います。既存の`run`は出力収集を維持します。CLIは逐次出力APIを使い、出力済みの内容を再表示しません。接続・部分書込み・I/O失敗・読み取り専用記録は[標準入出力](standard-io.ja.md)を参照してください。
+
 ## 実装と共有範囲
 
 制御フローと原子的な値操作を分けています。
@@ -44,7 +46,7 @@ MIRからHIRやbytecodeを再構築して実行することはありません。
 | `kind()` | 検証失敗、言語の停止コード、実行中の内部不整合を区別 |
 | `origin()` | 元のHIR NodeIdとSourceIdを含むSpan |
 | `location()` | MIRのFunctionId（入口はNone）・BlockId・InstructionId。呼出し元で上書きしない |
-| `output()` | 停止するまでに出力した内容 |
+| `output()` | 収集型APIの先行出力。逐次出力APIでは空 |
 | `runtime_failure()` | 言語の停止だけを既存経路と同じ共通記録に変換 |
 
 検証失敗は実行前に返すため出力は空です。CLIの`--diagnostic-format runtime-v1`は他経路と同じ停止コード・元の位置・先行出力を返します。既定診断は元ファイルの位置を示し、MIR命令番号はRust APIから`emit-mir`と照合できます。
