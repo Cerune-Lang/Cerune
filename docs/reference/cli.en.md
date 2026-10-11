@@ -6,6 +6,8 @@ This document defines the command-line interface of Cerune v0.1.
 
 IR/VM/Native [build / release](../design/owned-routes.en.md) and [Lean output](../design/lean-verification.en.md) are at the design/experiment stage and are not current CLI commands.
 
+`emit-lir`/`run-lir` are also unimplemented. LIR is an internal Native generation stage; independent evaluation currently covers HIR, MIR, SSA, and Bytecode. See the [stage inventory](../design/development-status.en.md).
+
 ## Save observations together
 
 `observe` [saves sources, HIR, MIR, annotated ASM, and a manifest from one compilation](../design/observation-bundle.en.md). Both `--target` and `-o` are required; both heap budgets are supported. Existing output paths are rejected; create the parent directory first. Input names and source text are included. No program execution, external tools, or linking occurs. Objects and other backend artifacts are not yet bundled.

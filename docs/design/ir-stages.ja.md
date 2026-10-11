@@ -18,6 +18,8 @@
 
 ここでのSSAは共通MIRのscalar SSA変換です。生成先のLLVM／QBEが持つSSA形式とは区別します。
 
+LIRの生成段階は存在しますが、専用の観測テキスト・構造検証器・直接実行器はありません。MIR→LIR対応をASM注釈で追えることと、LIR本体を独立して観測・評価できることを分けます。[現状の棚卸し](development-status.ja.md)と[#123](https://github.com/Cerune-Lang/Cerune/issues/123)で追跡します。
+
 ## 既存コードから分かること
 
 | 実装 | 現在担っている処理 | 新段階へ持ち込まないもの |

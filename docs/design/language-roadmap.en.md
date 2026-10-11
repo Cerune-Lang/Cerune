@@ -4,6 +4,8 @@
 
 This inventory records capabilities, execution routes, and next steps as of 2026-10-11. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
+The [execution and unfinished-work inventory](development-status.en.md) maps representations, observation, and execution—including LIR—and all issues.
+
 ## Properties Cerune should preserve
 
 Cerune prioritizes explaining a computation's meaning and its transformation into executable representations. New features should preserve these properties:
@@ -53,6 +55,7 @@ Language features are tracked separately from compiler stages, distribution, and
 | Initial scope implemented | [Observation bundle](observation-bundle.en.md) | Saves sources, HIR, MIR, annotated ASM, and manifest from one compilation; `--ssa` adds SSA, reconstructed MIR, mappings, and SSA-derived ASM. Additional artifacts remain future work ([#60](https://github.com/Hokutaka/Cerune/issues/60)) |
 | Partial experiment | [Lean verification](lean-verification.en.md) | HIR→Lean/HIR→MIR correspondence and properties checked for u8 increment/choose/advance, including if/short-circuiting/while/for/break/continue/nesting, update-failure origins, and completion within explicit bounds; no whole-language, general-lowering, or whole-compiler proof, or public `emit-lean` |
 | Partly implemented | [SSA construction](mir-ssa.en.md) and later optimization passes | Scalar SSA/residual-slot representation, structural validator, observation text, automatic construction, and direct execution through the Rust API implemented; public SSA CLI/bundle support also implemented; SSA→MIR/Native also implemented; finite-fixture Lean checks for MIR→SSA→MIR implemented; constant folding is designed but unimplemented and deferred; general proofs also remain future work |
+| Internal stage implemented | LIR observation, validation, and execution | MIR→x86-64 LIR→ASM/Object exists; dedicated observation format, structural validation, and direct execution do not. [#123](https://github.com/Cerune-Lang/Cerune/issues/123) separates observation from execution adoption |
 | Planned, unimplemented | [IR/VM/Native build / release](owned-routes.en.md) | Follow [#81](https://github.com/Hokutaka/Cerune/issues/81), keeping completed artifacts and distribution separate from optimization |
 
 ## Proposed priorities
@@ -63,13 +66,14 @@ Prioritize the programs users can write and the artifacts they can use. This is 
 
 | Priority | Work and current status | Initial completion criteria |
 | --- | --- | --- |
+| Design check first | [LIR observation/validation and execution adoption](development-status.en.md) ([#123](https://github.com/Cerune-Lang/Cerune/issues/123)) | Define saving instruction bodies, target, frames, and origins from the same LIR; executor completion does not gate language features |
 | 1: next language feature | [Dynamic-array `array_repeat`](owned-arrays.en.md) ([#122](https://github.com/Cerune-Lang/Cerune/issues/122)). Proposed semantics; unimplemented | Construct an array from a runtime count. Confirm value-then-count evaluation, evaluation for zero count, negative counts/budget failures, and independent nested copies; add examples, observable lowering, and comparisons across existing routes |
 | 2 | Standard I/O ([#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#104](https://github.com/Cerune-Lang/Cerune/issues/104)). Beyond `print`, undesigned and unimplemented | Start with a small interactive command example. Define input units, EOF versus empty input, UTF-8/NUL/CR/LF, budgets, failure results, output order, and flushing; compare identical input and operation sequences across routes |
 | 3 | Small standard library. Standard module layout/APIs undecided | Select text/numeric parsing helpers required by I/O. Separate functions expressible in Cerune from runtime operations; use existing imports and explicit failure handling. Do not require generic Option/Result or package management first |
 | 4: independently actionable | [Native build](owned-routes.en.md). Responsibilities outlined; CLI/link management unimplemented | An executable is the proposed first artifact. Define explicit target, external linker, dependencies, failures, and observation records; build/link current examples and compare with IR/VM |
 | 5 | IR/VM Images and release for three routes. Unimplemented | Validate versions, types, references, ownership, and budgets before loading; compare saved/reloaded execution. As each route's artifact stabilizes, verify distribution contents, compatibility, and failure origins |
 | Later | Recursion, array growth/borrowing, more string operations, module distribution | Design call storage/limits/cleanup, borrowing lifetimes/mutation, re-exports, dependency versions, and reproducibility around actual uses |
-| Deferred/experimental | Optimization passes, broader proofs, GPU/FPGA | Resume for concrete needs; these do not gate language features, I/O, or build |
+| Deferred/experimental | Optimization passes, broader proofs, added AST/LIR execution, GPU/FPGA | Resume for concrete needs; these do not gate language features, I/O, or build |
 
 Native build can serve current programs without new input or standard-library features. `array_repeat` is not an implementation prerequisite for input either; it comes first to complete a bounded piece of existing design. Release is not another name for optimization. Do not treat observation text as a runnable artifact by bypassing IR/VM Image validation.
 

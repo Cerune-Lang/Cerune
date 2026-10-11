@@ -11,7 +11,9 @@ Ceruneは静的型付きの実験言語です。型・意味の決定と、実�
 | 実装済み | 完成済みCerune IR（HIR）の直接実行、bytecode VM、C・LLVM・QBE・WAT生成 |
 | 実装済み | 非SSAのMIRの型・変換・検証・`emit-mir`・[独立実行](mir-executor.ja.md)、[MIR→Native生成](native-mir.ja.md) |
 | 実装済み | [観測bundle](observation-bundle.ja.md)：sources・HIR・MIR・注釈付きASMを同じコンパイルから保存 |
-| 計画・未実装 | SSA・最適化pass。[段階設計](ir-stages.ja.md)で意味保存と観測を定める |
+| 実装済み | [SSA](mir-ssa.ja.md)の変換・直接実行・CLI／bundle・SSA→MIR／Native。有限例のLean検証も対応 |
+| 内部段階を実装 | x86-64 LIR。独立した公開観測・構造検証・直接実行は未実装（[棚卸し](development-status.ja.md)） |
+| 設計済み・実装保留 | [定数畳み込みpass](ssa-constant-folding.ja.md)。最適化は暗黙に行わない |
 | 計画・未実装 | IR・VM・Nativeの[build / release](owned-routes.ja.md)。C等はemit-onlyとして整理 |
 
 ## 設計原則
@@ -39,10 +41,13 @@ Source → Lexer / Parser → AST → 共通frontend → Cerune IR (HIR)
                                                ├→ IR Executor: run / run-ir
                                                ├→ MIR変換・検証
                                                │    ├→ emit-mir / run-mir
+                                               │    ├→ SSA → SSA実行／copy付きMIR → x86-64 LIR
                                                │    └→ x86-64 LIR → ASM → 自前Object
                                                ├→ Bytecode → emit-bytecode / run-vm
                                                └→ C / LLVM / QBE / WAT向けIR → emit-*
 ```
+
+LIRはNative生成の内部段階です。専用の`emit-lir`／`run-lir`はありません。SSAから戻したMIRも同じLIR→ASM→Objectを通ります。[段階別の現状と優先順位](development-status.ja.md)で、表現・観測・直接実行・配布を区別します。
 
 frontendは名前・型・文脈上の浮動小数点型を解決し、generic・enum/match・所有処理を共通展開します。[IR Executor](ir-executor.ja.md)は完成済みHIRの文・式を直接実行し、生成経路は確定済みの意味を対象の表現へ変換します。
 
@@ -52,7 +57,7 @@ frontendは名前・型・文脈上の浮動小数点型を解決し、generic�
 
 1. ASTからbackendへ直接進まず、共通の意味検証・型解決を済ませたHIRを使います。NativeはHIRからMIRへ変換した後にloweringします。
 2. lowererは入力IRと出力IRを参照します。emitterは自身のbackend IRを読み、ASTや意味解析状態から意味を再決定しません。
-3. backend固有のRust IRは内部実装です。公開する観測はHIR・MIRのテキストと生成成果物で、内部構造を安定したシリアライズ契約とはしません。
+3. backend固有のRust IRは内部実装です。公開する観測はHIR・MIR・SSAのテキストと生成成果物で、内部構造を安定したシリアライズ契約とはしません。
 4. 最適化は暗黙に行わず、将来のpassも選択と変換過程を明示します。
 5. 束縛にはコンパイル内で決定的なIDを付け、shadowing後も参照先を区別します。
 6. HIRは`if`・`while`・`for`・`break`・`continue`を保持し、forの初期化・条件・本文・更新を分けます。MIR・bytecodeや各backendへの変換が分岐・合流・更新・後方辺・出口を具体化します。

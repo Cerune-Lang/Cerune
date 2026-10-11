@@ -56,6 +56,8 @@ Report write failures as failures. A directory without a manifest is not a compl
 
 Do not run the program, launch external tools, or link. No repeated external effects or record/replay from [#104](https://github.com/Hokutaka/Cerune/issues/104) are introduced. This is not a completed `build`/`release` artifact and adds no IR/MIR loader.
 
+LIR bodies are also absent. ASM contains MIR→LIR correspondence numbers, not a dedicated LIR snapshot. [Remaining LIR observation work](development-status.en.md) is separate from optimization.
+
 Objects, disassembly, bytecode, C/LLVM/QBE/WAT, Lean, execution results, and optimization comparisons remain future extensions. Omission is neither generation failure nor implemented coverage. Individual `emit-*` commands remain available.
 
 ## Validation

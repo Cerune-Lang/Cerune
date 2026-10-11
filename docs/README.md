@@ -1,60 +1,63 @@
-# Cerune documentation
+# Ceruneの文書
 
-Ceruneの文書は、設計上の判断を記録する`design`と、現在の仕様を記録する`reference`に分かれています。
+[English](README.en.md)
 
-Cerune documentation is divided into `design`, which records design decisions, and `reference`, which describes the current specification.
+現在地は[実行経路と未完了作業](design/development-status.ja.md)、優先順位は[ロードマップ](design/language-roadmap.ja.md)を参照してください。designは設計判断、referenceは実装済み仕様、ideaは未採用の題材を記録します。
 
-## Design / 設計
+## 設計
 
-| Document | 日本語 | English |
-| --- | --- | --- |
-| Naming and migration / 命名と移行 | [日本語](design/naming.ja.md) | [English](design/naming.en.md) |
-| Compiler architecture / コンパイラ構成 | [日本語](design/architecture.ja.md) | [English](design/architecture.en.md) |
-| IR stages and pass observation / IR段階と変換の観測 | [日本語](design/ir-stages.ja.md) | [English](design/ir-stages.en.md) |
-| MIR SSA construction / MIRのSSA変換（段階実装） | [日本語](design/mir-ssa.ja.md) | [English](design/mir-ssa.en.md) |
-| Observation bundle / 観測結果の一括保存 | [日本語](design/observation-bundle.ja.md) | [English](design/observation-bundle.en.md) |
-| Observability contract / 可観測性の契約 | [日本語](design/observability.ja.md) | [English](design/observability.en.md) |
-| Runtime diagnostics / 実行時停止の共通記録 | [日本語](design/runtime-diagnostics.ja.md) | [English](design/runtime-diagnostics.en.md) |
-| AST execution study / AST直接実行の調査 | [日本語](design/ast-executor-study.ja.md) | [English](design/ast-executor-study.en.md) |
-| MIR execution / MIRの独立実行 | [日本語](design/mir-executor.ja.md) | [English](design/mir-executor.en.md) |
-| IR Executor / IRの直接実行 | [日本語](design/ir-executor.ja.md) | [English](design/ir-executor.en.md) |
-| VM embedding / VMの埋め込み実行 | [日本語](design/vm-embedding.ja.md) | [English](design/vm-embedding.en.md) |
-| Owned routes and build / release / 実行・配布の責務 | [日本語](design/owned-routes.ja.md) | [English](design/owned-routes.en.md) |
-| Lean verification / 意味の対応とプログラムの証明 | [日本語](design/lean-verification.ja.md) | [English](design/lean-verification.en.md) |
-| Output routes and targets / 出力経路とターゲット | [日本語](design/targets.ja.md) | [English](design/targets.en.md) |
-| QBE Windows support / QBEのWindows対応 | [日本語](design/qbe-windows.ja.md) | [English](design/qbe-windows.en.md) |
-| Owned arrays / 所有する動的配列 | [日本語](design/owned-arrays.ja.md) | [English](design/owned-arrays.en.md) |
-| Dynamic strings and data / 動的文字列とデータ | [日本語](design/dynamic-data.ja.md) | [English](design/dynamic-data.en.md) |
-| Language capabilities and roadmap / 言語機能と今後の順序 | [日本語](design/language-roadmap.ja.md) | [English](design/language-roadmap.en.md) |
-| Rounding and saturation / 丸め方と飽和 | [日本語](design/rounding-conversions.ja.md) | [English](design/rounding-conversions.en.md) |
-| Truncating conversions / 小数部分の切り捨て | [日本語](design/truncating-conversions.ja.md) | [English](design/truncating-conversions.en.md) |
-| Generic functions / 型・長さを引数にする関数 | [日本語](design/generic-functions.ja.md) | [English](design/generic-functions.en.md) |
-| Functions / 関数 | [日本語](design/functions.ja.md) | [English](design/functions.en.md) |
-| Named product types / 名前付きproduct type | [日本語](design/product-types.ja.md) | [English](design/product-types.en.md) |
-| Aggregate values and match expressions / 複合値とmatch式 | [日本語](design/aggregate-values.ja.md) | [English](design/aggregate-values.en.md) |
-| Sum types and match / 直和型と分岐 | [日本語](design/sum-types.ja.md) | [English](design/sum-types.en.md) |
-| Compile-time constants / コンパイル時定数 | [日本語](design/constants.ja.md) | [English](design/constants.en.md) |
-| Product updates / 構造体の更新式 | [日本語](design/product-updates.ja.md) | [English](design/product-updates.en.md) |
-| Array iteration / 配列の反復 | [日本語](design/array-iteration.ja.md) | [English](design/array-iteration.en.md) |
-| Constants in array lengths / 配列型の定数長 | [日本語](design/constant-array-lengths.ja.md) | [English](design/constant-array-lengths.en.md) |
-| Fixed arrays / 固定長配列 | [日本語](design/fixed-arrays.ja.md) | [English](design/fixed-arrays.en.md) |
-| Strings / 文字列 | [日本語](design/strings.ja.md) | [English](design/strings.en.md) |
-| Unsigned 64-bit integers / u64 | [日本語](design/u64.ja.md) | [English](design/u64.en.md) |
-| Native lowering from MIR / MIRからNativeへの変換 | [日本語](design/native-mir.ja.md) | [English](design/native-mir.en.md) |
-| Native-code observation / ネイティブコードの観測 | [日本語](design/native-code.ja.md) | [English](design/native-code.en.md) |
-| Native object encoder / 自前オブジェクトエンコーダ | [日本語](design/native-encoder.ja.md) | [English](design/native-encoder.en.md) |
+各文書から対応する英語版へ切り替えられます。
 
-## Reference / リファレンス
+- [実行経路と未完了作業の棚卸し](design/development-status.ja.md)
+- [命名と移行](design/naming.ja.md)
+- [コンパイラ構成](design/architecture.ja.md)
+- [IR段階と変換の観測](design/ir-stages.ja.md)
+- [MIRのSSA変換（段階実装）](design/mir-ssa.ja.md)
+- [観測結果の一括保存](design/observation-bundle.ja.md)
+- [可観測性の契約](design/observability.ja.md)
+- [実行時停止の共通記録](design/runtime-diagnostics.ja.md)
+- [AST直接実行の調査](design/ast-executor-study.ja.md)
+- [MIRの独立実行](design/mir-executor.ja.md)
+- [IRの直接実行](design/ir-executor.ja.md)
+- [VMの埋め込み実行](design/vm-embedding.ja.md)
+- [実行・配布の責務](design/owned-routes.ja.md)
+- [意味の対応とプログラムの証明](design/lean-verification.ja.md)
+- [出力経路とターゲット](design/targets.ja.md)
+- [QBEのWindows対応](design/qbe-windows.ja.md)
+- [所有する動的配列](design/owned-arrays.ja.md)
+- [動的文字列とデータ](design/dynamic-data.ja.md)
+- [言語機能と今後の順序](design/language-roadmap.ja.md)
+- [丸め方と飽和](design/rounding-conversions.ja.md)
+- [小数部分の切り捨て](design/truncating-conversions.ja.md)
+- [型・長さを引数にする関数](design/generic-functions.ja.md)
+- [関数](design/functions.ja.md)
+- [名前付きproduct type](design/product-types.ja.md)
+- [複合値とmatch式](design/aggregate-values.ja.md)
+- [直和型と分岐](design/sum-types.ja.md)
+- [コンパイル時定数](design/constants.ja.md)
+- [構造体の更新式](design/product-updates.ja.md)
+- [配列の反復](design/array-iteration.ja.md)
+- [配列型の定数長](design/constant-array-lengths.ja.md)
+- [固定長配列](design/fixed-arrays.ja.md)
+- [文字列](design/strings.ja.md)
+- [u64](design/u64.ja.md)
+- [MIRからNativeへの変換](design/native-mir.ja.md)
+- [ネイティブコードの観測](design/native-code.ja.md)
+- [自前オブジェクトエンコーダ](design/native-encoder.ja.md)
+- [定数畳み込みの設計（実装保留）](design/ssa-constant-folding.ja.md)
+- [複数ソースと出自](design/source-files.ja.md)
 
-| Document | 日本語 | English |
-| --- | --- | --- |
-| Language / 言語仕様 | [日本語](reference/language.ja.md) | [English](reference/language.en.md) |
-| CLI | [日本語](reference/cli.ja.md) | [English](reference/cli.en.md) |
+## リファレンス
 
+各文書から対応する英語版へ切り替えられます。
 
-## idea / アイデア
+- [言語仕様](reference/language.ja.md)
+- [CLI](reference/cli.ja.md)
 
-| Document | 日本語 | English |
-| --- | --- | --- |
-| アイデアカタログ / Idea-catalog | [日本語](idea/idea-catalog.ja.md) | [English](idea/idea-catalog.en.md) |
+## アイデア
 
+各文書から対応する英語版へ切り替えられます。
+
+- [アイデアカタログ](idea/idea-catalog.ja.md)
+
+[検証実験](../experiments/README.md)は通常のCerune実行exampleと分けて管理します。

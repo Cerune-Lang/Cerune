@@ -18,6 +18,8 @@ The inspected baseline is `f39f55e`, merging Native dynamic arrays. **Common MIR
 
 SSA here means scalar SSA construction for common MIR, distinct from SSA representations in external LLVM/QBE output.
 
+LIR generation exists, but dedicated observation text, structural validation, and direct execution do not. Tracing MIR→LIR through ASM annotations is distinct from independently observing or evaluating LIR bodies. See the [status inventory](development-status.en.md) and [#123](https://github.com/Cerune-Lang/Cerune/issues/123).
+
 ## Findings from the code
 
 | Implementation | Current responsibility | Do not duplicate or misclassify |
