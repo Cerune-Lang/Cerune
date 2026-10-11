@@ -6,7 +6,7 @@ Models, transformations, and external-tool verification live separately from the
 
 | Experiment | Purpose |
 | --- | --- |
-| [lean](lean/README.md) | Finite-fixture HIR/MIR/SSA correspondence with Lean models, program properties, and execution comparisons |
+| [lean](lean/README.en.md) | Finite-fixture HIR/MIR/SSA correspondence with Lean models, program properties, and execution comparisons |
 | [ssa](ssa/README.en.md) | Rust API examples for SSA construction, observation, and direct execution; not a separate language specification replacing public CLI behavior |
 
 There is no LIR direct-execution experiment. The [overall inventory](../docs/design/development-status.en.md) distinguishes implementation, observation, and proof coverage.

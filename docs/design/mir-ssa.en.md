@@ -205,7 +205,7 @@ While intermediate implementations lack operations, diagnose them explicitly rat
 
 ## Finite-fixture Lean verification
 
-The [proof experiment](../../experiments/lean/README.md#ssaの検証--ssa-verification) exports actual baseline MIR, SSA, and reconstructed MIR separately. The SSA evaluator independently handles values, selected edges, and binding after reading all incoming arguments; individual operations and instruction execution share the existing MIR model. SSA evaluation calls neither baseline MIR nor lowering.
+The [proof experiment](../../experiments/lean/README.en.md#ssa-verification) exports actual baseline MIR, SSA, and reconstructed MIR separately. The SSA evaluator independently handles values, selected edges, and binding after reading all incoming arguments; individual operations and instruction execution share the existing MIR model. SSA evaluation calls neither baseline MIR nor lowering.
 
 The implemented checks have the following scope.
 
