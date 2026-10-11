@@ -1,6 +1,13 @@
-# Branching on input values
+# Input and output examples
 
 [日本語](README.md)
+
+[output_sequence.ceru](output_sequence.ceru) checks function-argument evaluation/output order and Japanese/NUL/CR/LF preservation. Its [expected output](output_sequence.stdout) is the same across routes. The CLI delivers output during execution. This example uses neither stdin nor source-level flush.
+
+```sh
+cargo run --quiet -- run examples/io_protocol/output_sequence.ceru
+cargo test --test execution_output --test execution_output_cli
+```
 
 [input_flow.ceru](input_flow.ceru) selects operations using values scripted in the source. **It does not read stdin.** Cerune owns the state and operation rules.
 

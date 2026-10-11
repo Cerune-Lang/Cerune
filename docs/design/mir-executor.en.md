@@ -16,6 +16,8 @@
 
 MIR execution does not reconstruct HIR or bytecode for execution. It does not introduce another build/release artifact. [Native consumes the same MIR](native-mir.en.md). [SSA construction and direct execution](mir-ssa.en.md) are available through Rust APIs and explicit `--ssa` selection. Optimization and external MIR loading remain unimplemented.
 
+Use `run_with_output` for incremental delivery; existing `run` retains captured output. The CLI uses incremental delivery without printing output again. See [standard I/O](standard-io.en.md) for connections, partial writes, I/O failures, and read-only records.
+
 ## Implementation and sharing
 
 Control flow is separate from atomic value operations.
@@ -44,7 +46,7 @@ Use `run_mir(source)` for source text, or `modules::load(path)?.to_ir()`→`mir:
 | `kind()` | Validation failure, language failure code, or execution-time internal inconsistency |
 | `origin()` | Original HIR NodeId and Span including SourceId |
 | `location()` | MIR FunctionId (None for entry), BlockId, InstructionId; not overwritten by callers |
-| `output()` | Output produced before failure |
+| `output()` | Prior output in captured APIs; empty in incremental APIs |
 | `runtime_failure()` | Shared failure record for language failures only |
 
 Validation errors precede execution and have empty output. CLI `--diagnostic-format runtime-v1` preserves the same code, original location, and prior output as other routes. Default diagnostics locate the source file; the Rust API exposes MIR instruction IDs for comparison with `emit-mir`.

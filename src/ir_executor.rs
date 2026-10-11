@@ -1,5 +1,6 @@
 //! 完成済みのCerune IRを直接実行します。命令列や別のIRへ変換しません。
 use crate::runtime::array_heap::{ArrayError, ArrayHeap};
+use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::value::{self, write_quoted};
 use crate::{
     ir::{self, Expr, ExprKind as E, Statement, StatementKind as S},
@@ -23,6 +24,7 @@ pub struct Origin {
 /// 言語の異常停止と、不正なIRによる内部問題を区別します。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
+    Output(Box<output::Failure>),
     Runtime(FailureCode),
     InvalidIr(&'static str),
 }
@@ -53,7 +55,8 @@ impl ExecutionError {
         }
     }
     pub fn diagnostic(&self) -> crate::diagnostic::Diagnostic {
-        let message = match self.kind {
+        let message = match &self.kind {
+            ErrorKind::Output(failure) => failure.to_string(),
             ErrorKind::Runtime(code) => format!("runtime error: {}", code.name()),
             ErrorKind::InvalidIr(reason) => format!("invalid Cerune IR: {reason}"),
         };
@@ -133,9 +136,9 @@ enum Flow {
     Continue,
     Return(Option<Value>),
 }
-struct Executor<'a> {
+struct Executor<'a, 'o> {
     program: &'a ir::Program,
-    output: String,
+    output: &'o mut dyn Sink,
     heap: StringHeap,
     arrays: ArrayHeap<Value>,
 }
@@ -143,9 +146,24 @@ struct Executor<'a> {
 /// 共通フロントエンドが構築したIRを、新しい実行状態で直接実行します。
 /// IRは変更しません。失敗時にも、それまでの出力と元の式の位置を保持します。
 pub fn run(program: &ir::Program) -> std::result::Result<String, ExecutionError> {
+    run_sink(program, &mut Capture::default())
+}
+
+/// 実行中に接続先へ出力します。失敗時のoutput()は空で、受理済みの出力は接続先に残ります。
+/// 自動flushは行いません。必要な時点で呼出し側がOutput::flushを使います。
+pub fn run_with_output<W: std::io::Write>(
+    program: &ir::Program,
+    output: &mut output::Output<W>,
+) -> std::result::Result<(), ExecutionError> {
+    run_sink(program, output).map(|_| ())
+}
+fn run_sink(
+    program: &ir::Program,
+    output: &mut dyn Sink,
+) -> std::result::Result<String, ExecutionError> {
     let mut executor = Executor {
         program,
-        output: String::new(),
+        output,
         heap: StringHeap::new(program.string_heap_limit),
         arrays: ArrayHeap::new(program.array_heap_limit),
     };
@@ -156,16 +174,16 @@ pub fn run(program: &ir::Program) -> std::result::Result<String, ExecutionError>
                 executor.heap.assert_empty();
                 executor.arrays.assert_empty();
             }
-            Ok(executor.output)
+            Ok(executor.output.captured().to_owned())
         }
         Err(error) => Err(ExecutionError {
             kind: error.kind,
             origin: error.origin,
-            output: executor.output,
+            output: executor.output.captured().to_owned(),
         }),
     }
 }
-impl Executor<'_> {
+impl Executor<'_, '_> {
     fn entry(&mut self) -> Result<()> {
         let program = self.program;
         match self.body(&program.statements, &mut Frame::new())? {
@@ -302,16 +320,40 @@ impl Executor<'_> {
             }
             S::Write { value, quoted } => {
                 let text = self.expr(value, frame)?.text()?;
+                let mut rendered = String::new();
                 if *quoted {
-                    write_quoted(&mut self.output, &text)
+                    write_quoted(&mut rendered, &text);
                 } else {
-                    self.output.push_str(&text);
+                    rendered.push_str(&text);
                 }
+                self.output
+                    .write(
+                        &rendered,
+                        Some(output::Origin {
+                            node_id: s.id,
+                            span: s.span,
+                        }),
+                    )
+                    .map_err(|failure| Fault {
+                        kind: ErrorKind::Output(Box::new(failure)),
+                        origin: None,
+                    })?;
             }
             S::Print { value } => {
-                let text = self.expr(value, frame)?.text()?;
-                self.output.push_str(&text);
-                self.output.push('\n');
+                let mut text = self.expr(value, frame)?.text()?;
+                text.push('\n');
+                self.output
+                    .write(
+                        &text,
+                        Some(output::Origin {
+                            node_id: s.id,
+                            span: s.span,
+                        }),
+                    )
+                    .map_err(|failure| Fault {
+                        kind: ErrorKind::Output(Box::new(failure)),
+                        origin: None,
+                    })?;
             }
             S::Call {
                 function_id,
@@ -724,9 +766,10 @@ mod tests {
     fn allocation_failure_preserves_original_expression_and_prior_output() {
         let source = r#"print("before"); print(concat("a","b")); print("bad");"#;
         let program = crate::compile_to_ir(source).unwrap();
+        let mut captured = Capture::default();
         let mut executor = Executor {
             program: &program,
-            output: String::new(),
+            output: &mut captured,
             heap: StringHeap::new(program.string_heap_limit),
             arrays: ArrayHeap::new(program.array_heap_limit),
         };
@@ -736,7 +779,7 @@ mod tests {
             error.kind,
             ErrorKind::Runtime(FailureCode::AllocationFailed)
         );
-        assert_eq!(executor.output, "before\n");
+        assert_eq!(executor.output.captured(), "before\n");
         let origin = error.origin.unwrap();
         assert_eq!(
             &source[origin.span.start()..origin.span.end()],
@@ -766,16 +809,17 @@ mod tests {
     fn forced_array_allocation_failure_preserves_origin_and_prior_output() {
         let source = r#"print("before");a:[i64]=array_copy([1]);print(a);"#;
         let p = crate::compile_to_ir(source).unwrap();
+        let mut captured = Capture::default();
         let mut executor = Executor {
             program: &p,
-            output: String::new(),
+            output: &mut captured,
             heap: StringHeap::new(p.string_heap_limit),
             arrays: ArrayHeap::new(p.array_heap_limit),
         };
         executor.arrays.fail_next_allocation();
         let e = executor.entry().unwrap_err();
         assert_eq!(e.kind, ErrorKind::Runtime(FailureCode::AllocationFailed));
-        assert_eq!(executor.output, "before\n");
+        assert_eq!(executor.output.captured(), "before\n");
         let origin = e.origin.unwrap();
         assert_eq!(
             &source[origin.span.start()..origin.span.end()],

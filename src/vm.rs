@@ -1,3 +1,4 @@
+use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::{
     array_heap::{ArrayError, ArrayHeap, ArrayValue},
     float_output,
@@ -24,6 +25,7 @@ pub enum IntegerOperation {
 /// Cerune VMの実行中に発生した問題の種類を表します。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VmErrorKind {
+    Output(Box<output::Failure>),
     ArrayRangeOutOfBounds,
     ArrayLengthOutOfRange,
     InvalidArrayOwnership,
@@ -253,23 +255,33 @@ enum Frame {
 }
 
 pub fn run(program: &BytecodeProgram) -> Result<String, VmError> {
-    let mut output = String::new();
+    run_sink(program, &mut Capture::default())
+}
+
+/// 接続先へ逐次出力します。自動flushや出力の再収集は行いません。
+pub fn run_with_output<W: std::io::Write>(
+    program: &BytecodeProgram,
+    output: &mut output::Output<W>,
+) -> Result<(), VmError> {
+    run_sink(program, output).map(|_| ())
+}
+fn run_sink(program: &BytecodeProgram, output: &mut dyn Sink) -> Result<String, VmError> {
     let mut heap = StringHeap::new(program.string_heap_limit);
     let mut arrays = ArrayHeap::new(program.array_heap_limit);
     if let Err(mut error) = execute_frame(
         program,
         Frame::Entry,
         Vec::new(),
-        &mut output,
+        output,
         &mut heap,
         &mut arrays,
     ) {
-        error.output = output.into_boxed_str();
+        error.output = output.captured().into();
         return Err(error);
     }
     #[cfg(test)]
     arrays.assert_empty();
-    Ok(output)
+    Ok(output.captured().to_owned())
 }
 
 /// 定数式専用の引数なしフレーム。呼出し側が副作用を排除したIRだけを渡します。
@@ -287,7 +299,7 @@ pub(crate) fn execute_function(
     function_id: usize,
     arguments: Vec<Value>,
 ) -> Result<(Option<Value>, String), VmError> {
-    let mut output = String::new();
+    let mut output = Capture::default();
 
     match execute_frame(
         program,
@@ -297,9 +309,9 @@ pub(crate) fn execute_function(
         &mut StringHeap::new(program.string_heap_limit),
         &mut ArrayHeap::new(program.array_heap_limit),
     ) {
-        Ok(value) => Ok((value.map(string_heap::freeze), output)),
+        Ok(value) => Ok((value.map(string_heap::freeze), output.0)),
         Err(mut error) => {
-            error.output = output.into_boxed_str();
+            error.output = output.0.into_boxed_str();
             Err(error)
         }
     }
@@ -309,7 +321,7 @@ fn execute_frame(
     program: &BytecodeProgram,
     frame: Frame,
     arguments: Vec<Value>,
-    output: &mut String,
+    output: &mut dyn Sink,
     heap: &mut StringHeap,
     arrays: &mut ArrayHeap<Value>,
 ) -> Result<Option<Value>, VmError> {
@@ -324,7 +336,7 @@ fn execute_frame_inner(
     program: &BytecodeProgram,
     frame: Frame,
     arguments: Vec<Value>,
-    output: &mut String,
+    output: &mut dyn Sink,
     heap: &mut StringHeap,
     arrays: &mut ArrayHeap<Value>,
 ) -> Result<Option<Value>, VmError> {
@@ -1055,37 +1067,46 @@ fn execute_frame_inner(
             InstructionKind::Write { ty, quoted } => {
                 let value = at_instruction(pop_value(&mut stack), pc)?;
                 let text = at_instruction(format_value(value, ty.clone()), pc)?;
+                let mut rendered = String::new();
                 if *quoted {
-                    output.push('"');
-                    for ch in text.chars() {
-                        match ch {
-                            '"' => output.push_str("\\\""),
-                            '\\' => output.push_str("\\\\"),
-                            '\0' => output.push_str("\\0"),
-                            '\n' => output.push_str("\\n"),
-                            '\r' => output.push_str("\\r"),
-                            '\t' => output.push_str("\\t"),
-                            ch if ch < ' ' || ch == '\x7f' => {
-                                output.push_str(&format!("\\u{{{:02x}}}", ch as u32))
-                            }
-                            _ => output.push(ch),
-                        }
-                    }
-                    output.push('"');
+                    crate::runtime::value::write_quoted(&mut rendered, &text);
                 } else {
-                    output.push_str(&text);
+                    rendered.push_str(&text);
                 }
+                at_instruction(
+                    output
+                        .write(
+                            &rendered,
+                            match instruction.origin {
+                                crate::bytecode::InstructionOrigin::Source { node_id, span } => {
+                                    Some(output::Origin { node_id, span })
+                                }
+                                crate::bytecode::InstructionOrigin::Synthetic => None,
+                            },
+                        )
+                        .map_err(|f| VmErrorKind::Output(Box::new(f))),
+                    pc,
+                )?;
             }
             InstructionKind::Print(ty) => {
                 let value = at_instruction(pop_value(&mut stack), pc)?;
-
-                let line = at_instruction(format_value(value, ty.clone()), pc)?;
-
-                output.push_str(&line);
-
-                output.push('\n');
+                let mut text = at_instruction(format_value(value, ty.clone()), pc)?;
+                text.push('\n');
+                at_instruction(
+                    output
+                        .write(
+                            &text,
+                            match instruction.origin {
+                                crate::bytecode::InstructionOrigin::Source { node_id, span } => {
+                                    Some(output::Origin { node_id, span })
+                                }
+                                crate::bytecode::InstructionOrigin::Synthetic => None,
+                            },
+                        )
+                        .map_err(|f| VmErrorKind::Output(Box::new(f))),
+                    pc,
+                )?;
             }
-
             InstructionKind::JumpIfFalse(target) => {
                 let condition = at_instruction(pop_bool(&mut stack), pc)?;
 
@@ -1912,7 +1933,7 @@ mod tests {
         let mut heap = super::StringHeap::new(p.string_heap_limit);
         let mut arrays = super::ArrayHeap::new(p.array_heap_limit);
         arrays.fail_next_allocation();
-        let mut output = String::new();
+        let mut output = crate::runtime::output::Capture::default();
         let e = super::execute_frame(
             &p,
             super::Frame::Entry,
@@ -1923,7 +1944,7 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(e.kind(), VmErrorKind::AllocationFailed);
-        assert_eq!(output, "before\n");
+        assert_eq!(output.0, "before\n");
         let instruction =
             &p.functions[e.function_id().unwrap()].instructions[e.instruction_index()];
         let crate::bytecode::InstructionOrigin::Source { span, .. } = instruction.origin else {

@@ -18,6 +18,8 @@ IR Executorは、既存のCerune IRの意味を直接実行する公式の基準
 
 入力は`compile_to_ir`または`modules::Compilation::to_ir`が返す完成済みの`ir::Program`です。ジェネリック・enum/match・複合値の比較と表示・文字列所有の共通展開は既存処理を利用します。定数評価を含むIR構築工程では現在のBytecode/VM利用を維持します。独立するのは、IRを受け取った後の実行です。`.ceir`テキストの読み込みは別機能であり追加しません。
 
+逐次出力には`run_with_output`を使います。既存の`run`は出力収集を維持します。CLIは逐次出力APIを使い、出力済みの内容を再表示しません。接続・部分書込み・I/O失敗・読み取り専用記録は[標準入出力](standard-io.ja.md)を参照してください。
+
 ## APIと実行の責務
 
 `ir_executor::run(&ir::Program) -> Result<String, ExecutionError>`を入口とします。再度コンパイルせず同じIRを繰り返し実行でき、実行状態は呼び出しごとに独立します。IRを書き換えたり、隠れた最適化・実行用IRの構築をしたりしません。
