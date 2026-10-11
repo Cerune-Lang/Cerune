@@ -52,7 +52,7 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 | 実装済み | [NativeのMIR入力](native-mir.ja.md) | 旧経路との実行比較、MIR→LIR→ASM/Objectの出自対応を検証 |
 | 初期範囲を実装 | [観測bundle](observation-bundle.ja.md) | 同一コンパイルのsources・HIR・MIR・注釈付きASM・manifestを保存。`--ssa`でSSA・変換後MIR・対応・SSA経由ASMも追加。その他の成果物は後続（[#60](https://github.com/Hokutaka/Cerune/issues/60)） |
 | 一部実験済み | [Lean検証](lean-verification.ja.md) | u8のincrement・choose・advanceでHIR→Lean／HIR→MIRの対応と性質を検証。if・短絡・while／for・break／continue・入れ子・更新停止出自と明示上限内の完了まで対象。全言語・全lowering・処理系全体の証明や公開`emit-lean`は未実装 |
-| 一部実装済み | [SSA変換](mir-ssa.ja.md)・後続の最適化pass | scalar SSAと残存slotの表現・構造検証・観測テキスト・自動変換・Rust APIでの直接実行を実装。公開CLI・bundleもSSAに対応。SSA→MIR／Nativeも対応。SSAのLean証明・最適化は後続 |
+| 一部実装済み | [SSA変換](mir-ssa.ja.md)・後続の最適化pass | scalar SSAと残存slotの表現・構造検証・観測テキスト・自動変換・Rust APIでの直接実行を実装。公開CLI・bundleもSSAに対応。SSA→MIR／Nativeも対応。MIR→SSA→MIRの有限例のLean検証も対応。個別の最適化passと一般の証明は後続 |
 | 計画・未実装 | [IR・VM・Nativeのbuild / release](owned-routes.ja.md) | [#81](https://github.com/Hokutaka/Cerune/issues/81)の責務整理を基準に、完成成果物・配布を最適化と分ける |
 
 ## 次に持つべきもの：提案する順序
@@ -61,7 +61,7 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 
 | 順序 | 次の作業 | 最初に決める契約・確認例 |
 | --- | --- | --- |
-| 1 | 段階間の検証 | bundleとHIR→MIRの有限例検証は実装済み。[SSA設計](mir-ssa.ja.md)に沿って、MIR→SSA変換・直接評価・公開CLI/bundleを実装済み。SSA→MIR／Nativeも対応済み。次はLean対応／個別passへ進む。heap等の証明拡張は別途追跡し、#103の整理は必要箇所ごとに行う |
+| 1 | 段階間の検証 | bundleとHIR→MIRの有限例検証は実装済み。[SSA設計](mir-ssa.ja.md)に沿って、MIR→SSA変換・直接評価・公開CLI/bundleを実装済み。SSA→MIR／Nativeも対応済み。SSAの有限例のLean検証を追加。次は個別passの保存条件と観測方法を定義する。heap等の証明拡張は別途追跡し、#103の整理は必要箇所ごとに行う |
 | 2 | [動的配列の追加操作](owned-arrays.ja.md) | 既存操作は全経路対応済み。`array_repeat`を後続として検討。借用スライスは寿命と更新の型規則を別途定義 |
 | 3 | 再帰・外部入出力 | 呼び出し領域・資源上限・入出力失敗・終了処理を定義 |
 | 4 | モジュールの配布 | 再export、依存・版・再現可能なビルド。現行の明示importを基準に拡張 |

@@ -85,7 +85,7 @@ The diagnostic API exposes the following information.
 | `location()` | SSA FunctionId/BlockId and original MIR BlockId/InstructionId |
 | `output()` | Output preceding failure |
 
-Validate the entire SSA program before producing output. Each run uses fresh frames and heaps, and successful completion checks for unreleased owned storage. SSA Lean proofs and individual optimization passes follow later. Execution comparisons are not a general proof of the transformation.
+Validate the entire SSA program before producing output. Each run uses fresh frames and heaps, and successful completion checks for unreleased owned storage. Finite-fixture SSA Lean proofs are covered by the experiment below; general proofs and individual optimization passes follow later. Execution comparisons are not a general proof of the transformation.
 
 ### Unreachable blocks
 
@@ -198,8 +198,27 @@ Implement in these units.
 | 2 (implemented) | MIR→SSA and mappings | Straight-line, branch/short-circuit, loop, and residual-slot conversion. Check baseline preservation, operations/edges/origins/latest definitions, unreachable records, and determinism for all runnable examples |
 | 3 (implemented) | Direct SSA evaluation, CLI, and bundle integration | Compare HIR/MIR/SSA/VM using baseline examples and existing MIR/runtime tests, including heap budgets, prior output, and failure origins |
 | 4 (implemented) | SSA→MIR and Native | Observe parallel copies/helper edge blocks; compare ASM/Object execution on Windows/Linux |
-| 5 | Lean correspondence and individual optimization passes | Check concrete MIR→SSA fixtures with an independent model; specify each optimization pass's preservation conditions before implementing it |
+| 5 (finite fixtures implemented) | Lean correspondence | Check concrete MIR→SSA→MIR fixtures with independent SSA control semantics; see below |
+| 6 | Individual optimization passes | Specify preservation conditions, before/after snapshots, and mappings before implementation |
 
 While intermediate implementations lack operations, diagnose them explicitly rather than silently falling back to input MIR execution. Public SSA execution should target current language features, including comparisons involving residual slots.
 
-Reuse existing all-u8-input fixtures in Lean and reject mutations that exchange branch arguments, skip loop updates, sequentialize parallel transfer, or change failure origins. Distinguish completion from fuel exhaustion; do not assume identical numeric bounds after structural changes. Keep execution comparisons, finite-fixture proofs, and general transformation proofs distinct. General heap behavior, termination, and whole-compiler correctness remain unproved.
+## Finite-fixture Lean verification
+
+The [proof experiment](../../experiments/lean/README.md#ssaの検証--ssa-verification) exports actual baseline MIR, SSA, and reconstructed MIR separately. The SSA evaluator independently handles values, selected edges, and binding after reading all incoming arguments; individual operations and instruction execution share the existing MIR model. SSA evaluation calls neither baseline MIR nor lowering.
+
+The implemented checks have the following scope.
+
+| Item | Coverage |
+| --- | --- |
+| Programs | Seven existing fixtures (increment, if/short-circuit, while, break/continue, nesting, for, update overflow), plus a join and three swaps; one additional SSA API fixture replaces the swap backedge with direct exchanges between header arguments |
+| Correspondence and completion | All 256 u8 inputs for each fixture: baseline MIR = SSA = reconstructed MIR, including return values or overflow NodeId/SourceId/Span. Separate completion theorems require all cases to finish within explicit bounds |
+| Bounds | 64 block visits for baseline MIR/SSA, 128 for reconstructed MIR. This proves neither bound inference nor general termination. Equal exhaustion in all routes fails the completion theorem |
+| Independent properties | Join returns +3 for 0–127, +2 for 128–253, and fails at the return addition for 254–255. Swapping returns the original input. Correspondence transfers SSA properties to reconstructed MIR |
+| Rejected mutations | Wrong join argument, missing loop update, sequential SSA binding, sequential lowered copies, failure origin, fuel, and user property |
+| Execution comparison | Execute all three Lean models and compare every input with HIR, baseline MIR, SSA, reconstructed MIR, and VM using the same definitions as the proofs |
+| Observations | Separately retain source, HIR, baseline MIR, SSA, reconstructed MIR, both mappings, Lean definitions/proofs, execution output, and rejected cases |
+
+Pinned Lean 4.34.1 checks kernel proofs with exactly the standard `propext` axiom dependency; no `sorry`, custom axioms, or `native_decide`. The Rust exporters and shared operation semantics remain trusted parts requiring review and execution comparison.
+
+Proofs cover selected pure u8 functions. Printing callers, general calls, residual slots, other numeric types, heap, output traces, Native, and general transformation correctness remain unproved. Unsupported operations are rejected rather than omitted. Default non-SSA routes, observation bundles, and optimization lists stay unchanged. Execution comparison, finite-fixture proofs, and general semantic-preservation proofs are separate results.

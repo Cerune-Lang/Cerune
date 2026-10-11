@@ -30,14 +30,30 @@ fn export(
         .iter()
         .find(|f| f.name == name)
         .ok_or("missing selected HIR function")?;
-    mir::validate(program).map_err(|e| e.message)?;
-    let function = program
+    let index = program
         .functions
         .iter()
-        .find(|f| f.id == Some(hir_function.id))
+        .position(|f| f.id == Some(hir_function.id))
         .ok_or("missing selected MIR function")?;
-    if function.name != name
-        || function.lowering.is_some()
+    if program.functions[index].name != name {
+        return Err("MIR function name differs from HIR".into());
+    }
+    Ok(format!(
+        "{MODEL}\n{}",
+        snapshot_definition(program, index, "mirReference", allow_cycles)?
+    ))
+}
+
+/// 検証済みsnapshotの関数をそのまま写します。モデルは呼出側が一度だけ含めます。
+pub fn snapshot_definition(
+    program: &mir::Program,
+    index: usize,
+    definition: &str,
+    allow_cycles: bool,
+) -> Result<String, String> {
+    mir::validate(program).map_err(|e| e.message)?;
+    let function = program.functions.get(index).ok_or("missing MIR function")?;
+    if function.lowering.is_some()
         || function.return_type != ReturnType::Value(Type::Integer(IntegerType::U8))
         || function
             .locals
@@ -83,38 +99,7 @@ fn export(
             let InstructionKind::Assign { destination, value } = &instruction.kind else {
                 return Err("unsupported MIR instruction in selected function".into());
             };
-            let operation = match value {
-                Operation::Literal(Literal::Integer(n)) if (0..=255).contains(n) => {
-                    format!(".literal {n}")
-                }
-                Operation::Literal(Literal::Boolean(b)) => format!(".boolean {b}"),
-                Operation::Binary {
-                    op: BinaryOp::Less,
-                    left,
-                    right,
-                } => format!(".less {} {}", left.0, right.0),
-                Operation::Copy(local) => format!(".copy {}", local.0),
-                Operation::Binary {
-                    op: BinaryOp::Add,
-                    left,
-                    right,
-                } => {
-                    let origin = instruction
-                        .origin
-                        .source()
-                        .ok_or("MIR addition has no source origin")?;
-                    format!(
-                        ".add ⟨{}, {}, {}, {}⟩ {} {}",
-                        origin.node_id.0,
-                        origin.span.source_id().index(),
-                        origin.span.start(),
-                        origin.span.end(),
-                        left.0,
-                        right.0
-                    )
-                }
-                _ => return Err("unsupported MIR operation in selected function".into()),
-            };
+            let operation = operation(value, &instruction.origin, |local| Ok(local.0))?;
             instructions.push(format!(
                 "⟨{}, {}, ({operation})⟩",
                 instruction.id.0, destination.0
@@ -123,15 +108,49 @@ fn export(
         blocks.push(format!("⟨[{}], ({result})⟩", instructions.join(", ")));
     }
     Ok(format!(
-        "{MODEL}\nnamespace CeruneProof\n\
+        "namespace CeruneProof\n\
          -- actual MIR function @{}; other functions and the caller are not proved\n\
-         def mirReference : MirFunction := ⟨{}, {}, [{}]⟩\n\
+         def {definition} : MirFunction := ⟨{}, {}, [{}]⟩\n\
          end CeruneProof\n",
-        hir_function.id.0,
+        function.id.ok_or("selected MIR function has no id")?.0,
         parameter.0,
         function.entry.0,
         blocks.join(", ")
     ))
+}
+
+pub fn operation<R>(
+    value: &Operation<R>,
+    origin: &mir::Origin,
+    index: impl Fn(&R) -> Result<usize, String>,
+) -> Result<String, String> {
+    Ok(match value {
+        Operation::Literal(Literal::Integer(n)) if (0..=255).contains(n) => format!(".literal {n}"),
+        Operation::Literal(Literal::Boolean(b)) => format!(".boolean {b}"),
+        Operation::Copy(local) => format!(".copy {}", index(local)?),
+        Operation::Binary {
+            op: BinaryOp::Less,
+            left,
+            right,
+        } => format!(".less {} {}", index(left)?, index(right)?),
+        Operation::Binary {
+            op: BinaryOp::Add,
+            left,
+            right,
+        } => {
+            let source = origin.source().ok_or("addition has no source origin")?;
+            format!(
+                ".add ⟨{}, {}, {}, {}⟩ {} {}",
+                source.node_id.0,
+                source.span.source_id().index(),
+                source.span.start(),
+                source.span.end(),
+                index(left)?,
+                index(right)?
+            )
+        }
+        _ => return Err("unsupported MIR operation in selected function".into()),
+    })
 }
 
 pub fn emit(hir: &ir::Program, program: &mir::Program) -> Result<String, String> {

@@ -68,6 +68,10 @@ jobs:
   lean-verification:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [lean_verification, lean_ssa]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.0
@@ -79,14 +83,14 @@ jobs:
           tar --zstd -xf target/lean.tar.zst -C target
       - name: Check proofs, execution, and rejected mutations
         shell: bash
-        run: cargo test --test lean_verification -- --include-ignored 2>&1 | tee target/lean-verification-test/test.log
+        run: cargo test --test ${{ matrix.suite }} -- --include-ignored --test-threads=1 2>&1 | tee target/lean-verification-test/test.log
         env:
           CERUNE_TEST_LEAN: ${{ github.workspace }}/target/lean-4.34.1-linux/bin/lean
       - name: Preserve Lean observations
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lean-verification
+          name: lean-verification-${{ matrix.suite }}
           path: target/lean-verification-test
           if-no-files-found: ignore
 
