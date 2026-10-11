@@ -107,6 +107,45 @@ impl Lowerer {
             span,
         ));
     }
+    pub(super) fn repeat(
+        &mut self,
+        seed: Expr,
+        count: Expr,
+        span: Span,
+        out: &mut Vec<Statement>,
+    ) -> Expr {
+        let count = self.bind(count, false, out);
+        let length = self.var(&count);
+        let allocate = self.expr(
+            Type::DynamicArray {
+                element: Box::new(seed.ty.clone()),
+            },
+            ExprKind::ArrayAllocate {
+                length: Box::new(length),
+                element_width: self.element_width(&seed.ty),
+            },
+            span,
+        );
+        let result = self.bind(allocate, false, out);
+        let length = self.var(&count);
+        self.array_loop(
+            length,
+            false,
+            span,
+            |this, _| {
+                let mut body = vec![];
+                let mut input = this.copy(&seed);
+                // コピーの失敗は、seedの読み取りではなく反復生成式を指します。
+                input.span = span;
+                let value = this.copy_owned(input, &mut body);
+                let array = this.var(&result);
+                body.push(this.stmt(StatementKind::ArrayInitialize { array, value }, span));
+                body
+            },
+            out,
+        );
+        self.var(&result)
+    }
     pub(super) fn copy_range(
         &mut self,
         source: Expr,

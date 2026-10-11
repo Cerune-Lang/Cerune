@@ -292,7 +292,7 @@ See [Named product type design](../design/product-types.en.md) for the detailed 
 
 See the [syntax and evaluation design](../design/product-updates.en.md) and [example](../../examples/product_update.ceru).
 
-## Dynamic arrays (IR Executor, VM, C, LLVM, QBE, and WAT)
+## Dynamic arrays
 
 `[T]` is an owned value with a runtime length. Execute it with `run` / `run-ir` / `run-vm`; inspect it with `emit-ir` / `emit-bytecode` / `emit-c` / `emit-llvm` / `emit-qbe` / `emit-wat`. Build generated C/LLVM/QBE with external tools; LLVM and QBE require an explicit `--target`. Convert WAT to Wasm and run it with output host functions. Use `emit-asm` / `emit-obj` with an explicit Windows/Linux target, then link with external tools.
 
@@ -300,13 +300,16 @@ See the [syntax and evaluation design](../design/product-updates.en.md) and [exa
 | --- | --- |
 | `array_copy(values)` | Create an independent `[T]` from a fixed or dynamic array |
 | `array_copy_range(values, start, end)` | Copy a half-open range with i64 bounds, including empty ranges |
+| `array_repeat::<T>(value, count)` | Create `[T]` with an `i64` count of independent copies of an explicitly typed value |
 | `array_len(values)`, indexing, display, equality, `for … in` | Existing array rules; compare the same type and iterate an independent entry snapshot |
 
 `[1, 2]` remains fixed; no implicit conversion is added. Create an empty array with `array_copy_range([1], 0, 0)`. Binding, argument, return, and aggregate copies are independent even when nested. A `mut` binding permits element updates and reassignment to a different length. Generic type arguments, modules, structs, and enums can contain dynamic arrays.
 
 Range copies evaluate source, start, and end once from left to right, then check `0 <= start <= end <= length`. Violations stop with `array-range-out-of-bounds`. Indexed assignment checks each index before later indices or the RHS.
 
-`--array-heap-limit <bytes>` limits logical element storage, defaulting to 64 MiB independently of strings. Copies require old and new storage simultaneously. Display, length, and equality do not copy solely to read. Dynamic arrays in `const`, `array_repeat`, growth operations, and borrowed slices remain unsupported. See [examples](../../examples/dynamic_arrays/README.en.md) and [ownership and generation design](../design/owned-arrays.en.md).
+`array_repeat` evaluates value and count once, in that order, then checks that count is nonnegative. Negative counts report `array-length-out-of-range`. Zero still evaluates both expressions and releases temporaries without allocating result storage. Nested dynamic arrays in each element are independent.
+
+`--array-heap-limit <bytes>` limits logical element storage, defaulting to 64 MiB independently of strings. Copies require old and new storage simultaneously. Display, length, and equality do not copy solely to read. Dynamic arrays in `const`, growth operations, and borrowed slices remain unsupported. See [examples](../../examples/dynamic_arrays/README.en.md) and [ownership and generation design](../design/owned-arrays.en.md).
 
 ## Fixed arrays
 

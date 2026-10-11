@@ -2,10 +2,12 @@
 
 [日本語](README.md)
 
-Run with IR Executor, VM, generated C, LLVM, QBE, WAT, Windows/Linux ASM, or self-encoded COFF/ELF.
+Run with IR/MIR/SSA Executors, VM, generated C, LLVM, QBE, WAT, Windows/Linux ASM, or self-encoded COFF/ELF.
 
 | Example | Checks |
 | --- | --- |
+| [repeat.ceru](repeat.ceru) | Build a table from a runtime row count; functions, updates, saved copies, and iteration |
+| [repeat_empty.ceru](repeat_empty.ceru) | Evaluate value then count even for zero; release the temporary and check empty length/iteration |
 | [lowering_order.ceru](lowering_order.ceru) | Short-circuiting, continue/break, argument copies; succeeds at budget 48, stops before the call at 47 ([IR stages](../../docs/design/ir-stages.en.md)) |
 | [coordinates.ceru](coordinates.ceru) | Dynamic arrays of fixed coordinate pairs; translation, independent copies, and element updates |
 | [labels.ceru](labels.ceru) | Transform a string array in a function; compare the original, saved copy, and reassigned value |

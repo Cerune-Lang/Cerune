@@ -26,7 +26,7 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 | 真偽値 | `bool`、比較、`!`、短絡評価する`&&`・`||` | 数値との暗黙変換なし | [short_circuit](../../examples/short_circuit.ceru) |
 | 文字列 | `string`、表示、`==`・`!=`、`byte_len`、`concat` | 添字参照・文字数・数値変換は未実装 | [string_byte_length](../../examples/string_byte_length.ceru)、[string_lookup](../../examples/string_lookup.ceru) |
 | 固定長配列 | `[T; N]`、`array_len`、`for … in`、入れ子、値渡し、`mut`な要素の更新 | 長さは型の一部。添字は`i64`。動的長には`[T]`を使う。借用スライスなし | [array_iteration](../../examples/array_iteration.ceru)、[heat_diffusion](../../examples/heat_diffusion.ceru) |
-| 動的配列 | `[T]`、明示コピー・範囲コピー、独立した入れ子、表示・比較・反復 | IR・MIR・VM・C・LLVM・QBE・WAT・ASM・自前Object対応。`array_repeat`は後続 | [copy](../../examples/dynamic_arrays/copy.ceru)、[nested](../../examples/dynamic_arrays/nested.ceru) |
+| 動的配列 | `[T]`、明示コピー・範囲コピー・repeat、独立した入れ子、表示・比較・反復 | IR・MIR・VM・C・LLVM・QBE・WAT・ASM・自前Object対応。`array_repeat`も共通IRへ展開 | [copy](../../examples/dynamic_arrays/copy.ceru)、[nested](../../examples/dynamic_arrays/nested.ceru) |
 | 名前付きproduct type | フィールド、既定値、更新式、入れ子、値渡し | フィールドの直接代入なし。新しい値を構築して全体を再代入 | [product-point](../../examples/product-point.ceru)、[packet_counter](../../examples/packet_counter.ceru) |
 | 関数と制御構文 | 型付き引数・戻り値、型・長さの明示パラメーター、`void`、`if`・`else`、`while`・`for`、`break`・`continue`・`return` | 引数数の固定上限なし。再帰なし | [function_values](../../examples/function_values.ceru)、[loop_control](../../examples/loop_control.ceru) |
 | 束縛と変換 | 既定で不変、`mut`、明示的な`infer`、`T(value)`と`convert<T>(value)` | `infer`は実行時型ではない。浮動小数点から整数への全5丸め方と明示的な飽和に対応 | [integer_conversions](../../examples/integer_conversions.ceru) |
@@ -67,11 +67,11 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | 優先 | 作業・現在の状態 | 最初の完了条件 |
 | --- | --- | --- |
 | 完了した区切り | [LIR観測・構造検証と直接実行の採否](lir-observation.ja.md)（[#123](https://github.com/Cerune-Lang/Cerune/issues/123)） | 基準／SSA経由のLIR表示・保存・構造検証とexample比較を実装。直接実行器は保留し、次の言語機能へ戻る |
-| 1：次の機能追加 | [動的配列の `array_repeat`](owned-arrays.ja.md)（[#122](https://github.com/Cerune-Lang/Cerune/issues/122)）。意味の案あり・未実装 | 実行時の個数から配列を作る。値→個数の評価順、0個でも評価、負の個数・予算超過、入れ子の独立コピーを設計確認し、example・生成過程・既存経路の実行を揃える |
-| 2 | 標準入出力（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。`print`以外は未設計・未実装 | まず入力した操作で分岐する小さな対話例。入力単位、EOFと空入力、UTF-8・NUL・CR/LF、予算、失敗の返し方、出力の順序とflushを決める。同じ入力・操作列を各経路で比較する |
-| 3 | 小さな標準ライブラリ。標準モジュールの配置・APIは未設計 | 入出力で必要になった文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntimeが必要な操作を分け、既存importと明示的な失敗処理を使う。汎用Option/Resultやパッケージ管理を先に必須化しない |
-| 4：独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
-| 5 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
+| 実装した機能 | [動的配列の `array_repeat`](owned-arrays.ja.md)（[#122](https://github.com/Cerune-Lang/Cerune/issues/122)） | 実行時の個数、0個・負の個数、評価順、予算超過、入れ子の独立コピーを実装。example・生成過程・既存経路の比較テストを追加 |
+| 1：次の設計確認 | 標準入出力（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。`print`以外は未設計・未実装 | まず入力した操作で分岐する小さな対話例。入力単位、EOFと空入力、UTF-8・NUL・CR/LF、予算、失敗の返し方、出力の順序とflushを決める。同じ入力・操作列を各経路で比較する |
+| 2 | 小さな標準ライブラリ。標準モジュールの配置・APIは未設計 | 入出力で必要になった文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntimeが必要な操作を分け、既存importと明示的な失敗処理を使う。汎用Option/Resultやパッケージ管理を先に必須化しない |
+| 3：独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
+| 4 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
 | 後続 | 再帰、配列の成長・借用、文字列操作の拡張、モジュール配布 | 再帰の呼出し領域・上限・終了処理、借用の寿命・更新規則、再export・依存の版・再現性を用途ごとに設計する |
 | 保留・実験 | 最適化pass、証明範囲の拡張、AST／LIR直接実行の追加、GPU／FPGA | 具体的な必要性から再開。言語機能・入出力・buildの着手条件にはしない |
 

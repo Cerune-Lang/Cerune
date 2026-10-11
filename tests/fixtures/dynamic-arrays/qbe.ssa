@@ -573,6 +573,13 @@ function $cerune_fail_array_range_out_of_bounds(l %origin, l %origin_len) {
   hlt
 }
 
+section ".rodata" data $cerune_code_array_length_out_of_range = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 114, b 114, b 97, b 121, b 45, b 108, b 101, b 110, b 103, b 116, b 104, b 45, b 111, b 117, b 116, b 45, b 111, b 102, b 45, b 114, b 97, b 110, b 103, b 101 }
+function $cerune_fail_array_length_out_of_range(l %origin, l %origin_len) {
+@start
+  call $cerune_runtime_failure(l $cerune_code_array_length_out_of_range, l 49, l %origin, l %origin_len)
+  hlt
+}
+
 function $cerune_runtime_failure(l %code, l %code_len, l %origin, l %origin_len) {
 @start
   call $fflush(l 0)
@@ -769,7 +776,7 @@ function l $cerune_array_size(l %length, l %width, l %origin, l %origin_len) {
 function l $cerune_array_allocate(l %length, l %width, l %stride, l %origin, l %origin_len) {
 @start
   %negative =w csltl %length, 0
-  jnz %negative, @size_fail, @sizes
+  jnz %negative, @length_fail, @sizes
 @sizes
   %bytes =l call $cerune_array_size(l %length, l %width, l %origin, l %origin_len)
   %physical =l call $cerune_array_size(l %length, l %stride, l %origin, l %origin_len)
@@ -816,8 +823,8 @@ function l $cerune_array_allocate(l %length, l %width, l %stride, l %origin, l %
   %total =l add %live, %bytes
   storel %total, $cerune_array_live
   ret %p
-@size_fail
-  call $cerune_fail_allocation_size_overflow(l %origin, l %origin_len)
+@length_fail
+  call $cerune_fail_array_length_out_of_range(l %origin, l %origin_len)
   hlt
 @limit_fail
   call $cerune_fail_allocation_limit_exceeded(l %origin, l %origin_len)

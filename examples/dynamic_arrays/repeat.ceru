@@ -1,0 +1,19 @@
+// Runtime count, independent rows, function arguments and returns.
+fn rows(seed: [i64], count: i64) -> [[i64]] {
+    return array_repeat::<[i64]>(seed, count);
+}
+mut count: i64 = 1;
+count = count + 2;
+seed: [i64] = array_repeat::<i64>(0, 2);
+mut grid: [[i64]] = rows(seed, count);
+saved: [[i64]] = grid;
+grid[1][0] = 7;
+print(seed);
+print(grid);
+print(saved);
+print(grid == saved);
+mut total: i64 = 0;
+for (row: [i64] in grid) {
+    total = total + row[0];
+}
+print(total);

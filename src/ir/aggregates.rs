@@ -209,7 +209,11 @@ pub(super) fn visit_expr(expr: &mut Expr, f: &mut impl FnMut(&mut Expr)) {
         | ExprKind::ConvertInteger { value, .. }
         | ExprKind::Unary { value, .. }
         | ExprKind::FieldAccess { base: value, .. } => visit_expr(value, f),
-        ExprKind::StringConcat { left, right }
+        ExprKind::ArrayRepeat {
+            value: left,
+            count: right,
+        }
+        | ExprKind::StringConcat { left, right }
         | ExprKind::Logical { left, right, .. }
         | ExprKind::Binary { left, right, .. }
         | ExprKind::Index {

@@ -28,6 +28,18 @@ fn compare(source: &str, limit: u64) -> Result<String, ir_executor::ExecutionErr
         }
         _ => panic!("HIR: {direct:?}\nMIR: {mir:?}"),
     }
+    let ssa = cerune_lang::mir::ssa::construct(&mir_program).unwrap();
+    let ssa_result = cerune_lang::ssa_executor::run(&ssa);
+    match (&direct, &ssa_result) {
+        (Ok(a), Ok(b)) => assert_eq!(a, b),
+        (Err(a), Err(b)) => {
+            assert_eq!(a.runtime_failure(), b.runtime_failure());
+            assert_eq!(a.output(), b.output());
+        }
+        _ => panic!("IR: {direct:?}\nSSA: {ssa_result:?}"),
+    }
+    let lowered = cerune_lang::mir::ssa::lower(&ssa).unwrap();
+    assert_eq!(cerune_lang::mir_executor::run(&lowered.program), mir);
     let vm = run_bytecode(&bytecode::lower(&program).unwrap());
     match (&direct, &vm) {
         (Ok(a), Ok(b)) => assert_eq!(a, b, "{source}"),
@@ -812,4 +824,219 @@ fn mir_owned_values_example_matches_all_routes() {
         include_str!("../examples/ir_stages/owned_values.ceru"),
         "[\"こんにちは\", \"Cerune\"]\n[\"こんにちは！\", \"Cerune\"]\n[\"反復\"]\n",
     );
+}
+
+#[test]
+fn repeat_evaluates_once_in_order_including_zero() {
+    success(
+        r#"
+        fn seed()->i64 {print("seed");return 7;}
+        fn count()->i64 {print("count");return 3;}
+        print(array_repeat::<i64>(seed(),count()));
+        print(array_repeat::<i64>(seed(),0));
+    "#,
+        "seed\ncount\n[7, 7, 7]\nseed\n[]\n",
+    );
+    assert_eq!(
+        compare("print(array_repeat::<i64>(1,0));", 0).unwrap(),
+        "[]\n"
+    );
+    failure(
+        r#"fn seed()->i64{print("seed");return 1;}
+        fn count()->i64{print("count");return -1;}
+        print(array_repeat::<i64>(seed(),count()));"#,
+        0,
+        "array-length-out-of-range",
+        "seed\ncount\n",
+    );
+    failure(
+        r#"fn seed()->i64{print("seed");return 1/0;}
+        fn count()->i64{print("count");return 0;}
+        print(array_repeat::<i64>(seed(),count()));"#,
+        0,
+        "division-by-zero",
+        "seed\n",
+    );
+    failure(
+        r#"print(array_repeat::<i64>(1,1/0));"#,
+        0,
+        "division-by-zero",
+        "",
+    );
+}
+#[test]
+fn repeat_nested_values_are_independent() {
+    success(
+        r#"
+        fn copies<T>(seed:T,n:i64)->[T]{return array_repeat::<T>(seed,n);}
+        mut seed:[i64]=array_copy([1,2]);
+        mut repeated:[[i64]]=array_repeat::<[i64]>(seed,2);
+        seed[0]=8; repeated[0][1]=9;
+        print(seed);print(repeated);
+        saved:infer=repeated; repeated[1][0]=7; print(saved);
+        print(copies::<[i64;2]>([3,4],2));
+        type P{values:[i64]}
+        mut ps:[P]=array_repeat::<P>(P{values:array_copy([5])},2);
+        ps[0]=P{values:array_copy([6])};print(ps);
+        enum E{A{values:[i64]},B}
+        es:[E]=array_repeat::<E>(E::A{values:array_copy([7])},2);
+        print(es);print(es==es);
+        e:E=E::B{};
+        print(array_repeat::<i64>(match e {E::A{values:v}=>v[0],E::B{}=>4},1));
+    "#,
+        "[8, 2]\n[[1, 9], [1, 2]]\n[[1, 9], [1, 2]]\n[[3, 4], [3, 4]]\n[{values: [6]}, {values: [5]}]\n[A{values: [7]}, A{values: [7]}]\ntrue\n[4]\n",
+    );
+}
+#[test]
+fn repeat_budget_origin_and_temporary_release() {
+    let source = "print(array_repeat::<i64>(3,-1));";
+    let e = compare(source, 0).unwrap_err();
+    let span = e.runtime_failure().unwrap().span;
+    assert_eq!(
+        &source[span.start()..span.end()],
+        "array_repeat::<i64>(3,-1)"
+    );
+    failure(
+        "print(array_repeat::<i64>(0,9223372036854775807));",
+        0,
+        "allocation-size-overflow",
+        "",
+    );
+    failure(
+        "print(array_repeat::<i64>(1,2));",
+        15,
+        "allocation-limit-exceeded",
+        "",
+    );
+    assert_eq!(
+        compare("print(array_repeat::<i64>(1,2));", 16).unwrap(),
+        "[1, 1]\n"
+    );
+    let nested = "seed:[i64]=array_copy([1]);print(array_repeat::<[i64]>(seed,2));";
+    assert_eq!(compare(nested, 56).unwrap(), "[[1], [1]]\n");
+    let e = compare(nested, 55).unwrap_err();
+    assert_eq!(
+        e.runtime_failure().unwrap().code.name(),
+        "allocation-limit-exceeded"
+    );
+    let span = e.runtime_failure().unwrap().span;
+    assert_eq!(
+        &nested[span.start()..span.end()],
+        "array_repeat::<[i64]>(seed,2)"
+    );
+    assert_eq!(
+        compare(
+            "for(mut i:i64=0;i<3;i=i+1){print(array_repeat::<[i64]>(array_copy([1]),0));}",
+            8
+        )
+        .unwrap(),
+        "[]\n[]\n[]\n"
+    );
+    assert_eq!(
+        compare(
+            "seed:[i64]=array_copy([1]);print(array_repeat::<[i64]>(seed,0));print(seed);",
+            8
+        )
+        .unwrap(),
+        "[]\n[1]\n"
+    );
+}
+#[test]
+fn repeat_scalar_types_and_exact_strings() {
+    for (ty, value) in [
+        ("bool", "true"),
+        ("i8", "-128"),
+        ("i16", "-32768"),
+        ("i32", "-2147483648"),
+        ("i64", "-9223372036854775808"),
+        ("u8", "255"),
+        ("u16", "65535"),
+        ("u32", "4294967295"),
+        ("u64", "18446744073709551615"),
+        ("f32", "1.5"),
+        ("f64", "2.5"),
+    ] {
+        success(
+            &format!("a:[{ty}]=array_repeat::<{ty}>({value},2);print(a[1]);print(a[0]==a[1]);"),
+            &format!("{value}\ntrue\n"),
+        );
+    }
+    success(
+        r#"a:[string]=array_repeat::<string>(concat("日","本\0\r\n"),2);
+        print(a[0]);print(a[0]==a[1]);print(array_repeat::<string>("e\u{301}",1)[0]=="é");"#,
+        "日本\0\r\n\ntrue\nfalse\n",
+    );
+}
+#[test]
+fn repeat_requires_explicit_types_and_rejects_invalid_calls() {
+    for source in [
+        "array_repeat::<i64>(1,2);",
+        "print(array_repeat(1,2));",
+        "print(array_repeat::<i64>(1));",
+        "print(array_repeat::<i64>(1,2,3));",
+        "print(array_repeat::<i64,u64>(1,2));",
+        "print(array_repeat::<2>(1,2));",
+        "print(array_repeat::<bool>(1,2));",
+        "n:u64=2;print(array_repeat::<i64>(1,n));",
+        "const X:[i64]=array_repeat::<i64>(1,0);",
+        "fn array_repeat()->i64{return 1;}",
+    ] {
+        assert!(compile_to_ir(source).is_err(), "{source}");
+    }
+}
+
+#[test]
+fn repeat_examples_match_all_routes() {
+    success(
+        include_str!("../examples/dynamic_arrays/repeat.ceru"),
+        include_str!("fixtures/dynamic-arrays/repeat.stdout"),
+    );
+    success(
+        include_str!("../examples/dynamic_arrays/repeat_empty.ceru"),
+        include_str!("fixtures/dynamic-arrays/repeat-empty.stdout"),
+    );
+}
+#[test]
+fn repeat_defaults_const_lengths_short_circuit_and_recursion() {
+    success(
+        r#"
+        const N:i64=2;
+        fn repeat_fixed<T,const L:i64>(v:[T;L])->[[T;L]]{
+            return array_repeat::<[T;L]>(v,2);
+        }
+        type P{tag:bool,items:[i64]=array_repeat::<i64>(9,2)}
+        p:P=P{tag:true};print(p.items);
+        print(repeat_fixed::<i64,N>([1,2]));
+        print(false && array_len(array_repeat::<i64>(1,-1))==0);
+    "#,
+        "[9, 9]\n[[1, 2], [1, 2]]\nfalse\n",
+    );
+    for source in [
+        "fn f()->i64{return array_repeat::<i64>(f(),1)[0];}print(f());",
+        "fn f()->i64{return array_repeat::<i64>(1,f())[0];}print(f());",
+    ] {
+        assert!(compile_to_ir(source).is_err(), "{source}");
+    }
+}
+
+#[test]
+fn repeat_generation_exposes_allocation_copy_loop_and_release() {
+    let p = compile_to_ir(include_str!("fixtures/dynamic-arrays/repeat.ceru")).unwrap();
+    assert_eq!(
+        ir::text::emit(&p),
+        include_str!("fixtures/dynamic-arrays/repeat.ceir")
+    );
+    assert_eq!(
+        bytecode::format_program(&bytecode::lower(&p).unwrap()),
+        include_str!("fixtures/dynamic-arrays/repeat.cebc")
+    );
+    let mir = cerune_lang::mir::lower(&p).unwrap();
+    cerune_lang::mir::validate(&mir).unwrap();
+    for target in [
+        cerune_lang::codegen::x86_64::Target::X86_64UnknownLinuxGnu,
+        cerune_lang::codegen::x86_64::Target::X86_64PcWindowsMsvc,
+    ] {
+        let lir = cerune_lang::codegen::x86_64::lower_mir(&mir, target).unwrap();
+        cerune_lang::codegen::x86_64::lir::validate(&lir).unwrap();
+    }
 }

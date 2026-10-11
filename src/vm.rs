@@ -25,6 +25,7 @@ pub enum IntegerOperation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VmErrorKind {
     ArrayRangeOutOfBounds,
+    ArrayLengthOutOfRange,
     InvalidArrayOwnership,
     AllocationSizeOverflow,
     AllocationLimitExceeded,
@@ -391,7 +392,7 @@ fn execute_frame_inner(
             } => {
                 let n = at_instruction(pop_i64(&mut stack), pc)?;
                 let n = u64::try_from(n)
-                    .map_err(|_| VmError::new(VmErrorKind::AllocationSizeOverflow, pc))?;
+                    .map_err(|_| VmError::new(VmErrorKind::ArrayLengthOutOfRange, pc))?;
                 let storage =
                     at_instruction(arrays.allocate(n, *element_width).map_err(array_error), pc)?;
                 stack.push(Value::DynamicArray {

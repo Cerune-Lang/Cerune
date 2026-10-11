@@ -82,7 +82,13 @@ pub(crate) fn lower(program: &Program) -> Result<Lowered, Diagnostic> {
             }
             if matches!(
                 d.name.as_str(),
-                "main" | "byte_len" | "array_len" | "concat" | "array_copy" | "array_copy_range"
+                "main"
+                    | "byte_len"
+                    | "array_len"
+                    | "concat"
+                    | "array_copy"
+                    | "array_copy_range"
+                    | "array_repeat"
             ) || Type::from_name(&d.name).is_some()
             {
                 return Err(Diagnostic::new(
@@ -103,6 +109,7 @@ pub(crate) fn lower(program: &Program) -> Result<Lowered, Diagnostic> {
                             | "concat"
                             | "array_copy"
                             | "array_copy_range"
+                            | "array_repeat"
                             | "convert"
                     )
                 {
@@ -521,6 +528,19 @@ impl Expander<'_> {
             ExprKind::GenericCall(call) => {
                 for argument in &mut call.arguments {
                     self.expr(argument)?;
+                }
+                if call.name == "array_repeat" {
+                    let [GenericArgument::Type(ty)] = call.generic_arguments.as_mut_slice() else {
+                        return Err(Diagnostic::new(
+                            "array_repeat requires exactly one explicit element type",
+                            expr.span,
+                        ));
+                    };
+                    self.ty(ty)?;
+                    self.array_length_uses
+                        .extend(crate::array_lengths::resolve_type(self.source, ty)?);
+                    self.types.push(ty.clone());
+                    return Ok(());
                 }
                 let name = self.instantiate(call, expr.span)?;
                 expr.kind = ExprKind::Call {

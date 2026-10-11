@@ -534,6 +534,11 @@ impl Resolver<'_> {
                     self.expr(&mut f.value)?;
                 }
             }
+            ExprKind::GenericCall(call) if call.name == "array_repeat" => {
+                for argument in &mut call.arguments {
+                    self.expr(argument)?;
+                }
+            }
             ExprKind::Call { arguments, .. } | ExprKind::Array(arguments) => {
                 for arg in arguments {
                     self.expr(arg)?;

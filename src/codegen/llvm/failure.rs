@@ -9,7 +9,7 @@ use crate::{
 };
 
 // 表の位置は生成物内だけの契約です。公開レコードには理由の文字列を使います。
-const CODES: [Code; 16] = [
+const CODES: [Code; 17] = [
     Code::IntegerOverflow,
     Code::DivisionByZero,
     Code::DivisionOverflow,
@@ -26,6 +26,7 @@ const CODES: [Code; 16] = [
     Code::AllocationLimitExceeded,
     Code::AllocationFailed,
     Code::ArrayRangeOutOfBounds,
+    Code::ArrayLengthOutOfRange,
 ];
 
 pub(super) fn index(code: Code) -> usize {
@@ -38,7 +39,13 @@ pub(super) fn index(code: Code) -> usize {
 fn codes(instruction: &Instruction) -> Vec<Code> {
     match instruction {
         Instruction::ArrayRangeCheck { .. } => vec![Code::ArrayRangeOutOfBounds],
-        Instruction::StringConcat { .. } | Instruction::ArrayAllocate { .. } => vec![
+        Instruction::ArrayAllocate { .. } => vec![
+            Code::ArrayLengthOutOfRange,
+            Code::AllocationSizeOverflow,
+            Code::AllocationLimitExceeded,
+            Code::AllocationFailed,
+        ],
+        Instruction::StringConcat { .. } => vec![
             Code::AllocationSizeOverflow,
             Code::AllocationLimitExceeded,
             Code::AllocationFailed,

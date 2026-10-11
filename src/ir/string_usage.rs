@@ -142,7 +142,11 @@ fn string_expr(expr: &Expr) -> Option<Span> {
         | ExprKind::ConvertInteger { value, .. }
         | ExprKind::Unary { value, .. }
         | ExprKind::FieldAccess { base: value, .. } => string_expr(value),
-        ExprKind::StringConcat { left, right }
+        ExprKind::ArrayRepeat {
+            value: left,
+            count: right,
+        }
+        | ExprKind::StringConcat { left, right }
         | ExprKind::Logical { left, right, .. }
         | ExprKind::Binary { left, right, .. }
         | ExprKind::Index {

@@ -2,7 +2,7 @@
 
 [English](owned-arrays.en.md)
 
-**`[T]`・`array_copy`・`array_copy_range`・配列用予算は共通IR・IR Executor／VM・生成C・LLVM・QBE・WAT・Windows/Linux ASM・自前COFF/ELFで実装済みです。`array_repeat`は未対応です。** 実行例は[動的配列のコピー](../../examples/dynamic_arrays/copy.ceru)と[入れ子・関数・enum](../../examples/dynamic_arrays/nested.ceru)です。[実装済みの文字列管理](dynamic-data.ja.md)を土台にしますが、更新できる配列の領域は独立してコピーします。
+**`[T]`・`array_copy`・`array_copy_range`・`array_repeat`・配列用予算は共通IR・IR Executor／VM・生成C・LLVM・QBE・WAT・Windows/Linux ASM・自前COFF/ELFで実装済みです。** 実行例は[動的配列のコピー](../../examples/dynamic_arrays/copy.ceru)と[入れ子・関数・enum](../../examples/dynamic_arrays/nested.ceru)です。[実装済みの文字列管理](dynamic-data.ja.md)を土台にしますが、更新できる配列の領域は独立してコピーします。
 
 ## 実装の進捗
 
@@ -11,14 +11,14 @@
 | 引数の所有受け渡し | 実装済み。呼び出し側が準備した所有を一度だけ渡し、calleeが解放。IRで所有と内部の読み取りを区別 |
 | 読み取りと所有値の準備 | 実装済み。共通IRの`read`束縛で読み取りを区別し、一時値の抽出と解放順を維持 |
 | 動的配列の型・領域確保・独立コピー | IR・VM・C・LLVM・QBE・WAT・ASM・自前Objectで実装済み。範囲コピー、表示・比較・反復、複合値と関数も対応 |
-| `array_repeat` | 未実装。後続の操作 |
+| `array_repeat::<T>` | 実装済み。実行時の個数から独立したコピーを作り、共通IRの確保・ループ・解放へ展開 |
 | 各生成経路の動的配列対応・下記の完了条件 | C・LLVM・QBE・WAT・Windows/Linux ASM・自前COFF/ELF対応済み |
 
 全経路で動的配列も結果・停止理由・ソース位置・先行出力を照合しています。[呼び出し境界の所有](dynamic-data.ja.md#呼び出し境界の所有)と[読み取りの設計](dynamic-data.ja.md#読み取りと所有値の準備)、[引数](../../examples/owned_arguments.ceru)・[読み取り](../../examples/borrowed_reads.ceru)のexampleを参照してください。
 
 ## 型と最初の操作
 
-| 表記・操作（`array_repeat`のみ提案） | 意味 |
+| 表記・操作 | 意味 |
 | --- | --- |
 | `[T]` | 実行時の長さを持つ、所有する配列。長さは型の一部ではない |
 | `[T; N]` | 従来の固定長配列。既存の構文と意味を維持 |
@@ -28,9 +28,9 @@
 | `array_len(values)` | 固定長・動的配列の要素数を`i64`で返す |
 | `values[index]` | `i64`の添字で参照。`mut`な束縛の配列は要素を更新できる |
 
-実装した操作名は既存の`array_len`に揃えています。既存exampleのユーザー関数`copy_range`・`append`を予約語化しません。`array_copy`・`array_copy_range`との定義名の衝突は診断します。
+実装した操作名は既存の`array_len`に揃えています。既存exampleのユーザー関数`copy_range`・`append`を予約語化しません。`array_copy`・`array_copy_range`・`array_repeat`との定義名の衝突は診断します。
 
-固定長配列と動的配列の間に暗黙変換は設けません。配列リテラル`[1, 2]`は従来どおり固定長です。初回は動的配列リテラルを追加せず、空値は空範囲から作れます。後続の`array_repeat::<T>(seed, 0)`案でもseedは要素数0で評価します。`[T; 0]`・空リテラルの現在の制限は別の変更にしません。
+固定長配列と動的配列の間に暗黙変換は設けません。配列リテラル`[1, 2]`は従来どおり固定長です。初回は動的配列リテラルを追加せず、空値は空範囲から作れます。`array_repeat::<T>(seed, 0)`でも作れますが、seedは要素数0でも評価します。`[T; 0]`・空リテラルの現在の制限は別の変更にしません。
 
 以下は全経路で実行できます。
 
@@ -82,15 +82,22 @@ matchは対象を一度所有値として保存し、選択したペイロード
 
 開始値が負でも、開始式自体が成功したなら終了式は評価します。終了式が停止すれば、その停止が範囲診断より先です。空範囲`[0, 0)`や`[length, length)`は有効で、結果用の要素領域を確保しません。
 
-`array_repeat(value, count)`もvalue、countの順に評価し、その後countが非負であることを検査します。0個でも両式を評価し、生成した一時値は解放します。
+`array_repeat::<T>(value, count)`は要素型`T`を明示し、valueの型を`T`、countの型を`i64`に揃えます。型の推論や他の整数型からの暗黙変換はしません。
+
+1. valueをコピー元として一度読み取り、countを一度評価する。コピー元は完了まで生存させ、先に余分な深いコピーを作らない。
+2. countが非負であることを検査し、計算幅・配置サイズ・予算を検査して結果領域を確保する。
+3. 要素を昇順に独立コピーする。入れ子の動的配列もコピーし、文字列の不変内容は保持する。
+4. 結果の所有を渡し、一時的なコピー元を解放する。
+
+0個でも両式を評価し、一時値を解放します。結果用の領域は確保せず、要素コピーもしません。valueの評価が失敗したらcountは実行せず、countの評価が失敗したらその診断を保ちます。途中の要素コピーで予算が尽きた場合も、repeat式の出自と先行出力を保持します。[表を作る例](../../examples/dynamic_arrays/repeat.ceru)と[0個の例](../../examples/dynamic_arrays/repeat_empty.ceru)で確認できます。
 
 要素の代入では、各段の添字評価と境界検査を次の添字や右辺より先に行います。`a[bad][later()] = rhs()`の最初の検査が失敗したらlaterもrhsも実行しません。右辺の評価・コピーに失敗した場合、旧要素を先に解放しません。
 
-| 診断案 | 原因・出自 |
+| 診断 | 原因・出自 |
 | --- | --- |
 | `array-index-out-of-bounds`（既存） | 添字アクセス式 |
 | `array-range-out-of-bounds` | 不正な範囲を指定した`array_copy_range`式 |
-| `array-length-out-of-range`（追加予定） | 負のcountを渡した`array_repeat`式 |
+| `array-length-out-of-range` | 負のcountを渡した`array_repeat`式 |
 | `allocation-size-overflow`（既存） | サイズの積・和、長さ、配置サイズを表現できない |
 | `allocation-limit-exceeded`（既存） | 配列または文字列の明示予算を超える |
 | `allocation-failed`（既存） | 予算内でもallocatorやmemory.growが失敗する |
@@ -119,7 +126,7 @@ matchは対象を一度所有値として保存し、選択したペイロード
 
 ## 生成過程で見えること
 
-`array_copy`・`array_copy_range`と暗黙の値コピーを共通IRの通常のループ・分岐へ展開しました。`array.check-range`、`array.allocate-elements width=N`、`array.initialize-next`、`array.release-owner-last`、`array.free-elements`が実際の操作名です。
+`array_copy`・`array_copy_range`・`array_repeat`と暗黙の値コピーを共通IRの通常のループ・分岐へ展開しました。`array.check-range`、`array.allocate-elements width=N`、`array.initialize-next`、`array.release-owner-last`、`array.free-elements`が実際の操作名です。
 
 - 元の式の一度だけの評価と、読み取り・値コピー・一時値の所有移動の区別。
 - 添字・範囲・長さ・サイズ・予算の検査。
@@ -163,7 +170,7 @@ QBEは動的配列を管理領域へのポインタとして渡します。管�
 
 コピー・比較・表示・逆順解放のループ、要素のstore／blit、初期化完了の記録が[生成SSA](../../tests/fixtures/dynamic-arrays/qbe.ssa)に残ります。検査には元の式のNodeId／Spanを渡し、所有管理だけの内部`hlt`を言語診断として扱いません。正常終了後の予算0、サイズ超過、二つの確保の失敗を検証します。
 
-Linuxは`amd64_sysv`、Windowsは`amd64_win`を明示します。QBE 1.3で[分割して返す例](../../examples/dynamic_arrays/batches.ceru)を含めIR・VM・C・LLVM・QBE・WAT・ASM・自前Objectを比較し、[Windowsの引数規則](qbe-windows.ja.md)も配列と組み合わせて確認します。`array_repeat`は後続です。
+Linuxは`amd64_sysv`、Windowsは`amd64_win`を明示します。QBE 1.3で[分割して返す例](../../examples/dynamic_arrays/batches.ceru)を含めIR・VM・C・LLVM・QBE・WAT・ASM・自前Objectを比較し、[Windowsの引数規則](qbe-windows.ja.md)も配列と組み合わせて確認します。`array_repeat`も同じ共通IRと領域管理を使います。
 
 ## WATへの対応
 

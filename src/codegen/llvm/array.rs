@@ -8,6 +8,8 @@ declare { i64, i1 } @llvm.umul.with.overflow.i64(i64, i64)
 define internal %cerune.array @cerune.array.allocate.elements(i64 %length, i64 %width, i64 %stride, ptr %failure) {
 entry:
   %negative = icmp slt i64 %length, 0
+  br i1 %negative, label %length.fail, label %sizes
+sizes:
   %logical = call { i64, i1 } @llvm.umul.with.overflow.i64(i64 %length, i64 %width)
   %bytes = extractvalue { i64, i1 } %logical, 0
   %logical.overflow = extractvalue { i64, i1 } %logical, 1
@@ -19,8 +21,7 @@ entry:
   %bad.logical = or i1 %logical.overflow, %logical.large
   %bad.physical = or i1 %physical.overflow, %physical.large
   %bad.sizes = or i1 %bad.logical, %bad.physical
-  %bad = or i1 %negative, %bad.sizes
-  br i1 %bad, label %size.fail, label %budget
+  br i1 %bad.sizes, label %size.fail, label %budget
 budget:
   %live = load i64, ptr @cerune.array.live
   %available = sub i64 @LIMIT@, %live
@@ -57,6 +58,9 @@ initialize:
   %result.owner = insertvalue %cerune.array poison, ptr %owner, 0
   %result = insertvalue %cerune.array %result.owner, i64 %length, 1
   ret %cerune.array %result
+length.fail:
+  call void @cerune.runtime.fail(ptr %failure, i64 16)
+  unreachable
 size.fail:
   call void @cerune.runtime.fail(ptr %failure, i64 12)
   unreachable

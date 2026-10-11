@@ -50,8 +50,10 @@ cerune: runtime-v1 code=division-by-zero node=1 bytes=6..11
 | `conversion-nan` | floatの型変更でNaNを保持できない |
 | `conversion-negative-zero` | 整数への変換で負のゼロの符号を保持できない |
 | `array-index-out-of-bounds` | 配列の添字が範囲外 |
-| `allocation-size-overflow` | 文字列の長さや配置サイズを表現できない |
-| `allocation-limit-exceeded` | 生存する動的文字列の内容が明示予算を超える |
+| `array-range-out-of-bounds` | 配列の範囲コピーで境界が不正 |
+| `array-length-out-of-range` | `array_repeat`の個数が負 |
+| `allocation-size-overflow` | 文字列・配列の長さや配置サイズを表現できない |
+| `allocation-limit-exceeded` | 生存する文字列内容・配列要素領域がそれぞれの明示予算を超える |
 | `allocation-failed` | 検査後の確保が失敗を返す |
 
 配列代入ではNodeIdは代入文、バイト範囲は失敗した添字の`[...]`を指します。入れ子の添字は左から検査し、失敗した場合は右辺を評価しません。整数からfloatへの変換で丸めにより範囲外へ出ても、元の整数値を保存できない理由は`conversion-inexact`です。

@@ -1539,6 +1539,17 @@ cerune_fn__ownership10_10:
   movq -136(%rbp), %rax
   movq %rax, -144(%rbp)
   movq -144(%rbp), %rax
+  testq %rax, %rax
+  jns .Lfn_10_array_length_ok_9
+  xorl %ecx, %ecx
+  callq fflush
+  movl $2, %ecx
+  leaq .Lcerune_failure_6(%rip), %rdx
+  movl $72, %r8d
+  callq _write
+  movl $7, %ecx
+  int $0x29
+.Lfn_10_array_length_ok_9:
   movq %rax, %rcx
   movabsq $8, %rdx
   movabsq $8, %r8
@@ -1550,7 +1561,7 @@ cerune_fn__ownership10_10:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_6(%rip), %rdx
+  leaq .Lcerune_failure_7(%rip), %rdx
   movl $71, %r8d
   callq _write
   movl $7, %ecx
@@ -1561,7 +1572,7 @@ cerune_fn__ownership10_10:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_7(%rip), %rdx
+  leaq .Lcerune_failure_8(%rip), %rdx
   movl $72, %r8d
   callq _write
   movl $7, %ecx
@@ -1570,7 +1581,7 @@ cerune_fn__ownership10_10:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_8(%rip), %rdx
+  leaq .Lcerune_failure_9(%rip), %rdx
   movl $64, %r8d
   callq _write
   movl $7, %ecx
@@ -1629,7 +1640,7 @@ cerune_fn__ownership10_10:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_9(%rip), %rdx
+  leaq .Lcerune_failure_10(%rip), %rdx
   movl $63, %r8d
   callq _write
   movl $7, %ecx
@@ -1657,7 +1668,7 @@ cerune_fn__ownership10_10:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_10(%rip), %rdx
+  leaq .Lcerune_failure_11(%rip), %rdx
   movl $72, %r8d
   callq _write
   movl $7, %ecx
@@ -1705,7 +1716,7 @@ cerune_fn__ownership10_10:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_11(%rip), %rdx
+  leaq .Lcerune_failure_12(%rip), %rdx
   movl $63, %r8d
   callq _write
   movl $7, %ecx
@@ -1761,7 +1772,7 @@ cerune_fn__ownership11_11:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_12(%rip), %rdx
+  leaq .Lcerune_failure_13(%rip), %rdx
   movl $72, %r8d
   callq _write
   movl $7, %ecx
@@ -1783,7 +1794,7 @@ cerune_fn__ownership11_11:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_13(%rip), %rdx
+  leaq .Lcerune_failure_14(%rip), %rdx
   movl $63, %r8d
   callq _write
   movl $7, %ecx
@@ -1795,6 +1806,17 @@ cerune_fn__ownership11_11:
   movq -120(%rbp), %rax
   movq %rax, -128(%rbp)
   movq -128(%rbp), %rax
+  testq %rax, %rax
+  jns .Lfn_11_array_length_ok_9
+  xorl %ecx, %ecx
+  callq fflush
+  movl $2, %ecx
+  leaq .Lcerune_failure_15(%rip), %rdx
+  movl $72, %r8d
+  callq _write
+  movl $7, %ecx
+  int $0x29
+.Lfn_11_array_length_ok_9:
   movq %rax, %rcx
   movabsq $8, %rdx
   movabsq $8, %r8
@@ -1806,7 +1828,7 @@ cerune_fn__ownership11_11:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_14(%rip), %rdx
+  leaq .Lcerune_failure_16(%rip), %rdx
   movl $71, %r8d
   callq _write
   movl $7, %ecx
@@ -1817,7 +1839,7 @@ cerune_fn__ownership11_11:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_15(%rip), %rdx
+  leaq .Lcerune_failure_17(%rip), %rdx
   movl $72, %r8d
   callq _write
   movl $7, %ecx
@@ -1826,7 +1848,7 @@ cerune_fn__ownership11_11:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_16(%rip), %rdx
+  leaq .Lcerune_failure_18(%rip), %rdx
   movl $64, %r8d
   callq _write
   movl $7, %ecx
@@ -1881,7 +1903,7 @@ cerune_fn__ownership11_11:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_17(%rip), %rdx
+  leaq .Lcerune_failure_19(%rip), %rdx
   movl $63, %r8d
   callq _write
   movl $7, %ecx
@@ -1913,7 +1935,7 @@ cerune_fn__ownership11_11:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_18(%rip), %rdx
+  leaq .Lcerune_failure_20(%rip), %rdx
   movl $72, %r8d
   callq _write
   movl $7, %ecx
@@ -1961,7 +1983,7 @@ cerune_fn__ownership11_11:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_19(%rip), %rdx
+  leaq .Lcerune_failure_21(%rip), %rdx
   movl $63, %r8d
   callq _write
   movl $7, %ecx
@@ -2086,7 +2108,7 @@ cerune_fn__ownership14_14:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_20(%rip), %rdx
+  leaq .Lcerune_failure_22(%rip), %rdx
   movl $63, %r8d
   callq _write
   movl $7, %ecx
@@ -2157,7 +2179,7 @@ main:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_21(%rip), %rdx
+  leaq .Lcerune_failure_23(%rip), %rdx
   movl $72, %r8d
   callq _write
   movl $7, %ecx
@@ -2189,7 +2211,7 @@ main:
   xorl %ecx, %ecx
   callq fflush
   movl $2, %ecx
-  leaq .Lcerune_failure_22(%rip), %rdx
+  leaq .Lcerune_failure_24(%rip), %rdx
   movl $70, %r8d
   callq _write
   movl $7, %ecx
@@ -2245,36 +2267,40 @@ main:
 .Lcerune_failure_5:
   .asciz "cerune: runtime-v1 code=integer-overflow node=221 bytes=20..38\n"
 .Lcerune_failure_6:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=224 bytes=20..38\n"
+  .asciz "cerune: runtime-v1 code=array-length-out-of-range node=224 bytes=20..38\n"
 .Lcerune_failure_7:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=224 bytes=20..38\n"
+  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=224 bytes=20..38\n"
 .Lcerune_failure_8:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=224 bytes=20..38\n"
+  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=224 bytes=20..38\n"
 .Lcerune_failure_9:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=237 bytes=20..38\n"
+  .asciz "cerune: runtime-v1 code=allocation-failed node=224 bytes=20..38\n"
 .Lcerune_failure_10:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=239 bytes=20..38\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=237 bytes=20..38\n"
 .Lcerune_failure_11:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=233 bytes=20..38\n"
+  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=239 bytes=20..38\n"
 .Lcerune_failure_12:
-  .asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=275 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=233 bytes=20..38\n"
 .Lcerune_failure_13:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=277 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=275 bytes=55..61\n"
 .Lcerune_failure_14:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=280 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=277 bytes=55..61\n"
 .Lcerune_failure_15:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=280 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=array-length-out-of-range node=280 bytes=55..61\n"
 .Lcerune_failure_16:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=280 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=280 bytes=55..61\n"
 .Lcerune_failure_17:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=293 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=280 bytes=55..61\n"
 .Lcerune_failure_18:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=295 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=allocation-failed node=280 bytes=55..61\n"
 .Lcerune_failure_19:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=289 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=293 bytes=55..61\n"
 .Lcerune_failure_20:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=354 bytes=40..62\n"
+  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=295 bytes=55..61\n"
 .Lcerune_failure_21:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=330 bytes=69..72\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=289 bytes=55..61\n"
 .Lcerune_failure_22:
+  .asciz "cerune: runtime-v1 code=integer-overflow node=354 bytes=40..62\n"
+.Lcerune_failure_23:
+  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=330 bytes=69..72\n"
+.Lcerune_failure_24:
   .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=7 bytes=69..72\n"

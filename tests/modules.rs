@@ -882,3 +882,24 @@ fn distinct_module_types_do_not_share_generic_instances() {
             .arguments
     );
 }
+
+#[test]
+fn array_repeat_resolves_imported_types_and_generic_element_lengths() {
+    let w = Workspace::new();
+    w.put("lib.ceru", "pub type P{n:i64} pub const N:i64=2; pub fn copies<T>(v:T,n:i64)->[T]{return array_repeat::<T>(v,n);}");
+    let entry = w.put(
+        "main.ceru",
+        r#"import "lib.ceru" as lib;
+        a:[lib::P]=array_repeat::<lib::P>(lib::P{n:4},2);
+        print(a);print(lib::copies::<[i64;lib::N]>([1,2],2));"#,
+    );
+    for command in ["run", "run-vm", "run-mir"] {
+        let result = w.cli(command, &entry, &[]);
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        assert_eq!(result.stdout, b"[{n: 4}, {n: 4}]\n[[1, 2], [1, 2]]\n");
+    }
+}

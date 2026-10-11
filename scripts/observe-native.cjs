@@ -154,7 +154,7 @@ function parseRuntimeFailure(bytes) {
   if (!match || match[0].length !== text.length) return null;
   const codes = ['integer-overflow', 'division-by-zero', 'division-overflow', 'remainder-by-zero',
     'invalid-shift-count', 'integer-conversion-out-of-range', 'conversion-out-of-range',
-    'conversion-inexact', 'conversion-not-finite', 'conversion-nan', 'conversion-negative-zero', 'array-index-out-of-bounds', 'array-range-out-of-bounds', 'allocation-size-overflow', 'allocation-limit-exceeded', 'allocation-failed'];
+    'conversion-inexact', 'conversion-not-finite', 'conversion-nan', 'conversion-negative-zero', 'array-index-out-of-bounds', 'array-range-out-of-bounds', 'array-length-out-of-range', 'allocation-size-overflow', 'allocation-limit-exceeded', 'allocation-failed'];
   const node = Number(match[2]), file = Number(match[3] || 0), start = Number(match[4]), end = Number(match[5]);
   if (!codes.includes(match[1]) || ![node, file, start, end].every(Number.isSafeInteger) || start >= end) return null;
   return { schema: 'runtime-v1', code: match[1], node, ...(file ? { file } : {}), start, end };

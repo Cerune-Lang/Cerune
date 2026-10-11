@@ -26,6 +26,7 @@ pub enum FailureCode {
     ConversionNegativeZero,
     ArrayIndexOutOfBounds,
     ArrayRangeOutOfBounds,
+    ArrayLengthOutOfRange,
 }
 
 impl FailureCode {
@@ -47,6 +48,7 @@ impl FailureCode {
             Self::ConversionNegativeZero => "conversion-negative-zero",
             Self::ArrayIndexOutOfBounds => "array-index-out-of-bounds",
             Self::ArrayRangeOutOfBounds => "array-range-out-of-bounds",
+            Self::ArrayLengthOutOfRange => "array-length-out-of-range",
         }
     }
 
@@ -72,6 +74,7 @@ impl FailureCode {
             },
             VmErrorKind::ArrayIndexOutOfBounds { .. } => Self::ArrayIndexOutOfBounds,
             VmErrorKind::ArrayRangeOutOfBounds => Self::ArrayRangeOutOfBounds,
+            VmErrorKind::ArrayLengthOutOfRange => Self::ArrayLengthOutOfRange,
             _ => return None,
         })
     }

@@ -466,6 +466,11 @@ impl Lowerer {
                     }
                 }
             }
+            ExprKind::GenericCall(call) if call.name == "array_repeat" => {
+                for argument in &mut call.arguments {
+                    self.expr(argument)?;
+                }
+            }
             ExprKind::Call { arguments, .. } | ExprKind::Array(arguments) => {
                 for argument in arguments {
                     self.expr(argument)?;

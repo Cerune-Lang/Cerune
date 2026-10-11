@@ -606,7 +606,7 @@ impl Lowerer<'_> {
         }
 
         match &expr.kind {
-            cerune_ir::ExprKind::ArrayCopy { .. } => {
+            cerune_ir::ExprKind::ArrayCopy { .. } | cerune_ir::ExprKind::ArrayRepeat { .. } => {
                 unreachable!("array copies are expanded in common IR")
             }
             cerune_ir::ExprKind::ArrayAllocate {

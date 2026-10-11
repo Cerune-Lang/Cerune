@@ -33,6 +33,12 @@ impl Builder<'_> {
                     ast::ExprKind::Match { .. } => {
                         unreachable!("match is expanded before constants")
                     }
+                    ast::ExprKind::GenericCall(call) if call.name == "array_repeat" => {
+                        return Err(Diagnostic::new(
+                            "array_repeat is not allowed in constant expressions",
+                            expr.span,
+                        ));
+                    }
                     ast::ExprKind::GenericCall(_) => {
                         unreachable!("generic calls are lowered before IR")
                     }

@@ -1,0 +1,120 @@
+; Cerune IR v0.2
+; array-heap-limit=67108864 bytes (live element storage)
+; string-heap-limit=67108864 bytes (live dynamic payload)
+; #N identifies one statement or expression in this compilation
+
+; lower aggregate-display [generated source=0 bytes=16..53]
+; ownership arguments=borrowed
+fn %$display0@0(%$value@1: [i64]) -> void {
+  #34 read %$read3@3: string = #6 "[":string
+  #7 write #36 %$read3@3:string
+  #28 for.loop {
+    start {
+      #9 mut %$index@2: i64 = #41 call %$ownership1@1():i64
+    }
+    condition.bool #56 call %$ownership2@2(#54 %$index@2:i64, #55 %$value@1:[i64]):bool
+    body {
+      #19 if.bool #77 call %$ownership4@4(#76 %$index@2:i64):bool {
+        #78 read %$read19@19: string = #17 ", ":string
+        #18 write #80 %$read19@19:string
+      }
+      #81 read %$read20@20: [i64] = #20 %$value@1:[i64]
+      #84 read %$read21@21: i64 = #21 %$index@2:i64
+      #86 %$owned22@22: i64 = #85 %$read21@21:i64
+      #89 read %$read23@23: i64 = #22 index(#83 %$read20@20:[i64], #88 %$owned22@22:i64):i64
+      #23 write #91 %$read23@23:i64
+    }
+    update {
+      #27 set %$index@2:i64 = #67 call %$ownership3@3(#66 %$index@2:i64):i64
+    }
+  }
+  #93 read %$read24@24: string = #29 "]":string
+  #30 write #95 %$read24@24:string
+  #96 read %$read25@25: string = #31 "":string
+  #32 print.string #98 %$read25@25:string
+  #33 return
+}
+
+; lower ownership-expression [generated source=0 bytes=16..53]
+; ownership arguments=borrowed
+fn %$ownership1@1() -> i64 {
+  #37 %$owned4@4: i64 = #8 0i64
+  #40 return #39 %$owned4@4:i64
+}
+
+; lower ownership-expression [generated source=0 bytes=16..53]
+; ownership arguments=borrowed
+fn %$ownership2@2(%$owned5@5: i64, %$owned6@6: [i64]) -> bool {
+  #42 read %$read7@7: i64 = #10 %$owned5@5:i64
+  #44 read %$read8@8: [i64] = #11 %$owned6@6:[i64]
+  #46 %$owned9@9: i64 = #12 array_len(#45 %$read8@8:[i64])
+  #50 %$owned10@10: bool = #13 lt.i64(#43 %$read7@7:i64, #48 %$owned9@9:i64)
+  #53 return #52 %$owned10@10:bool
+}
+
+; lower ownership-expression [generated source=0 bytes=16..53]
+; ownership arguments=borrowed
+fn %$ownership3@3(%$owned11@11: i64) -> i64 {
+  #58 read %$read12@12: i64 = #24 %$owned11@11:i64
+  #60 read %$read13@13: i64 = #25 1i64
+  #62 %$owned14@14: i64 = #26 add.i64(#59 %$read12@12:i64, #61 %$read13@13:i64)
+  #65 return #64 %$owned14@14:i64
+}
+
+; lower ownership-expression [generated source=0 bytes=16..53]
+; ownership arguments=borrowed
+fn %$ownership4@4(%$owned15@15: i64) -> bool {
+  #68 read %$read16@16: i64 = #14 %$owned15@15:i64
+  #70 read %$read17@17: i64 = #15 0i64
+  #72 %$owned18@18: bool = #16 ne.i64(#69 %$read16@16:i64, #71 %$read17@17:i64)
+  #75 return #74 %$owned18@18:bool
+}
+
+; lower ownership-expression [generated source=0 bytes=13..14]
+; ownership arguments=borrowed
+fn %$ownership5@5() -> i64 {
+  #99 %$owned26@26: i64 = #1 2i64
+  #102 return #101 %$owned26@26:i64
+}
+
+; lower ownership-release [generated source=0 bytes=22..51]
+; ownership arguments=owned
+fn %$ownership6@6(%$owned34@34: [i64]) -> void {
+  #157 if.bool #136 array.release-owner-last(#135 %$owned34@34:[i64]) {
+    #154 for.loop {
+      start {
+        #141 mut %$owned35@35: i64 = #140 array_len(#139 %$owned34@34:[i64])
+      }
+      condition.bool #144 gt.i64(#142 %$owned35@35:i64, #143 0i64)
+      body {
+      }
+      update {
+        #151 set %$owned35@35:i64 = #147 sub.i64(#145 %$owned35@35:i64, #146 1i64)
+      }
+    }
+    #156 array.free-elements #155 %$owned34@34:[i64]
+  }
+  #158 return
+}
+
+#0 %count@0: i64 = #103 call %$ownership5@5():i64
+#104 read %$read27@27: i64 = #4 7i64
+#106 read %$read28@28: i64 = #5 %count@0:i64
+#108 %$owned29@29: i64 = #107 %$read28@28:i64
+#112 %$owned30@30: i64 = #110 %$owned29@29:i64
+#115 %$owned31@31: [i64] = #114 array.allocate-elements width=8(#113 %$owned30@30:i64)
+#132 for.loop {
+  start {
+    #118 mut %$owned32@32: i64 = #117 0i64
+  }
+  condition.bool #120 lt.i64(#119 %$owned32@32:i64, #116 %$owned30@30:i64)
+  body {
+    #127 %$owned33@33: i64 = #126 %$read27@27:i64
+    #131 array.initialize-next #130 %$owned31@31:[i64], #129 %$owned33@33:i64
+  }
+  update {
+    #125 set %$owned32@32:i64 = #123 add.i64(#121 %$owned32@32:i64, #122 1i64)
+  }
+}
+#2 call %$display0@0(#133 %$owned31@31:[i64])
+#159 call %$ownership6@6(#134 %$owned31@31:[i64])

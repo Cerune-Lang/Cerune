@@ -18,6 +18,12 @@ pub(super) fn checked(instruction: &Instruction, origin: Origin, name: &str, out
     match instruction {
         Instruction::ArrayAllocate { width, stride } => {
             writeln!(out, "  (func \u{24}{name} (param $length i64) (result i32)\n    (local $value i32) (local $error i32)").unwrap();
+            super::failure::emit_if(
+                "    local.get $length\n    i64.const 0\n    i64.lt_s\n",
+                FailureCode::ArrayLengthOutOfRange,
+                origin,
+                out,
+            );
             writeln!(out, "    local.get $length\n    i64.const {width}\n    i64.const {stride}\n    call $cerune_array_allocate\n    local.set $error\n    local.set $value").unwrap();
             for (number, code) in [
                 (1, FailureCode::AllocationSizeOverflow),

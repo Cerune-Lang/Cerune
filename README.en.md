@@ -58,7 +58,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 | Structs | Named types, field access and defaults, updates that create new values, nesting, value copies |
 | Sum types | `enum` variants with payloads; exhaustive `match` statements/expressions with `if` guards |
 | Arrays | Fixed length (including named constants), element counts with `array_len`, nesting, element access and updates, value copies |
-| Dynamic arrays | `[T]`, `array_copy`, `array_copy_range`, independent copies, display, equality, iteration |
+| Dynamic arrays | `[T]`, `array_copy`, `array_copy_range`, `array_repeat`, independent copies, display, equality, iteration |
 | Functions | Typed parameters/results, `void`, `return`, type/array-length parameters; aggregate values can be passed and returned |
 | Entry point | Top-level statements or `fn main() -> void` (not both) |
 | Control flow | `if` / `else`, `while`, `for`, array `for … in`, `break` / `continue` |
@@ -68,7 +68,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 
 **Arithmetic rules:** No implicit numeric conversions. Integer overflow, invalid integer division, out-of-bounds access, failed exact conversions, and out-of-range rounded results stop execution. Explicit saturation clamps to the type's endpoints. Floating-point arithmetic rounds.
 
-**Not implemented:** Recursion, `array_repeat`, string indexing, catching runtime stops.
+**Not implemented:** Recursion, string indexing, catching runtime stops.
 
 ## Execution and Output
 
