@@ -21,6 +21,7 @@
 - [MIRの独立実行](design/mir-executor.ja.md)
 - [IRの直接実行](design/ir-executor.ja.md)
 - [VMの埋め込み実行](design/vm-embedding.ja.md)
+- [標準入出力：実行・制御・観測（設計）](design/standard-io.ja.md)
 - [実行・配布の責務](design/owned-routes.ja.md)
 - [意味の対応とプログラムの証明](design/lean-verification.ja.md)
 - [出力経路とターゲット](design/targets.ja.md)

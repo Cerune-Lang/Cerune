@@ -1,0 +1,42 @@
+// Scripted input values: this example does not read stdin.
+enum Input { Line { text: string }, End, Failed { reason: i64 } }
+type State { hp: i64 }
+
+fn apply(command: string, state: State) -> State {
+    if command == "attack\n" || command == "attack\r\n" || command == "attack" {
+        print("attack");
+        return State { hp: state.hp - 3 };
+    }
+    if command == "heal\n" || command == "heal\r\n" || command == "heal" {
+        print("heal");
+        return State { hp: state.hp + 2 };
+    }
+    if command == "\n" || command == "\r\n" { print("empty"); }
+    else { print("unknown"); }
+    return state;
+}
+fn session<const N: i64>(events: [Input; N]) -> void {
+    mut state: State = State { hp: 10 };
+    for (event: Input in events) {
+        match event {
+            Input::Line { text: line } => { state = apply(line, state); },
+            Input::End {} => { print("eof"); break; },
+            Input::Failed { reason: code } => { print("read failed"); print(code); break; },
+        }
+    }
+    print(state.hp);
+}
+session::<5>([
+    Input::Line { text: "attack\r\n" },
+    Input::Line { text: "\n" },
+    Input::Line { text: "heal" },
+    Input::End {},
+    Input::Line { text: "must not run\n" },
+]);
+session::<3>([
+    Input::Line { text: "attack\n" },
+    Input::Failed { reason: 17 },
+    Input::Line { text: "must not run\n" },
+]);
+print(byte_len("日本\0\r\n"));
+print("e\u{301}" == "é");
