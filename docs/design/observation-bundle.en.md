@@ -6,7 +6,7 @@
 
 The first implementation of [#60](https://github.com/Hokutaka/Cerune/issues/60) saves HIR, non-SSA MIR, and annotated Native ASM from one frontend invocation. The manifest is an index, not a new IR.
 
-Use `cerune observe <file> [--ssa] --target <triple> -o <new-directory>`. An explicit Windows/Linux x86-64 target is required. Existing heap-budget options apply.
+Use `cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>`. An explicit Windows/Linux x86-64 target is required. Existing heap-budget options apply.
 
 | File | Contents |
 | --- | --- |
@@ -56,7 +56,7 @@ Report write failures as failures. A directory without a manifest is not a compl
 
 Do not run the program, launch external tools, or link. No repeated external effects or record/replay from [#104](https://github.com/Hokutaka/Cerune/issues/104) are introduced. This is not a completed `build`/`release` artifact and adds no IR/MIR loader.
 
-LIR bodies are also absent. ASM contains MIR→LIR correspondence numbers, not a dedicated LIR snapshot. [Remaining LIR observation work](development-status.en.md) is separate from optimization.
+Explicit `--lir` selects v4 and adds `program.lir.txt`. `--ssa --lir` also adds `program.ssa.lir.txt`, producing 12 files (6 without SSA). Each LIR and its ASM come from the same Module. The manifest records MIR→LIR→ASM with `mir-lir-v1` and `artifact_inputs`. Default v1 and SSA-only v3 remain unchanged. See [format and validation scope](lir-observation.en.md).
 
 Objects, disassembly, bytecode, C/LLVM/QBE/WAT, Lean, execution results, and optimization comparisons remain future extensions. Omission is neither generation failure nor implemented coverage. Individual `emit-*` commands remain available.
 

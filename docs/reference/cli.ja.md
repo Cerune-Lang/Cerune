@@ -6,7 +6,7 @@
 
 IR・VM・Nativeの[build / release](../design/owned-routes.ja.md)と[Lean出力](../design/lean-verification.ja.md)は設計・検証段階です。現行CLIには追加されていません。
 
-`emit-lir`／`run-lir`も未実装です。LIRはNative生成の内部段階であり、現行の独立実行はHIR・MIR・SSA・Bytecodeです。[段階別の現状](../design/development-status.ja.md)を参照してください。
+`emit-lir`はNative生成のLIRを表示します。targetを明示し、`--ssa`でSSA経由も選べます。[LIRの観測・検証](../design/lir-observation.ja.md)を参照してください。`run-lir`は保留で、独立実行はHIR・MIR・SSA・Bytecodeです。
 
 ## 観測結果の一括保存
 
@@ -18,10 +18,11 @@ IR・VM・Nativeの[build / release](../design/owned-routes.ja.md)と[Lean出力
 
 ```text
 cerune check <file>
-cerune observe <file> --target <triple> -o <new-directory>
+cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>
 cerune emit-sources <file> [-o <sources.json>]
 cerune emit-ir <file> [-o <output.ceir>]
 cerune emit-mir <file> [-o <output.txt>]
+cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
 cerune emit-c <file> [-o <output.c>]
 cerune emit-llvm <file> [--target <triple>] [-o <output.ll>]
 cerune emit-wat <file> [-o <output.wat>]

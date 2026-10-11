@@ -87,6 +87,7 @@ fn native_ssa_examples_and_failures_match_direct_execution() {
         include_str!("../examples/ir_stages/constant_candidates.ceru"),
         include_str!("../examples/runtime_failures/constant_overflow.ceru"),
         include_str!("../examples/ir_stages/native_calls.ceru"),
+        include_str!("../examples/ir_stages/lir_layout.ceru"),
         include_str!("../examples/ir_stages/owned_values.ceru"),
         include_str!("../examples/string_origins.ceru"),
         include_str!("../examples/rounding_evaluation_order.ceru"),

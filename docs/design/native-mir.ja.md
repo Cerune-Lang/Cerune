@@ -15,7 +15,7 @@ Windows/LinuxのASM・自前COFF/ELFは、完成済みHIR→非SSAのMIR→x86-6
 
 LIRの検査命令はemitterで複数の機械命令へ展開されます。LIRの命令番号を最終機械命令番号と同一視しません。ターゲットの既存ルールを維持し、実行中のOSから選びません。
 
-LIRの内部Moduleを経由する生成は実装済みですが、LIR専用のテキスト出力・bundle内snapshot・構造検証器・直接実行器はありません。現在はASM注釈とObjectシンボルから対応を追います。[観測・実行・検証の棚卸し](development-status.ja.md)と[#123](https://github.com/Cerune-Lang/Cerune/issues/123)で残件を分けています。
+[LIR専用の表示・bundle保存・構造検証](lir-observation.ja.md)を実装しました。`emit-lir`／`observe --lir`から同じModuleの命令本体・frame・出典を確認できます。LIRの直接実行器は保留です。
 
 ## 明示的にSSAを経由する
 

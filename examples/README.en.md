@@ -8,7 +8,7 @@ Normal examples are the `.ceru` files in this directory.
 | --- | --- |
 | This directory | Standalone programs; included in the batch runner |
 | [dynamic_arrays](dynamic_arrays/README.en.md) | Dynamic array copies, ranges, nesting; IR/MIR/VM/C/LLVM/QBE/WAT/ASM/native-object execution |
-| [ir_stages](ir_stages/README.en.md) | Execute short circuits, loops, and calls; observe HIR→MIR→Native lowering |
+| [ir_stages](ir_stages/README.en.md) | Execute short circuits, loops, and calls; observe HIR→MIR→LIR→Native lowering and target-specific ABI |
 | [modules](modules/README.en.md) | Imports, single-file comparison, and expected failures |
 | [runtime_failures](runtime_failures/README.en.md) | Five expected stops: prior output and failing expressions |
 | [source_files](source_files/README.en.md) | Rust API examples: parse type/function files separately and compare origins; no imports |

@@ -2,6 +2,8 @@
 
 [日本語](development-status.ja.md) · [Roadmap](language-roadmap.en.md)
 
+This page records the audit baseline below. Since then, [LIR observation and structural validation](lir-observation.en.md) have been implemented and direct execution deferred. See the [roadmap](language-roadmap.en.md) for current priorities.
+
 ## Audit baseline and conclusion
 
 On 2026-10-11, compare master `763a9fb` (merged PR #120) with PR #121 at `9904461`. The constant-folding design, baseline examples, and priority changes remain PR changes at this audit baseline. No optimization pass is implemented.

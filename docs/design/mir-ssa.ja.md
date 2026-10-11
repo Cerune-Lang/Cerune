@@ -205,7 +205,7 @@ SSAの構造検証では、次を必須にします。
 
 ## Leanによる有限例の検証
 
-[証明実験](../../experiments/lean/README.md#ssaの検証--ssa-verification)で、実際の元MIR・SSA・変換後MIRをそれぞれLeanの項へ写します。SSAの値・選択した辺・全read後の同時束縛は独立したモデルで評価し、単一演算と命令列の評価は既存MIRモデルと共有します。SSAモデルから元MIRの評価やloweringは呼びません。
+[証明実験](../../experiments/lean/README.md#ssaの検証)で、実際の元MIR・SSA・変換後MIRをそれぞれLeanの項へ写します。SSAの値・選択した辺・全read後の同時束縛は独立したモデルで評価し、単一演算と命令列の評価は既存MIRモデルと共有します。SSAモデルから元MIRの評価やloweringは呼びません。
 
 現在の範囲を次のように分けます。
 

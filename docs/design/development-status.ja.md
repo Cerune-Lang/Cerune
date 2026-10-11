@@ -2,6 +2,8 @@
 
 [English](development-status.en.md) · [ロードマップ](language-roadmap.ja.md)
 
+このページは下記時点の監査記録です。その後、[LIRの観測・構造検証](lir-observation.ja.md)を実装し、直接実行器は保留としました。現在の優先順位は[ロードマップ](language-roadmap.ja.md)を参照してください。
+
 ## 調査基点と結論
 
 2026-10-11、masterの `763a9fb`（PR #120統合）と、PR #121の `9904461` を比較しました。#121の定数畳み込み設計・基準example・優先順位整理は、監査時点ではPR上の変更です。最適化passそのものはありません。

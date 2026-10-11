@@ -83,6 +83,7 @@ pub fn lower(
             }
         }
     }
+    super::lir::validate(&module)?;
     Ok(module)
 }
 fn contains_string(ty: &hir::Type) -> bool {

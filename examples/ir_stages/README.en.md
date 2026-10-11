@@ -4,6 +4,7 @@
 
 | Example | What to observe | Output |
 | --- | --- | --- |
+| [lir_layout.ceru](lir_layout.ceru) | Seven integer arguments and an aggregate return; inspect target-specific argument locations, frame, and copies in LIR | `6`, `22`, `LIR → ASM` |
 | [native_calls.ceru](native_calls.ceru) | MIR→Native, seven mixed arguments, continue/break, main call | Header, arguments for i=0 and 2, result `4` |
 | [owned_values.ceru](owned_values.ceru) | Independent dynamic-array arguments, immutable strings, cleanup through continue | Original array, decorated array, `["反復"]` |
 | [ssa_values.ceru](ssa_values.ceru) | Branch-selected values, updates after continue, and swaps across iterations; SSA construction and execution comparisons | Four lines: `14`, `16`, `20`, `10` |
@@ -78,3 +79,16 @@ cargo run --quiet -- observe examples/ir_stages/owned_values.ceru --target x86_6
 The files are `sources.json`, `program.ceir`, `program.mir.txt`, `program.origins.s`, and `manifest.json`. For Windows, select `x86_64-pc-windows-msvc`. Choose a different new directory on subsequent runs.
 
 Follow `hir=#N` in MIR and `cerune-mir` ASM annotations to inspect how the same expression becomes instructions. Outputs match individual `emit-ir`, `emit-mir`, and `emit-asm --annotate-origins` commands with identical target/budgets. Compare execution separately with `run`, `run-mir`, and `run-vm`. See [format and scope](../../docs/design/observation-bundle.en.md).
+
+## Compare LIR
+
+Use `emit-lir` for instruction bodies and `observe --lir` for ASM from the same LIR. `--ssa --lir` saves baseline and SSA-derived snapshots separately, retaining the default generation path.
+
+```sh
+cargo run --quiet -- run examples/ir_stages/lir_layout.ceru
+cargo run --quiet -- emit-lir examples/ir_stages/lir_layout.ceru --target x86_64-pc-windows-msvc
+cargo run --quiet -- emit-lir examples/ir_stages/lir_layout.ceru --target x86_64-unknown-linux-gnu
+cargo run --quiet -- observe examples/ir_stages/lir_layout.ceru --ssa --lir --target x86_64-unknown-linux-gnu -o target/lir-observation
+```
+
+Windows stack arguments start at the fifth integer argument; SysV starts at the seventh. LIR indices are local to each function and match annotated ASM. See [validation scope and the decision to defer direct execution](../../docs/design/lir-observation.en.md).
