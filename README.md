@@ -1,4 +1,4 @@
-[![CI](https://github.com/Hokutaka/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Hokutaka/Cerune/actions/workflows/ci.yml)
+[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
 
 # Cerune
 
@@ -11,7 +11,7 @@ Ceruneは、静的型付け・IR直接実行・VM実行・複数形式へのコ�
 Rust（rustup・Cargo）が必要です。
 
 ```sh
-git clone https://github.com/Hokutaka/Cerune.git
+git clone https://github.com/Cerune-Lang/Cerune.git
 cd Cerune
 cargo install --path .
 cerune run examples/floating_point.ceru

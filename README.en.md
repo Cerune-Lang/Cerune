@@ -1,4 +1,4 @@
-[![CI](https://github.com/Hokutaka/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Hokutaka/Cerune/actions/workflows/ci.yml)
+[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
 
 # Cerune
 
@@ -11,7 +11,7 @@ Cerune is an experimental programming language with static typing, direct IR exe
 Requires Rust (rustup and Cargo).
 
 ```sh
-git clone https://github.com/Hokutaka/Cerune.git
+git clone https://github.com/Cerune-Lang/Cerune.git
 cd Cerune
 cargo install --path .
 cerune run examples/floating_point.ceru
