@@ -114,4 +114,9 @@ WSL側にもRustが必要です。`.sh`のビルド先は既定で`target/unix`�
 - [Stelle](https://github.com/Hokutaka/stelle)：Ceruneだけで小さなCLI RPGを作るdogfooding実験。まだ初期段階です。
 - [Cisa](https://github.com/Hokutaka/Cisa)：Ceruneで32bit程度の仮想CPUを作るdogfooding実験。まだ初期段階です。
 
-[MIT License](LICENSE)
+## ライセンス
+
+Ceruneは、以下のいずれかのライセンスを選択して利用できます。
+
+- [MIT License](LICENSE-MIT)
+- [Apache License 2.0](LICENSE-APACHE)
