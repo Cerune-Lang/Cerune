@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "A small experimental programming language designed to keep the path from source code to generated code observable."
 publish = false
-license = "MIT"
+license = "MIT OR Apache-2.0"
 
 [[bin]]
 name = "cerune"

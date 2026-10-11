@@ -114,4 +114,11 @@ WSL needs its own Rust installation. Shell scripts default to `target/unix` for 
 - [Stelle](https://github.com/Hokutaka/stelle): an early dogfooding experiment building a tiny CLI RPG entirely in Cerune.
 - [Cisa](https://github.com/Hokutaka/Cisa): an early dogfooding experiment building a small 32-bit virtual CPU in Cerune.
 
-[MIT License](LICENSE)
+## License
+
+Cerune is dual-licensed under either of:
+
+- [MIT License](LICENSE-MIT)
+- [Apache License 2.0](LICENSE-APACHE)
+
+at your option.
