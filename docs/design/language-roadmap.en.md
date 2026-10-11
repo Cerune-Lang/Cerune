@@ -52,7 +52,7 @@ Language features are tracked separately from compiler stages, distribution, and
 | Implemented | [Native lowering from MIR](native-mir.en.md) | Before/after execution comparisons and MIR→LIR→ASM/Object provenance verified |
 | Initial scope implemented | [Observation bundle](observation-bundle.en.md) | Saves sources, HIR, MIR, annotated ASM, and manifest from one compilation; `--ssa` adds SSA, reconstructed MIR, mappings, and SSA-derived ASM. Additional artifacts remain future work ([#60](https://github.com/Hokutaka/Cerune/issues/60)) |
 | Partial experiment | [Lean verification](lean-verification.en.md) | HIR→Lean/HIR→MIR correspondence and properties checked for u8 increment/choose/advance, including if/short-circuiting/while/for/break/continue/nesting, update-failure origins, and completion within explicit bounds; no whole-language, general-lowering, or whole-compiler proof, or public `emit-lean` |
-| Partly implemented | [SSA construction](mir-ssa.en.md) and later optimization passes | Scalar SSA/residual-slot representation, structural validator, observation text, automatic construction, and direct execution through the Rust API implemented; public SSA CLI/bundle support also implemented; SSA→MIR/Native also implemented; SSA Lean proofs and optimization follow later |
+| Partly implemented | [SSA construction](mir-ssa.en.md) and later optimization passes | Scalar SSA/residual-slot representation, structural validator, observation text, automatic construction, and direct execution through the Rust API implemented; public SSA CLI/bundle support also implemented; SSA→MIR/Native also implemented; finite-fixture Lean checks for MIR→SSA→MIR implemented; individual optimization passes and general proofs follow later |
 | Planned, unimplemented | [IR/VM/Native build / release](owned-routes.en.md) | Follow [#81](https://github.com/Hokutaka/Cerune/issues/81), keeping completed artifacts and distribution separate from optimization |
 
 ## Proposed priorities
@@ -61,7 +61,7 @@ Proceed in the order below, pairing a small design with examples, known expected
 
 | Order | Next work | First contract and example |
 | --- | --- | --- |
-| 1 | Stage comparisons | Initial bundle and finite HIR→MIR proofs implemented. Follow the [SSA design](mir-ssa.en.md): MIR→SSA construction, direct evaluation, and public CLI/bundle and SSA→MIR/Native implemented → Lean correspondence/individual passes. Track heap and other proof extensions separately; apply #103 refactoring where needed |
+| 1 | Stage comparisons | Initial bundle and finite HIR→MIR proofs implemented. Follow the [SSA design](mir-ssa.en.md): MIR→SSA construction, direct evaluation, and public CLI/bundle and SSA→MIR/Native implemented → finite-fixture SSA Lean checks implemented. Next specify preservation and observation for individual passes. Track heap and other proof extensions separately; apply #103 refactoring where needed |
 | 2 | [Additional dynamic-array operations](owned-arrays.en.md) | Existing operations work across routes; consider `array_repeat` later; borrowed slices need separate lifetime and mutation type rules |
 | 3 | Recursion and external I/O | Define call storage, resource limits, I/O failure, and cleanup |
 | 4 | Module distribution | Re-exports, dependencies/versions, reproducible builds; extend explicit imports |

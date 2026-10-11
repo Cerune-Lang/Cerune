@@ -1,8 +1,8 @@
 # Lean verification experiment / Lean検証実験
 
-公開backendの前段階です。実際の完成済みHIRと、そこからloweringしたMIRのu8関数`increment`・`choose`・`advance`を検証します。呼出側のprintや他の関数は証明対象に含めません。[設計](../../docs/design/lean-verification.ja.md)。
+公開backendの前段階です。実際の完成済みHIR・MIRと、SSA・SSA経由のMIRのu8関数`increment`・`choose`・`advance`・`swap`を検証します。呼出側のprintや他の関数は証明対象に含めません。[設計](../../docs/design/lean-verification.ja.md)。
 
-This precedes a public backend. It verifies the u8 functions `increment`, `choose`, and `advance` from actual completed HIR and its lowered MIR, not printing callers or other functions. [Design](../../docs/design/lean-verification.en.md).
+This precedes a public backend. It verifies the u8 functions `increment`, `choose`, `advance`, and `swap` from actual completed HIR/MIR and SSA/reconstructed MIR, not printing callers or other functions. [Design](../../docs/design/lean-verification.en.md).
 
 ## ファイル / Files
 
@@ -196,14 +196,58 @@ forは初期化・条件・更新・本文を`forLess`に保持します。初�
 
 ループ例ではHIRは文（while／ifの条件判定、break／continueを含む）の訪問数、MIRはblockの訪問数を数えます。式・block内の有限命令列はそれぞれ構造的に評価します。16と11は単位が異なり、同じfuel値や実行時間の比較ではありません。全256入力で両モデルの完了を証明しますが、任意のloopの停止性・上限を求めるアルゴリズムの証明ではありません。
 
-一般のloop停止性・call・出力trace・heap・所有・他整数・float等は未対応です。ここまでの有限例を非最適化MIRの基準とし、次はSSAの表現・変換・観測・意味保存条件を設計します。heap等の証明拡張は別途追跡します。小さな実験を最終的な言語サブセットには固定しません。
+一般のloop停止性・call・出力trace・heap・所有・他整数・float等は未対応です。ここまでの有限例を非最適化MIRの基準とし、SSAの有限例の検証は下記の実験で行います。heap等の証明拡張は別途追跡します。小さな実験を最終的な言語サブセットには固定しません。
 
 For acyclic fixtures, the MIR model uses block count as fuel, which bounds every path. Correspondence checks that every input reaches `.completed`. `.completed (.error …)` is a Cerune failure, `.invalid` an invalid state, and `.exhausted` insufficient fuel. The last two are neither language failures nor proof success.
 
 The loop fixtures count HIR statement visits (including while/if tests and break/continue) and MIR block visits. Expressions and finite block instruction lists are evaluated structurally. Bounds 16 and 11 have different units, not a shared fuel scale or time measurement. Completion is proved for all 256 inputs, not for arbitrary loops or an algorithm that discovers bounds.
 
-General loop termination, calls, output traces, heap/ownership, other integers, floats, and other features are not covered. Use these finite fixtures as an unoptimized MIR baseline; next design SSA representation, conversion, observation, and semantic-preservation conditions. Track heap and other proof extensions separately, without fixing a permanent language subset.
+General loop termination, calls, output traces, heap/ownership, other integers, floats, and other features are not covered. Use these finite fixtures as an unoptimized MIR baseline; the experiment below checks finite SSA fixtures. Track heap and other proof extensions separately, without fixing a permanent language subset.
 
 RustのHIR/MIRとモデルの対応、exporter、Lean kernelと明記した公理は信頼する部分に残ります。個々の実際の変換結果に対するtranslation validationであり、全loweringアルゴリズム・全処理系・Nativeの証明ではありません。
 
 The Rust HIR/MIR-to-model correspondence, exporters, Lean kernel, and declared axioms remain trusted. This is translation validation of individual actual lowering results, not proof of the general lowering algorithm, whole compiler, or Native output.
+
+## SSAの検証 / SSA verification
+
+元MIR・SSA・変換後MIRをそれぞれ実際のsnapshotからLeanへ写します。SSAのCFG評価はMIRへの変換を呼ばず、辺の値をすべて読んでからblock引数へ束縛します。演算と命令列の評価はMIRモデルを共有します。
+
+Actual baseline MIR, SSA, and reconstructed MIR snapshots are exported separately. Independent SSA control reads all incoming values before binding block arguments; operations and instruction evaluation share the MIR model.
+
+追加ファイルの役割は次のとおりです。The added files have these roles.
+
+| File | 内容 / Purpose |
+| --- | --- |
+| [ssa.rs](ssa.rs)・[SsaModel.lean](SsaModel.lean) | SSAの実際の値・命令・辺を写すexporterと独立した制御評価 / Actual SSA exporter and independent control semantics |
+| [SsaCorrespondence.lean](SsaCorrespondence.lean) | 元MIR＝SSA＝変換後MIRと全入力での完了 / Correspondence and completion for every input |
+| [ssa_join.ceru](ssa_join.ceru)・[SsaJoinProperties.lean](SsaJoinProperties.lean) | 更新値の合流と独立仕様。出力は3 → 130 → 130 → 255 / Join and independent specification; prints 3 → 130 → 130 → 255 |
+| [ssa_swap.ceru](ssa_swap.ceru)・[SsaSwapProperties.lean](SsaSwapProperties.lean) | 3回の入替えと独立仕様。出力は0 → 127 → 255 / Three swaps and independent specification; prints 0 → 127 → 255 |
+| [lean_ssa.rs](../../tests/lean_ssa.rs) | 全入力の証明・実行比較と誤変換拒否 / All-input proofs, execution comparisons, and mutation rejection |
+
+既存7例＋合流＋入替え＋header引数を直接交換するSSA API例の10ケース、各256入力を検査します。元MIRとSSAは64、変換後MIRは128のblock訪問を上限とし、正常終了か言語上のoverflowへの到達を別定理で確認します。元MIRの完了を証明し、対応定理からSSAと変換後MIRの完了を導きます。全ケースで停止理由とNodeId／SourceId／Spanを保持します。呼出側のprint・heap・一般の停止性・変換器全体の証明は含みません。
+
+Ten cases (seven existing fixtures, join, swap, and direct header-argument swapping via the SSA API) each cover all 256 inputs. Bounds are 64 block visits for baseline MIR/SSA and 128 for reconstructed MIR; a separate theorem requires success or language-level overflow by proving baseline completion and transferring it through the checked correspondences, retaining failure code and NodeId/SourceId/Span. Printing callers, heap, general termination, and the entire transformer are outside the proof scope.
+
+実行方法は次のとおりです。Run from the repository root.
+
+```sh
+cargo run --quiet -- run experiments/lean/ssa_join.ceru
+cargo run --quiet -- run-mir experiments/lean/ssa_join.ceru --ssa
+cargo run --quiet -- run experiments/lean/ssa_swap.ceru
+cargo run --quiet -- run-mir experiments/lean/ssa_swap.ceru --ssa
+cargo test --test lean_ssa
+# 固定Leanが必要 / Requires the pinned Lean toolchain.
+cargo test --test lean_ssa -- --include-ignored
+```
+
+通常テストはLeanを起動せず、生成時の対応範囲と5実行経路のサンプルを確認します。ignoredテストはLean 4.34.1で証明と誤変換拒否を検査し、3つのLeanモデルの実行をHIR・元MIR・SSA・変換後MIR・VMと全入力で照合します。CIでも必ずignoredテストを実行します。各Leanプロセスは120秒で打ち切り、タイムアウトは検証成功に数えません。
+
+Normal tests check export scope and sample execution across five routes without Lean. The ignored tests use Lean 4.34.1 to check proofs and rejected mutations, then compares execution of all three Lean models against HIR, baseline MIR, SSA, reconstructed MIR, and VM for every input. CI explicitly runs them. Every Lean process has a 120-second limit; timeouts fail validation.
+
+観測資料は`target/lean-verification-test/ssa`に保存します。各ケースの`.ceru`、`.ceir`、元MIR、SSA、変換後MIR、両対応表、`Generated.lean`、`Verified.lean`、`Execute.lean`、拒否例、プロセス出力、toolchain版を比較できます。`Parallel`だけは自動生成SSAのbackedgeを等価な直接交換に変更したAPI例で、その変更をSSAと対応表で確認できます。
+
+Observations live under `target/lean-verification-test/ssa`: source, HIR, baseline MIR, SSA, reconstructed MIR, both mappings, generated/proved/executed Lean definitions, rejected cases, process output, and toolchain version. Only `Parallel` changes the generated SSA backedge to an equivalent direct exchange through the API; the SSA snapshot and mapping expose that change.
+
+対応・完了・追加仕様の定理は`decide`で証明し、kernel検査と`#print axioms`の完全一致（標準`propext`のみ）を要求します。`native_decide`や独自公理は使いません。Rust exporterと共有演算モデルは信頼部分として明記し、有限例の証明を一般の意味保存証明と区別します。詳しくは[SSA設計](../../docs/design/mir-ssa.ja.md#leanによる有限例の検証)を参照してください。
+
+Correspondence, completion, and added property theorems use `decide`, kernel checking, and exact axiom-list checks (standard `propext` only). No `native_decide` or custom axioms. Rust exporters and shared operation semantics remain trusted; these finite-fixture proofs are distinct from general semantic preservation. See the [SSA design](../../docs/design/mir-ssa.en.md#finite-fixture-lean-verification).

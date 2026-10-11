@@ -1,0 +1,15 @@
+// 両辺で更新した値を合流点へ渡す。254・255は合流後の加算で停止する。
+fn choose(value: u8) -> u8 {
+    mut result: u8 = value;
+    if value < 128 {
+        result = value + 1;
+    } else {
+        result = value;
+    }
+    return result + 2;
+}
+
+print(choose(0));
+print(choose(127));
+print(choose(128));
+print(choose(253));

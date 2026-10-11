@@ -1,0 +1,17 @@
+// 3回の入替えを通じて2つの合流値を保持する。
+fn swap(value: u8) -> u8 {
+    mut left: u8 = value;
+    mut right: u8 = 7;
+    mut count: u8 = 0;
+    while count < 3 {
+        saved: u8 = left;
+        left = right;
+        right = saved;
+        count = count + 1;
+    }
+    return right;
+}
+
+print(swap(0));
+print(swap(127));
+print(swap(255));

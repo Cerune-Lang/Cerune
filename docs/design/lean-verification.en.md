@@ -20,6 +20,8 @@ The MIR branch evaluator uses block count as fuel; the exporter rejects cycles i
 
 The HIR model retains for initialization, condition, update, and body as `forLess`. Internal `forNext` represents repetition after initialization: body completion and continue pass through the update once before testing again, while break skips it. HIR is not reconstructed from MIR targets. Shared correspondence/completion theorems live in `LoopCorrespondence.lean`; execution comparisons use the exact same proved definitions.
 
+SSA now has [finite-fixture checks](mir-ssa.en.md#finite-fixture-lean-verification): baseline MIR→SSA→reconstructed MIR values, failure origins, and completion within explicit bounds for all u8 inputs of the seven existing fixtures plus joins and swaps. SSA control has an independent model; individual operations share MIR semantics. Independent join/swap properties are also checked and transferred to reconstructed MIR by correspondence. SSA theorems depend on standard `propext`. General SSA conversion, heap, and Native remain unproved.
+
 ## Connecting the contracts
 
 ```text
