@@ -6,6 +6,7 @@ mod heap;
 mod integer;
 pub mod ir;
 mod lower;
+mod output;
 mod rounding;
 mod string;
 mod unsigned;
@@ -83,6 +84,14 @@ pub fn emit_qbe_with_target(
         ));
     }
     let mut module = lower(program);
+    if target.is_none()
+        && let Some(span) = output::first_span(&module)
+    {
+        return Err(Diagnostic::new(
+            "QBE output requires an explicit --target: x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc",
+            span,
+        ));
+    }
     module.target = target;
 
     Ok(emit(&module))
@@ -92,7 +101,10 @@ pub fn emit_qbe_with_target(
 mod tests {
     use crate::compile_to_ir;
 
-    use super::{emit_qbe, ir::Instruction, lower};
+    use super::{ir::Instruction, lower};
+    fn emit_qbe(program: &crate::ir::Program) -> Result<String, crate::diagnostic::Diagnostic> {
+        super::emit_qbe_with_target(program, Some(super::Target::X86_64UnknownLinuxGnu))
+    }
 
     #[test]
     fn lowers_i64_add() {
@@ -119,7 +131,7 @@ mod tests {
         assert!(qbe.contains("=l call $cerune_i64_add(l 1, l 2, l $cerune_origin_"));
         assert!(qbe.contains("jnz %overflow, @trap, @ok"));
         assert!(qbe.contains("storel %tmp0, %slot_x"));
-        assert!(qbe.contains("call $printf(l $fmt_i64"));
+        assert!(qbe.contains("call $cerune_output_i64(l "));
     }
 
     #[test]
@@ -153,8 +165,8 @@ mod tests {
         let qbe = emit_qbe(&program).unwrap();
 
         assert!(qbe.contains("=s add s_0.1, s_0.2"));
-        assert!(qbe.contains("=d exts %tmp"));
-        assert!(qbe.contains("call $printf(l $fmt_f32"));
+        assert!(qbe.contains("=d exts %value"));
+        assert!(qbe.contains("call $cerune_output_f32(s "));
     }
 
     #[test]
@@ -163,7 +175,7 @@ mod tests {
         let qbe = emit_qbe(&program).unwrap();
 
         assert!(qbe.contains("=d add d_0.1, d_0.2"));
-        assert!(qbe.contains("call $printf(l $fmt_f64"));
+        assert!(qbe.contains("call $cerune_output_f64(d "));
     }
 
     #[test]

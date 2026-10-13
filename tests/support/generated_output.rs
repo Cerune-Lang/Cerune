@@ -93,7 +93,22 @@ fn run(command: &mut Command, dir: &Path, label: &str) -> std::process::Output {
     process::bounded_output(command, dir, label, Duration::from_secs(30)).unwrap()
 }
 fn compiler() -> Option<std::ffi::OsString> {
-    let configured = std::env::var_os(if LLVM {
+    if QBE {
+        let configured = std::env::var_os("CERUNE_TEST_QBE");
+        let tool = configured.clone().unwrap_or_else(|| "qbe".into());
+        if !Command::new(&tool)
+            .arg("-h")
+            .output()
+            .is_ok_and(|o| o.status.success())
+        {
+            assert!(configured.is_none(), "configured QBE unavailable");
+            eprintln!("QBE output execution skipped; set CERUNE_TEST_QBE to require it");
+            return None;
+        }
+    }
+    let configured = std::env::var_os(if QBE {
+        "CERUNE_TEST_QBE_CLANG"
+    } else if LLVM {
         "CERUNE_TEST_LLVM_CLANG"
     } else {
         "CERUNE_TEST_CC"
@@ -140,13 +155,38 @@ static int64_t cerune_output_write(const unsigned char *data, size_t length) {
 }
 "#;
 fn route() -> &'static str {
-    if LLVM { "llvm" } else { "c" }
+    if QBE {
+        "qbe"
+    } else if LLVM {
+        "llvm"
+    } else {
+        "c"
+    }
 }
 fn input(dir: &Path, stem: &str) -> PathBuf {
-    dir.join(format!("{stem}.{}", if LLVM { "ll" } else { "c" }))
+    dir.join(format!(
+        "{stem}.{}",
+        if QBE {
+            "ssa"
+        } else if LLVM {
+            "ll"
+        } else {
+            "c"
+        }
+    ))
 }
 fn generated(hir: &ir::Program, annotate: bool) -> String {
-    if LLVM {
+    if QBE {
+        cerune_lang::codegen::qbe::emit_qbe_with_target(
+            hir,
+            Some(if cfg!(windows) {
+                cerune_lang::codegen::qbe::Target::X86_64PcWindowsMsvc
+            } else {
+                cerune_lang::codegen::qbe::Target::X86_64UnknownLinuxGnu
+            }),
+        )
+        .unwrap()
+    } else if LLVM {
         cerune_lang::codegen::llvm::emit_llvm_with_options(
             hir,
             cerune_lang::codegen::llvm::Options {
@@ -172,8 +212,36 @@ fn build(
     optimization: &str,
 ) -> std::process::Output {
     let mut command = Command::new(cc);
-    command.arg(source).arg(optimization);
-    if LLVM && controlled {
+    if QBE {
+        let qbe = std::env::var_os("CERUNE_TEST_QBE").unwrap_or_else(|| "qbe".into());
+        let assembly = dir.join("program.s");
+        let result = run(
+            Command::new(qbe)
+                .args([
+                    "-t",
+                    if cfg!(windows) {
+                        "amd64_win"
+                    } else {
+                        "amd64_sysv"
+                    },
+                ])
+                .arg("-o")
+                .arg(&assembly)
+                .arg(source),
+            dir,
+            "qbe",
+        );
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        command.arg(assembly);
+    } else {
+        command.arg(source);
+    }
+    command.arg(optimization);
+    if (LLVM || QBE) && controlled {
         let shim = dir.join("connection.c");
         let connection = CONNECTION.replace(
             "static int64_t cerune_output_write(",
@@ -186,6 +254,18 @@ fn build(
     run(&mut command, dir, "compile")
 }
 fn controlled(c: String) -> String {
+    if QBE {
+        assert!(c.contains("function l $cerune_output_write("));
+        return c
+            .replace(
+                "function l $cerune_output_write(",
+                "export function l $cerune_output_original_write(",
+            )
+            .replace(
+                "call $cerune_output_write(",
+                "call $cerune_test_output_write(",
+            );
+    }
     if LLVM {
         assert!(c.contains("define internal i64 @cerune.output.write("));
         return c

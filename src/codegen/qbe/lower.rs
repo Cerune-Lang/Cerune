@@ -4,7 +4,7 @@ use crate::ir as cerune_ir;
 
 use super::ir::{
     BinaryOp, CompareOp, FailureOrigin, Function, Instruction, Module, Operand, Parameter,
-    ParameterPassing, PrintFormat, Slot, Temp, Type,
+    ParameterPassing, Slot, Temp, Type,
 };
 
 pub fn lower(program: &cerune_ir::Program) -> Module {
@@ -44,7 +44,6 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
         string_heap_limit: crate::codegen::support::string_heap_limit(program),
-        uses_write: crate::codegen::display::uses_write(program),
         target: None,
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
         functions,
@@ -323,9 +322,14 @@ impl Lowerer<'_> {
                 let Value::Scalar { operand, .. } = self.lower_expr(value) else {
                     unreachable!()
                 };
-                self.instructions.push(Instruction::Write {
+                self.instructions.push(Instruction::Output {
                     kind,
                     value: operand,
+                    newline: false,
+                    origin: FailureOrigin {
+                        node: statement.id,
+                        span: statement.span,
+                    },
                 });
                 false
             }
@@ -339,20 +343,19 @@ impl Lowerer<'_> {
                 false
             }
             cerune_ir::StatementKind::Print { value } => {
-                let Value::Scalar { ty, operand } = self.lower_expr(value) else {
-                    unreachable!("semantic analysis rejects aggregate printing")
+                let kind = crate::codegen::display::kind(&value.ty, false);
+                let Value::Scalar { operand, .. } = self.lower_expr(value) else {
+                    unreachable!()
                 };
-                if crate::codegen::is_u64(&value.ty) {
-                    let dest = self.next_temp();
-                    self.instructions.push(Instruction::CallPrintf {
-                        dest,
-                        format: PrintFormat::U64,
-                        arg_ty: Type::I64,
-                        value: operand,
-                    });
-                } else {
-                    self.lower_print(ty, operand);
-                }
+                self.instructions.push(Instruction::Output {
+                    kind,
+                    value: operand,
+                    newline: true,
+                    origin: FailureOrigin {
+                        node: statement.id,
+                        span: statement.span,
+                    },
+                });
                 false
             }
 
@@ -1350,65 +1353,6 @@ impl Lowerer<'_> {
             unreachable!("semantic analysis requires a scalar value here")
         };
         (ty, operand)
-    }
-
-    fn lower_print(&mut self, ty: Type, operand: Operand) {
-        match ty {
-            Type::String => self
-                .instructions
-                .push(Instruction::PrintString { value: operand }),
-            Type::Bool => {
-                let offset = self.next_temp();
-                let scaled_offset = self.next_temp();
-                let address = self.next_temp();
-                let text = self.next_temp();
-                let result = self.next_temp();
-                self.instructions.push(Instruction::CallPrintBool {
-                    offset,
-                    scaled_offset,
-                    address,
-                    text,
-                    result,
-                    value: operand,
-                });
-            }
-            Type::I64 => {
-                let dest = self.next_temp();
-                self.instructions.push(Instruction::CallPrintf {
-                    dest,
-                    format: PrintFormat::I64,
-                    arg_ty: Type::I64,
-                    value: operand,
-                });
-            }
-            Type::Single => {
-                // C の可変長引数では float が double に拡張される。
-                let extended = self.next_temp();
-                self.instructions.push(Instruction::ExtendSingleToDouble {
-                    dest: extended,
-                    value: operand,
-                });
-                let dest = self.next_temp();
-                self.instructions.push(Instruction::CallPrintf {
-                    dest,
-                    format: PrintFormat::F32,
-                    arg_ty: Type::Double,
-                    value: Operand::Temp(extended),
-                });
-            }
-            Type::Double => {
-                let dest = self.next_temp();
-                self.instructions.push(Instruction::CallPrintf {
-                    dest,
-                    format: PrintFormat::F64,
-                    arg_ty: Type::Double,
-                    value: operand,
-                });
-            }
-            Type::DynamicArray | Type::Pointer => {
-                unreachable!("pointers are not printable Cerune values")
-            }
-        }
     }
 
     fn address(&mut self, base: Operand, offset: usize) -> Operand {

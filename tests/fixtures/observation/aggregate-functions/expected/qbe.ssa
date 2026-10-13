@@ -1,3 +1,246 @@
+# target: x86_64-unknown-linux-gnu (qbe -t amd64_sysv)
+
+section ".rodata" data $cerune_output_origin_45_703_721 = { b " node=45 bytes=703..721", b 10, b 0 }
+section ".rodata" data $cerune_output_origin_48_722_737 = { b " node=48 bytes=722..737", b 10, b 0 }
+section ".rodata" data $cerune_output_origin_51_738_753 = { b " node=51 bytes=738..753", b 10, b 0 }
+section ".rodata" data $cerune_output_origin_54_754_774 = { b " node=54 bytes=754..774", b 10, b 0 }
+section ".rodata" data $cerune_output_origin_60_775_793 = { b " node=60 bytes=775..793", b 10, b 0 }
+section ".rodata" data $cerune_output_origin_66_794_812 = { b " node=66 bytes=794..812", b 10, b 0 }
+section ".rodata" data $cerune_output_record = { b "cerune: io-v1 operation=write requested=%llu accepted=%llu%s", b 0 }
+section ".rodata" data $cerune_output_format_error = { b "cerune: output formatting failed%s", b 0 }
+section ".rodata" data $cerune_output_true = { b "true", b 10 }
+section ".rodata" data $cerune_output_false = { b "false", b 10 }
+section ".rodata" data $cerune_output_lf = { b 10 }
+section ".rodata" data $cerune_output_quote = { b 34 }
+function l $cerune_output_write(l %data, l %length) {
+@start
+  %result =l call $write(w 1, l %data, l %length)
+  ret %result
+}
+function $cerune_output_diagnostic(l %data, w %length) {
+@start
+  %positive =w csgtw %length, 0
+  jnz %positive, @bound, @exit
+@bound
+  %fits =w cultw %length, 512
+  jnz %fits, @fit, @limit
+@fit
+  jmp @write
+@limit
+  jmp @write
+@write
+  %count =w phi @fit %length, @limit 511
+  %wide =l extuw %count
+  call $write(w 2, l %data, l %wide)
+  jmp @exit
+@exit
+  call $_Exit(w 1)
+  hlt
+}
+
+function $cerune_output_failed(l %op) {
+@start
+  %requested =l loadl %op
+  %accepted_ptr =l add %op, 8
+  %accepted =l loadl %accepted_ptr
+  %origin_ptr =l add %op, 16
+  %origin =l loadl %origin_ptr
+  %text =l alloc8 512
+  %n =w call $snprintf(l %text, l 512, l $cerune_output_record, ..., l %requested, l %accepted, l %origin)
+  call $cerune_output_diagnostic(l %text, w %n)
+  hlt
+}
+function $cerune_output_text(l %data, l %length, l %origin) {
+@start
+  %empty =w ceql %length, 0
+  jnz %empty, @done, @write
+@write
+  %op =l alloc8 32
+  call $cerune_output_begin(l %op, l %length, l %origin)
+  call $cerune_output_part(l %op, l %data, l %length)
+  call $cerune_output_end(l %op)
+  jmp @done
+@done
+  ret
+}
+function $cerune_output_begin(l %op, l %length, l %origin) {
+@start
+  storel %length, %op
+  %accepted_ptr =l add %op, 8
+  storel 0, %accepted_ptr
+  %origin_ptr =l add %op, 16
+  storel %origin, %origin_ptr
+  %prior =l call $signal(w 13, l 1)
+  %saved =l add %op, 24
+  storel %prior, %saved
+  %bad =w ceql %prior, -1
+  jnz %bad, @failed, @done
+@failed
+  call $cerune_output_failed(l %op)
+  hlt
+@done
+  ret
+}
+function $cerune_output_end(l %op) {
+@start
+  %saved =l add %op, 24
+  %prior =l loadl %saved
+  %restored =l call $signal(w 13, l %prior)
+  %bad =w ceql %restored, -1
+  jnz %bad, @failed, @done
+@failed
+  call $cerune_output_failed(l %op)
+  hlt
+@done
+  ret
+}
+
+function $cerune_output_part(l %op, l %data, l %length) {
+@start
+  %accepted_ptr =l add %op, 8
+  jmp @condition
+@condition
+  %cursor =l phi @start %data, @advance %next
+  %remaining =l phi @start %length, @advance %rest
+  %done =w ceql %remaining, 0
+  jnz %done, @end, @prepare
+@prepare
+  %small =w cultl %remaining, 65536
+  jnz %small, @short, @long
+@short
+  jmp @request
+@long
+  jmp @request
+@request
+  %request =l phi @short %remaining, @long 65536
+  jmp @write
+@write
+  %n =l call $cerune_output_write(l %cursor, l %request)
+  %negative =w csltl %n, 0
+  jnz %negative, @error, @check
+@error
+  %errno_ptr =l call $__errno_location()
+  %errno =w loadw %errno_ptr
+  %interrupted =w ceqw %errno, 4
+  jnz %interrupted, @write, @failed
+@check
+  %positive =w cugtl %n, 0
+  %bounded =w culel %n, %request
+  %valid =w and %positive, %bounded
+  jnz %valid, @advance, @failed
+@advance
+  %accepted =l loadl %accepted_ptr
+  %total =l add %accepted, %n
+  storel %total, %accepted_ptr
+  %next =l add %cursor, %n
+  %rest =l sub %remaining, %n
+  jmp @condition
+@failed
+  call $cerune_output_failed(l %op)
+  hlt
+@end
+  ret
+}
+section ".rodata" data $cerune_output_format_i64 = { b "%lld", b 0 }
+function $cerune_output_i64(l %value, w %newline, l %origin) {
+@start
+  %text =l alloc8 128
+  %n =w call $snprintf(l %text, l 128, l $cerune_output_format_i64, ..., l %value)
+  %valid =w cultw %n, 127
+  jnz %valid, @formatted, @failed
+@failed
+  %error =l alloc8 512
+  %error_length =w call $snprintf(l %error, l 512, l $cerune_output_format_error, ..., l %origin)
+  call $cerune_output_diagnostic(l %error, w %error_length)
+  hlt
+@formatted
+  %length =l extuw %n
+  %tail =l add %text, %length
+  storeb 10, %tail
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
+section ".rodata" data $cerune_output_format_u64 = { b "%llu", b 0 }
+function $cerune_output_u64(l %value, w %newline, l %origin) {
+@start
+  %text =l alloc8 128
+  %n =w call $snprintf(l %text, l 128, l $cerune_output_format_u64, ..., l %value)
+  %valid =w cultw %n, 127
+  jnz %valid, @formatted, @failed
+@failed
+  %error =l alloc8 512
+  %error_length =w call $snprintf(l %error, l 512, l $cerune_output_format_error, ..., l %origin)
+  call $cerune_output_diagnostic(l %error, w %error_length)
+  hlt
+@formatted
+  %length =l extuw %n
+  %tail =l add %text, %length
+  storeb 10, %tail
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
+section ".rodata" data $cerune_output_format_f32 = { b "%.9g", b 0 }
+function $cerune_output_f32(s %value, w %newline, l %origin) {
+@start
+  %text =l alloc8 128
+  %wide =d exts %value
+  %n =w call $snprintf(l %text, l 128, l $cerune_output_format_f32, ..., d %wide)
+  %valid =w cultw %n, 127
+  jnz %valid, @formatted, @failed
+@failed
+  %error =l alloc8 512
+  %error_length =w call $snprintf(l %error, l 512, l $cerune_output_format_error, ..., l %origin)
+  call $cerune_output_diagnostic(l %error, w %error_length)
+  hlt
+@formatted
+  %length =l extuw %n
+  %tail =l add %text, %length
+  storeb 10, %tail
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
+section ".rodata" data $cerune_output_format_f64 = { b "%.17g", b 0 }
+function $cerune_output_f64(d %value, w %newline, l %origin) {
+@start
+  %text =l alloc8 128
+  %n =w call $snprintf(l %text, l 128, l $cerune_output_format_f64, ..., d %value)
+  %valid =w cultw %n, 127
+  jnz %valid, @formatted, @failed
+@failed
+  %error =l alloc8 512
+  %error_length =w call $snprintf(l %error, l 512, l $cerune_output_format_error, ..., l %origin)
+  call $cerune_output_diagnostic(l %error, w %error_length)
+  hlt
+@formatted
+  %length =l extuw %n
+  %tail =l add %text, %length
+  storeb 10, %tail
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
+function $cerune_output_bool(w %value, w %newline, l %origin) {
+@start
+  jnz %value, @true, @false
+@true
+  jmp @write
+@false
+  jmp @write
+@write
+  %text =l phi @true $cerune_output_true, @false $cerune_output_false
+  %length =l phi @true 4, @false 5
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
 section ".rodata" data $cerune_origin_56_760_769 = { b 32, b 110, b 111, b 100, b 101, b 61, b 53, b 54, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 55, b 54, b 48, b 46, b 46, b 55, b 54, b 57, b 10 }
 section ".rodata" data $cerune_origin_55_760_772 = { b 32, b 110, b 111, b 100, b 101, b 61, b 53, b 53, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 55, b 54, b 48, b 46, b 46, b 55, b 55, b 50, b 10 }
 section ".rodata" data $cerune_origin_62_781_788 = { b 32, b 110, b 111, b 100, b 101, b 61, b 54, b 50, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 55, b 56, b 49, b 46, b 46, b 55, b 56, b 56, b 10 }
@@ -99,9 +342,6 @@ function $cerune_runtime_failure(l %code, l %code_len, l %origin, l %origin_len)
   hlt
 }
 
-data $fmt_i64 = { b "%lld", b 10, b 0 }
-data $fmt_f32 = { b "%.9g", b 10, b 0 }
-data $fmt_f64 = { b "%.17g", b 10, b 0 }
 
 function l $cerune_i64_add(l %left, l %right, l %origin, l %origin_len) {
 @start
@@ -227,83 +467,83 @@ export function w $main() {
   call $cerune_fn_duplicate_first_row_4(l %slot_aggregate_tmp5, l %slot_matrix)
   blit %slot_aggregate_tmp5, %slot_rows, 32
   %tmp4 =l loadl %slot_original
-  %tmp5 =w call $printf(l $fmt_i64, ..., l %tmp4)
-  %tmp6 =l loadl %slot_moved
-  %tmp7 =w call $printf(l $fmt_i64, ..., l %tmp6)
-  %tmp8 =l add %slot_moved, 8
-  %tmp9 =l loadl %tmp8
-  %tmp10 =w call $printf(l $fmt_i64, ..., l %tmp9)
-  %tmp11 =w csltl 1, 0
-  jnz %tmp11, @block2, @block0
+  call $cerune_output_i64(l %tmp4, w 1, l $cerune_output_origin_45_703_721)
+  %tmp5 =l loadl %slot_moved
+  call $cerune_output_i64(l %tmp5, w 1, l $cerune_output_origin_48_722_737)
+  %tmp6 =l add %slot_moved, 8
+  %tmp7 =l loadl %tmp6
+  call $cerune_output_i64(l %tmp7, w 1, l $cerune_output_origin_51_738_753)
+  %tmp8 =w csltl 1, 0
+  jnz %tmp8, @block2, @block0
 @block0 # array_index_non_negative
-  %tmp12 =w csgel 1, 2
-  jnz %tmp12, @block2, @block1
+  %tmp9 =w csgel 1, 2
+  jnz %tmp9, @block2, @block1
 @block2 # array_index_out_of_bounds
   call $cerune_runtime_failure(l $cerune_code_array_index_out_of_bounds, l 49, l $cerune_origin_56_760_769, l 24)
   hlt
 @block1 # array_index_in_bounds
-  %tmp13 =l mul 1, 16
-  %tmp14 =l add %slot_matrix, %tmp13
-  %tmp15 =w csltl 0, 0
-  jnz %tmp15, @block5, @block3
+  %tmp10 =l mul 1, 16
+  %tmp11 =l add %slot_matrix, %tmp10
+  %tmp12 =w csltl 0, 0
+  jnz %tmp12, @block5, @block3
 @block3 # array_index_non_negative
-  %tmp16 =w csgel 0, 2
-  jnz %tmp16, @block5, @block4
+  %tmp13 =w csgel 0, 2
+  jnz %tmp13, @block5, @block4
 @block5 # array_index_out_of_bounds
   call $cerune_runtime_failure(l $cerune_code_array_index_out_of_bounds, l 49, l $cerune_origin_55_760_772, l 24)
   hlt
 @block4 # array_index_in_bounds
-  %tmp17 =l mul 0, 8
-  %tmp18 =l add %tmp14, %tmp17
-  %tmp19 =l loadl %tmp18
-  %tmp20 =w call $printf(l $fmt_i64, ..., l %tmp19)
-  %tmp21 =w csltl 0, 0
-  jnz %tmp21, @block8, @block6
+  %tmp14 =l mul 0, 8
+  %tmp15 =l add %tmp11, %tmp14
+  %tmp16 =l loadl %tmp15
+  call $cerune_output_i64(l %tmp16, w 1, l $cerune_output_origin_54_754_774)
+  %tmp17 =w csltl 0, 0
+  jnz %tmp17, @block8, @block6
 @block6 # array_index_non_negative
-  %tmp22 =w csgel 0, 2
-  jnz %tmp22, @block8, @block7
+  %tmp18 =w csgel 0, 2
+  jnz %tmp18, @block8, @block7
 @block8 # array_index_out_of_bounds
   call $cerune_runtime_failure(l $cerune_code_array_index_out_of_bounds, l 49, l $cerune_origin_62_781_788, l 24)
   hlt
 @block7 # array_index_in_bounds
-  %tmp23 =l mul 0, 16
-  %tmp24 =l add %slot_rows, %tmp23
-  %tmp25 =w csltl 1, 0
-  jnz %tmp25, @block11, @block9
+  %tmp19 =l mul 0, 16
+  %tmp20 =l add %slot_rows, %tmp19
+  %tmp21 =w csltl 1, 0
+  jnz %tmp21, @block11, @block9
 @block9 # array_index_non_negative
-  %tmp26 =w csgel 1, 2
-  jnz %tmp26, @block11, @block10
+  %tmp22 =w csgel 1, 2
+  jnz %tmp22, @block11, @block10
 @block11 # array_index_out_of_bounds
   call $cerune_runtime_failure(l $cerune_code_array_index_out_of_bounds, l 49, l $cerune_origin_61_781_791, l 24)
   hlt
 @block10 # array_index_in_bounds
-  %tmp27 =l mul 1, 8
-  %tmp28 =l add %tmp24, %tmp27
-  %tmp29 =l loadl %tmp28
-  %tmp30 =w call $printf(l $fmt_i64, ..., l %tmp29)
-  %tmp31 =w csltl 1, 0
-  jnz %tmp31, @block14, @block12
+  %tmp23 =l mul 1, 8
+  %tmp24 =l add %tmp20, %tmp23
+  %tmp25 =l loadl %tmp24
+  call $cerune_output_i64(l %tmp25, w 1, l $cerune_output_origin_60_775_793)
+  %tmp26 =w csltl 1, 0
+  jnz %tmp26, @block14, @block12
 @block12 # array_index_non_negative
-  %tmp32 =w csgel 1, 2
-  jnz %tmp32, @block14, @block13
+  %tmp27 =w csgel 1, 2
+  jnz %tmp27, @block14, @block13
 @block14 # array_index_out_of_bounds
   call $cerune_runtime_failure(l $cerune_code_array_index_out_of_bounds, l 49, l $cerune_origin_68_800_807, l 24)
   hlt
 @block13 # array_index_in_bounds
-  %tmp33 =l mul 1, 16
-  %tmp34 =l add %slot_rows, %tmp33
-  %tmp35 =w csltl 0, 0
-  jnz %tmp35, @block17, @block15
+  %tmp28 =l mul 1, 16
+  %tmp29 =l add %slot_rows, %tmp28
+  %tmp30 =w csltl 0, 0
+  jnz %tmp30, @block17, @block15
 @block15 # array_index_non_negative
-  %tmp36 =w csgel 0, 2
-  jnz %tmp36, @block17, @block16
+  %tmp31 =w csgel 0, 2
+  jnz %tmp31, @block17, @block16
 @block17 # array_index_out_of_bounds
   call $cerune_runtime_failure(l $cerune_code_array_index_out_of_bounds, l 49, l $cerune_origin_67_800_810, l 24)
   hlt
 @block16 # array_index_in_bounds
-  %tmp37 =l mul 0, 8
-  %tmp38 =l add %tmp34, %tmp37
-  %tmp39 =l loadl %tmp38
-  %tmp40 =w call $printf(l $fmt_i64, ..., l %tmp39)
+  %tmp32 =l mul 0, 8
+  %tmp33 =l add %tmp29, %tmp32
+  %tmp34 =l loadl %tmp33
+  call $cerune_output_i64(l %tmp34, w 1, l $cerune_output_origin_66_794_812)
   ret 0
 }
