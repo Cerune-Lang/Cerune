@@ -500,7 +500,7 @@ impl Expander<'_> {
                     self.statements(&mut arm.body)?;
                 }
             }
-            StmtKind::Break | StmtKind::Continue => {}
+            StmtKind::Flush | StmtKind::Break | StmtKind::Continue => {}
         }
         Ok(())
     }

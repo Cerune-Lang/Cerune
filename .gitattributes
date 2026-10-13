@@ -17,3 +17,4 @@ tests/**/*.lean -linguist-detectable
 tests/fixtures/observation/**/expected/** -linguist-detectable
 examples/io_protocol/*.stdout text eol=lf
 examples/io_protocol/output_sequence.stdout -text
+examples/io_protocol/explicit_flush.stdout -text

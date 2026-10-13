@@ -518,6 +518,16 @@ impl Parser {
                     self.peek_next().span,
                 )),
             },
+            TokenKind::Flush => {
+                let start = self.advance().span.start();
+                self.expect_simple(TokenKind::LeftParen)?;
+                self.expect_simple(TokenKind::RightParen)?;
+                let end = self.expect_simple(TokenKind::Semicolon)?.end();
+                Ok(Stmt {
+                    kind: StmtKind::Flush,
+                    span: self.span(start, end),
+                })
+            }
             TokenKind::Print => self.parse_print(),
             TokenKind::Return => self.parse_return(),
             TokenKind::If => self.parse_if(),

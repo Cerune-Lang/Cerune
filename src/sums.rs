@@ -339,7 +339,7 @@ impl Lowerer {
                 self.statement(update)?;
                 self.statements(body)?;
             }
-            StmtKind::Break | StmtKind::Continue => {}
+            StmtKind::Flush | StmtKind::Break | StmtKind::Continue => {}
         }
         Ok(())
     }

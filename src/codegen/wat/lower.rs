@@ -56,6 +56,7 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
         string_heap_start: context.next_address,
         string_heap_limit: crate::codegen::support::string_heap_limit(program),
         uses_write: crate::codegen::display::uses_write(program),
+        uses_flush: crate::codegen::support::first_flush_span(program).is_some(),
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
         memory_pages: if context.next_address == 0 {
             0
@@ -432,6 +433,14 @@ impl LoweringContext<'_> {
                 let kind = crate::codegen::display::kind(&value.ty, *quoted);
                 self.lower_expr(value, instructions);
                 instructions.push(Instruction::Write { kind });
+            }
+            cerune_ir::StatementKind::Flush => {
+                instructions.push(Instruction::Flush {
+                    origin: Origin {
+                        node_id: statement.id,
+                        span: statement.span,
+                    },
+                });
             }
             cerune_ir::StatementKind::Print { value } => {
                 let Value::Scalar(ty) = self.lower_expr(value, instructions) else {
@@ -1556,6 +1565,7 @@ fn collect_locations(
             cerune_ir::StatementKind::Assignment { .. }
             | cerune_ir::StatementKind::StringManage { .. }
             | cerune_ir::StatementKind::Write { .. }
+            | cerune_ir::StatementKind::Flush
             | cerune_ir::StatementKind::Print { .. }
             | cerune_ir::StatementKind::Call { .. }
             | cerune_ir::StatementKind::Return { .. }

@@ -334,6 +334,7 @@ impl Builder<'_> {
                     value: self.build_expr(value, Some(target_ty), &bindings)?,
                 }
             }
+            ast::StmtKind::Flush => StatementKind::Flush,
             ast::StmtKind::Print { value } => {
                 let ty = self.model.type_of_expr(value, &bindings)?;
                 StatementKind::Print {

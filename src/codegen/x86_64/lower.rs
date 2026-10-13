@@ -425,6 +425,7 @@ impl Lowerer<'_> {
                     self.store_pointer(*value, self.checked[&(*root, path.clone())]);
                 }
             }
+            Kind::Flush => self.push(Instruction::Flush),
             Kind::Output {
                 value,
                 newline,

@@ -105,6 +105,9 @@ fn body(
                 return Err(fail("source and MIR origins disagree"));
             }
         }
+        if matches!(i, Instruction::Flush) && !matches!(origins[index], Origin::Source { .. }) {
+            return Err(fail("flush needs a source origin"));
+        }
         // 集約値は基準slotから負方向へ8byteずつ配置します。
         let stack = |offset: isize, slots: usize| -> Result<(), Diagnostic> {
             if slots == 0 {
@@ -330,6 +333,7 @@ fn body(
             | ArrayReleaseOwner
             | ArrayFree
             | StringManage { .. }
+            | Flush
             | Write { .. }
             | CallPrintSysV(_)
             | CallPrintU64

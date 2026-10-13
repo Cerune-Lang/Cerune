@@ -225,6 +225,7 @@ pub(super) fn instruction<R: Copy + std::fmt::Display>(i: &InstructionKind<R>) -
             path,
             value: v,
         } => format!("store {} [{}] = {}", value(*root), values(path), value(*v)),
+        InstructionKind::Flush => "flush.stdout".into(),
         InstructionKind::Output {
             value: v,
             newline,

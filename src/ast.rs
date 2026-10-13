@@ -244,6 +244,7 @@ pub enum StmtKind {
         target: AssignmentTarget,
         value: Expr,
     },
+    Flush,
     Print {
         value: Expr,
     },

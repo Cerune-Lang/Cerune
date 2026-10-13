@@ -258,7 +258,7 @@ pub fn run(program: &BytecodeProgram) -> Result<String, VmError> {
     run_sink(program, &mut Capture::default())
 }
 
-/// 接続先へ逐次出力します。自動flushや出力の再収集は行いません。
+/// 接続先へ逐次出力し、ソースのflush命令を実行します。終了時の自動flushや再収集は行いません。
 pub fn run_with_output<W: std::io::Write>(
     program: &BytecodeProgram,
     output: &mut output::Output<W>,
@@ -1084,6 +1084,19 @@ fn execute_frame_inner(
                                 crate::bytecode::InstructionOrigin::Synthetic => None,
                             },
                         )
+                        .map_err(|f| VmErrorKind::Output(Box::new(f))),
+                    pc,
+                )?;
+            }
+            InstructionKind::Flush => {
+                at_instruction(
+                    output
+                        .flush(match instruction.origin {
+                            crate::bytecode::InstructionOrigin::Source { node_id, span } => {
+                                Some(output::Origin { node_id, span })
+                            }
+                            crate::bytecode::InstructionOrigin::Synthetic => None,
+                        })
                         .map_err(|f| VmErrorKind::Output(Box::new(f))),
                     pc,
                 )?;

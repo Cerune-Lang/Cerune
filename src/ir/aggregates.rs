@@ -173,7 +173,7 @@ pub(super) fn visit_body(
                 visit_body(std::slice::from_mut(update), f, s);
                 visit_body(body, f, s);
             }
-            StatementKind::Break | StatementKind::Continue => {}
+            StatementKind::Flush | StatementKind::Break | StatementKind::Continue => {}
         }
         s(stmt);
     }

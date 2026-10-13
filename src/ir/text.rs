@@ -298,6 +298,9 @@ fn emit_statement(statement: &Statement, indent: usize, program: &Program, outpu
             emit_expr(value, program, output);
             writeln!(output).unwrap();
         }
+        StatementKind::Flush => {
+            writeln!(output, "{prefix}{node}flush.stdout").unwrap();
+        }
         StatementKind::Print { value } => {
             write!(
                 output,

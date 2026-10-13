@@ -5,7 +5,7 @@ use super::ir::{Function, Instruction, LoopKind, Module, Origin, Type};
 pub fn emit(module: &Module) -> String {
     let mut output = String::new();
     let mut helpers = std::collections::BTreeMap::new();
-    let mut uses_failures = false;
+    let mut uses_failures = module.uses_flush;
     for instruction in module.instructions.iter().chain(
         module
             .functions
@@ -28,6 +28,11 @@ pub fn emit(module: &Module) -> String {
         output.push_str("  (import \"cerune\" \"write_byte\" (func $write_byte (param i32)))\n");
     }
 
+    if module.uses_flush {
+        output.push_str(
+            "  (import \"cerune\" \"flush_stdout_v1\" (func $flush_stdout_v1 (result i32)))\n",
+        );
+    }
     if module_uses_u64_print(module) {
         output.push_str("  (import \"cerune\" \"print_u64\" (func $print_u64 (param i64)))\n");
     }
@@ -263,6 +268,22 @@ fn emit_instruction(
     let prefix = "  ".repeat(indent);
 
     match instruction {
+        Instruction::Flush { origin } => {
+            let record =
+                crate::runtime::output::flush_failure_record(crate::runtime::output::Origin {
+                    node_id: origin.node_id,
+                    span: origin.span,
+                });
+            writeln!(output, "{prefix}call $flush_stdout_v1\n{prefix}if").unwrap();
+            for b in format!("cerune: {record}\n").bytes() {
+                writeln!(
+                    output,
+                    "{prefix}  i32.const {b}\n{prefix}  call $write_error_byte"
+                )
+                .unwrap();
+            }
+            writeln!(output, "{prefix}  unreachable\n{prefix}end").unwrap();
+        }
         Instruction::Located {
             origin,
             instruction,

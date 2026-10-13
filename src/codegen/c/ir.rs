@@ -75,6 +75,9 @@ pub enum Statement {
         value: Expr,
         retain: bool,
     },
+    Flush {
+        origin: Origin,
+    },
     Write {
         kind: &'static str,
         value: Expr,

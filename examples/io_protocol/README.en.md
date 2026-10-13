@@ -9,6 +9,14 @@ cargo run --quiet -- run examples/io_protocol/output_sequence.ceru
 cargo test --test execution_output --test execution_output_cli
 ```
 
+[explicit_flush.ceru](explicit_flush.ceru) calls `flush();` in a function and loop, preserving output order and Japanese/NUL/CR/LF. Compare its [expected output](explicit_flush.stdout) across routes. Flush failure prevents later execution.
+
+```sh
+cargo run --quiet -- run examples/io_protocol/explicit_flush.ceru
+cargo run --quiet -- emit-mir examples/io_protocol/explicit_flush.ceru
+cargo test --test explicit_flush --test execution_output
+```
+
 [input_flow.ceru](input_flow.ceru) selects operations using values scripted in the source. **It does not read stdin.** Cerune owns the state and operation rules.
 
 | Value or operation | Behavior checked |

@@ -18,6 +18,7 @@ pub struct Module {
     pub string_heap_limit: Option<u64>,
     pub array_heap_limit: Option<u64>,
     pub uses_write: bool,
+    pub uses_flush: bool,
     pub uses_strings: bool,
     pub strings: Vec<(usize, String)>,
     pub memory_pages: u32,
@@ -66,6 +67,9 @@ pub enum Instruction {
     StringConcat,
     StringManage {
         retain: bool,
+    },
+    Flush {
+        origin: Origin,
     },
     Write {
         kind: &'static str,

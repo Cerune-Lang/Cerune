@@ -33,6 +33,40 @@ impl std::fmt::Display for Failure {
         )
     }
 }
+impl Failure {
+    pub fn record(&self) -> String {
+        let operation = match self.operation {
+            Operation::Write => "write",
+            Operation::Flush => "flush",
+        };
+        let origin = self.origin.map_or_else(
+            || " origin=host".to_owned(),
+            |o| {
+                format!(
+                    " node={}{} bytes={}..{}",
+                    o.node_id.0,
+                    o.span.source_id().record_field(),
+                    o.span.start(),
+                    o.span.end()
+                )
+            },
+        );
+        format!(
+            "io-v1 operation={operation} requested={} accepted={}{}",
+            self.requested, self.accepted, origin
+        )
+    }
+}
+pub(crate) fn flush_failure_record(origin: Origin) -> String {
+    Failure {
+        operation: Operation::Flush,
+        kind: io::ErrorKind::Other,
+        requested: 0,
+        accepted: 0,
+        origin: Some(origin),
+    }
+    .record()
+}
 impl std::error::Error for Failure {}
 
 /// 内容を含まない記録です。実際のバイト列は明示的に選んだ出力先で取得します。
@@ -47,7 +81,7 @@ pub struct Event {
 }
 
 /// 実行前に選んだwriterへ出力します。記録には実行を制御するcallbackがありません。
-/// flushは呼出し側が明示的に行います。言語のflush命令ではありません。
+/// 言語のflush命令と埋め込み側のflushを、出自で区別します。
 pub struct Output<W> {
     writer: W,
     events: Vec<Event>,
@@ -93,11 +127,21 @@ impl<W: Write> Output<W> {
 
     /// 埋め込み側の明示的なflushです。ソース命令ではないため出自はNoneです。
     pub fn flush(&mut self) -> Result<(), Failure> {
+        self.flush_at(None)
+    }
+
+    fn flush_at(&mut self, origin: Option<Origin>) -> Result<(), Failure> {
         if let Some(failure) = self.failure {
             return Err(failure);
         }
         let result = self.writer.flush();
-        self.complete(Operation::Flush, None, 0, 0, result.err().map(|e| e.kind()))
+        self.complete(
+            Operation::Flush,
+            origin,
+            0,
+            0,
+            result.err().map(|e| e.kind()),
+        )
     }
 
     fn complete(
@@ -141,6 +185,7 @@ impl<W: Write> Output<W> {
 }
 
 pub(crate) trait Sink {
+    fn flush(&mut self, origin: Option<Origin>) -> Result<(), Failure>;
     fn write(&mut self, text: &str, origin: Option<Origin>) -> Result<(), Failure>;
     fn captured(&self) -> &str {
         ""
@@ -148,6 +193,9 @@ pub(crate) trait Sink {
 }
 
 impl<W: Write> Sink for Output<W> {
+    fn flush(&mut self, origin: Option<Origin>) -> Result<(), Failure> {
+        self.flush_at(origin)
+    }
     fn write(&mut self, text: &str, origin: Option<Origin>) -> Result<(), Failure> {
         if let Some(failure) = self.failure {
             return Err(failure);
@@ -173,6 +221,9 @@ impl<W: Write> Sink for Output<W> {
 #[derive(Default)]
 pub(crate) struct Capture(pub String);
 impl Sink for Capture {
+    fn flush(&mut self, _origin: Option<Origin>) -> Result<(), Failure> {
+        Ok(())
+    }
     fn write(&mut self, text: &str, _origin: Option<Origin>) -> Result<(), Failure> {
         self.0.push_str(text);
         Ok(())

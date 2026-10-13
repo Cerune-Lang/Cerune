@@ -155,6 +155,9 @@ pub enum Instruction {
         value: Operand,
         retain: bool,
     },
+    Flush {
+        origin: FailureOrigin,
+    },
     Write {
         kind: &'static str,
         value: Operand,

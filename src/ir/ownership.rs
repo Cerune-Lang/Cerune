@@ -901,6 +901,7 @@ impl Lowerer {
                 self.scopes.pop();
                 return;
             }
+            StatementKind::Flush => {}
             StatementKind::Break | StatementKind::Continue => {
                 self.cleanup(*self.loops.last().unwrap(), out)
             }

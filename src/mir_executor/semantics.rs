@@ -95,6 +95,17 @@ pub(crate) fn instruction<'a, R: Copy>(
             set_path(&mut destination, &indices, frame.get(*value)?)?;
             frame.set(*root, destination)?;
         }
+        I::Flush => {
+            let origin = origin.source().map(|o| output::Origin {
+                node_id: o.node_id,
+                span: o.span,
+            });
+            executor
+                .state()
+                .output
+                .flush(origin)
+                .map_err(Fault::output)?;
+        }
         I::Output {
             value: v,
             newline,

@@ -2,7 +2,7 @@
 
 [English](standard-io.en.md)
 
-**状態：HIR・MIR・SSA・VMの出力接続とCLIの逐次出力を実装済み。標準入力・言語側の明示flush・生成経路のI/O失敗契約は未実装です。** [#89](https://github.com/Cerune-Lang/Cerune/issues/89)の最初の用途を、上限付きUTF-8行入力による小さな対話とします。API名・型・失敗の詳細は後述の未決事項です。
+**状態：4実行器の出力接続、CLIの逐次出力、全実行・生成経路の明示flushを実装済み。標準入力と、生成経路の通常書込みの失敗契約は未実装です。** [#89](https://github.com/Cerune-Lang/Cerune/issues/89)の最初の用途を、上限付きUTF-8行入力による小さな対話とします。API名・型・失敗の詳細は後述の未決事項です。
 
 ## 採用条件
 
@@ -22,9 +22,9 @@
 
 | 対象 | 現在 | 必要な変更 |
 | --- | --- | --- |
-| IR・MIR・SSA・VMとCLI | 出力収集APIを維持し、逐次出力APIを追加。CLIは実行中に出力し、終了時にflush | 言語側のflushと各生成経路との契約統一 |
-| C・LLVM・QBE・Native | 出力は既存のランタイム関数を利用。出力失敗の検査は揃っていない | 書込み・flush・失敗の共通契約とtarget別実装 |
-| WAT | hostの出力importを利用。テストhostは出力を収集。memoryは非公開 | 入力・flush・失敗を返すhost契約。memoryは公開しない |
+| IR・MIR・SSA・VMとCLI | 出力収集APIを維持し、逐次出力APIを追加。CLIは実行中に出力し、終了時にflush | 生成経路との書込み失敗契約の統一 |
+| C・LLVM・QBE・Native | 出力は既存のランタイム関数を利用。出力失敗の検査は揃っていない | 通常書込みの部分失敗と再試行の統一。明示flushは対応済み |
+| WAT | hostの出力importを利用。テストhostは出力を収集。memoryは非公開 | flushの状態importは実装済み。入力・書込み失敗のhost契約が残る |
 | 文字列 | 有効なUTF-8を保持する所有値 | 入力バイトからの厳密な検証、予算と所有の規則 |
 | プロセステスト | 終了前の出力到着と二重表示防止を検証済み | 質問の出力を受けてから入力を送る対話テスト |
 
@@ -57,7 +57,7 @@ Ceruneプログラム → 明示的なI/O操作 → 実行用I/O接続 → OSま
 | 逐次実行 | `run_with_output`は成功時に`()`を返す。出力を内部で再収集せず、エラーの`output()`は空。受理済みバイトは接続先に残る |
 | 書込み | 短い書込みは残りを送る。`Interrupted`のみ再試行。0バイト進行・契約外の受理数・その他のエラーで停止 |
 | 部分失敗 | 操作・`ErrorKind`・要求/受理バイト数・NodeId/Spanを保持。UTF-8の途中で止まってもバイト数を保つ。後続操作・再送・追加flushは行わない |
-| flush | 埋め込み側が`Output::flush()`を明示的に呼ぶ。再試行せず失敗を返す。言語命令ではなく、出自は`None` |
+| flush | 埋め込み側が`Output::flush()`を明示的に呼ぶ。再試行せず失敗を返す。埋め込み操作の出自は`None`。言語側の`flush();`にはNodeId/Spanを付ける |
 | CLI | `run`・`run-ir`・`run-mir`（SSA含む）・`run-vm`は逐次出力。接続自体が失敗していなければ、成功・言語停止のどちらでも最後にflushする。停止理由とflush失敗が両方あれば両方を表示 |
 | 記録 | `with_trace_limit(writer, n)`で明示的に有効化。完了した論理出力操作とflushの順序・出自・要求/受理数・失敗を、`events()`から読み取り専用で取得 |
 | 記録上限 | 0は記録なし。上限・記録用確保の失敗では`trace_truncated()`を立て、実行を続ける。本文やOSエラー文は記録しない |
@@ -80,6 +80,39 @@ assert_eq!(output.into_inner(), b"42\n");
 ```
 
 `Output`は内部値やプログラムを所有せず、観測のcallbackも持ちません。writerは実行用の外部接続であり、観測APIではありません。writer自身が隠れた外部作用を行わないことは、その接続を用意する側の責務です。
+
+## 明示flush（実装済み）
+
+`flush();`は引数と戻り値を持たない組込み文です。`flush`は予約語です。標準出力に保留された出力を、その時点で実行用接続へ渡します。画面描画や永続保存は保証しません。
+
+操作と失敗の扱いは次のとおりです。
+
+| 項目 | 契約 |
+| --- | --- |
+| 順序と出自 | HIR・MIR・SSA・bytecodeに`flush.stdout`を保持。LIRと生成コードにも操作とNodeId/Spanを残し、観測の有無で回数・順序を変えない |
+| 成功 | 後続処理へ進む。収集型APIでは出力は既に収集先へ渡っているため成功する |
+| 失敗 | 後続処理を実行せず、再送・再flushを行わない。操作とソース位置を診断する。失敗前の出力は取り消せず、flush中にOSへ届いたバイト数は不明 |
+| 対応経路 | HIR・MIR・SSA・VM、C・LLVM・QBE・WAT、Windows/LinuxのASM・自前Object（SSA経由を含む） |
+| target | LLVM・QBEでは`flush();`だけのプログラムでも明示targetが必要。実行中のOSからは推測しない |
+| 観測 | 4実行器の`Output`で成功・失敗を記録。生成経路の成功操作を集める共通記録APIは後続 |
+
+失敗の安定した記録は、言語検査の`runtime-v1`と区別した`io-v1`です。
+
+```text
+cerune: io-v1 operation=flush requested=0 accepted=0 node=N[ file=F] bytes=S..E
+```
+
+`[ file=F]`は複数ファイルの出自がある場合の任意項目を表し、角括弧は出力しません。要求・受理数の0は「flushが新しい本文を受け取らない」ことを表し、「OSへ0バイト届いた」という意味ではありません。OS固有のエラー分類はこの記録へ含めず、4実行器のRust APIでは`ErrorKind`も保持します。埋め込み側の`Output::flush()`はソース出自を持たず、記録では`origin=host`です。
+
+CLIの既存オプション`--diagnostic-format runtime-v1`は、言語停止を`runtime-v1`、I/O失敗を`io-v1`で表示します。書込み失敗では`operation=write`と要求・受理バイト数を保持します。既定のCLI診断は人向けの位置付き表示を維持します。生成コードは失敗時に`io-v1`をstderrへ送り、終了します。stderr自体の失敗時には診断の配送を保証できません。
+
+### 生成経路の接続
+
+C・LLVM・QBE・Nativeはstdoutのみをflushし、失敗時は終了時のstdio再flushを避けて停止します。Linuxではflush中のSIGPIPEを一時的に無視し、成功時には元の設定を戻します。この設定はプロセス全体に作用するため、現在の単一スレッドの実行成果物を対象とします。外部の多スレッドhostへの埋め込み契約は未定義です。根拠はLinuxの[fflush](https://man7.org/linux/man-pages/man3/fflush.3.html)と[signal](https://man7.org/linux/man-pages/man7/signal.7.html)の規則です。
+
+WATは明示flushを含む成果物だけに`cerune.flush_stdout_v1() -> i32`を追加します。hostは成功で0、失敗で0以外を返します。失敗記録を既存の`write_error_byte`へ送りtrapします。必要なimportがなければinstantiateに失敗し、暗黙に成功とはしません。内部memoryは非公開のままです。テストhostは同期的に出力を収集し、flush成功を返します。
+
+通常の生成された書込みの部分失敗・再試行はまだ統一していません。明示flushの対応完了を、I/O失敗全体の対応完了とは扱いません。標準入力も未実装です。
 
 ## 最初の入力と出力順
 
@@ -128,19 +161,21 @@ Windows/LinuxでUTF-8・NUL・CR/LFを保つ接続を検証します。console�
 | 2 | 上限付き行入力の詳細を確定し、共通IRから各経路へ実装 | EOF・空行・末尾、厳密UTF-8、予算、失敗と出自、所有と解放 |
 | 3 | 実際の対話exampleと経路比較を追加 | 質問が届くまで入力を送らないテスト、同じ入力・応答・操作順、Windows/LinuxとWAT host |
 
-段階1の出力接続は実装済みです。次は言語側のflushと生成経路の書込み・flush・失敗契約を揃えます。部分対応の間は未対応経路を明記し、既存機能と同等の全経路対応を最終条件にします。
+段階1の出力接続は実装済みです。明示flushも対応済みです。次は生成経路の通常書込みの部分失敗・再試行・停止契約を揃えます。部分対応の間は未対応経路を明記し、既存機能と同等の全経路対応を最終条件にします。
 
 ## 実装前に詰める詳細
 
 次の項目は未確定です。関係する段階へ入る前に設計とテスト期待値を揃えます。
 
-- 段階1の残り：言語側のflush表記、生成経路を含む失敗分類と停止契約、共通のI/O記録。埋め込み接続の部分書込み・再試行・記録上限は上記のとおり実装済み。
+- 段階1の残り：生成経路の書込み失敗分類と停止契約、成功操作を含む共通のI/O記録。埋め込み接続の部分書込み・再試行・記録上限は上記のとおり実装済み。
 - 段階2：API名・戻り値型・標準モジュールの供給方法。既存enum/importで足りるか確認し、暗黙のファイル探索を加えない。
 - 上限ちょうどのEOF確認、先読みの所有、超過後の回復。先読みがOS入力を消費しないとは仮定しない。
 - 作業バッファ・UTF-8変換・完成文字列の予算と最大同時使用量。既存の`[u8]`の論理要素幅は1バイトとは限らない。
 - OSエラーの安定した分類と診断、console/pipeの対応範囲、WAT host ABIの版と互換性。
 
 ## 現在動かせる基準例
+
+[explicit_flush.ceru](../../examples/io_protocol/explicit_flush.ceru)は関数・ループ内のflushと日本語・NUL・CR/LFを確認します。[生成経路のテスト](../../tests/explicit_flush.rs)で同じ出力、制御されたflush失敗と出自、終了前の出力到着を比較し、Linuxでは切断したsocketでも停止診断を確認します。
 
 [output_sequence.ceru](../../examples/io_protocol/output_sequence.ceru)は関数評価と表示の順序、日本語・NUL・CR/LFの保持を確認します。[実行APIのテスト](../../tests/execution_output.rs)で観測の有無・容量・部分書込みを比較し、[CLIテスト](../../tests/execution_output_cli.rs)で終了前の出力到着と二重表示防止を確認します。
 

@@ -19,6 +19,31 @@ impl Reporter {
         }
     }
 
+    pub fn flush(&mut self, output: &mut String) {
+        let Origin::Source { node_id, span } = self.origin else {
+            panic!("flush needs source origin")
+        };
+        let record = format!(
+            "cerune: {}\n",
+            crate::runtime::output::flush_failure_record(crate::runtime::output::Origin {
+                node_id,
+                span
+            })
+        );
+        let id = self.count;
+        self.count += 1;
+        let label = format!(".Lcerune_flush_failure_{id}");
+        self.data.push_str(&format!(
+            "{label}:\n  .asciz \"{}\"\n",
+            record.replace('\n', "\\n")
+        ));
+        if self.target.is_linux() {
+            output.push_str(&format!("  subq $16, %rsp\n  movl $13, %edi\n  movl $1, %esi\n  callq signal\n  cmpq $-1, %rax\n  je .Lcerune_flush_failed_{id}\n  movq %rax, (%rsp)\n  movq stdout(%rip), %rdi\n  callq fflush\n  testl %eax, %eax\n  jne .Lcerune_flush_failed_{id}\n  movq (%rsp), %rsi\n  movl $13, %edi\n  callq signal\n  cmpq $-1, %rax\n  je .Lcerune_flush_failed_{id}\n  addq $16, %rsp\n  jmp .Lcerune_flush_done_{id}\n.Lcerune_flush_failed_{id}:\n  addq $16, %rsp\n  movl $2, %edi\n  leaq {label}(%rip), %rsi\n  movl ${}, %edx\n  callq write\n  movl $1, %edi\n  callq _Exit\n  ud2\n.Lcerune_flush_done_{id}:\n", record.len()));
+        } else {
+            output.push_str(&format!("  movl $1, %ecx\n  callq __acrt_iob_func\n  movq %rax, %rcx\n  callq fflush\n  testl %eax, %eax\n  je .Lcerune_flush_done_{id}\n  movl $2, %ecx\n  leaq {label}(%rip), %rdx\n  movl ${}, %r8d\n  callq _write\n  movl $1, %ecx\n  callq _Exit\n  ud2\n.Lcerune_flush_done_{id}:\n", record.len()));
+        }
+    }
+
     pub fn emit(&mut self, code: FailureCode, output: &mut String) {
         let Origin::Source { node_id, span } = self.origin else {
             panic!("language failure requires a source origin");

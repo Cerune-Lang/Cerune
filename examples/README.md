@@ -8,7 +8,7 @@
 | --- | --- |
 | このディレクトリ | 一括実行できるプログラム |
 | [dynamic_arrays](dynamic_arrays/README.md) | 動的配列の作成・範囲コピー・入れ子。IR・MIR・VM・C・LLVM・QBE・WAT・ASM・自前Objectで実行 |
-| [io_protocol](io_protocol/README.md) | 出力と評価順、入力値での操作分岐。EOF・空行・失敗を区別（標準入力は未使用） |
+| [io_protocol](io_protocol/README.md) | 出力と評価順、明示flush、入力値での操作分岐。EOF・空行・失敗を区別（標準入力は未使用） |
 | [ir_stages](ir_stages/README.md) | 短絡・loop・関数呼出しを実行し、HIR→MIR→LIR→Nativeの変換とtarget別ABIを観測 |
 | [modules](modules/README.md) | import、単一ファイル版との比較、意図した停止 |
 | [runtime_failures](runtime_failures/README.md) | 停止前の出力と失敗する式を追う5例 |

@@ -355,3 +355,142 @@ fn every_runnable_example_matches_existing_captured_output_in_all_executors() {
         }
     }
 }
+
+#[test]
+fn explicit_flush_retains_order_origin_and_failure_across_executors() {
+    let source = "print(\"before\"); flush(); print(\"after\");";
+    let hir = compile_to_ir(source).unwrap();
+    let mut reference = None;
+    for route in 0..4 {
+        for limit in [0, 1, 32] {
+            let mut output = Output::with_trace_limit(
+                Writer {
+                    flush_error: true,
+                    ..Writer::default()
+                },
+                limit,
+            );
+            let error = execute(route, &hir, &mut output).unwrap_err();
+            let failure = error.io.unwrap();
+            assert!(error.runtime.is_none());
+            assert_eq!(failure.operation, Operation::Flush);
+            assert_eq!((failure.requested, failure.accepted), (0, 0));
+            let origin = failure.origin.unwrap();
+            assert_eq!(&source[origin.span.start()..origin.span.end()], "flush();");
+            assert_eq!(error.origin, Some(origin));
+            if let Some(expected) = reference {
+                assert_eq!(failure, expected);
+            } else {
+                reference = Some(failure);
+            }
+            if limit == 32 {
+                assert_eq!(output.events().last().unwrap().operation, Operation::Flush);
+                assert_eq!(output.events().last().unwrap().origin, Some(origin));
+            }
+            assert_eq!(output.flush(), Err(failure));
+            let writer = output.into_inner();
+            assert_eq!(writer.bytes, b"before\n");
+            assert_eq!(writer.flushes, 1);
+        }
+    }
+}
+
+#[test]
+fn explicit_flush_example_has_identical_observed_and_captured_execution() {
+    let hir = compile_to_ir(include_str!("../examples/io_protocol/explicit_flush.ceru")).unwrap();
+    let expected = include_bytes!("../examples/io_protocol/explicit_flush.stdout");
+    for route in 0..4 {
+        let mut output = Output::with_trace_limit(Writer::default(), 100);
+        execute(route, &hir, &mut output).unwrap();
+        let flushes: Vec<_> = output
+            .events()
+            .iter()
+            .filter(|e| e.operation == Operation::Flush)
+            .collect();
+        assert_eq!(flushes.len(), 4);
+        assert!(
+            flushes
+                .iter()
+                .all(|e| e.origin.is_some() && e.failure.is_none())
+        );
+        assert_eq!(output.into_inner().bytes, expected);
+    }
+    assert_eq!(ir_executor::run(&hir).unwrap().as_bytes(), expected);
+    let mir = mir::lower(&hir).unwrap();
+    assert_eq!(mir_executor::run(&mir).unwrap().as_bytes(), expected);
+    assert_eq!(
+        ssa_executor::run(&mir::ssa::construct(&mir).unwrap())
+            .unwrap()
+            .as_bytes(),
+        expected
+    );
+    assert_eq!(
+        cerune_lang::vm::run(&cerune_lang::bytecode::lower(&hir).unwrap())
+            .unwrap()
+            .as_bytes(),
+        expected
+    );
+}
+
+#[test]
+fn flush_is_a_statement_and_survives_observable_lowering() {
+    for invalid in [
+        "flush(1);",
+        "x: i64 = flush();",
+        "flush()",
+        "fn flush()->void{}",
+    ] {
+        assert!(compile_to_ir(invalid).is_err(), "{invalid}");
+    }
+    let hir = compile_to_ir("flush();").unwrap();
+    assert!(
+        cerune_lang::compile_to_ir_text("flush();")
+            .unwrap()
+            .contains("flush.stdout")
+    );
+    let mir = mir::lower(&hir).unwrap();
+    assert!(
+        mir.main
+            .blocks
+            .iter()
+            .flat_map(|b| &b.instructions)
+            .any(|i| matches!(i.kind, mir::InstructionKind::Flush))
+    );
+    let ssa = mir::ssa::construct(&mir).unwrap();
+    let back = mir::ssa::lower(&ssa).unwrap();
+    assert!(
+        back.program
+            .main
+            .blocks
+            .iter()
+            .flat_map(|b| &b.instructions)
+            .any(|i| matches!(i.kind, mir::InstructionKind::Flush))
+    );
+    assert!(cerune_lang::codegen::llvm::emit_llvm(&hir).is_err());
+    assert!(cerune_lang::codegen::qbe::emit_qbe(&hir).is_err());
+}
+
+#[test]
+fn named_flush_failure_retains_file_origin_and_short_circuit_order() {
+    let text = "fn hit() -> bool { flush(); return true; } print(false && hit()); print(true || hit()); flush(); print(99);";
+    let mut sources = cerune_lang::source::SourceMap::new();
+    let id = sources.add("flush.ceru", text);
+    let hir = cerune_lang::compile_source_to_ir(sources.get(id).unwrap()).unwrap();
+    for route in 0..4 {
+        let mut output = Output::with_trace_limit(
+            Writer {
+                flush_error: true,
+                ..Writer::default()
+            },
+            32,
+        );
+        let failure = execute(route, &hir, &mut output).unwrap_err().io.unwrap();
+        let origin = failure.origin.unwrap();
+        assert_eq!(origin.span.source_id(), id);
+        assert_eq!(origin.span.start(), text.rfind("flush();").unwrap());
+        assert!(failure.record().contains(&id.record_field()));
+        let writer = output.into_inner();
+        assert_eq!(writer.bytes, b"false\ntrue\n");
+        assert_eq!(writer.flushes, 1);
+    }
+}

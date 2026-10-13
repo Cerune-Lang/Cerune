@@ -328,7 +328,7 @@ fn run() -> Result<(), String> {
             let ir = ir_for(&source, string_heap_limit, array_heap_limit)?;
             let stdout = std::io::stdout();
             let mut output = cerune_lang::runtime::output::Output::new(stdout.lock());
-            let result = if command == "run-mir" {
+            let mut result = if command == "run-mir" {
                 let mir = render_compilation_result(
                     cerune_lang::mir::lower(&ir).map_err(|e| e.diagnostic()),
                     &source,
@@ -367,9 +367,18 @@ fn run() -> Result<(), String> {
                 })
             };
 
+            if runtime_format && let Some(failure) = output.failure() {
+                result = Err(failure.record());
+            }
             // 出力済みの内容は再送しません。既存の停止理由もflush失敗で上書きしません。
             let flush = if output.failure().is_none() {
-                output.flush().map_err(|e| e.to_string())
+                output.flush().map_err(|e| {
+                    if runtime_format {
+                        e.record()
+                    } else {
+                        e.to_string()
+                    }
+                })
             } else {
                 Ok(())
             };

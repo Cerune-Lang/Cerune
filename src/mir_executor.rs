@@ -192,7 +192,7 @@ pub fn run(program: &mir::Program) -> std::result::Result<String, ExecutionError
     run_sink(program, &mut Capture::default())
 }
 
-/// 接続先へ逐次出力します。自動flushや出力の再収集は行いません。
+/// 接続先へ逐次出力し、ソースのflush命令を実行します。終了時の自動flushや再収集は行いません。
 pub fn run_with_output<W: std::io::Write>(
     program: &mir::Program,
     output: &mut output::Output<W>,

@@ -74,7 +74,7 @@ fn statements(body: &mut [Statement], temporaries: &mut Vec<Type>) {
                 statements(std::slice::from_mut(update), temporaries);
                 statements(body, temporaries);
             }
-            Statement::Break | Statement::Continue => {}
+            Statement::Flush { .. } | Statement::Break | Statement::Continue => {}
         }
     }
 }

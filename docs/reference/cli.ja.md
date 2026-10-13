@@ -41,7 +41,9 @@ cerune --version
 
 `run`・`run-ir`・`run-mir`（`--ssa`含む）・`run-vm`は、実行中に標準出力へ渡します。出力先のバッファリングは残り、プログラム終了前に全バイトの配送を保証するものではありません。接続が失敗していなければ、正常終了・言語停止の最後にflushします。先行出力を終了時に再表示しません。
 
-書込み・flush失敗は診断して終了コード1を返します。言語停止と終了時flushの両方が失敗した場合は、両方を表示します。標準入力やCeruneソース内のflush構文は未実装です。[出力接続の契約](../design/standard-io.ja.md)にAPIと対応範囲を記載しています。
+書込み・flush失敗は診断して終了コード1を返します。言語停止と終了時flushの両方が失敗した場合は、両方を表示します。ソースの`flush();`はその位置でflushし、失敗時は後続処理を止めます。標準入力は未実装です。[出力接続の契約](../design/standard-io.ja.md)にAPIと対応範囲を記載しています。
+
+`--diagnostic-format runtime-v1`では、言語停止は従来の`runtime-v1`、書込み・flush失敗は`io-v1`で表示します。I/O記録は操作・要求/受理バイト数・NodeId/Spanを持ち、終了時のhost flushでは`origin=host`です。flushの要求/受理数0はOSへの配送バイト数を表しません。
 
 ## 動的文字列の予算
 
@@ -163,7 +165,7 @@ cerune emit-bytecode <file> [-o <output.cebc>]
 
 ### LLVMのターゲット指定
 
-`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`を受け付けます。文字列・動的配列を使うプログラムでは、未使用の型・関数も含めて指定が必須です。数値だけでも、検査付き演算・変換・配列添字など実行時診断を持つ場合は指定が必要です。たとえば`print(1 + 2);`は指定が必要で、`print(1);`は省略できます。ホストOSからは推測しません。`--target`と`-o`（`--output`も可）の順序は自由ですが、同じオプションの重複、値の省略、未対応ターゲットはエラーです。
+`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`を受け付けます。文字列・動的配列を使うプログラムでは、未使用の型・関数も含めて指定が必須です。数値だけでも、検査付き演算・変換・配列添字など実行時診断を持つ場合は指定が必要です。たとえば`print(1 + 2);`は指定が必要で、`print(1);`は省略できます。`flush();`も明示targetを必須とします。ホストOSからは推測しません。`--target`と`-o`（`--output`も可）の順序は自由ですが、同じオプションの重複、値の省略、未対応ターゲットはエラーです。
 
 Linux x86-64上での例:
 
@@ -187,7 +189,7 @@ CeruneはLLVMの生成だけを行い、Clangや実行ファイルを起動し�
 
 ### QBEのターゲット指定
 
-QBEの`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`です。文字列・動的配列では必須です。省略・未対応のターゲット・オプションの重複は診断し、既存の出力ファイルを変更しません。数値だけの既存の呼び出しでは省略できますが、Windows用の出力・診断を選ぶには明示指定が必要です。
+QBEの`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`です。文字列・動的配列・`flush();`では必須です。省略・未対応のターゲット・オプションの重複は診断し、既存の出力ファイルを変更しません。数値だけの既存の呼び出しでは省略できますが、Windows用の出力・診断を選ぶには明示指定が必要です。
 
 ```sh
 cerune emit-qbe examples/string_lookup.ceru --target x86_64-unknown-linux-gnu -o target/string_lookup.ssa
@@ -281,3 +283,7 @@ Windows向けには`--target x86_64-pc-windows-msvc`を指定します。`--anno
 ## 自前オブジェクトの生成
 
 `emit-obj`は`--target x86_64-pc-windows-msvc`または`x86_64-unknown-linux-gnu`と`-o`を必須とします。外部ツールなしでCOFF/ELFを生成し、標準出力へバイナリは書きません。`--annotate-origins`で出自ラベルを残せます。誤ったオプションやコンパイル診断では既存出力を変更しません。リンク・実行は別の明示操作です。[自前エンコーダ](../design/native-encoder.ja.md)を参照してください。ライブラリでは`compile_to_native_object(source, target, annotate_origins)`が`Vec<u8>`を返します。
+
+## WATの明示flush
+
+`flush();`を含む成果物は`cerune.flush_stdout_v1() -> i32`をimportします。hostは成功で0、失敗で0以外を返します。失敗すると`write_error_byte`へ`io-v1`記録を送りtrapします。importがないhostはinstantiateに失敗します。memoryは公開しません。

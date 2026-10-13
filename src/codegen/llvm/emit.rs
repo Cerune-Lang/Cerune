@@ -182,6 +182,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     output.push_str("  ret i32 0\n");
     output.push_str("}\n");
 
+    crate::codegen::output::llvm(module, &mut output);
     output
 }
 
@@ -250,6 +251,12 @@ fn emit_instruction(
 ) {
     let failure = super::failure::argument(instruction, origin);
     match instruction {
+        Instruction::Flush => {
+            let Origin::Source { node_id, .. } = origin else {
+                unreachable!("flush origin")
+            };
+            writeln!(output, "  call void @cerune.flush.{}()", node_id.0).unwrap();
+        }
         Instruction::ArrayAllocate {
             dest,
             element,

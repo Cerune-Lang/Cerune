@@ -275,6 +275,7 @@ impl<'a> Builder<'a> {
                     o,
                 );
             }
+            S::Flush => self.emit(InstructionKind::Flush, o),
             S::Print { value } => {
                 let value = self.expr(value)?;
                 self.emit(

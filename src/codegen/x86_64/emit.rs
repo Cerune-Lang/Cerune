@@ -252,6 +252,7 @@ fn emit_instruction(
         return;
     }
     match instruction {
+        Instruction::Flush => reporter.flush(output),
         Instruction::ArrayAllocate { .. }
         | Instruction::ArrayRangeCheck { .. }
         | Instruction::DynamicArrayAddress { .. }

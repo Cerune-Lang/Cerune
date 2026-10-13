@@ -367,6 +367,7 @@ fn instruction(p: &Program, f: &Function, i: &Instruction) -> Result<(), Error> 
                 o,
             )
         }
+        InstructionKind::Flush => Ok(()),
         InstructionKind::Output { value, quoted, .. } => {
             let t = local(f, *value, o)?;
             require(
@@ -434,6 +435,7 @@ pub(super) fn reads(i: &InstructionKind) -> Vec<LocalId> {
             .chain(path.iter().copied())
             .chain([*value])
             .collect(),
+        InstructionKind::Flush => vec![],
         InstructionKind::Output { value, .. }
         | InstructionKind::ArrayRetain { value }
         | InstructionKind::ArrayFree { value }

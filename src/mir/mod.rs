@@ -130,6 +130,7 @@ pub enum InstructionKind<R = LocalId> {
         path: Vec<R>,
         value: R,
     },
+    Flush,
     Output {
         value: R,
         newline: bool,
