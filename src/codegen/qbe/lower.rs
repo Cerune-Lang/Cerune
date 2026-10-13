@@ -329,6 +329,15 @@ impl Lowerer<'_> {
                 });
                 false
             }
+            cerune_ir::StatementKind::Flush => {
+                self.instructions.push(Instruction::Flush {
+                    origin: FailureOrigin {
+                        node: statement.id,
+                        span: statement.span,
+                    },
+                });
+                false
+            }
             cerune_ir::StatementKind::Print { value } => {
                 let Value::Scalar { ty, operand } = self.lower_expr(value) else {
                     unreachable!("semantic analysis rejects aggregate printing")
@@ -1505,6 +1514,7 @@ fn collect_slots(
             cerune_ir::StatementKind::Assignment { .. }
             | cerune_ir::StatementKind::StringManage { .. }
             | cerune_ir::StatementKind::Write { .. }
+            | cerune_ir::StatementKind::Flush
             | cerune_ir::StatementKind::Print { .. }
             | cerune_ir::StatementKind::Call { .. }
             | cerune_ir::StatementKind::Return { .. }

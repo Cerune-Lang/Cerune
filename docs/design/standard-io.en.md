@@ -2,7 +2,7 @@
 
 [日本語](standard-io.ja.md)
 
-**Status: output connections for HIR/MIR/SSA/VM and incremental CLI output are implemented. Stdin, language-level explicit flush, and generated-route I/O failure contracts remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. API names, types, and detailed failure rules remain open below.
+**Status: Output connections in all four executors, incremental CLI output, and explicit flush across execution/generated routes are implemented. Stdin and ordinary generated-write failure contracts remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. API names, types, and detailed failure rules remain open below.
 
 ## Acceptance principles
 
@@ -22,9 +22,9 @@ The investigation covers `src/ir_executor.rs`, `src/mir_executor/`, `src/ssa_exe
 
 | Area | Current behavior | Required change |
 | --- | --- | --- |
-| IR/MIR/SSA/VM and CLI | Retain capture APIs, add incremental output APIs; CLI delivers output during execution and flushes at completion | Language-level flush and a contract shared with generated routes |
-| C/LLVM/QBE/Native | Use existing runtime output functions; output-failure checks are not consistent | Common write/flush/failure contract with target-specific implementations |
-| WAT | Host output imports; the test host captures output; memory stays private | Host contract returning input/flush/failure results; keep memory private |
+| IR/MIR/SSA/VM and CLI | Retain capture APIs, add incremental output APIs; CLI delivers output during execution and flushes at completion | A write-failure contract shared with generated routes |
+| C/LLVM/QBE/Native | Use existing runtime output functions; output-failure checks are not consistent | Align partial writes and retries; explicit flush is implemented |
+| WAT | Host output imports; the test host captures output; memory stays private | Flush-status import is implemented; input and write-failure host contracts remain |
 | Strings | Owned values containing valid UTF-8 | Strict input-byte validation, budgets, and ownership rules |
 | Process tests | Verify output arrival before termination and no duplicate output | Interactive tests that send input only after receiving the prompt |
 
@@ -57,7 +57,7 @@ All four executors provide `run_with_output(program, &mut Output<W>)`. The VM en
 | Incremental execution | `run_with_output` returns `()` on success, without collecting output internally; error `output()` is empty. Accepted bytes remain at the destination |
 | Writes | Send the remainder after short writes; retry only `Interrupted`. Zero progress, invalid accepted counts, and other errors stop execution |
 | Partial failure | Retain operation, `ErrorKind`, requested/accepted byte counts, and NodeId/Span, even within a UTF-8 character. No later operations, retransmission, or additional flush |
-| Flushing | The embedding caller explicitly invokes `Output::flush()`. Failure is returned without retry. This is not a language instruction and its origin is `None` |
+| Flushing | The embedding caller explicitly invokes `Output::flush()`. Failure is returned without retry. This host operation has origin `None`; language `flush();` carries NodeId/Span |
 | CLI | `run`, `run-ir`, `run-mir` (including SSA), and `run-vm` deliver output incrementally. Unless the connection itself failed, flush at both success and language failure. Report both a program failure and a subsequent flush failure |
 | Records | Explicitly enable with `with_trace_limit(writer, n)`. Read completed logical output/flush operations, order, origins, requested/accepted counts, and failures through read-only `events()` |
 | Record limit | 0 disables recording. Reaching the limit or failing to allocate a record sets `trace_truncated()` and execution continues. Records contain neither content nor OS error messages |
@@ -80,6 +80,39 @@ assert_eq!(output.into_inner(), b"42\n");
 ```
 
 `Output` owns neither program values nor the program and has no observation callbacks. The writer is an execution connection, not an observation API. Its provider is responsible for any external effects performed by that writer.
+
+## Explicit flush (implemented)
+
+`flush();` is a built-in statement with no arguments or result; `flush` is reserved. It hands pending stdout output to the execution connection at that point. It does not guarantee screen rendering or durable storage.
+
+Operations and failures follow these rules.
+
+| Item | Contract |
+| --- | --- |
+| Order and origin | Retain `flush.stdout` in HIR/MIR/SSA/bytecode and the operation with NodeId/Span in LIR/generated code. Observation does not change operation counts or order |
+| Success | Continue execution. Capture APIs succeed because output has already been handed to the capture destination |
+| Failure | Stop before later operations, without retransmission or another flush. Diagnose the operation and source origin. Prior output cannot be rolled back; bytes delivered to the OS during flushing are unknown |
+| Routes | HIR/MIR/SSA/VM, C/LLVM/QBE/WAT, and Windows/Linux ASM/native objects, including the SSA path |
+| Target | LLVM/QBE require an explicit target even for a program containing only `flush();`. Never infer it from the compiler host |
+| Observation | The four executors record success/failure through `Output`. Shared success-operation recording for generated routes remains future work |
+
+Stable failure records use `io-v1`, separately from language-check `runtime-v1`.
+
+```text
+cerune: io-v1 operation=flush requested=0 accepted=0 node=N[ file=F] bytes=S..E
+```
+
+`[ file=F]` denotes an optional multi-file origin field; literal brackets are not emitted. Zero requested/accepted counts mean flush accepts no new payload, not that zero bytes reached the OS. The record excludes OS-specific error classifications; the four executors retain `ErrorKind` in their Rust API. Host `Output::flush()` has no source origin and records `origin=host`.
+
+The existing CLI option `--diagnostic-format runtime-v1` selects `runtime-v1` for language failures and `io-v1` for I/O failures. Write failures retain `operation=write` and requested/accepted counts. Default CLI diagnostics remain human-readable with locations. Generated code writes `io-v1` to stderr before terminating. Delivery of that diagnostic cannot be guaranteed if stderr itself fails.
+
+### Generated-route connections
+
+C/LLVM/QBE/Native flush only stdout and stop on failure without stdio flushing again during process exit. On Linux they temporarily ignore SIGPIPE while flushing and restore its prior disposition on success. This is a process-wide setting, so the contract covers current single-threaded executable artifacts; embedding in an external multithreaded host is not defined. See the Linux [fflush](https://man7.org/linux/man-pages/man3/fflush.3.html) and [signal](https://man7.org/linux/man-pages/man7/signal.7.html) rules.
+
+WAT artifacts containing explicit flush add `cerune.flush_stdout_v1() -> i32`. The host returns 0 on success and any nonzero status on failure. Failure writes the record through existing `write_error_byte` and traps. Missing required imports fail instantiation rather than silently succeeding. Internal memory stays private. The test host synchronously captures output and reports successful flushing.
+
+Partial-write/retry behavior of ordinary generated writes is not yet consistent. Completed explicit-flush support does not imply completed I/O-failure parity. Stdin remains unimplemented.
 
 ## Initial input and output order
 
@@ -128,19 +161,21 @@ The order follows dependencies of interaction. General record/replay, an effect 
 | 2 | Finalize bounded line-input details and implement from common IR through all routes | EOF/empty/final lines, strict UTF-8, budgets, failures/origins, ownership and release |
 | 3 | Add real interactive examples and route comparisons | Do not send input until the prompt arrives; compare identical input/responses/order on Windows/Linux and the WAT host |
 
-Stage 1 output connections are implemented. Next, align language-level flush and write/flush/failure contracts for generated routes. Identify unsupported routes during partial implementation; parity across all existing routes is the final requirement.
+Stage 1 output connections are implemented. Explicit flush is also implemented. Next, align partial-write/retry/termination contracts for ordinary generated writes. Identify unsupported routes during partial implementation; parity across all existing routes is the final requirement.
 
 ## Details to resolve before implementation
 
 The following remain undecided. Align the design and expected test results before implementing the relevant stage.
 
-- Remaining stage 1 work: language-level flush syntax, failure classification/termination including generated routes, and shared I/O records. Embedding partial-write/retry/record-limit behavior is implemented as specified above.
+- Remaining stage 1 work: generated-write failure classification/termination and shared I/O records including successful operations. Embedding partial-write/retry/record-limit behavior is implemented as specified above.
 - Stage 2: API names, result types, and standard-module distribution. Check whether existing enums/imports suffice; do not add implicit file lookup.
 - EOF detection exactly at the limit, lookahead ownership, and recovery after exceeding the limit. Do not assume lookahead leaves OS input unconsumed.
 - Budgets and peak simultaneous usage for scratch buffers, UTF-8 conversion, and completed strings. An existing `[u8]` element does not necessarily occupy one logical budget byte.
 - Stable OS-error classification and diagnostics, supported console/pipe behavior, and WAT host ABI versioning/compatibility.
 
 ## Runnable baseline today
+
+[explicit_flush.ceru](../../examples/io_protocol/explicit_flush.ceru) covers flushing inside functions/loops and Japanese/NUL/CR/LF. [Generated-route tests](../../tests/explicit_flush.rs) compare output, controlled flush failures/origins, and output arrival before termination; on Linux they also check diagnostics with a disconnected socket.
 
 [output_sequence.ceru](../../examples/io_protocol/output_sequence.ceru) checks function evaluation/output order and Japanese/NUL/CR/LF preservation. [Execution API tests](../../tests/execution_output.rs) compare observation settings, capacities, and partial writes; [CLI tests](../../tests/execution_output_cli.rs) verify output arrival before termination and prevent duplicate output.
 

@@ -566,7 +566,7 @@ fn collect_function_calls(
                 collect_function_calls(std::slice::from_ref(update), model, calls);
                 collect_function_calls(body, model, calls);
             }
-            StmtKind::Break | StmtKind::Continue => {}
+            StmtKind::Flush | StmtKind::Break | StmtKind::Continue => {}
         }
     }
 }
@@ -1264,6 +1264,7 @@ fn check_statements(
                 scopes.pop();
             }
 
+            StmtKind::Flush => {}
             StmtKind::Break => {
                 if loop_depth == 0 {
                     return Err(Diagnostic::new(

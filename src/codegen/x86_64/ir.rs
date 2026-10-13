@@ -144,6 +144,7 @@ pub enum Instruction {
     StringManage {
         retain: bool,
     },
+    Flush,
     Write {
         kind: &'static str,
     },

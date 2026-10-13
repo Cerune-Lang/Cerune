@@ -106,6 +106,7 @@ impl<R: Copy> I<R> {
                 path: path.iter().map(|v| f(*v)).collect(),
                 value: f(*value),
             },
+            I::Flush => I::Flush,
             I::Output {
                 value,
                 newline,

@@ -219,6 +219,7 @@ pub enum InstructionKind {
         ty: Type,
         quoted: bool,
     },
+    Flush,
     Print(Type),
 
     JumpIfFalse(usize),
@@ -579,6 +580,10 @@ impl Compiler {
                     statement.id,
                     statement.span,
                 );
+                false
+            }
+            StatementKind::Flush => {
+                self.emit_source(InstructionKind::Flush, statement.id, statement.span);
                 false
             }
             StatementKind::Print { value } => {
@@ -1200,6 +1205,7 @@ fn collect_slots(
             | StatementKind::Assignment { .. }
             | StatementKind::StringManage { .. }
             | StatementKind::Write { .. }
+            | StatementKind::Flush
             | StatementKind::Print { .. }
             | StatementKind::Call { .. }
             | StatementKind::Return { .. }
@@ -1528,6 +1534,9 @@ fn format_instruction(
                 type_name(ty, program)
             )
             .unwrap();
+        }
+        InstructionKind::Flush => {
+            writeln!(output, "flush.stdout").unwrap();
         }
         InstructionKind::Print(ty) => {
             writeln!(output, "print.{}", type_name(ty, program),).unwrap();

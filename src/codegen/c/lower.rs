@@ -100,6 +100,7 @@ fn collect_array_assignment_types(program: &cerune_ir::Program) -> Vec<Type> {
                 cerune_ir::StatementKind::Binding { .. }
                 | cerune_ir::StatementKind::StringManage { .. }
                 | cerune_ir::StatementKind::Write { .. }
+                | cerune_ir::StatementKind::Flush
                 | cerune_ir::StatementKind::Print { .. }
                 | cerune_ir::StatementKind::Call { .. }
                 | cerune_ir::StatementKind::Return { .. }
@@ -247,6 +248,12 @@ fn lower_statement(statement: &cerune_ir::Statement) -> Statement {
         cerune_ir::StatementKind::Write { value, quoted } => Statement::Write {
             kind: crate::codegen::display::kind(&value.ty, *quoted),
             value: lower_expr(value),
+        },
+        cerune_ir::StatementKind::Flush => Statement::Flush {
+            origin: super::ir::Origin {
+                node_id: statement.id,
+                span: statement.span,
+            },
         },
         cerune_ir::StatementKind::Print { value } => Statement::Print {
             format: print_format(&value.ty),
@@ -628,6 +635,7 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
 
     fn visit_statement(statement: &cerune_ir::Statement, types: &mut Vec<Type>) {
         match &statement.kind {
+            cerune_ir::StatementKind::Flush => {}
             cerune_ir::StatementKind::ArrayInitialize { array, value } => {
                 visit_expr(array, types);
                 visit_expr(value, types);

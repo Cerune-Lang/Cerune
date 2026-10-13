@@ -41,7 +41,9 @@ cerune --version
 
 `run`, `run-ir`, `run-mir` (including `--ssa`), and `run-vm` deliver output during execution. Destination buffering still applies; this does not guarantee delivery of every byte before program termination. Unless the connection failed, the CLI flushes at both normal completion and language failure, without printing prior output again.
 
-Write/flush failures produce diagnostics and exit code 1. If both language execution and the final flush fail, both are reported. Stdin and a Cerune source-level flush operation remain unimplemented. See the [output connection contract](../design/standard-io.en.md) for APIs and coverage.
+Write/flush failures produce diagnostics and exit code 1. If both language execution and the final flush fail, both are reported. Source `flush();` flushes at that point and stops later execution on failure. Stdin remains unimplemented. See the [output connection contract](../design/standard-io.en.md) for APIs and coverage.
+
+`--diagnostic-format runtime-v1` retains `runtime-v1` for language failures and uses `io-v1` for write/flush failures. I/O records contain the operation, requested/accepted counts, and NodeId/Span; final host flushing uses `origin=host`. Zero flush counts do not measure bytes delivered to the OS.
 
 ## Dynamic string budget
 
@@ -163,7 +165,7 @@ Text-producing `emit-*` commands write their observations to standard output by 
 
 ### LLVM target selection
 
-`--target` accepts `x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Programs using strings or dynamic arrays require it, including unused types and functions. Numeric-only programs also require it when checked operations, conversions, or array indexing emit runtime diagnostics. For example, `print(1 + 2);` requires a target, while `print(1);` does not. The host OS never supplies a default. `--target` and `-o` (also `--output`) may appear in either order; duplicate options, missing values, and unsupported targets are errors.
+`--target` accepts `x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Programs using strings or dynamic arrays require it, including unused types and functions. Numeric-only programs also require it when checked operations, conversions, or array indexing emit runtime diagnostics. For example, `print(1 + 2);` requires a target, while `print(1);` does not. `flush();` also requires an explicit target. The host OS never supplies a default. `--target` and `-o` (also `--output`) may appear in either order; duplicate options, missing values, and unsupported targets are errors.
 
 On Linux x86-64:
 
@@ -187,7 +189,7 @@ Library callers can use `compile_to_llvm_with_target(source, Some(codegen::llvm:
 
 ### QBE target selection
 
-QBE accepts `--target x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Strings and dynamic arrays require a target. Missing or unsupported targets and duplicate options produce diagnostics without changing existing output files. Existing numeric-only invocations may omit the target, but Windows output and diagnostics require explicit selection.
+QBE accepts `--target x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Strings, dynamic arrays, and `flush();` require a target. Missing or unsupported targets and duplicate options produce diagnostics without changing existing output files. Existing numeric-only invocations may omit the target, but Windows output and diagnostics require explicit selection.
 
 ```sh
 cerune emit-qbe examples/string_lookup.ceru --target x86_64-unknown-linux-gnu -o target/string_lookup.ssa
@@ -277,3 +279,7 @@ Artifacts printing `u64` import `cerune.print_u64(i64) -> void`. The host writes
 ## Cerune object generation
 
 `emit-obj` requires `--target x86_64-pc-windows-msvc` or `x86_64-unknown-linux-gnu` and `-o`. It generates COFF/ELF without external tools and never writes binary data to stdout. `--annotate-origins` retains origin labels. Invalid options and compilation diagnostics preserve existing output. Linking and execution remain separate explicit operations. See the [native encoder](../design/native-encoder.en.md). The library API `compile_to_native_object(source, target, annotate_origins)` returns `Vec<u8>`.
+
+## Explicit WAT flush
+
+Artifacts containing `flush();` import `cerune.flush_stdout_v1() -> i32`. Hosts return 0 for success and nonzero for failure. Failure sends an `io-v1` record through `write_error_byte` and traps. Hosts missing the import fail instantiation. Memory stays private.

@@ -51,6 +51,7 @@ return_type := type_ref | "void"
 statement   := binding
              | assignment
              | "print" "(" expression ")" ";"
+             | "flush" "(" ")" ";"
              | function_call ";"
              | "return" expression? ";"
              | match_statement
@@ -953,6 +954,8 @@ C・LLVM・QBE・WAT・Windows x86-64では整数を64ビットで保持し、�
 `convert`はキーワードではありません。`convert(value)`という通常の関数呼び出しや、変数を比較する`convert < limit`は引き続き使えます。`convert<型>(式)`の形は組み込みの変換で、同名のユーザー関数の定義によって意味は変わりません。ユーザー定義の型引数付き関数は`name::<型>(式)`の書式で呼び出します。
 
 ## 出力
+
+`flush();`は標準出力の保留中の出力を接続先へ渡す組込み文です。引数・戻り値はなく、`flush`は予約語です。失敗した場合は後続処理を実行せず、操作とソース位置を診断します。画面描画や永続保存は保証しません。HIR・MIR・SSA・VMと全生成経路に対応し、操作は`flush.stdout`として観測できます。[契約と対応範囲](../design/standard-io.ja.md)、[実行例](../../examples/io_protocol/explicit_flush.ceru)を参照してください。
 
 マイナスのゼロは`-0`と表示します。符号を隠して`0`に書き換えることはしません。
 

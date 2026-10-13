@@ -4,6 +4,28 @@ use std::fmt::Write;
 pub fn emit(module: &Module) -> String {
     let mut output = String::new();
     let support = required_support(module);
+    fn has_flush(s: &Statement) -> bool {
+        match s {
+            Statement::Flush { .. } => true,
+            Statement::If {
+                then_body,
+                else_body,
+                ..
+            } => then_body.iter().chain(else_body).any(has_flush),
+            Statement::While { body, .. } | Statement::For { body, .. } => {
+                body.iter().any(has_flush)
+            }
+            _ => false,
+        }
+    }
+    if module
+        .statements
+        .iter()
+        .chain(module.functions.iter().flat_map(|f| &f.body))
+        .any(has_flush)
+    {
+        output.push_str("#include <stdlib.h>\n#include <signal.h>\n");
+    }
     let strings = module.uses_strings || support.strings || super::string::uses_type(module);
     if !support.conversions.is_empty() || support.nonfinite {
         output.push_str("#include <math.h>\n#include <float.h>\n");
@@ -299,6 +321,14 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
             write!(output, "{prefix}cerune_write_{kind}(").unwrap();
             emit_expr(value, module, output);
             output.push_str(");\n");
+        }
+        Statement::Flush { origin } => {
+            let record =
+                crate::runtime::output::flush_failure_record(crate::runtime::output::Origin {
+                    node_id: origin.node_id,
+                    span: origin.span,
+                });
+            writeln!(output, "{prefix}{{\n{prefix}    int cerune_flush_status;\n#ifdef SIGPIPE\n{prefix}    void (*cerune_prior_sigpipe)(int) = signal(SIGPIPE, SIG_IGN);\n{prefix}    cerune_flush_status = cerune_prior_sigpipe == SIG_ERR ? EOF : fflush(stdout);\n{prefix}    if (cerune_flush_status == 0 && signal(SIGPIPE, cerune_prior_sigpipe) == SIG_ERR) cerune_flush_status = EOF;\n#else\n{prefix}    cerune_flush_status = fflush(stdout);\n#endif\n{prefix}    if (cerune_flush_status != 0) {{ fputs(\"cerune: {record}\\n\", stderr); fflush(stderr); _Exit(1); }}\n{prefix}}}").unwrap();
         }
         Statement::Print { format, value } => {
             emit_print(*format, value, &prefix, module, output);
@@ -957,6 +987,7 @@ impl RuntimeSupport {
 
     fn include_statement(&mut self, statement: &Statement) {
         match statement {
+            Statement::Flush { .. } => {}
             Statement::ArrayInitialize { array, value } => {
                 self.include_expr(array);
                 self.include_expr(value);
@@ -1301,6 +1332,7 @@ fn array_element_name(element: &Type, module: &Module) -> String {
 
 fn statement_uses_bool(statement: &Statement) -> bool {
     match statement {
+        Statement::Flush { .. } => false,
         Statement::ArrayInitialize { array, value } => {
             array.ty == Type::Bool || value.ty == Type::Bool
         }

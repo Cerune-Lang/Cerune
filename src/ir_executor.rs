@@ -150,7 +150,7 @@ pub fn run(program: &ir::Program) -> std::result::Result<String, ExecutionError>
 }
 
 /// 実行中に接続先へ出力します。失敗時のoutput()は空で、受理済みの出力は接続先に残ります。
-/// 自動flushは行いません。必要な時点で呼出し側がOutput::flushを使います。
+/// ソースのflush命令を実行します。終了時の自動flushは行わず、呼出し側がOutput::flushを使います。
 pub fn run_with_output<W: std::io::Write>(
     program: &ir::Program,
     output: &mut output::Output<W>,
@@ -334,6 +334,17 @@ impl Executor<'_, '_> {
                             span: s.span,
                         }),
                     )
+                    .map_err(|failure| Fault {
+                        kind: ErrorKind::Output(Box::new(failure)),
+                        origin: None,
+                    })?;
+            }
+            S::Flush => {
+                self.output
+                    .flush(Some(output::Origin {
+                        node_id: s.id,
+                        span: s.span,
+                    }))
                     .map_err(|failure| Fault {
                         kind: ErrorKind::Output(Box::new(failure)),
                         origin: None,

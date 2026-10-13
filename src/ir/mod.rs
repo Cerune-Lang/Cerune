@@ -201,6 +201,7 @@ pub enum StatementKind {
         value: Expr,
         quoted: bool,
     },
+    Flush,
     Print {
         value: Expr,
     },

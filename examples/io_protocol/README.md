@@ -9,6 +9,14 @@ cargo run --quiet -- run examples/io_protocol/output_sequence.ceru
 cargo test --test execution_output --test execution_output_cli
 ```
 
+[explicit_flush.ceru](explicit_flush.ceru)は関数とループ内で`flush();`を呼び、出力の順序と日本語・NUL・CR/LFを保持します。[期待値](explicit_flush.stdout)を各経路で比較します。flush失敗時は後続処理を実行しません。
+
+```sh
+cargo run --quiet -- run examples/io_protocol/explicit_flush.ceru
+cargo run --quiet -- emit-mir examples/io_protocol/explicit_flush.ceru
+cargo test --test explicit_flush --test execution_output
+```
+
 [input_flow.ceru](input_flow.ceru)は、ソース内で用意した入力値で操作を選ぶ例です。**標準入力は読みません。** 状態と操作の規則はCerune側に置きます。
 
 | 値・操作 | 確認すること |

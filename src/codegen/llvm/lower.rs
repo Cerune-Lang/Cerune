@@ -341,6 +341,10 @@ impl Lowerer<'_> {
                 });
                 false
             }
+            cerune_ir::StatementKind::Flush => {
+                self.push(Instruction::Flush);
+                false
+            }
             cerune_ir::StatementKind::Print { value } => {
                 let unsigned = crate::codegen::is_u64(&value.ty);
                 let value = self.lower_expr(value);
@@ -1196,6 +1200,7 @@ fn collect_slots(
             cerune_ir::StatementKind::Assignment { .. }
             | cerune_ir::StatementKind::StringManage { .. }
             | cerune_ir::StatementKind::Write { .. }
+            | cerune_ir::StatementKind::Flush
             | cerune_ir::StatementKind::Print { .. }
             | cerune_ir::StatementKind::Call { .. }
             | cerune_ir::StatementKind::Return { .. }

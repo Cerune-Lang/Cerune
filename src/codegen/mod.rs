@@ -1,6 +1,7 @@
 pub mod c;
 mod display;
 pub mod llvm;
+mod output;
 pub mod qbe;
 mod support;
 pub mod wat;

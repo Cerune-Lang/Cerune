@@ -104,6 +104,7 @@ pub fn emit(module: &Module) -> String {
     output.push_str("  ret 0\n");
     output.push_str("}\n");
 
+    crate::codegen::output::qbe(module, &mut output);
     output
 }
 
@@ -358,6 +359,10 @@ fn emit_instruction(
     output: &mut String,
 ) {
     match instruction {
+        Instruction::Flush { origin } => {
+            writeln!(output, "  call $cerune_flush_{}()", origin.node.0).unwrap();
+        }
+
         Instruction::ArrayAllocate {
             dest,
             length,

@@ -122,40 +122,52 @@ fn closed_stdout_stops_cleanly_instead_of_panicking_or_looping() {
     let dir = directory("closed");
     let input = dir.join("closed.ceru");
     fs::write(&input, "while true { print(\"output\"); }").unwrap();
-    for (index, &(route, ssa)) in ROUTES.iter().enumerate() {
-        let stderr = dir.join(format!("stderr-{index}.txt"));
-        let mut command = Command::new(env!("CARGO_BIN_EXE_cerune"));
-        command.arg(route).arg(&input);
-        if ssa {
-            command.arg("--ssa");
+    for machine in [false, true] {
+        for (index, &(route, ssa)) in ROUTES.iter().enumerate() {
+            let stderr = dir.join(format!("stderr-{index}.txt"));
+            let mut command = Command::new(env!("CARGO_BIN_EXE_cerune"));
+            command.arg(route).arg(&input);
+            if ssa {
+                command.arg("--ssa");
+            }
+            if machine {
+                command.args(["--diagnostic-format", "runtime-v1"]);
+            }
+            let mut child = ChildGuard(
+                command
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::from(fs::File::create(&stderr).unwrap()))
+                    .spawn()
+                    .unwrap(),
+            );
+            drop(child.0.stdout.take());
+            let start = std::time::Instant::now();
+            let status = loop {
+                if let Some(status) = child.0.try_wait().unwrap() {
+                    break Some(status);
+                }
+                if start.elapsed() > Duration::from_secs(10) {
+                    break None;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            };
+            drop(child);
+            assert_eq!(
+                status.expect("closed output must stop execution").code(),
+                Some(1),
+                "{route}"
+            );
+            let error = fs::read_to_string(&stderr).unwrap();
+            assert!(
+                error.contains(if machine {
+                    "io-v1 operation=write requested="
+                } else {
+                    "output Write failed"
+                }),
+                "{route}: {error}"
+            );
+            assert!(!error.contains("panicked"), "{route}: {error}");
         }
-        let mut child = ChildGuard(
-            command
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::from(fs::File::create(&stderr).unwrap()))
-                .spawn()
-                .unwrap(),
-        );
-        drop(child.0.stdout.take());
-        let start = std::time::Instant::now();
-        let status = loop {
-            if let Some(status) = child.0.try_wait().unwrap() {
-                break Some(status);
-            }
-            if start.elapsed() > Duration::from_secs(10) {
-                break None;
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        };
-        drop(child);
-        assert_eq!(
-            status.expect("closed output must stop execution").code(),
-            Some(1),
-            "{route}"
-        );
-        let error = fs::read_to_string(&stderr).unwrap();
-        assert!(error.contains("output Write failed"), "{route}: {error}");
-        assert!(!error.contains("panicked"), "{route}: {error}");
     }
 }

@@ -142,6 +142,7 @@ pub enum Instruction {
         value: Operand,
         retain: bool,
     },
+    Flush,
     Write {
         kind: &'static str,
         value: Operand,

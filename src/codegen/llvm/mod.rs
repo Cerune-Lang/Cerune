@@ -68,6 +68,14 @@ pub fn emit_llvm_with_options(
     options: Options,
 ) -> Result<String, Diagnostic> {
     let target = options.target;
+    if target.is_none()
+        && let Some(span) = super::support::first_flush_span(program)
+    {
+        return Err(Diagnostic::new(
+            "LLVM flush requires an explicit --target",
+            span,
+        ));
+    }
     if let Some(span) = program.first_dynamic_array_span()
         && target.is_none()
     {

@@ -51,6 +51,7 @@ return_type := type_ref | "void"
 statement   := binding
              | assignment
              | "print" "(" expression ")" ";"
+             | "flush" "(" ")" ";"
              | function_call ";"
              | "return" expression? ";"
              | match_statement
@@ -951,6 +952,8 @@ C, LLVM, QBE, WAT, and Windows x86-64 retain integer values in 64-bit storage an
 Functions and types cannot be defined with the built-in type names `bool`, `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64`, `f32`, `f64`, or `string`; these are diagnosed at the definition. `convert` is not a keyword: ordinary calls such as `convert(value)` and comparisons such as `convert < limit` remain available. The `convert<type>(expression)` form is a built-in conversion whose meaning does not change when a user function named `convert` exists. User-defined generic functions use the call syntax `name::<type>(expression)`.
 
 ## Output
+
+`flush();` is a built-in statement that hands pending stdout output to its connection. It has no arguments or result, and `flush` is reserved. Failure stops subsequent execution and diagnoses the operation and source origin. It does not guarantee screen rendering or durable storage. HIR/MIR/SSA/VM and all generated routes support it; the operation is observable as `flush.stdout`. See the [contract and coverage](../design/standard-io.en.md) and [example](../../examples/io_protocol/explicit_flush.ceru).
 
 `print(expression);` accepts booleans, numbers, strings, fixed arrays, products, and sums across all routes. Aggregate formats include `[1, 2]`, `{x: 1}`, and `Found{text: "空"}`, quoting and escaping nested strings. Evaluate the entire argument before display, then append one LF. See [formats and generation](../design/aggregate-values.en.md).
 

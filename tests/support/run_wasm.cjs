@@ -10,6 +10,8 @@ const exactFloat = value => {
   return value.toString();
 };
 const imports = { cerune: {
+  // 収集先は同期的に受理済みです。実OSへ接続するhostでは実際にflushします。
+  flush_stdout_v1: () => 0,
   write_error_byte(value) {
     if (!Number.isInteger(value) || value < 0 || value > 127) throw new Error('invalid diagnostic byte');
     diagnostics.push(Buffer.from([value]));
@@ -41,7 +43,8 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]), imports).then(({ insta
   process.stdout.write(Buffer.concat(output));
   const record = Buffer.concat(diagnostics);
   process.stderr.write(record);
-  const valid = parseRuntimeFailure(record) !== null;
+  const valid = parseRuntimeFailure(record) !== null ||
+    /^cerune: io-v1 operation=flush requested=0 accepted=0 node=\d+(?: file=\d+)? bytes=\d+\.\.\d+\n$/.test(record.toString('utf8'));
   if (!(error instanceof WebAssembly.RuntimeError) || error.message !== 'unreachable' || !valid) console.error(error.message);
   process.exitCode = 1;
 });

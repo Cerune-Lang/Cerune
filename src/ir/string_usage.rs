@@ -115,7 +115,7 @@ fn string_statement(statement: &Statement) -> Option<Span> {
             .or_else(|| string_expr(condition))
             .or_else(|| string_statement(update))
             .or_else(|| string_statements(body)),
-        StatementKind::Break | StatementKind::Continue => None,
+        StatementKind::Flush | StatementKind::Break | StatementKind::Continue => None,
     }
 }
 
