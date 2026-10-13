@@ -146,7 +146,7 @@ fn literals_emit_ascii_c_and_explicit_utf8_lengths() {
     assert!(c.contains("const unsigned char *data;"));
     assert!(c.contains("size_t length;"));
     assert!(c.contains("\\346\\227\\245"));
-    assert!(c.contains("fwrite(value.data, 1, value.length, stdout)"));
+    assert!(c.contains("cerune_output_part(&op, value.data, value.length)"));
     assert!(c.contains("memcmp(left.data, right.data, left.length)"));
     assert!(
         !c.contains("malloc(")

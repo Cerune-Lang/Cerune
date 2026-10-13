@@ -46,8 +46,23 @@ fn target_is_explicit_and_emission_is_deterministic() {
     }
     for target in [None, Some(LINUX), Some(WINDOWS)] {
         let llvm = compile_to_llvm_with_target("print(1);", target).unwrap();
-        assert!(!llvm.contains("@_setmode") && !llvm.contains("%cerune.string"));
+        assert_eq!(llvm.contains("@_setmode"), target == Some(WINDOWS));
+        assert!(!llvm.contains("%cerune.string"));
         assert_eq!(llvm.contains("target triple"), target.is_some());
+    }
+}
+
+#[test]
+fn numeric_only_output_matches_bytes_with_explicit_targets() {
+    let Some(harness) = Native::new() else {
+        return;
+    };
+    for source in [
+        "print(1); print(true); print(0.5);",
+        "fn send() -> void { print(42); } send();",
+        "print([1, 2]);",
+    ] {
+        harness.matches(source, &run_vm(source).unwrap());
     }
 }
 

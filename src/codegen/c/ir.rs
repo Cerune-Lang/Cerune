@@ -79,6 +79,7 @@ pub enum Statement {
         origin: Origin,
     },
     Write {
+        origin: Origin,
         kind: &'static str,
         value: Expr,
     },
@@ -92,6 +93,7 @@ pub enum Statement {
         value: Expr,
     },
     Print {
+        origin: Origin,
         format: PrintFormat,
         value: Expr,
     },

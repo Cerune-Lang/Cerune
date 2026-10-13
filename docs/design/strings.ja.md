@@ -46,7 +46,7 @@ typedef struct cerune_string {
 
 リテラルの各バイトは固定3桁の8進エスケープで出力します。Cコンパイラの文字コード設定に日本語の解釈を任せず、引用符などがCコードとして解釈されることも防ぎます。
 
-等値比較はバイト数を確認してから`memcmp`で行い、表示は`fwrite`の後にLFを加えます。`strlen`や`strcmp`は使いません。Windowsでは文字列を使うプログラムの標準出力をバイナリモードにし、CR・LF・NULを保ちます。数値だけの既存プログラムは従来のテキストモードのままです。
+等値比較はバイト数を確認してから`memcmp`で行います。表示は長さ付きデータとLFを、要求/受理数と出自を保持する[書込み処理](standard-io.ja.md)へ渡します。`strlen`や`strcmp`は使いません。Windowsでは数値だけの出力もバイナリモードにし、CR・LF・NULを保ちます。
 
 Cが評価順を保証しない式に複数の作用や失敗し得る処理がある場合は、関数内の一時変数へソース順に保存します。短絡評価の右辺やループの条件・更新から評価を外へ移しません。束縛名にはCerune IRのIDも含め、同名変数や補助関数との衝突を避けます。
 
@@ -70,6 +70,8 @@ Windowsの初期化は、明示的な`main`の呼び出しも含めて最初のC
 指定は生成物の`target triple`に残します。コンパイラのホストOSや環境変数から選びません。未使用の定義も含めて文字列があるのに指定がなければ、ソース位置付きで診断します。下流のClangにも同じターゲットを渡してください。異なるターゲットへの上書きは、生成済みのOS依存処理を変換しません。
 
 LLVM loweringは式をソース順に命令化し、短絡評価やループの内側に必要な分岐を残します。ターゲット指定は生成条件を選ぶデータであり、外部プログラムの起動やコンパイラへの干渉を許可するものではありません。
+
+明示Windowsターゲットでは、文字列を使わず数値・真偽値だけを表示する場合もバイナリモードにし、LFを保持します。
 
 根拠となる仕様は[LLVMの定数表現](https://www.llvm.org/docs/LangRef.html#constants)、[target triple](https://www.llvm.org/docs/LangRef.html#target-triple)、[Microsoft CRTの_setmode](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmode?view=msvc-170)です。
 

@@ -1,0 +1,11 @@
+fn measured() -> u64 {
+    print("evaluate");
+    return 18446744073709551615;
+}
+
+print(measured());
+print(["日本\0\r\n", "e\u{301}", "\"\\\u{7f}"]);
+print(true);
+print(-0.0);
+print(0.0000001);
+flush();

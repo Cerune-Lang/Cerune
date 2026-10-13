@@ -59,53 +59,6 @@ const FORMATS: &[(&str, &str)] = &[
     ("false", "false"),
     ("bool", "%s"),
 ];
-pub(super) fn c() -> String {
-    let mut o = String::from(
-        "static void cerune_write_escaped_byte(unsigned char value) {\n    switch (value) {\n",
-    );
-    for (c, text) in escapes() {
-        writeln!(o, "    case {c}:").unwrap();
-        for b in text.bytes() {
-            writeln!(o, "        putchar({b});").unwrap();
-        }
-        o.push_str("        return;\n");
-    }
-    o.push_str("    default: putchar(value); return;\n    }\n}\n");
-    for (kind, quoted) in [("string", false), ("quoted", true)] {
-        writeln!(o, "static void cerune_write_{kind}(cerune_string value) {{").unwrap();
-        if quoted {
-            o.push_str("    putchar(34);\n");
-        }
-        writeln!(
-            o,
-            "    for (size_t i = 0; i < value.length; ++i) {}(value.data[i]);",
-            if quoted {
-                "cerune_write_escaped_byte"
-            } else {
-                "putchar"
-            }
-        )
-        .unwrap();
-        if quoted {
-            o.push_str("    putchar(34);\n");
-        }
-        o.push_str("}\n");
-    }
-    for (kind, ty, fmt, cast) in [
-        ("i64", "int64_t", "%lld", "long long"),
-        ("u64", "uint64_t", "%llu", "unsigned long long"),
-        ("f32", "float", "%.9g", "double"),
-        ("f64", "double", "%.17g", "double"),
-    ] {
-        writeln!(
-            o,
-            "static void cerune_write_{kind}({ty} value) {{ printf(\"{fmt}\", ({cast})value); }}"
-        )
-        .unwrap();
-    }
-    o.push_str("static void cerune_write_bool(bool value) { fputs(value ? \"true\" : \"false\", stdout); }\n\n");
-    o
-}
 pub(super) fn llvm_type(kind: &str) -> &'static str {
     match kind {
         "string" | "quoted" => "%cerune.string",

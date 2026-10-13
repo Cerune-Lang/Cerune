@@ -246,6 +246,10 @@ fn lower_statement(statement: &cerune_ir::Statement) -> Statement {
             retain: *retain,
         },
         cerune_ir::StatementKind::Write { value, quoted } => Statement::Write {
+            origin: super::ir::Origin {
+                node_id: statement.id,
+                span: statement.span,
+            },
             kind: crate::codegen::display::kind(&value.ty, *quoted),
             value: lower_expr(value),
         },
@@ -256,6 +260,10 @@ fn lower_statement(statement: &cerune_ir::Statement) -> Statement {
             },
         },
         cerune_ir::StatementKind::Print { value } => Statement::Print {
+            origin: super::ir::Origin {
+                node_id: statement.id,
+                span: statement.span,
+            },
             format: print_format(&value.ty),
             value: lower_expr(value),
         },
