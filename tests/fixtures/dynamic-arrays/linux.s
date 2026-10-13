@@ -1,11 +1,5 @@
 # target: x86_64-unknown-linux-gnu
 .section .rodata
-.Lcerune_fmt_i64:
-  .asciz "%lld\n"
-.Lcerune_fmt_f32:
-  .asciz "%.9g\n"
-.Lcerune_fmt_f64:
-  .asciz "%.17g\n"
 .p2align 4
 .Lcerune_sign_f32:
   .long 0x80000000
@@ -51,635 +45,695 @@
 
 .text
 .section .rodata
-.Lwrite_i64:
+.Loutput_record:
+  .asciz "cerune: io-v1 operation=write requested=%llu accepted=%llu%s"
+.Loutput_format_error:
+  .asciz "cerune: output formatting failed%s"
+.Loutput_i64:
   .asciz "%lld"
-.Lwrite_u64:
+.Loutput_u64:
   .asciz "%llu"
-.Lwrite_f32:
+.Loutput_f32:
   .asciz "%.9g"
-.Lwrite_f64:
+.Loutput_f64:
   .asciz "%.17g"
-.Lwrite_true:
-  .asciz "true"
-.Lwrite_false:
-  .asciz "false"
-.Lwrite_bool:
-  .asciz "%s"
+.Loutput_true:
+  .asciz "true\n"
+.Loutput_false:
+  .asciz "false\n"
+.Loutput_lf:
+  .asciz "\n"
+.Loutput_quote:
+  .asciz "\""
 .text
-cerune_write_escaped_byte:
-  subq $8, %rsp
-  cmpl $0, %edi
-  je .Lescape_0
-  cmpl $1, %edi
-  je .Lescape_1
-  cmpl $2, %edi
-  je .Lescape_2
-  cmpl $3, %edi
-  je .Lescape_3
-  cmpl $4, %edi
-  je .Lescape_4
-  cmpl $5, %edi
-  je .Lescape_5
-  cmpl $6, %edi
-  je .Lescape_6
-  cmpl $7, %edi
-  je .Lescape_7
-  cmpl $8, %edi
-  je .Lescape_8
-  cmpl $9, %edi
-  je .Lescape_9
-  cmpl $10, %edi
-  je .Lescape_10
-  cmpl $11, %edi
-  je .Lescape_11
-  cmpl $12, %edi
-  je .Lescape_12
-  cmpl $13, %edi
-  je .Lescape_13
-  cmpl $14, %edi
-  je .Lescape_14
-  cmpl $15, %edi
-  je .Lescape_15
-  cmpl $16, %edi
-  je .Lescape_16
-  cmpl $17, %edi
-  je .Lescape_17
-  cmpl $18, %edi
-  je .Lescape_18
-  cmpl $19, %edi
-  je .Lescape_19
-  cmpl $20, %edi
-  je .Lescape_20
-  cmpl $21, %edi
-  je .Lescape_21
-  cmpl $22, %edi
-  je .Lescape_22
-  cmpl $23, %edi
-  je .Lescape_23
-  cmpl $24, %edi
-  je .Lescape_24
-  cmpl $25, %edi
-  je .Lescape_25
-  cmpl $26, %edi
-  je .Lescape_26
-  cmpl $27, %edi
-  je .Lescape_27
-  cmpl $28, %edi
-  je .Lescape_28
-  cmpl $29, %edi
-  je .Lescape_29
-  cmpl $30, %edi
-  je .Lescape_30
-  cmpl $31, %edi
-  je .Lescape_31
-  cmpl $34, %edi
-  je .Lescape_34
-  cmpl $92, %edi
-  je .Lescape_92
-  cmpl $127, %edi
-  je .Lescape_127
-  callq putchar
-  addq $8, %rsp
+cerune_output_write:
+  subq $40, %rsp
+  movq %rsi, %rdx
+  movq %rdi, %rsi
+  movl $1, %edi
+  callq write
+  addq $40, %rsp
   retq
-.Lescape_0:
-  movl $92, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  addq $8, %rsp
+
+cerune_output_part:
+  subq $88, %rsp
+  movq %r10, 48(%rsp)
+  movq %rax, 56(%rsp)
+  movq %rdx, 64(%rsp)
+.Loutput_part_loop:
+  cmpq $0, 64(%rsp)
+  je .Loutput_part_done
+  movq 64(%rsp), %rax
+  cmpq $65536, %rax
+  jbe .Loutput_part_bound
+  movl $65536, %eax
+.Loutput_part_bound:
+  movq %rax, 72(%rsp)
+.Loutput_part_write:
+  movq 56(%rsp), %rdi
+  movq 72(%rsp), %rsi
+  callq cerune_output_write
+  testq %rax, %rax
+  jns .Loutput_part_check
+  callq __errno_location
+  cmpl $4, (%rax)
+  je .Loutput_part_write
+  jmp .Loutput_part_failed
+
+.Loutput_part_check:
+  testq %rax, %rax
+  je .Loutput_part_failed
+  cmpq 72(%rsp), %rax
+  ja .Loutput_part_failed
+  movq 48(%rsp), %r10
+  addq %rax, 8(%r10)
+  addq %rax, 56(%rsp)
+  subq %rax, 64(%rsp)
+  jmp .Loutput_part_loop
+.Loutput_part_done:
+  addq $88, %rsp
   retq
-.Lescape_1:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_part_failed:
+  movq 48(%rsp), %r10
+  callq cerune_output_failed
+  ud2
+cerune_output_failed:
+  subq $584, %rsp
+  leaq 64(%rsp), %rdi
+  movl $512, %esi
+  leaq .Loutput_record(%rip), %rdx
+  movq (%r10), %rcx
+  movq 8(%r10), %r8
+  movq 16(%r10), %r9
+  xorl %eax, %eax
+  callq snprintf
+  leaq 64(%rsp), %r10
+  callq cerune_output_diagnostic
+  ud2
+cerune_output_diagnostic:
+  subq $40, %rsp
+  testl %eax, %eax
+  jle .Loutput_exit
+  cmpl $512, %eax
+  jb .Loutput_diag_write
+  movl $511, %eax
+.Loutput_diag_write:
+  movl %eax, %edx
+  movq %r10, %rsi
+  movl $2, %edi
+  callq write
+.Loutput_exit:
+  movl $1, %edi
+  callq _Exit
+  ud2
+cerune_output_i64:
+  subq $936, %rsp
+  movq %rax, 96(%rsp)
+  movq %r10, 104(%rsp)
+  movq %r11, 80(%rsp)
+  movq $0, 152(%rsp)
+  leaq 160(%rsp), %rdi
+  movl $128, %esi
+  leaq .Loutput_i64(%rip), %rdx
+  movq %rax, %rcx
+  xorl %eax, %eax
+  callq snprintf
+  cmpl $127, %eax
+  jae .Loutput_format_failed
+  leaq 160(%rsp), %rcx
+  movb $10, (%rcx,%rax)
+  addq 104(%rsp), %rax
+  movq %rax, 64(%rsp)
+  movq %rcx, 96(%rsp)
+  jmp .Loutput_begin
+cerune_output_u64:
+  subq $936, %rsp
+  movq %rax, 96(%rsp)
+  movq %r10, 104(%rsp)
+  movq %r11, 80(%rsp)
+  movq $0, 152(%rsp)
+  leaq 160(%rsp), %rdi
+  movl $128, %esi
+  leaq .Loutput_u64(%rip), %rdx
+  movq %rax, %rcx
+  xorl %eax, %eax
+  callq snprintf
+  cmpl $127, %eax
+  jae .Loutput_format_failed
+  leaq 160(%rsp), %rcx
+  movb $10, (%rcx,%rax)
+  addq 104(%rsp), %rax
+  movq %rax, 64(%rsp)
+  movq %rcx, 96(%rsp)
+  jmp .Loutput_begin
+cerune_output_f32:
+  cvtss2sd %xmm0, %xmm0
+  movq %xmm0, %rax
+  subq $936, %rsp
+  movq %rax, 96(%rsp)
+  movq %r10, 104(%rsp)
+  movq %r11, 80(%rsp)
+  movq $0, 152(%rsp)
+  leaq 160(%rsp), %rdi
+  movl $128, %esi
+  leaq .Loutput_f32(%rip), %rdx
+  movl $1, %eax
+  callq snprintf
+  cmpl $127, %eax
+  jae .Loutput_format_failed
+  leaq 160(%rsp), %rcx
+  movb $10, (%rcx,%rax)
+  addq 104(%rsp), %rax
+  movq %rax, 64(%rsp)
+  movq %rcx, 96(%rsp)
+  jmp .Loutput_begin
+cerune_output_f64:
+  movq %xmm0, %rax
+  subq $936, %rsp
+  movq %rax, 96(%rsp)
+  movq %r10, 104(%rsp)
+  movq %r11, 80(%rsp)
+  movq $0, 152(%rsp)
+  leaq 160(%rsp), %rdi
+  movl $128, %esi
+  leaq .Loutput_f64(%rip), %rdx
+  movl $1, %eax
+  callq snprintf
+  cmpl $127, %eax
+  jae .Loutput_format_failed
+  leaq 160(%rsp), %rcx
+  movb $10, (%rcx,%rax)
+  addq 104(%rsp), %rax
+  movq %rax, 64(%rsp)
+  movq %rcx, 96(%rsp)
+  jmp .Loutput_begin
+cerune_output_bool:
+  subq $936, %rsp
+  movq %rax, 96(%rsp)
+  movq %r10, 104(%rsp)
+  movq %r11, 80(%rsp)
+  movq $0, 152(%rsp)
+
+  testq %rax, %rax
+  je .Loutput_bool_false
+  leaq .Loutput_true(%rip), %rax
+  movq $4, 64(%rsp)
+  jmp .Loutput_bool_ready
+.Loutput_bool_false:
+  leaq .Loutput_false(%rip), %rax
+  movq $5, 64(%rsp)
+.Loutput_bool_ready:
+  movq %rax, 96(%rsp)
+  movq 104(%rsp), %rax
+  addq %rax, 64(%rsp)
+  jmp .Loutput_begin
+cerune_output_string:
+  subq $936, %rsp
+  movq %rax, 96(%rsp)
+  movq %r10, 104(%rsp)
+  movq %r11, 80(%rsp)
+  movq $1, 152(%rsp)
+  movq (%rax), %rax
+  addq 104(%rsp), %rax
+  movq %rax, 64(%rsp)
+  jmp .Loutput_begin
+cerune_output_quoted:
+  subq $936, %rsp
+  movq %rax, 96(%rsp)
+  movq %r10, 104(%rsp)
+  movq %r11, 80(%rsp)
+  movq $2, 152(%rsp)
+
+  movq $0, 112(%rsp)
+  movq 104(%rsp), %rax
+  addq $2, %rax
+  movq %rax, 64(%rsp)
+.Loutput_count:
+  movq 96(%rsp), %rdx
+  movq 112(%rsp), %rax
+  cmpq (%rdx), %rax
+  je .Loutput_begin
+  movzbl 8(%rdx,%rax), %eax
+  leaq 160(%rsp), %rcx
+  callq cerune_output_escape
+  addq %rax, 64(%rsp)
+  incq 112(%rsp)
+  jmp .Loutput_count
+.Loutput_format_failed:
+  leaq 416(%rsp), %rdi
+  movl $512, %esi
+  leaq .Loutput_format_error(%rip), %rdx
+  movq 80(%rsp), %rcx
+  xorl %eax, %eax
+  callq snprintf
+  leaq 416(%rsp), %r10
+  callq cerune_output_diagnostic
+  ud2
+.Loutput_begin:
+  movq $0, 72(%rsp)
+  movl $13, %edi
+  movl $1, %esi
+  callq signal
+  cmpq $-1, %rax
+  je .Loutput_failed
+  movq %rax, 88(%rsp)
+
+  cmpq $2, 152(%rsp)
+  je .Loutput_quoted
+  cmpq $1, 152(%rsp)
+  je .Loutput_raw
+  movq 96(%rsp), %rax
+  movq 64(%rsp), %rdx
+  leaq 64(%rsp), %r10
+  callq cerune_output_part
+  jmp .Loutput_end
+.Loutput_raw:
+  movq 96(%rsp), %rax
+  movq (%rax), %rdx
+  addq $8, %rax
+  leaq 64(%rsp), %r10
+  callq cerune_output_part
+  jmp .Loutput_newline
+.Loutput_quoted:
+  leaq .Loutput_quote(%rip), %rax
+  movl $1, %edx
+  leaq 64(%rsp), %r10
+  callq cerune_output_part
+  movq $0, 112(%rsp)
+  movq $0, 120(%rsp)
+.Loutput_quote_loop:
+  movq 96(%rsp), %rdx
+  movq 112(%rsp), %rax
+  cmpq (%rdx), %rax
+  je .Loutput_quote_tail
+  cmpq $250, 120(%rsp)
+  jbe .Loutput_quote_byte
+  leaq 160(%rsp), %rax
+  movq 120(%rsp), %rdx
+  leaq 64(%rsp), %r10
+  callq cerune_output_part
+  movq $0, 120(%rsp)
+.Loutput_quote_byte:
+  movq 96(%rsp), %rdx
+  movq 112(%rsp), %rax
+  movzbl 8(%rdx,%rax), %eax
+  leaq 160(%rsp), %rcx
+  addq 120(%rsp), %rcx
+  callq cerune_output_escape
+  addq %rax, 120(%rsp)
+  incq 112(%rsp)
+  jmp .Loutput_quote_loop
+.Loutput_quote_tail:
+  leaq 160(%rsp), %rax
+  movq 120(%rsp), %rdx
+  leaq 64(%rsp), %r10
+  callq cerune_output_part
+  leaq .Loutput_quote(%rip), %rax
+  movl $1, %edx
+  leaq 64(%rsp), %r10
+  callq cerune_output_part
+.Loutput_newline:
+  leaq .Loutput_lf(%rip), %rax
+  movq 104(%rsp), %rdx
+  leaq 64(%rsp), %r10
+  callq cerune_output_part
+  jmp .Loutput_end
+.Loutput_end:
+  movl $13, %edi
+  movq 88(%rsp), %rsi
+  callq signal
+  cmpq $-1, %rax
+  je .Loutput_failed
+  addq $936, %rsp
   retq
-.Lescape_2:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $50, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_failed:
+  leaq 64(%rsp), %r10
+  callq cerune_output_failed
+  ud2
+cerune_output_escape:
+  cmpl $0, %eax
+  je .Loutput_escape_0
+  cmpl $1, %eax
+  je .Loutput_escape_1
+  cmpl $2, %eax
+  je .Loutput_escape_2
+  cmpl $3, %eax
+  je .Loutput_escape_3
+  cmpl $4, %eax
+  je .Loutput_escape_4
+  cmpl $5, %eax
+  je .Loutput_escape_5
+  cmpl $6, %eax
+  je .Loutput_escape_6
+  cmpl $7, %eax
+  je .Loutput_escape_7
+  cmpl $8, %eax
+  je .Loutput_escape_8
+  cmpl $9, %eax
+  je .Loutput_escape_9
+  cmpl $10, %eax
+  je .Loutput_escape_10
+  cmpl $11, %eax
+  je .Loutput_escape_11
+  cmpl $12, %eax
+  je .Loutput_escape_12
+  cmpl $13, %eax
+  je .Loutput_escape_13
+  cmpl $14, %eax
+  je .Loutput_escape_14
+  cmpl $15, %eax
+  je .Loutput_escape_15
+  cmpl $16, %eax
+  je .Loutput_escape_16
+  cmpl $17, %eax
+  je .Loutput_escape_17
+  cmpl $18, %eax
+  je .Loutput_escape_18
+  cmpl $19, %eax
+  je .Loutput_escape_19
+  cmpl $20, %eax
+  je .Loutput_escape_20
+  cmpl $21, %eax
+  je .Loutput_escape_21
+  cmpl $22, %eax
+  je .Loutput_escape_22
+  cmpl $23, %eax
+  je .Loutput_escape_23
+  cmpl $24, %eax
+  je .Loutput_escape_24
+  cmpl $25, %eax
+  je .Loutput_escape_25
+  cmpl $26, %eax
+  je .Loutput_escape_26
+  cmpl $27, %eax
+  je .Loutput_escape_27
+  cmpl $28, %eax
+  je .Loutput_escape_28
+  cmpl $29, %eax
+  je .Loutput_escape_29
+  cmpl $30, %eax
+  je .Loutput_escape_30
+  cmpl $31, %eax
+  je .Loutput_escape_31
+  cmpl $34, %eax
+  je .Loutput_escape_34
+  cmpl $92, %eax
+  je .Loutput_escape_92
+  cmpl $127, %eax
+  je .Loutput_escape_127
+  movb %al, (%rcx)
+  movl $1, %eax
   retq
-.Lescape_3:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $51, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_0:
+  movb $92, 0(%rcx)
+  movb $48, 1(%rcx)
+  movl $2, %eax
   retq
-.Lescape_4:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $52, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_1:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $49, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_5:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $53, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_2:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $50, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_6:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $54, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_3:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $51, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_7:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $55, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_4:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $52, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_8:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $56, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_5:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $53, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_9:
-  movl $92, %edi
-  callq putchar
-  movl $116, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_6:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $54, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_10:
-  movl $92, %edi
-  callq putchar
-  movl $110, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_7:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $55, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_11:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $98, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_8:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $56, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_12:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $99, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_9:
+  movb $92, 0(%rcx)
+  movb $116, 1(%rcx)
+  movl $2, %eax
   retq
-.Lescape_13:
-  movl $92, %edi
-  callq putchar
-  movl $114, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_10:
+  movb $92, 0(%rcx)
+  movb $110, 1(%rcx)
+  movl $2, %eax
   retq
-.Lescape_14:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $101, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_11:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $98, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_15:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $102, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_12:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $99, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_16:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $48, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_13:
+  movb $92, 0(%rcx)
+  movb $114, 1(%rcx)
+  movl $2, %eax
   retq
-.Lescape_17:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_14:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $101, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_18:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $50, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_15:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $48, 3(%rcx)
+  movb $102, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_19:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $51, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_16:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $48, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_20:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $52, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_17:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $49, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_21:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $53, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_18:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $50, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_22:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $54, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_19:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $51, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_23:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $55, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_20:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $52, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_24:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $56, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_21:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $53, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_25:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $57, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_22:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $54, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_26:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $97, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_23:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $55, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_27:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $98, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_24:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $56, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_28:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $99, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_25:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $57, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_29:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $100, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_26:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $97, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_30:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $101, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_27:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $98, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_31:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $49, %edi
-  callq putchar
-  movl $102, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_28:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $99, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_34:
-  movl $92, %edi
-  callq putchar
-  movl $34, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_29:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $100, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_92:
-  movl $92, %edi
-  callq putchar
-  movl $92, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_30:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $101, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-.Lescape_127:
-  movl $92, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $123, %edi
-  callq putchar
-  movl $55, %edi
-  callq putchar
-  movl $102, %edi
-  callq putchar
-  movl $125, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_31:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $49, 3(%rcx)
+  movb $102, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
-cerune_write_bool:
-  subq $8, %rsp
-  cmpl $0, %edi
-  je .Lwrite_bool_false
-  movl $116, %edi
-  callq putchar
-  movl $114, %edi
-  callq putchar
-  movl $117, %edi
-  callq putchar
-  movl $101, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_34:
+  movb $92, 0(%rcx)
+  movb $34, 1(%rcx)
+  movl $2, %eax
   retq
-.Lwrite_bool_false:
-  movl $102, %edi
-  callq putchar
-  movl $97, %edi
-  callq putchar
-  movl $108, %edi
-  callq putchar
-  movl $115, %edi
-  callq putchar
-  movl $101, %edi
-  callq putchar
-  addq $8, %rsp
+.Loutput_escape_92:
+  movb $92, 0(%rcx)
+  movb $92, 1(%rcx)
+  movl $2, %eax
   retq
-cerune_write_string:
-  subq $24, %rsp
-  movq %rdi, 0(%rsp)
-  movq $0, 8(%rsp)
-.Lwrite_string_loop:
-  movq 0(%rsp), %rax
-  movq 8(%rsp), %rdx
-  cmpq (%rax), %rdx
-  je .Lwrite_string_end
-  movzbl 8(%rax,%rdx), %edi
-  callq putchar
-  incq 8(%rsp)
-  jmp .Lwrite_string_loop
-.Lwrite_string_end:
-  addq $24, %rsp
-  retq
-cerune_write_quoted:
-  subq $24, %rsp
-  movq %rdi, 0(%rsp)
-  movq $0, 8(%rsp)
-  movl $34, %edi
-  callq putchar
-.Lwrite_quoted_loop:
-  movq 0(%rsp), %rax
-  movq 8(%rsp), %rdx
-  cmpq (%rax), %rdx
-  je .Lwrite_quoted_end
-  movzbl 8(%rax,%rdx), %edi
-  callq cerune_write_escaped_byte
-  incq 8(%rsp)
-  jmp .Lwrite_quoted_loop
-.Lwrite_quoted_end:
-  movl $34, %edi
-  callq putchar
-  addq $24, %rsp
+.Loutput_escape_127:
+  movb $92, 0(%rcx)
+  movb $117, 1(%rcx)
+  movb $123, 2(%rcx)
+  movb $55, 3(%rcx)
+  movb $102, 4(%rcx)
+  movb $125, 5(%rcx)
+  movl $6, %eax
   retq
 
 .p2align 4
@@ -701,26 +755,6 @@ cerune_string_equal:
   retq
 .Lstring_different:
   xorl %eax, %eax
-  retq
-
-.p2align 4
-cerune_print_string:
-  subq $24, %rsp
-  movq %rdi, (%rsp)
-  movq $0, 8(%rsp)
-.Lstring_write:
-  movq (%rsp), %rax
-  movq 8(%rsp), %rdx
-  cmpq (%rax), %rdx
-  je .Lstring_newline
-  movzbl 8(%rax,%rdx), %edi
-  callq putchar
-  incq 8(%rsp)
-  jmp .Lstring_write
-.Lstring_newline:
-  movl $10, %edi
-  callq putchar
-  addq $24, %rsp
   retq
 
 
@@ -880,8 +914,9 @@ cerune_fn__display0_0:
   movq -24(%rbp), %rax
   movq %rax, -32(%rbp)
   movq -32(%rbp), %rax
-  movq %rax, %rdi
-  callq cerune_write_string
+  movl $0, %r10d
+  leaq .Lcerune_output_origin_0(%rip), %r11
+  callq cerune_output_string
   callq cerune_fn__ownership2_2
   movq %rax, -40(%rbp)
   movq -40(%rbp), %rax
@@ -918,8 +953,9 @@ cerune_fn__display0_0:
   movq -232(%rbp), %rax
   movq %rax, -240(%rbp)
   movq -240(%rbp), %rax
-  movq %rax, %rdi
-  callq cerune_write_string
+  movl $0, %r10d
+  leaq .Lcerune_output_origin_1(%rip), %r11
+  callq cerune_output_string
   leaq .Lcerune_string_2(%rip), %rax
   movq %rax, -248(%rbp)
   movq -248(%rbp), %rax
@@ -927,8 +963,9 @@ cerune_fn__display0_0:
   movq -256(%rbp), %rax
   movq %rax, -264(%rbp)
   movq -264(%rbp), %rax
-  movq %rax, %rdi
-  callq cerune_print_string
+  movl $1, %r10d
+  leaq .Lcerune_output_origin_2(%rip), %r11
+  callq cerune_output_string
   addq $272, %rsp
   popq %rbp
   retq
@@ -949,8 +986,9 @@ cerune_fn__display0_0:
   movq -104(%rbp), %rax
   movq %rax, -112(%rbp)
   movq -112(%rbp), %rax
-  movq %rax, %rdi
-  callq cerune_write_string
+  movl $0, %r10d
+  leaq .Lcerune_output_origin_3(%rip), %r11
+  callq cerune_output_string
   jmp .Lcerune_fn_0_block_7
 .Lcerune_fn_0_block_6: # mir_block
   jmp .Lcerune_fn_0_block_7
@@ -990,7 +1028,7 @@ cerune_fn__display0_0:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_0(%rip), %rsi
+  leaq .Lcerune_failure_4(%rip), %rsi
   movl $71, %edx
   callq write
   ud2
@@ -1003,10 +1041,9 @@ cerune_fn__display0_0:
   movq -192(%rbp), %rax
   movq %rax, -200(%rbp)
   movq -200(%rbp), %rax
-  movq %rax, %rsi
-  xorl %eax, %eax
-  leaq .Lwrite_i64(%rip), %rdi
-  callq printf
+  movl $0, %r10d
+  leaq .Lcerune_output_origin_5(%rip), %r11
+  callq cerune_output_i64
   jmp .Lcerune_fn_0_block_4
 .Lcerune_fn_0_block_8: # mir_block
   addq $272, %rsp
@@ -1028,8 +1065,9 @@ cerune_fn__display1_1:
   movq -24(%rbp), %rax
   movq %rax, -32(%rbp)
   movq -32(%rbp), %rax
-  movq %rax, %rdi
-  callq cerune_write_string
+  movl $0, %r10d
+  leaq .Lcerune_output_origin_6(%rip), %r11
+  callq cerune_output_string
   callq cerune_fn__ownership6_6
   movq %rax, -40(%rbp)
   movq -40(%rbp), %rax
@@ -1066,8 +1104,9 @@ cerune_fn__display1_1:
   movq -232(%rbp), %rax
   movq %rax, -240(%rbp)
   movq -240(%rbp), %rax
-  movq %rax, %rdi
-  callq cerune_write_string
+  movl $0, %r10d
+  leaq .Lcerune_output_origin_7(%rip), %r11
+  callq cerune_output_string
   leaq .Lcerune_string_6(%rip), %rax
   movq %rax, -248(%rbp)
   movq -248(%rbp), %rax
@@ -1075,8 +1114,9 @@ cerune_fn__display1_1:
   movq -256(%rbp), %rax
   movq %rax, -264(%rbp)
   movq -264(%rbp), %rax
-  movq %rax, %rdi
-  callq cerune_print_string
+  movl $1, %r10d
+  leaq .Lcerune_output_origin_8(%rip), %r11
+  callq cerune_output_string
   addq $272, %rsp
   popq %rbp
   retq
@@ -1097,8 +1137,9 @@ cerune_fn__display1_1:
   movq -104(%rbp), %rax
   movq %rax, -112(%rbp)
   movq -112(%rbp), %rax
-  movq %rax, %rdi
-  callq cerune_write_string
+  movl $0, %r10d
+  leaq .Lcerune_output_origin_9(%rip), %r11
+  callq cerune_output_string
   jmp .Lcerune_fn_1_block_7
 .Lcerune_fn_1_block_6: # mir_block
   jmp .Lcerune_fn_1_block_7
@@ -1138,7 +1179,7 @@ cerune_fn__display1_1:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_1(%rip), %rsi
+  leaq .Lcerune_failure_10(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -1151,10 +1192,9 @@ cerune_fn__display1_1:
   movq -192(%rbp), %rax
   movq %rax, -200(%rbp)
   movq -200(%rbp), %rax
-  movq %rax, %rsi
-  xorl %eax, %eax
-  leaq .Lwrite_i64(%rip), %rdi
-  callq printf
+  movl $0, %r10d
+  leaq .Lcerune_output_origin_11(%rip), %r11
+  callq cerune_output_i64
   jmp .Lcerune_fn_1_block_4
 .Lcerune_fn_1_block_8: # mir_block
   addq $272, %rsp
@@ -1256,7 +1296,7 @@ cerune_fn__ownership4_4:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_2(%rip), %rsi
+  leaq .Lcerune_failure_12(%rip), %rsi
   movl $62, %edx
   callq write
   ud2
@@ -1406,7 +1446,7 @@ cerune_fn__ownership8_8:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_3(%rip), %rsi
+  leaq .Lcerune_failure_13(%rip), %rsi
   movl $63, %edx
   callq write
   ud2
@@ -1507,7 +1547,7 @@ cerune_fn__ownership10_10:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_4(%rip), %rsi
+  leaq .Lcerune_failure_14(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -1524,7 +1564,7 @@ cerune_fn__ownership10_10:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_5(%rip), %rsi
+  leaq .Lcerune_failure_15(%rip), %rsi
   movl $63, %edx
   callq write
   ud2
@@ -1540,7 +1580,7 @@ cerune_fn__ownership10_10:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_6(%rip), %rsi
+  leaq .Lcerune_failure_16(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -1556,7 +1596,7 @@ cerune_fn__ownership10_10:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_7(%rip), %rsi
+  leaq .Lcerune_failure_17(%rip), %rsi
   movl $71, %edx
   callq write
   ud2
@@ -1566,7 +1606,7 @@ cerune_fn__ownership10_10:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_8(%rip), %rsi
+  leaq .Lcerune_failure_18(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -1574,7 +1614,7 @@ cerune_fn__ownership10_10:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_9(%rip), %rsi
+  leaq .Lcerune_failure_19(%rip), %rsi
   movl $64, %edx
   callq write
   ud2
@@ -1632,7 +1672,7 @@ cerune_fn__ownership10_10:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_10(%rip), %rsi
+  leaq .Lcerune_failure_20(%rip), %rsi
   movl $63, %edx
   callq write
   ud2
@@ -1659,7 +1699,7 @@ cerune_fn__ownership10_10:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_11(%rip), %rsi
+  leaq .Lcerune_failure_21(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -1706,7 +1746,7 @@ cerune_fn__ownership10_10:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_12(%rip), %rsi
+  leaq .Lcerune_failure_22(%rip), %rsi
   movl $63, %edx
   callq write
   ud2
@@ -1761,7 +1801,7 @@ cerune_fn__ownership11_11:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_13(%rip), %rsi
+  leaq .Lcerune_failure_23(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -1782,7 +1822,7 @@ cerune_fn__ownership11_11:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_14(%rip), %rsi
+  leaq .Lcerune_failure_24(%rip), %rsi
   movl $63, %edx
   callq write
   ud2
@@ -1798,7 +1838,7 @@ cerune_fn__ownership11_11:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_15(%rip), %rsi
+  leaq .Lcerune_failure_25(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -1814,7 +1854,7 @@ cerune_fn__ownership11_11:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_16(%rip), %rsi
+  leaq .Lcerune_failure_26(%rip), %rsi
   movl $71, %edx
   callq write
   ud2
@@ -1824,7 +1864,7 @@ cerune_fn__ownership11_11:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_17(%rip), %rsi
+  leaq .Lcerune_failure_27(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -1832,7 +1872,7 @@ cerune_fn__ownership11_11:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_18(%rip), %rsi
+  leaq .Lcerune_failure_28(%rip), %rsi
   movl $64, %edx
   callq write
   ud2
@@ -1886,7 +1926,7 @@ cerune_fn__ownership11_11:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_19(%rip), %rsi
+  leaq .Lcerune_failure_29(%rip), %rsi
   movl $63, %edx
   callq write
   ud2
@@ -1917,7 +1957,7 @@ cerune_fn__ownership11_11:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_20(%rip), %rsi
+  leaq .Lcerune_failure_30(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -1964,7 +2004,7 @@ cerune_fn__ownership11_11:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_21(%rip), %rsi
+  leaq .Lcerune_failure_31(%rip), %rsi
   movl $63, %edx
   callq write
   ud2
@@ -2088,7 +2128,7 @@ cerune_fn__ownership14_14:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_22(%rip), %rsi
+  leaq .Lcerune_failure_32(%rip), %rsi
   movl $63, %edx
   callq write
   ud2
@@ -2148,7 +2188,7 @@ main:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_23(%rip), %rsi
+  leaq .Lcerune_failure_33(%rip), %rsi
   movl $72, %edx
   callq write
   ud2
@@ -2179,7 +2219,7 @@ main:
   xorl %edi, %edi
   callq fflush
   movl $2, %edi
-  leaq .Lcerune_failure_24(%rip), %rsi
+  leaq .Lcerune_failure_34(%rip), %rsi
   movl $70, %edx
   callq write
   ud2
@@ -2221,55 +2261,75 @@ main:
   retq
 
 .section .rodata
-.Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=30 bytes=78..92\n"
-.Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=59 bytes=93..106\n"
-.Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=34 bytes=78..92\n"
-.Lcerune_failure_3:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=63 bytes=93..106\n"
+.Lcerune_output_origin_0:
+  .asciz " node=15 bytes=78..92\n"
+.Lcerune_output_origin_1:
+  .asciz " node=38 bytes=78..92\n"
+.Lcerune_output_origin_2:
+  .asciz " node=40 bytes=78..92\n"
+.Lcerune_output_origin_3:
+  .asciz " node=26 bytes=78..92\n"
 .Lcerune_failure_4:
-  .asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=219 bytes=20..38\n"
-.Lcerune_failure_5:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=221 bytes=20..38\n"
-.Lcerune_failure_6:
-  .asciz "cerune: runtime-v1 code=array-length-out-of-range node=224 bytes=20..38\n"
-.Lcerune_failure_7:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=224 bytes=20..38\n"
-.Lcerune_failure_8:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=224 bytes=20..38\n"
-.Lcerune_failure_9:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=224 bytes=20..38\n"
+  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=30 bytes=78..92\n"
+.Lcerune_output_origin_5:
+  .asciz " node=31 bytes=78..92\n"
+.Lcerune_output_origin_6:
+  .asciz " node=44 bytes=93..106\n"
+.Lcerune_output_origin_7:
+  .asciz " node=67 bytes=93..106\n"
+.Lcerune_output_origin_8:
+  .asciz " node=69 bytes=93..106\n"
+.Lcerune_output_origin_9:
+  .asciz " node=55 bytes=93..106\n"
 .Lcerune_failure_10:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=237 bytes=20..38\n"
-.Lcerune_failure_11:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=239 bytes=20..38\n"
+  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=59 bytes=93..106\n"
+.Lcerune_output_origin_11:
+  .asciz " node=60 bytes=93..106\n"
 .Lcerune_failure_12:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=233 bytes=20..38\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=34 bytes=78..92\n"
 .Lcerune_failure_13:
-  .asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=275 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=63 bytes=93..106\n"
 .Lcerune_failure_14:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=277 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=219 bytes=20..38\n"
 .Lcerune_failure_15:
-  .asciz "cerune: runtime-v1 code=array-length-out-of-range node=280 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=221 bytes=20..38\n"
 .Lcerune_failure_16:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=280 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=array-length-out-of-range node=224 bytes=20..38\n"
 .Lcerune_failure_17:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=280 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=224 bytes=20..38\n"
 .Lcerune_failure_18:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=280 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=224 bytes=20..38\n"
 .Lcerune_failure_19:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=293 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=allocation-failed node=224 bytes=20..38\n"
 .Lcerune_failure_20:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=295 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=237 bytes=20..38\n"
 .Lcerune_failure_21:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=289 bytes=55..61\n"
+  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=239 bytes=20..38\n"
 .Lcerune_failure_22:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=354 bytes=40..62\n"
+  .asciz "cerune: runtime-v1 code=integer-overflow node=233 bytes=20..38\n"
 .Lcerune_failure_23:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=330 bytes=69..72\n"
+  .asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=275 bytes=55..61\n"
 .Lcerune_failure_24:
+  .asciz "cerune: runtime-v1 code=integer-overflow node=277 bytes=55..61\n"
+.Lcerune_failure_25:
+  .asciz "cerune: runtime-v1 code=array-length-out-of-range node=280 bytes=55..61\n"
+.Lcerune_failure_26:
+  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=280 bytes=55..61\n"
+.Lcerune_failure_27:
+  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=280 bytes=55..61\n"
+.Lcerune_failure_28:
+  .asciz "cerune: runtime-v1 code=allocation-failed node=280 bytes=55..61\n"
+.Lcerune_failure_29:
+  .asciz "cerune: runtime-v1 code=integer-overflow node=293 bytes=55..61\n"
+.Lcerune_failure_30:
+  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=295 bytes=55..61\n"
+.Lcerune_failure_31:
+  .asciz "cerune: runtime-v1 code=integer-overflow node=289 bytes=55..61\n"
+.Lcerune_failure_32:
+  .asciz "cerune: runtime-v1 code=integer-overflow node=354 bytes=40..62\n"
+.Lcerune_failure_33:
+  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=330 bytes=69..72\n"
+.Lcerune_failure_34:
   .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=7 bytes=69..72\n"
 
 .section .note.GNU-stack,"",@progbits

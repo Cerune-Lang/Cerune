@@ -406,6 +406,36 @@ fn encode(name: &str, args: &[Operand]) -> Result<(Vec<u8>, Option<Fixup>), Stri
     let [source, destination] = args else {
         return Err("unsupported operand count".into());
     };
+    if name == "movb" {
+        if let Operand::Immediate(value) = source {
+            if !(-128..=255).contains(value) {
+                return Err("byte move immediate out of range".into());
+            }
+            if let Operand::Register(r) = destination {
+                let mut bytes = Vec::new();
+                if r.code >= 4 {
+                    bytes.push(0x40 | (r.code >> 3));
+                }
+                bytes.extend([0xb0 | (r.code & 7), *value as u8]);
+                return Ok((bytes, None));
+            }
+            let mut result = modrm(&[], &[0xc6], false, 0, destination, false)?;
+            result.0.push(*value as u8);
+            return Ok(result);
+        }
+        if let Operand::Register(r) = source {
+            return modrm(
+                &[],
+                &[0x88],
+                false,
+                r.code,
+                destination,
+                r.code >= 4 || matches!(destination, Operand::Register(d) if d.code >= 4),
+            );
+        }
+        let r = reg(destination)?;
+        return modrm(&[], &[0x8a], false, r.code, source, r.code >= 4);
+    }
     if name == "movq"
         && (matches!(source,Operand::Register(r) if r.vector)
             || matches!(destination,Operand::Register(r) if r.vector))

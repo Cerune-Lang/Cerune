@@ -5,8 +5,7 @@ use crate::{compile_to_ir, ir_executor};
 mod crash_dialogs;
 #[path = "../../../tests/support/native_process.rs"]
 mod native_process;
-#[path = "../../../tests/support/process.rs"]
-mod process;
+use super::super::test_process as process;
 
 fn for_artifacts(
     mut build: impl FnMut(Target) -> String,

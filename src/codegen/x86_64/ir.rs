@@ -145,11 +145,10 @@ pub enum Instruction {
         retain: bool,
     },
     Flush,
-    Write {
+    Output {
         kind: &'static str,
+        newline: bool,
     },
-    CallPrintSysV(Type),
-    CallPrintU64,
     CompareU64(CompareOp),
     LoadStringLength,
     LoadStringConstant(usize),
@@ -157,7 +156,6 @@ pub enum Instruction {
         left_offset: isize,
         equal: bool,
     },
-    PrintString,
     ConvertNumeric {
         conversion: crate::codegen::NumericConversion,
         label: usize,
@@ -274,17 +272,4 @@ pub enum Instruction {
     F64Binary(BinaryOp),
     CompareF32(CompareOp),
     CompareF64(CompareOp),
-
-    MoveRaxToRdx,
-    LoadFormatI64ToRcx,
-
-    ConvertF32ToF64Argument,
-    MoveXmm1ToRdx,
-    LoadFormatF32ToRcx,
-
-    CopyXmm0ToXmm1F64Scalar,
-    LoadFormatF64ToRcx,
-
-    CallPrintf,
-    CallPrintBool,
 }

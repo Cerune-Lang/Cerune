@@ -11,17 +11,9 @@ pub fn emit(module: &Module) -> String {
 
 pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
     let mut reporter = Reporter::new(module.target);
-    let mut output = initial_data(uses_bool_print(module), module.target);
+    let mut output = initial_data(module.target);
     if annotate {
         output.insert_str(0, "# cerune-asm-origins v1: UTF-8 byte ranges, end exclusive\n# cerune-origin: synthetic\n");
-    }
-    if module
-        .instructions
-        .iter()
-        .chain(module.functions.iter().flat_map(|f| f.instructions.iter()))
-        .any(|i| matches!(i, Instruction::CallPrintU64))
-    {
-        output.push_str(".Lcerune_fmt_u64:\n  .asciz \"%llu\\n\"\n");
     }
     if module.uses_strings {
         super::string::emit_data(module, &mut output);
@@ -33,9 +25,7 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
 
     output.push_str("\n.text\n");
     if module.uses_write {
-        output.push_str(&crate::codegen::display::asm_support(
-            module.target.is_linux(),
-        ));
+        output.push_str(&super::output::support(module.target.is_linux()));
     }
     if module.uses_strings {
         output.push_str(if module.target.is_linux() {
@@ -72,7 +62,7 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
     output.push_str("  movq %rsp, %rbp\n");
 
     emit_stack_allocation(module.frame_size, module.target, &mut output);
-    if module.uses_strings && !module.target.is_linux() {
+    if (module.uses_strings || module.uses_write) && !module.target.is_linux() {
         // 固定ターゲットのWindows CRTで、最初のCerune処理より前にLF変換を止めます。
         output.push_str("  movl $1, %ecx\n  movl $32768, %edx\n  callq _setmode\n  cmpl $-1, %eax\n  jne .Lstdout_ready\n  movl $1, %eax\n");
         emit_epilogue(module.frame_size, false, &mut output);
@@ -264,20 +254,7 @@ fn emit_instruction(
         | Instruction::ArrayFree
         | Instruction::LoadFromPointer { .. }
         | Instruction::CopyFromPointer { .. } => unreachable!(),
-        Instruction::Write { kind } => output.push_str(&crate::codegen::display::asm_call(
-            kind,
-            module.target.is_linux(),
-        )),
-        Instruction::CallPrintSysV(ty) => emit_sysv_print(*ty, output),
-        Instruction::CallPrintU64 => {
-            if module.target.is_linux() {
-                output.push_str("  movq %rax, %rsi\n  leaq .Lcerune_fmt_u64(%rip), %rdi\n  xorl %eax, %eax\n  callq printf\n");
-            } else {
-                output.push_str(
-                    "  movq %rax, %rdx\n  leaq .Lcerune_fmt_u64(%rip), %rcx\n  callq printf\n",
-                );
-            }
-        }
+        Instruction::Output { kind, newline } => reporter.output(kind, *newline, output),
         Instruction::StringManage { retain } => {
             output.push_str(if module.target.is_linux() {
                 "  movq %rax, %rdi\n"
@@ -331,9 +308,6 @@ fn emit_instruction(
             if !equal {
                 output.push_str("  xorl $1, %eax\n");
             }
-        }
-        Instruction::PrintString => {
-            output.push_str("  movq %rax, %rcx\n  callq cerune_print_string\n")
         }
         Instruction::ConvertNumeric { conversion, label } => {
             super::conversion::emit(*conversion, *label, label_prefix, reporter, output)
@@ -740,46 +714,6 @@ fn emit_instruction(
             output.push_str("  ucomisd %xmm1, %xmm0\n");
             emit_float_comparison(*op, output);
         }
-
-        Instruction::MoveRaxToRdx => {
-            output.push_str("  movq %rax, %rdx\n");
-        }
-
-        Instruction::LoadFormatI64ToRcx => {
-            output.push_str("  leaq .Lcerune_fmt_i64(%rip), %rcx\n");
-        }
-
-        Instruction::ConvertF32ToF64Argument => {
-            output.push_str("  cvtss2sd %xmm0, %xmm1\n");
-        }
-
-        Instruction::MoveXmm1ToRdx => {
-            output.push_str("  movq %xmm1, %rdx\n");
-        }
-
-        Instruction::LoadFormatF32ToRcx => {
-            output.push_str("  leaq .Lcerune_fmt_f32(%rip), %rcx\n");
-        }
-
-        Instruction::CopyXmm0ToXmm1F64Scalar => {
-            output.push_str("  movsd %xmm0, %xmm1\n");
-        }
-
-        Instruction::LoadFormatF64ToRcx => {
-            output.push_str("  leaq .Lcerune_fmt_f64(%rip), %rcx\n");
-        }
-
-        Instruction::CallPrintf => {
-            output.push_str("  callq printf\n");
-        }
-
-        Instruction::CallPrintBool => {
-            output.push_str("  testq %rax, %rax\n");
-            output.push_str("  leaq .Lcerune_bool_false(%rip), %rcx\n");
-            output.push_str("  leaq .Lcerune_bool_true(%rip), %rdx\n");
-            output.push_str("  cmovne %rdx, %rcx\n");
-            output.push_str("  callq puts\n");
-        }
     }
 }
 
@@ -788,21 +722,6 @@ fn block_label(prefix: &str, id: usize) -> String {
         format!(".Lcerune_block_{id}")
     } else {
         format!(".Lcerune_{prefix}_block_{id}")
-    }
-}
-
-fn emit_sysv_print(ty: Type, output: &mut String) {
-    match ty {
-        Type::DynamicArray => unreachable!("array display is expanded in common IR"),
-        Type::String => output.push_str("  movq %rax, %rdi\n  callq cerune_print_string\n"),
-        Type::Bool => output.push_str("  testq %rax, %rax\n  leaq .Lcerune_bool_false(%rip), %rdi\n  leaq .Lcerune_bool_true(%rip), %rsi\n  cmovne %rsi, %rdi\n  callq puts\n"),
-        Type::I64 => output.push_str("  movq %rax, %rsi\n  leaq .Lcerune_fmt_i64(%rip), %rdi\n  xorl %eax, %eax\n  callq printf\n"),
-        Type::F32 | Type::F64 => {
-            if ty == Type::F32 { output.push_str("  cvtss2sd %xmm0, %xmm0\n"); }
-            let format = if ty == Type::F32 { "f32" } else { "f64" };
-            // SysVの可変長呼び出しはALに使ったXMM引数レジスタ数を渡します。
-            output.push_str(&format!("  leaq .Lcerune_fmt_{format}(%rip), %rdi\n  movl $1, %eax\n  callq printf\n"));
-        }
     }
 }
 
@@ -892,7 +811,7 @@ fn integer_argument_register(index: usize, target: super::Target) -> &'static st
     }
 }
 
-fn initial_data(include_bool_text: bool, target: super::Target) -> String {
+fn initial_data(target: super::Target) -> String {
     let mut output = String::new();
 
     output.push_str(if target.is_linux() {
@@ -900,25 +819,6 @@ fn initial_data(include_bool_text: bool, target: super::Target) -> String {
     } else {
         ".section .rdata,\"dr\"\n"
     });
-
-    output.push_str(".Lcerune_fmt_i64:\n");
-
-    output.push_str("  .asciz \"%lld\\n\"\n");
-
-    output.push_str(".Lcerune_fmt_f32:\n");
-
-    output.push_str("  .asciz \"%.9g\\n\"\n");
-
-    output.push_str(".Lcerune_fmt_f64:\n");
-
-    output.push_str("  .asciz \"%.17g\\n\"\n");
-
-    if include_bool_text {
-        output.push_str(".Lcerune_bool_false:\n");
-        output.push_str("  .asciz \"false\"\n");
-        output.push_str(".Lcerune_bool_true:\n");
-        output.push_str("  .asciz \"true\"\n");
-    }
 
     // Unary minus masks.
     output.push_str(".p2align 4\n");
@@ -982,24 +882,6 @@ fn emit_float_comparison(op: CompareOp, output: &mut String) {
     }
 
     output.push_str("  movzbq %al, %rax\n");
-}
-
-fn uses_bool_print(module: &Module) -> bool {
-    module
-        .instructions
-        .iter()
-        .chain(
-            module
-                .functions
-                .iter()
-                .flat_map(|function| function.instructions.iter()),
-        )
-        .any(|instruction| {
-            matches!(
-                instruction,
-                Instruction::CallPrintBool | Instruction::CallPrintSysV(Type::Bool)
-            )
-        })
 }
 
 fn emit_mir_origin(

@@ -9,8 +9,6 @@ use std::{
     process::Command,
     time::Duration,
 };
-#[path = "process.rs"]
-mod process;
 
 struct Writer {
     bytes: Vec<u8>,
@@ -106,7 +104,9 @@ fn compiler() -> Option<std::ffi::OsString> {
             return None;
         }
     }
-    let configured = std::env::var_os(if QBE {
+    let configured = std::env::var_os(if NATIVE {
+        "CERUNE_TEST_ASM_CLANG"
+    } else if QBE {
         "CERUNE_TEST_QBE_CLANG"
     } else if LLVM {
         "CERUNE_TEST_LLVM_CLANG"
@@ -155,7 +155,9 @@ static int64_t cerune_output_write(const unsigned char *data, size_t length) {
 }
 "#;
 fn route() -> &'static str {
-    if QBE {
+    if NATIVE {
+        if ENCODER.is_some() { "object" } else { "asm" }
+    } else if QBE {
         "qbe"
     } else if LLVM {
         "llvm"
@@ -166,7 +168,9 @@ fn route() -> &'static str {
 fn input(dir: &Path, stem: &str) -> PathBuf {
     dir.join(format!(
         "{stem}.{}",
-        if QBE {
+        if NATIVE {
+            "s"
+        } else if QBE {
             "ssa"
         } else if LLVM {
             "ll"
@@ -176,7 +180,22 @@ fn input(dir: &Path, stem: &str) -> PathBuf {
     ))
 }
 fn generated(hir: &ir::Program, annotate: bool) -> String {
-    if QBE {
+    if NATIVE {
+        let target = if cfg!(windows) {
+            cerune_lang::codegen::x86_64::Target::X86_64PcWindowsMsvc
+        } else {
+            cerune_lang::codegen::x86_64::Target::X86_64UnknownLinuxGnu
+        };
+        let mir = cerune_lang::mir::lower(hir).unwrap();
+        let mir = if annotate {
+            cerune_lang::mir::ssa::lower(&cerune_lang::mir::ssa::construct(&mir).unwrap())
+                .unwrap()
+                .program
+        } else {
+            mir
+        };
+        cerune_lang::codegen::x86_64::emit_asm_from_mir(&mir, target, annotate).unwrap()
+    } else if QBE {
         cerune_lang::codegen::qbe::emit_qbe_with_target(
             hir,
             Some(if cfg!(windows) {
@@ -212,7 +231,11 @@ fn build(
     optimization: &str,
 ) -> std::process::Output {
     let mut command = Command::new(cc);
-    if QBE {
+    if let Some(encode) = ENCODER {
+        let object = dir.join("program.o");
+        fs::write(&object, encode(&fs::read_to_string(source).unwrap())).unwrap();
+        command.arg(object);
+    } else if QBE {
         let qbe = std::env::var_os("CERUNE_TEST_QBE").unwrap_or_else(|| "qbe".into());
         let assembly = dir.join("program.s");
         let result = run(
@@ -241,11 +264,15 @@ fn build(
         command.arg(source);
     }
     command.arg(optimization);
-    if (LLVM || QBE) && controlled {
+    if (LLVM || QBE || NATIVE) && controlled {
         let shim = dir.join("connection.c");
         let connection = CONNECTION.replace(
             "static int64_t cerune_output_write(",
-            "int64_t cerune_test_output_write(",
+            if NATIVE {
+                "int64_t test_output_write("
+            } else {
+                "int64_t cerune_test_output_write("
+            },
         );
         fs::write(&shim, format!("#include <stdint.h>\n#include <stddef.h>\n#include <stdlib.h>\n#include <errno.h>\nint64_t cerune_output_original_write(const unsigned char *, size_t);\n{connection}")).unwrap();
         command.arg(shim);
@@ -254,7 +281,15 @@ fn build(
     run(&mut command, dir, "compile")
 }
 fn controlled(c: String) -> String {
-    if QBE {
+    if NATIVE {
+        assert!(c.contains("cerune_output_write:"));
+        return c
+            .replace(
+                "cerune_output_write:",
+                ".globl cerune_output_original_write\ncerune_output_original_write:",
+            )
+            .replace("callq cerune_output_write", "callq test_output_write");
+    } else if QBE {
         assert!(c.contains("function l $cerune_output_write("));
         return c
             .replace(
