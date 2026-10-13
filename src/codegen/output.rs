@@ -35,7 +35,7 @@ pub(super) fn llvm(module: &super::llvm::ir::Module, out: &mut String) {
             out.push_str(declaration);
         }
     }
-    if !windows {
+    if !windows && !out.contains("declare ptr @signal(i32, ptr)\n") {
         out.push_str("declare ptr @signal(i32, ptr)\n");
     }
     for origin in origins {

@@ -148,7 +148,7 @@ jobs:
       - name: Install WAT validation tool
         run: npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
       - name: Compare strings, u64, assembly, and machine artifacts on Windows
-        run: cargo test --test llvm_strings --test c_strings --test string_routes --test native_assembly --test runtime_routes --test source_files --test modules --test product_updates --test constants --test sums --test array_length --test array_iteration --test constant_array_lengths --test generic_functions --test truncating_conversions --test rounding_conversions --test aggregate_values --test string_concat --test string_heap_routes --test ir_executor --test mir_executor --test ssa_executor --test ssa_cli --test ssa_native --test observation_bundle --test native_mir --test dynamic_arrays --test explicit_flush --test execution_output --test execution_output_cli --test c_output
+        run: cargo test --test llvm_strings --test c_strings --test string_routes --test native_assembly --test runtime_routes --test source_files --test modules --test product_updates --test constants --test sums --test array_length --test array_iteration --test constant_array_lengths --test generic_functions --test truncating_conversions --test rounding_conversions --test aggregate_values --test string_concat --test string_heap_routes --test ir_executor --test mir_executor --test ssa_executor --test ssa_cli --test ssa_native --test observation_bundle --test native_mir --test dynamic_arrays --test explicit_flush --test execution_output --test execution_output_cli --test c_output --test llvm_output
         env:
           CERUNE_TEST_CC: clang
           CERUNE_TEST_LLVM_CLANG: clang

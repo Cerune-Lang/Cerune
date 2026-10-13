@@ -165,7 +165,7 @@ cerune emit-bytecode <file> [-o <output.cebc>]
 
 ### LLVMのターゲット指定
 
-`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`を受け付けます。文字列・動的配列を使うプログラムでは、未使用の型・関数も含めて指定が必須です。数値だけでも、検査付き演算・変換・配列添字など実行時診断を持つ場合は指定が必要です。たとえば`print(1 + 2);`は指定が必要で、`print(1);`は省略できます。`flush();`も明示targetを必須とします。ホストOSからは推測しません。`--target`と`-o`（`--output`も可）の順序は自由ですが、同じオプションの重複、値の省略、未対応ターゲットはエラーです。
+`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`を受け付けます。文字列・動的配列を使うプログラムでは、未使用の型・関数も含めて指定が必須です。数値だけでも、検査付き演算・変換・配列添字など実行時診断を持つ場合は指定が必要です。書込み失敗の接続を選ぶため、数値のみの`print(1);`も指定が必要です。`flush();`も明示targetを必須とします。ホストOSからは推測しません。`--target`と`-o`（`--output`も可）の順序は自由ですが、同じオプションの重複、値の省略、未対応ターゲットはエラーです。
 
 Linux x86-64上での例:
 
@@ -183,7 +183,7 @@ clang --target=x86_64-pc-windows-msvc target/string_lookup.ll -o target/string_l
 .\target\string_lookup.exe
 ```
 
-CeruneはLLVMの生成だけを行い、Clangや実行ファイルを起動しません。指定は`target triple`に記録されます。下流ツールにも同じターゲットを渡します。Windowsでは文字列を含むプログラムの標準出力をバイナリモードにし、NUL・CR・LFを保持します。詳しくは[文字列の設計](../design/strings.ja.md#llvmでの表現とターゲット)を参照してください。
+CeruneはLLVMの生成だけを行い、Clangや実行ファイルを起動しません。指定は`target triple`に記録されます。下流ツールにも同じターゲットを渡します。Windowsでは数値のみの出力も含めて標準出力をバイナリモードにし、NUL・CR・LFを保持します。詳しくは[文字列の設計](../design/strings.ja.md#llvmでの表現とターゲット)を参照してください。
 
 ライブラリでは`compile_to_llvm_with_target(source, Some(codegen::llvm::Target::X86_64UnknownLinuxGnu))`、または`X86_64PcWindowsMsvc`を使います。既存の`compile_to_llvm(source)`はターゲット未指定のAPIとして残ります。
 

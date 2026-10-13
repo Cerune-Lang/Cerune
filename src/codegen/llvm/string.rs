@@ -27,11 +27,8 @@ pub(super) fn emit_support(module: &Module, output: &mut String) {
     output.push_str(SUPPORT);
 }
 
-// 比較と出力をバイト数で制御します。空文字列ではポインタを読みません。
-// putcharはprintf/putsと同じ標準出力を使うため、混在時にも出力順を保てます。
-const SUPPORT: &str = r#"declare i32 @putchar(i32)
-
-define internal i1 @cerune.string.equal(%cerune.string %left, %cerune.string %right) {
+// 比較をバイト数で制御します。空文字列ではポインタを読みません。
+const SUPPORT: &str = r#"define internal i1 @cerune.string.equal(%cerune.string %left, %cerune.string %right) {
 entry:
   %left.data = extractvalue %cerune.string %left, 0
   %left.length = extractvalue %cerune.string %left, 1
@@ -58,26 +55,4 @@ equal:
 different:
   ret i1 false
 }
-
-define internal void @cerune.print.string(%cerune.string %value) {
-entry:
-  %data = extractvalue %cerune.string %value, 0
-  %length = extractvalue %cerune.string %value, 1
-  br label %condition
-condition:
-  %index = phi i64 [ 0, %entry ], [ %next, %write ]
-  %done = icmp eq i64 %index, %length
-  br i1 %done, label %newline, label %write
-write:
-  %ptr = getelementptr inbounds i8, ptr %data, i64 %index
-  %byte = load i8, ptr %ptr
-  %character = zext i8 %byte to i32
-  call i32 @putchar(i32 %character)
-  %next = add i64 %index, 1
-  br label %condition
-newline:
-  call i32 @putchar(i32 10)
-  ret void
-}
-
 "#;

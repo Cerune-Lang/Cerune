@@ -14,7 +14,6 @@ pub enum Type {
 pub struct Module {
     pub array_heap_limit: Option<u64>,
     pub string_heap_limit: Option<u64>,
-    pub uses_write: bool,
     pub target: Option<super::Target>,
     pub uses_strings: bool,
     pub strings: Vec<String>,
@@ -98,14 +97,6 @@ pub enum CompareOp {
     GreaterEqual,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PrintFormat {
-    U64,
-    I64,
-    F32,
-    F64,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
     ArrayAllocate {
@@ -143,12 +134,10 @@ pub enum Instruction {
         retain: bool,
     },
     Flush,
-    Write {
+    Output {
         kind: &'static str,
         value: Operand,
-    },
-    PrintString {
-        value: Operand,
+        newline: bool,
     },
     ConvertNumeric {
         conversion: crate::codegen::NumericConversion,
@@ -246,22 +235,6 @@ pub enum Instruction {
     FNeg {
         dest: Temp,
         ty: Type,
-        value: Operand,
-    },
-    FPExt {
-        dest: Temp,
-        value: Operand,
-    },
-    CallPrintf {
-        format: PrintFormat,
-        arg_ty: Type,
-        value: Operand,
-    },
-    SelectBoolText {
-        dest: Temp,
-        value: Operand,
-    },
-    CallPuts {
         value: Operand,
     },
 }

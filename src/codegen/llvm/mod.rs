@@ -6,6 +6,7 @@ mod heap;
 mod integer;
 pub mod ir;
 mod lower;
+mod output;
 mod rounding;
 mod string;
 mod unsigned;
@@ -102,6 +103,14 @@ pub fn emit_llvm_with_options(
             span,
         ));
     }
+    if target.is_none()
+        && let Some(span) = output::first_span(&module)
+    {
+        return Err(Diagnostic::new(
+            "LLVM output requires an explicit --target: x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc",
+            span,
+        ));
+    }
     module.target = target;
     module.uses_strings = string_span.is_some();
 
@@ -119,9 +128,16 @@ mod tests {
     }
 
     #[test]
-    fn runtime_diagnostics_require_a_target_only_for_checked_operations() {
-        let infallible = crate::compile_to_ir("print(1);").unwrap();
+    fn output_and_runtime_diagnostics_require_an_explicit_target() {
+        let infallible = crate::compile_to_ir("x: i64 = 1;").unwrap();
         assert!(super::emit_llvm(&infallible).is_ok());
+        let output = crate::compile_to_ir("print(1);").unwrap();
+        assert!(
+            super::emit_llvm(&output)
+                .unwrap_err()
+                .message()
+                .contains("output requires an explicit --target")
+        );
         let program = crate::compile_to_ir("print(1 / 0);").unwrap();
         let error = super::emit_llvm(&program).unwrap_err();
         assert!(
@@ -181,12 +197,11 @@ mod tests {
             panic!()
         };
         assert_eq!(node_id, value.id);
-        for item in module.instructions.iter().filter(|item| {
-            matches!(
-                item.instruction,
-                Instruction::SelectBoolText { .. } | Instruction::CallPuts { .. }
-            )
-        }) {
+        for item in module
+            .instructions
+            .iter()
+            .filter(|item| matches!(item.instruction, Instruction::Output { .. }))
+        {
             assert_eq!(
                 item.origin,
                 super::ir::Origin::Source {

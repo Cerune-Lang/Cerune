@@ -165,7 +165,7 @@ Text-producing `emit-*` commands write their observations to standard output by 
 
 ### LLVM target selection
 
-`--target` accepts `x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Programs using strings or dynamic arrays require it, including unused types and functions. Numeric-only programs also require it when checked operations, conversions, or array indexing emit runtime diagnostics. For example, `print(1 + 2);` requires a target, while `print(1);` does not. `flush();` also requires an explicit target. The host OS never supplies a default. `--target` and `-o` (also `--output`) may appear in either order; duplicate options, missing values, and unsupported targets are errors.
+`--target` accepts `x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Programs using strings or dynamic arrays require it, including unused types and functions. Numeric-only programs also require it when checked operations, conversions, or array indexing emit runtime diagnostics. Even numeric-only `print(1);` requires a target to select the write-failure connection. `flush();` also requires an explicit target. The host OS never supplies a default. `--target` and `-o` (also `--output`) may appear in either order; duplicate options, missing values, and unsupported targets are errors.
 
 On Linux x86-64:
 
@@ -183,7 +183,7 @@ clang --target=x86_64-pc-windows-msvc target/string_lookup.ll -o target/string_l
 .\target\string_lookup.exe
 ```
 
-Cerune only generates LLVM; it does not launch Clang or the executable. Selection is recorded in `target triple`. Pass the same target to downstream tools. Windows programs containing strings initialize standard output in binary mode to preserve NUL, CR, and LF. See [string design](../design/strings.en.md#llvm-representation-and-targets).
+Cerune only generates LLVM; it does not launch Clang or the executable. Selection is recorded in `target triple`. Pass the same target to downstream tools. Windows programs also initialize numeric-only standard output in binary mode to preserve NUL, CR, and LF. See [string design](../design/strings.en.md#llvm-representation-and-targets).
 
 Library callers can use `compile_to_llvm_with_target(source, Some(codegen::llvm::Target::X86_64UnknownLinuxGnu))`, or `X86_64PcWindowsMsvc`. Existing `compile_to_llvm(source)` remains the unspecified-target API.
 

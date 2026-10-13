@@ -56,22 +56,20 @@ Static LLVM string data is constant and lasts until process exit. Each literal i
 
 Strings, products containing strings, and nested arrays are copied as LLVM aggregate values, including function parameters and results. Finalized contents are never modified. Dynamic strings preserve this value representation and identify owned allocations through an internal list. Equality checks length and every byte regardless of sharing or constant merging. This internal representation does not guarantee external C ABI compatibility.
 
-Printing calls `putchar` for each byte and appends LF. Bytes are zero-extended to `i32`, preserving the high bits of UTF-8. This uses the same standard output as numeric `printf` and Boolean `puts`, preserving mixed output order. Comparison and output loops remain readable in generated LLVM. Optimizing large string output is future work.
+Printing passes length-delimited data and LF to the [origin-bearing write operation](standard-io.en.md). Numbers, booleans, and quoted output use the same connection, retaining order, requested/accepted byte counts, and failure locations. Comparisons, short writes, and interruption retries remain readable in generated LLVM.
 
-LLVM programs using strings require an explicit `--target`. Two targets are supported:
+LLVM programs using strings or writing stdout require an explicit `--target`. Two targets are supported:
 
 | Target | Standard output initialization |
 | --- | --- |
 | `x86_64-unknown-linux-gnu` | No mode change |
 | `x86_64-pc-windows-msvc` | Call `_setmode(1, 32768)` on CRT standard output (descriptor 1) to select binary mode |
 
-Windows initialization runs before any Cerune operation, including a call to an explicit `main`. Failure exits with code 1. Programs using strings also terminate numeric and Boolean output with LF. Programs without strings retain their previous output mode, but checked operations, conversions, and indexing require a target to select the [runtime diagnostic](runtime-diagnostics.en.md) output ABI.
+Windows initialization runs before any Cerune operation, including a call to an explicit `main`. Failure exits with code 1. Numeric-only and boolean-only output also ends in LF. Checked operations, conversions, and indexing require a target even without output to select the [runtime diagnostic](runtime-diagnostics.en.md) output ABI.
 
 The selection is recorded in the artifact's `target triple`; the compiler never selects it from its host OS or environment variables. Strings in unused definitions also require a target, with a source-located diagnostic when omitted. Pass the same target to downstream Clang. Overriding it with a different target does not translate already generated OS-specific operations.
 
 LLVM lowering emits expressions in source order and retains the required branches inside short-circuit expressions and loops. Target selection is generation data, not authorization to launch external programs or interfere with the compiler.
-
-With an explicit Windows target, numeric-only and boolean-only output also uses binary mode to preserve LF.
 
 References: [LLVM constants](https://www.llvm.org/docs/LangRef.html#constants), [target triple](https://www.llvm.org/docs/LangRef.html#target-triple), and [Microsoft CRT _setmode](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmode?view=msvc-170).
 

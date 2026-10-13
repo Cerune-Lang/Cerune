@@ -35,7 +35,7 @@ fn target_is_explicit_and_emission_is_deterministic() {
         assert!(llvm.contains("%cerune.string = type { ptr, i64 }"));
         assert!(llvm.contains("[6 x i8] c\"\\E6\\97\\A5\\00\\0D\\0A\""));
         assert_eq!(llvm.contains("@_setmode"), target == WINDOWS);
-        assert!(llvm.contains("zext i8 %byte to i32"));
+        assert!(llvm.contains("call void @cerune.output.part"));
         assert!(
             !llvm.contains("@malloc") && !llvm.contains("@strlen") && !llvm.contains("@strcmp")
         );
@@ -44,7 +44,13 @@ fn target_is_explicit_and_emission_is_deterministic() {
             compile_to_llvm_with_target(source, Some(target)).unwrap()
         );
     }
-    for target in [None, Some(LINUX), Some(WINDOWS)] {
+    assert!(
+        compile_to_llvm("print(1);")
+            .unwrap_err()
+            .message()
+            .contains("output requires an explicit --target")
+    );
+    for target in [Some(LINUX), Some(WINDOWS)] {
         let llvm = compile_to_llvm_with_target("print(1);", target).unwrap();
         assert_eq!(llvm.contains("@_setmode"), target == Some(WINDOWS));
         assert!(!llvm.contains("%cerune.string"));
