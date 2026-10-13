@@ -90,6 +90,12 @@ cerune emit-c examples/string_concat.ceru --string-heap-limit 1024 -o concat.c
 
 LLVMのOSを実行中の環境から決めず、明示ターゲットを使います。自前COFF/ELFは管理情報を非実行の書き込み可能`.data`節へ置き、静的文字列は読み取り専用のままです。WATのmemoryはexport/importしません。外部ツールの起動とリンクは生成物を受け取る側の責務です。
 
+## Rust内部の文字列所有者検証
+
+StringHeapのretain/releaseは、割当IDと共有ハンドルの実体（`Rc::ptr_eq`）を照合します。IDはヒープごとに採番するため、IDだけでは所属を判定しません。別ヒープの値、存在しないID、所有数0、retain時の所有数オーバーフローは`InvalidStringOwnership`として拒否し、失敗時は所有数・生存バイト数・内容を変更しません。
+
+これはクレート内部APIの不変条件です。通常のCeruneソースからの再現を確認した問題ではなく、新しい言語上の停止条件やコピーを追加しません。静的・空文字列は従来どおり動的な所有数を持ちません。回帰テストでは異なるヒープで衝突するID、無効な所有数、二重release、失敗後の正常な解放を確認します。
+
 ## 検証例
 
 [string_concat.ceru](../../examples/string_concat.ceru)で連結・返却・再代入・配列コピー・バイト保持・ループを確認できます。共通の`concat_cases`では既定値・enum・matchガード・型引数・定数・左右の副作用・自己代入・早期returnも照合します。
