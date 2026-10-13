@@ -16,6 +16,8 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     }
     emit_origin(Origin::Synthetic, annotate_origins, &mut output);
     let i64_operations = i64_operations(module);
+    let binary_stdout =
+        module.uses_strings || module.array_heap_limit.is_some() || uses_output(module);
     let runtime_failures = module.array_heap_limit.is_some()
         || module.string_heap_limit.is_some()
         || super::failure::first_failure_span(module).is_some();
@@ -123,6 +125,13 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
         }
         output.push_str(&super::array::support(limit));
     }
+    if binary_stdout
+        && !module.uses_strings
+        && module.array_heap_limit.is_none()
+        && module.target == Some(super::Target::X86_64PcWindowsMsvc)
+    {
+        output.push_str("declare i32 @_setmode(i32, i32)\n");
+    }
     if module.uses_write {
         output.push_str(&crate::codegen::display::llvm());
     }
@@ -142,9 +151,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
 
     emit_origin(Origin::Synthetic, annotate_origins, &mut output);
     output.push_str("define i32 @main() {\nentry:\n");
-    if (module.uses_strings || module.array_heap_limit.is_some())
-        && module.target == Some(super::Target::X86_64PcWindowsMsvc)
-    {
+    if binary_stdout && module.target == Some(super::Target::X86_64PcWindowsMsvc) {
         // CRTの標準出力(記述子1)を、最初の出力より前にバイナリモードにします。
         output.push_str("  %stdout.mode = call i32 @_setmode(i32 1, i32 32768)\n");
         output.push_str("  %stdout.failed = icmp eq i32 %stdout.mode, -1\n");
@@ -933,6 +940,27 @@ fn operand(operand: Operand) -> String {
         Operand::Temp(id) => temp(id),
         Operand::Poison => "poison".into(),
     }
+}
+
+fn uses_output(module: &Module) -> bool {
+    module
+        .instructions
+        .iter()
+        .chain(
+            module
+                .functions
+                .iter()
+                .flat_map(|function| &function.instructions),
+        )
+        .any(|item| {
+            matches!(
+                item.instruction,
+                Instruction::Write { .. }
+                    | Instruction::PrintString { .. }
+                    | Instruction::CallPrintf { .. }
+                    | Instruction::CallPuts { .. }
+            )
+        })
 }
 
 fn uses_bool_print(module: &Module) -> bool {

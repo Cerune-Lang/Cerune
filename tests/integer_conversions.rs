@@ -106,12 +106,15 @@ fn conversions_preserve_integer_boundaries_and_support_nesting() {
 }
 
 #[test]
-fn both_spellings_evaluate_the_input_once_and_emit_identical_native_artifacts() {
+fn both_spellings_evaluate_once_and_emit_identical_artifacts_at_equal_output_positions() {
     let sources = SPELLINGS.map(|(spelling, _)| {
+        // 書込み失敗の診断は出力位置を保持するため、変換後の位置を空白で揃えます。
+        // 変換自身の異なる位置と構文は上の出自テストで比較します。
+        let padding = " ".repeat("convert<i64>".len() - spelling.len());
         format!(
             "
         fn next() -> i64 {{ print(7); return 42; }}
-        answer: infer = {spelling}(next());
+        answer: infer = {spelling}(next());{padding}
         print(answer);
     "
         )

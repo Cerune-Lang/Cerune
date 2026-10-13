@@ -71,6 +71,8 @@ Windowsの初期化は、明示的な`main`の呼び出しも含めて最初のC
 
 LLVM loweringは式をソース順に命令化し、短絡評価やループの内側に必要な分岐を残します。ターゲット指定は生成条件を選ぶデータであり、外部プログラムの起動やコンパイラへの干渉を許可するものではありません。
 
+明示Windowsターゲットでは、文字列を使わず数値・真偽値だけを表示する場合もバイナリモードにし、LFを保持します。
+
 根拠となる仕様は[LLVMの定数表現](https://www.llvm.org/docs/LangRef.html#constants)、[target triple](https://www.llvm.org/docs/LangRef.html#target-triple)、[Microsoft CRTの_setmode](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmode?view=msvc-170)です。
 
 ## QBE・WAT・直接アセンブリでの保存と受け渡し

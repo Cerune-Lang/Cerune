@@ -100,22 +100,9 @@ fn assert_failure(output: Output, source: &str, expected_code: &str, route: &str
             }
         }
     }
-    // stderrだけCRLF/LFを揃え、文字列のstdoutはNUL・CR/LFも含めて比較します。
-    let mut stdout = output.stdout;
-    // 既存のWindows数値専用出力はCRTのCRLFです。文字列のバイト列には適用しません。
-    if cfg!(windows)
-        && route != "wat"
-        && !cerune_lang::compile_to_c(source)
-            .unwrap()
-            .contains("_setmode(")
-    {
-        stdout = String::from_utf8(stdout)
-            .unwrap()
-            .replace("\r\n", "\n")
-            .into_bytes();
-    }
+    // stderrだけCRLF/LFを揃え、stdoutは全経路で実際のバイト列を比較します。
     assert_eq!(
-        stdout,
+        output.stdout,
         error.vm_error().output().as_bytes(),
         "{route}: {source}"
     );

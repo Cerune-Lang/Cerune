@@ -158,6 +158,8 @@ fn generated_c_write_failures_match_four_executors() {
         example,
         "v: f32 = 0.1; print(v); print(0.0000001); print(false);",
         long.as_str(),
+        "fn next() -> i64 { print(7); return 42; } answer: infer = i64(next()); print(answer);",
+        "fn next() -> i64 { print(7); return 42; } answer: infer = convert<i64>(next()); print(answer);",
     ];
     for (index, source) in source_cases.into_iter().enumerate() {
         let hir = cerune_lang::compile_to_ir(source).unwrap();
@@ -188,6 +190,7 @@ fn generated_c_write_failures_match_four_executors() {
             (0, 2, "error"),
             (1, 2, "error"),
             (2, 1, "error"),
+            (3, 1, "error"),
             (7, 3, "zero"),
             (12, 2, "invalid"),
             (300, 17, "error"),

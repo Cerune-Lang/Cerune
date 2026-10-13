@@ -71,6 +71,8 @@ The selection is recorded in the artifact's `target triple`; the compiler never 
 
 LLVM lowering emits expressions in source order and retains the required branches inside short-circuit expressions and loops. Target selection is generation data, not authorization to launch external programs or interfere with the compiler.
 
+With an explicit Windows target, numeric-only and boolean-only output also uses binary mode to preserve LF.
+
 References: [LLVM constants](https://www.llvm.org/docs/LangRef.html#constants), [target triple](https://www.llvm.org/docs/LangRef.html#target-triple), and [Microsoft CRT _setmode](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmode?view=msvc-170).
 
 ## QBE, WAT, and direct assembly storage and passing
