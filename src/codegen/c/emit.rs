@@ -26,6 +26,7 @@ pub fn emit(module: &Module) -> String {
     {
         output.push_str("#include <stdlib.h>\n#include <signal.h>\n");
     }
+    let writes = super::output::used(module);
     let strings = module.uses_strings || support.strings || super::string::uses_type(module);
     if !support.conversions.is_empty() || support.nonfinite {
         output.push_str("#include <math.h>\n#include <float.h>\n");
@@ -43,7 +44,7 @@ pub fn emit(module: &Module) -> String {
     if strings {
         output.push_str("#include <stddef.h>\n#include <string.h>\n");
     }
-    if strings || module.array_heap_limit.is_some() {
+    if writes || strings || module.array_heap_limit.is_some() {
         output.push_str("#ifdef _WIN32\n#include <io.h>\n#include <fcntl.h>\n#endif\n");
     }
     if module.string_heap_limit.is_some() || !module.array_types.is_empty() || support.any_numeric()
@@ -67,8 +68,8 @@ pub fn emit(module: &Module) -> String {
     if let Some(limit) = module.array_heap_limit {
         output.push_str(&super::array::support(limit));
     }
-    if module.uses_write {
-        output.push_str(&crate::codegen::display::c());
+    if writes {
+        output.push_str(&super::output::support(strings));
     }
     let mut emitted_array_types = Vec::new();
     for ty in &module.array_types {
@@ -132,7 +133,7 @@ pub fn emit(module: &Module) -> String {
     }
 
     output.push_str("int main(void) {\n");
-    if strings || module.array_heap_limit.is_some() {
+    if writes || strings || module.array_heap_limit.is_some() {
         // WindowsのテキストモードによるLFの書き換えを防ぎ、VMと同じバイトを出力します。
         output.push_str("#ifdef _WIN32\n    if (_setmode(_fileno(stdout), _O_BINARY) == -1) {\n        fputs(\"cerune: cannot set stdout to binary mode\\n\", stderr);\n        return 1;\n    }\n#endif\n");
     }
@@ -317,10 +318,12 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
             }
         }
 
-        Statement::Write { kind, value } => {
-            write!(output, "{prefix}cerune_write_{kind}(").unwrap();
-            emit_expr(value, module, output);
-            output.push_str(");\n");
+        Statement::Write {
+            kind,
+            value,
+            origin,
+        } => {
+            emit_output(kind, value, false, *origin, &prefix, module, output);
         }
         Statement::Flush { origin } => {
             let record =
@@ -330,8 +333,20 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
                 });
             writeln!(output, "{prefix}{{\n{prefix}    int cerune_flush_status;\n#ifdef SIGPIPE\n{prefix}    void (*cerune_prior_sigpipe)(int) = signal(SIGPIPE, SIG_IGN);\n{prefix}    cerune_flush_status = cerune_prior_sigpipe == SIG_ERR ? EOF : fflush(stdout);\n{prefix}    if (cerune_flush_status == 0 && signal(SIGPIPE, cerune_prior_sigpipe) == SIG_ERR) cerune_flush_status = EOF;\n#else\n{prefix}    cerune_flush_status = fflush(stdout);\n#endif\n{prefix}    if (cerune_flush_status != 0) {{ fputs(\"cerune: {record}\\n\", stderr); fflush(stderr); _Exit(1); }}\n{prefix}}}").unwrap();
         }
-        Statement::Print { format, value } => {
-            emit_print(*format, value, &prefix, module, output);
+        Statement::Print {
+            format,
+            value,
+            origin,
+        } => {
+            let kind = match format {
+                PrintFormat::String => "string",
+                PrintFormat::Bool => "bool",
+                PrintFormat::U64 => "u64",
+                PrintFormat::I64 => "i64",
+                PrintFormat::F32 => "f32",
+                PrintFormat::F64 => "f64",
+            };
+            emit_output(kind, value, true, *origin, &prefix, module, output);
         }
 
         Statement::Call {
@@ -488,62 +503,20 @@ fn c_type(ty: &Type, module: &Module) -> String {
     }
 }
 
-fn emit_print(
-    format: PrintFormat,
+fn emit_output(
+    kind: &str,
     expr: &Expr,
+    newline: bool,
+    origin: super::ir::Origin,
     prefix: &str,
     module: &Module,
     output: &mut String,
 ) {
-    match format {
-        PrintFormat::String => {
-            output.push_str(prefix);
-            output.push_str("cerune_print_string(");
-            emit_expr(expr, module, output);
-            output.push_str(");\n");
-        }
-        PrintFormat::Bool => {
-            output.push_str(prefix);
-            output.push_str("printf(\"%s\\n\", (");
-
-            emit_expr(expr, module, output);
-
-            output.push_str(") ? \"true\" : \"false\");\n");
-        }
-
-        PrintFormat::U64 => {
-            output.push_str(prefix);
-            output.push_str("printf(\"%llu\\n\", (unsigned long long)(");
-            emit_expr(expr, module, output);
-            output.push_str("));\n");
-        }
-        PrintFormat::I64 => {
-            output.push_str(prefix);
-            output.push_str("printf(\"%lld\\n\", (long long)(");
-
-            emit_expr(expr, module, output);
-
-            output.push_str("));\n");
-        }
-
-        PrintFormat::F32 => {
-            output.push_str(prefix);
-            output.push_str("printf(\"%.9g\\n\", (double)(");
-
-            emit_expr(expr, module, output);
-
-            output.push_str("));\n");
-        }
-
-        PrintFormat::F64 => {
-            output.push_str(prefix);
-            output.push_str("printf(\"%.17g\\n\", (double)(");
-
-            emit_expr(expr, module, output);
-
-            output.push_str("));\n");
-        }
-    }
+    write!(output, "{prefix}cerune_output_{kind}(").unwrap();
+    emit_expr(expr, module, output);
+    write!(output, ", {}", u8::from(newline)).unwrap();
+    super::failure::argument(origin, output);
+    output.push_str(");\n");
 }
 
 fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
@@ -1342,7 +1315,7 @@ fn statement_uses_bool(statement: &Statement) -> bool {
         Statement::StringManage { value, .. }
         | Statement::Assignment { value, .. }
         | Statement::Write { value, .. } => value.ty == Type::Bool,
-        Statement::Print { format, value } => {
+        Statement::Print { format, value, .. } => {
             *format == PrintFormat::Bool || value.ty == Type::Bool
         }
         Statement::Call { arguments, .. } => arguments.iter().any(|value| value.ty == Type::Bool),

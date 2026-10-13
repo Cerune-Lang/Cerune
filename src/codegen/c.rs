@@ -6,6 +6,7 @@ mod heap;
 mod integer;
 pub mod ir;
 mod lower;
+mod output;
 mod rounding;
 mod sequence;
 mod string;

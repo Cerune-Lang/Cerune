@@ -46,9 +46,4 @@ static inline bool cerune_string_equal(cerune_string left, cerune_string right) 
         (left.length == 0 || memcmp(left.data, right.data, left.length) == 0);
 }
 
-static inline void cerune_print_string(cerune_string value) {
-    fwrite(value.data, 1, value.length, stdout);
-    fputc('\n', stdout);
-}
-
 "#;

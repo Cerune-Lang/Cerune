@@ -46,7 +46,7 @@ External input remains unimplemented. The generated C struct is not a stable ext
 
 Each literal byte is emitted as a fixed three-digit octal escape. Japanese text does not depend on the C compiler's execution encoding, and quotes or other contents cannot become C syntax.
 
-Equality checks byte counts before using `memcmp`. Printing uses `fwrite` and appends LF, never `strlen` or `strcmp`. On Windows, programs using strings switch standard output to binary mode to preserve CR, LF, and NUL. Existing numeric-only programs retain text mode.
+Equality checks byte counts before using `memcmp`. Printing passes length-delimited data and LF to the [write operation](standard-io.en.md), retaining requested/accepted counts and origin; it never uses `strlen` or `strcmp`. Windows uses binary output even for numeric-only programs, preserving CR, LF, and NUL.
 
 Where C does not guarantee evaluation order and multiple operands can produce effects or fail, expressions are saved to function-local temporaries in source order. Evaluation stays inside short-circuit operands and loop conditions or updates. Binding names also include Cerune IR IDs to avoid shadowing and runtime-helper collisions.
 

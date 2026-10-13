@@ -43,286 +43,157 @@ static inline bool cerune_string_equal(cerune_string left, cerune_string right) 
         (left.length == 0 || memcmp(left.data, right.data, left.length) == 0);
 }
 
-static inline void cerune_print_string(cerune_string value) {
-    fwrite(value.data, 1, value.length, stdout);
-    fputc('\n', stdout);
+
+#include <stddef.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <signal.h>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
+typedef struct cerune_output_operation {
+    size_t requested;
+    size_t accepted;
+    const char *origin;
+#ifdef SIGPIPE
+    void (*prior_sigpipe)(int);
+#endif
+} cerune_output_operation;
+
+static void cerune_output_failed(cerune_output_operation *op) {
+    fprintf(stderr, "cerune: io-v1 operation=write requested=%llu accepted=%llu%s",
+        (unsigned long long)op->requested, (unsigned long long)op->accepted, op->origin);
+    fflush(stderr);
+    _Exit(1);
 }
 
-static void cerune_write_escaped_byte(unsigned char value) {
-    switch (value) {
-    case 0:
-        putchar(92);
-        putchar(48);
-        return;
-    case 1:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(49);
-        putchar(125);
-        return;
-    case 2:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(50);
-        putchar(125);
-        return;
-    case 3:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(51);
-        putchar(125);
-        return;
-    case 4:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(52);
-        putchar(125);
-        return;
-    case 5:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(53);
-        putchar(125);
-        return;
-    case 6:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(54);
-        putchar(125);
-        return;
-    case 7:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(55);
-        putchar(125);
-        return;
-    case 8:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(56);
-        putchar(125);
-        return;
-    case 9:
-        putchar(92);
-        putchar(116);
-        return;
-    case 10:
-        putchar(92);
-        putchar(110);
-        return;
-    case 11:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(98);
-        putchar(125);
-        return;
-    case 12:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(99);
-        putchar(125);
-        return;
-    case 13:
-        putchar(92);
-        putchar(114);
-        return;
-    case 14:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(101);
-        putchar(125);
-        return;
-    case 15:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(48);
-        putchar(102);
-        putchar(125);
-        return;
-    case 16:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(48);
-        putchar(125);
-        return;
-    case 17:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(49);
-        putchar(125);
-        return;
-    case 18:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(50);
-        putchar(125);
-        return;
-    case 19:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(51);
-        putchar(125);
-        return;
-    case 20:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(52);
-        putchar(125);
-        return;
-    case 21:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(53);
-        putchar(125);
-        return;
-    case 22:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(54);
-        putchar(125);
-        return;
-    case 23:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(55);
-        putchar(125);
-        return;
-    case 24:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(56);
-        putchar(125);
-        return;
-    case 25:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(57);
-        putchar(125);
-        return;
-    case 26:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(97);
-        putchar(125);
-        return;
-    case 27:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(98);
-        putchar(125);
-        return;
-    case 28:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(99);
-        putchar(125);
-        return;
-    case 29:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(100);
-        putchar(125);
-        return;
-    case 30:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(101);
-        putchar(125);
-        return;
-    case 31:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(49);
-        putchar(102);
-        putchar(125);
-        return;
-    case 34:
-        putchar(92);
-        putchar(34);
-        return;
-    case 92:
-        putchar(92);
-        putchar(92);
-        return;
-    case 127:
-        putchar(92);
-        putchar(117);
-        putchar(123);
-        putchar(55);
-        putchar(102);
-        putchar(125);
-        return;
-    default: putchar(value); return;
+/* Execution connection; no observation callbacks or mutable current origin. */
+static int64_t cerune_output_write(const unsigned char *data, size_t length) {
+#ifdef _WIN32
+    return _write(1, data, (unsigned int)length);
+#else
+    return write(1, data, length);
+#endif
+}
+
+static cerune_output_operation cerune_output_begin(size_t length, const char *origin) {
+    cerune_output_operation op;
+    op.requested = length;
+    op.accepted = 0;
+    op.origin = origin;
+#ifdef SIGPIPE
+    op.prior_sigpipe = signal(SIGPIPE, SIG_IGN);
+    if (op.prior_sigpipe == SIG_ERR) cerune_output_failed(&op);
+#endif
+    return op;
+}
+
+static void cerune_output_part(cerune_output_operation *op, const unsigned char *data, size_t length) {
+    while (length != 0) {
+        size_t request = length < 65536 ? length : 65536;
+        int64_t n = cerune_output_write(data, request);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0 || (uint64_t)n > request) cerune_output_failed(op);
+        op->accepted += (size_t)n;
+        data += (size_t)n;
+        length -= (size_t)n;
     }
 }
-static void cerune_write_string(cerune_string value) {
-    for (size_t i = 0; i < value.length; ++i) putchar(value.data[i]);
+static void cerune_output_end(cerune_output_operation *op) {
+#ifdef SIGPIPE
+    if (signal(SIGPIPE, op->prior_sigpipe) == SIG_ERR) cerune_output_failed(op);
+#else
+    (void)op;
+#endif
 }
-static void cerune_write_quoted(cerune_string value) {
-    putchar(34);
-    for (size_t i = 0; i < value.length; ++i) cerune_write_escaped_byte(value.data[i]);
-    putchar(34);
+static void cerune_output_text(const unsigned char *data, size_t length, const char *origin) {
+    if (length == 0) return;
+    cerune_output_operation op = cerune_output_begin(length, origin);
+    cerune_output_part(&op, data, length);
+    cerune_output_end(&op);
 }
-static void cerune_write_i64(int64_t value) { printf("%lld", (long long)value); }
-static void cerune_write_u64(uint64_t value) { printf("%llu", (unsigned long long)value); }
-static void cerune_write_f32(float value) { printf("%.9g", (double)value); }
-static void cerune_write_f64(double value) { printf("%.17g", (double)value); }
-static void cerune_write_bool(bool value) { fputs(value ? "true" : "false", stdout); }
+static void cerune_output_i64(int64_t value, int newline, const char *origin) {
+    char text[128];
+    int n = snprintf(text, sizeof(text), "%lld", (long long)value);
+    if (n < 0 || (size_t)n >= sizeof(text) - 1) { fputs("cerune: output formatting failed\n", stderr); _Exit(1); }
+    if (newline) text[n++] = '\n';
+    cerune_output_text((const unsigned char *)text, (size_t)n, origin);
+}
+static void cerune_output_u64(uint64_t value, int newline, const char *origin) {
+    char text[128];
+    int n = snprintf(text, sizeof(text), "%llu", (unsigned long long)value);
+    if (n < 0 || (size_t)n >= sizeof(text) - 1) { fputs("cerune: output formatting failed\n", stderr); _Exit(1); }
+    if (newline) text[n++] = '\n';
+    cerune_output_text((const unsigned char *)text, (size_t)n, origin);
+}
+static void cerune_output_f32(float value, int newline, const char *origin) {
+    char text[128];
+    int n = snprintf(text, sizeof(text), "%.9g", (double)value);
+    if (n < 0 || (size_t)n >= sizeof(text) - 1) { fputs("cerune: output formatting failed\n", stderr); _Exit(1); }
+    if (newline) text[n++] = '\n';
+    cerune_output_text((const unsigned char *)text, (size_t)n, origin);
+}
+static void cerune_output_f64(double value, int newline, const char *origin) {
+    char text[128];
+    int n = snprintf(text, sizeof(text), "%.17g", (double)value);
+    if (n < 0 || (size_t)n >= sizeof(text) - 1) { fputs("cerune: output formatting failed\n", stderr); _Exit(1); }
+    if (newline) text[n++] = '\n';
+    cerune_output_text((const unsigned char *)text, (size_t)n, origin);
+}
+static void cerune_output_bool(int value, int newline, const char *origin) {
+    const char *text = value ? "true\n" : "false\n";
+    cerune_output_text((const unsigned char *)text, (value ? 4 : 5) + (size_t)newline, origin);
+}
 
+static void cerune_output_string(cerune_string value, int newline, const char *origin) {
+    cerune_output_operation op = cerune_output_begin(value.length + (size_t)newline, origin);
+    cerune_output_part(&op, value.data, value.length);
+    if (newline) cerune_output_part(&op, (const unsigned char *)"\n", 1);
+    cerune_output_end(&op);
+}
+static size_t cerune_output_escape(unsigned char b, unsigned char *out) {
+    out[0] = '\\';
+    switch (b) {
+    case 0: out[1] = '0'; return 2;
+    case 9: out[1] = 't'; return 2;
+    case 10: out[1] = 'n'; return 2;
+    case 13: out[1] = 'r'; return 2;
+    case 34: out[1] = '"'; return 2;
+    case 92: out[1] = '\\'; return 2;
+    default:
+        if (b < 32 || b == 127) {
+            const unsigned char *hex = (const unsigned char *)"0123456789abcdef";
+            out[1] = 'u'; out[2] = '{'; out[3] = hex[b >> 4]; out[4] = hex[b & 15]; out[5] = '}';
+            return 6;
+        }
+        out[0] = b; return 1;
+    }
+}
+static void cerune_output_quoted(cerune_string value, int newline, const char *origin) {
+    unsigned char escaped[6], buffer[256];
+    size_t requested = 2 + (size_t)newline;
+    for (size_t i = 0; i < value.length; ++i) requested += cerune_output_escape(value.data[i], escaped);
+    cerune_output_operation op = cerune_output_begin(requested, origin);
+    size_t used = 0;
+    buffer[used++] = '"';
+    for (size_t i = 0; i < value.length; ++i) {
+        size_t n = cerune_output_escape(value.data[i], escaped);
+        for (size_t j = 0; j < n; ++j) {
+            if (used == sizeof(buffer)) {
+                cerune_output_part(&op, buffer, used);
+                used = 0;
+            }
+            buffer[used++] = escaped[j];
+        }
+    }
+    cerune_output_part(&op, buffer, used);
+    cerune_output_part(&op, (const unsigned char *)"\"", 1);
+    if (newline) cerune_output_part(&op, (const unsigned char *)"\n", 1);
+    cerune_output_end(&op);
+}
 typedef struct cerune_array_i64_2 {
     int64_t items[2];
 } cerune_array_i64_2;
@@ -391,18 +262,18 @@ int64_t cerune_fn__match_bind5_5(void) {
 
 void cerune_fn__display6_6(cerune_type_Item_0 cerune_binding_12__value) {
     if ((cerune_binding_12__value)._dtag == 0) {
-        cerune_write_string((cerune_string){ (const unsigned char *)"\126\141\154\165\145", 5 });
-        cerune_write_string((cerune_string){ (const unsigned char *)"\173", 1 });
-        cerune_write_string((cerune_string){ (const unsigned char *)"\156\072\040", 3 });
-        cerune_write_i64((cerune_binding_12__value)._dValue_dn);
-        cerune_write_string((cerune_string){ (const unsigned char *)"\175", 1 });
+        cerune_output_string((cerune_string){ (const unsigned char *)"\126\141\154\165\145", 5 }, 0, " node=95 bytes=87..115\n");
+        cerune_output_string((cerune_string){ (const unsigned char *)"\173", 1 }, 0, " node=97 bytes=87..115\n");
+        cerune_output_string((cerune_string){ (const unsigned char *)"\156\072\040", 3 }, 0, " node=99 bytes=87..115\n");
+        cerune_output_i64((cerune_binding_12__value)._dValue_dn, 0, " node=102 bytes=87..115\n");
+        cerune_output_string((cerune_string){ (const unsigned char *)"\175", 1 }, 0, " node=104 bytes=87..115\n");
     }
     if ((cerune_binding_12__value)._dtag == 1) {
-        cerune_write_string((cerune_string){ (const unsigned char *)"\105\155\160\164\171", 5 });
-        cerune_write_string((cerune_string){ (const unsigned char *)"\173", 1 });
-        cerune_write_string((cerune_string){ (const unsigned char *)"\175", 1 });
+        cerune_output_string((cerune_string){ (const unsigned char *)"\105\155\160\164\171", 5 }, 0, " node=111 bytes=87..115\n");
+        cerune_output_string((cerune_string){ (const unsigned char *)"\173", 1 }, 0, " node=113 bytes=87..115\n");
+        cerune_output_string((cerune_string){ (const unsigned char *)"\175", 1 }, 0, " node=115 bytes=87..115\n");
     }
-    cerune_print_string((cerune_string){ (const unsigned char *)"", 0 });
+    cerune_output_string((cerune_string){ (const unsigned char *)"", 0 }, 1, " node=118 bytes=87..115\n");
     return;
 }
 
@@ -414,9 +285,9 @@ int main(void) {
     }
 #endif
     cerune_array_i64_2 cerune_binding_0_left = (cerune_array_i64_2){ .items = { 1, 2 } };
-    printf("%s\n", (cerune_fn__equal0_0(cerune_binding_0_left, (cerune_array_i64_2){ .items = { 1, 3 } })) ? "true" : "false");
+    cerune_output_bool(cerune_fn__equal0_0(cerune_binding_0_left, (cerune_array_i64_2){ .items = { 1, 3 } }), 1, " node=4 bytes=64..86\n");
     cerune_fn__display6_6((cerune_type_Item_0){ ._dtag = 0, ._dValue_dn = 7 });
     int64_t cerune_binding_4_result = cerune_fn__match_bind5_5();
-    printf("%lld\n", (long long)(cerune_binding_4_result));
+    cerune_output_i64(cerune_binding_4_result, 1, " node=43 bytes=261..275\n");
     return 0;
 }
