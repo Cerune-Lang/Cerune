@@ -2,7 +2,7 @@
 
 [English](development-status.en.md) · [ロードマップ](language-roadmap.ja.md)
 
-このページは下記時点の監査記録です。その後、[LIRの観測・構造検証](lir-observation.ja.md)を実装し、直接実行器は保留としました。その後の言語機能として`array_repeat`も実装しました。現在の優先順位は[ロードマップ](language-roadmap.ja.md)を参照してください。
+**以下は2026-10-11の監査記録で、現行仕様・現在の未完了一覧ではありません。** 当時の判断と根拠は履歴として残します。LIR観測・検証（PR #124）、array_repeat（#125）、逐次出力（#127）、MIT OR Apache-2.0への移行（#129）はその後に統合済みです。現在の機能・全open Issue・優先順は[ロードマップ](language-roadmap.ja.md)を参照してください。
 
 ## 調査基点と結論
 

@@ -1,6 +1,6 @@
 # Execution routes and build / release responsibilities
 
-[日本語](owned-routes.ja.md) · [Issue #81](https://github.com/Hokutaka/Cerune/issues/81)
+[日本語](owned-routes.ja.md) · [Issue #81](https://github.com/Cerune-Lang/Cerune/issues/81)
 
 ## Decision and status
 
@@ -12,6 +12,22 @@ Current commands include `run` / `run-ir`, `run-mir`, `run-vm`, `emit-*`, and [`
 **Build / release, saved Image loading, and the Lean backend are not implemented.**
 Dashed edges below are plans; language-feature coverage is tracked separately.
 Dynamic arrays support IR/MIR/VM/C/LLVM/QBE/WAT, Windows/Linux ASM, and self-encoded objects. MIR generation and independent execution in the [stage design](ir-stages.en.md) are implemented; this does not establish another build/release distribution route.
+
+## Issue #81 proposals versus current behavior
+
+The following organizes proposed responsibilities; it does not mark new CLI operations as implemented.
+
+| Operation | Role and status |
+| --- | --- |
+| `run`/`run-ir`, `run-mir` (including `--ssa`), `run-vm` | Implemented; independent executors evaluate the selected representation |
+| `emit-*`/`observe` | Implemented; generate/save representations. observe itself does not execute |
+| `show` | Unimplemented proposal: display Cerune semantics in a human-facing notation, distinct from generating actual Rust or other code |
+| `run --via` | Unimplemented proposal: additional backend plus external tools. Distinguish missing tools, generation/build/launch failures, timeout, and language stops |
+| `build`/`release` | Unimplemented; first define the completed-artifact and distribution contracts below |
+
+Ownership of a route depends on Cerune managing conditions, artifacts, compatibility, failures, and execution, not on the absence of external tools. **Owned, implemented, available in this environment, buildable for the target, and executable here are separate states.** Route and artifact kind are also distinct.
+
+Parsing, Semantics, Realization, and Execution classify responsibilities, not fixed stages visited exactly once. Additional backends still owe correct translations of common semantics. A Web UI alone does not require a JavaScript backend; first consider host connections and WASM.
 
 ## Route diagram
 
@@ -72,7 +88,7 @@ Libraries would be a distinct artifact kind. That choice and the external linker
 
 ## External tools
 
-C, LLVM, QBE, and WAT are currently emit-only; the normal CLI does not manage downstream tools. A future `run --via` is discussed in [#81](https://github.com/Hokutaka/Cerune/issues/81) as a separate operation from emission. Emit-only is not a permanent classification: responsibility depends on managing supported environments, artifacts, failures, and execution contracts. Invoking Lean remains separate verification work.
+C, LLVM, QBE, and WAT are currently emit-only; the normal CLI does not manage downstream tools. A future `run --via` is discussed in [#81](https://github.com/Cerune-Lang/Cerune/issues/81) as a separate operation from emission. Emit-only is not a permanent classification: responsibility depends on managing supported environments, artifacts, failures, and execution contracts. Invoking Lean remains separate verification work.
 **Cerune remains responsible for preserving IR semantics in generated output and testing that preservation.**
 Lean follows the same boundary for [semantic correspondence and program properties](lean-verification.en.md).
 
@@ -107,13 +123,13 @@ Emitters depend on shared contracts; the CLI composes available routes. Do not p
 1. Record responsibilities and open questions here; begin Lean with a separate verification experiment.
 2. Decide Native artifact kind, linker selection, runtime dependencies, and build failure contracts; Native build can then be implemented independently.
 3. Design and implement IR/Bytecode Image formats, verifiers, and loaders.
-4. Implement IR/VM build and add release as each route's completed artifacts stabilize; compare saved, reloaded, and distributed execution.
+4. Implement IR/VM build and compare saved/reloaded execution. Specify release after artifacts stabilize, also clarifying its relationship to optimization selection and observation design. Implemented optimization passes do not gate build.
 5. Separate optional emitters at boundaries justified by actual use.
 
 The [roadmap](language-roadmap.en.md) tracks overall priorities. Native build need not wait for optimization, recursion, new I/O, a standard library, or IR/VM Image loaders. Start with current examples, updating runtime dependencies and manifests as I/O is added.
 
 Each stage includes examples, failure cases, and observations.
-This classification does not close existing coverage gaps such as dynamic arrays in compiled routes.
+Dynamic arrays are supported by current compiled routes. Classification changes do not resolve remaining differences such as I/O failure handling.
 
 ## Open decisions
 

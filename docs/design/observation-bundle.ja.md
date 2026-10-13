@@ -4,7 +4,7 @@
 
 ## 目的と範囲
 
-[#60](https://github.com/Hokutaka/Cerune/issues/60)の最初の実装として、一回のfrontend処理からHIR、非SSAのMIR、注釈付きNative ASMを保存します。manifestは索引であり、新しいIRではありません。
+[#60](https://github.com/Cerune-Lang/Cerune/issues/60)の最初の実装として、一回のfrontend処理からHIR、非SSAのMIR、注釈付きNative ASMを保存します。manifestは索引であり、新しいIRではありません。
 
 `cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>`で保存します。Windows/Linuxのx86-64 targetは必須です。既存のheap予算オプションも使えます。
 
@@ -54,7 +54,7 @@ SSA付きmanifestは`cerune-observation-v3`です。v2のSSA観測にSSA→MIR�
 
 ## 実行・配布との区別
 
-プログラムの実行、外部ツールの起動、リンクは行いません。[#104](https://github.com/Hokutaka/Cerune/issues/104)の副作用再実行やrecord/replayは追加しません。`build`／`release`の完成成果物ではなく、IR/MIRのloaderも追加しません。
+プログラムの実行、外部ツールの起動、リンクは行いません。[#104](https://github.com/Cerune-Lang/Cerune/issues/104)の副作用再実行やrecord/replayは追加しません。`build`／`release`の完成成果物ではなく、IR/MIRのloaderも追加しません。
 
 `--lir`を明示するとv4形式で`program.lir.txt`を追加します。`--ssa --lir`では`program.ssa.lir.txt`も追加し、合計12ファイルです（SSAなしは6ファイル）。それぞれのLIRとASMは同じModuleから生成します。manifestの`mir-lir-v1`と`artifact_inputs`にMIR→LIR→ASMを記録します。指定なしのv1と`--ssa`のみのv3は維持します。[形式と検証範囲](lir-observation.ja.md)を参照してください。
 

@@ -1,6 +1,6 @@
 # HIR, MIR, LIR, and observable transformations
 
-[日本語](ir-stages.ja.md) · [Issue #94](https://github.com/Hokutaka/Cerune/issues/94)
+[日本語](ir-stages.ja.md) · [Issue #94](https://github.com/Cerune-Lang/Cerune/issues/94)
 
 ## Status and direction
 
@@ -131,7 +131,7 @@ Observations are detached, read-only information. They do not expose mutable com
 
 The [#60 observation bundle](observation-bundle.en.md) saves sources, HIR, MIR, and annotated ASM from one frontend invocation. Its manifest indexes target, heap budgets, passes (currently empty), and artifacts; it is not another semantic IR. Objects and other backends remain future extensions.
 
-The [#81](https://github.com/Hokutaka/Cerune/issues/81) show/emit/build/run/via/release responsibilities are distinct from representation stages. Release is not an optimization alias. Select passes and their order explicitly, and record external-tool optimization separately from Cerune passes.
+The [#81](https://github.com/Cerune-Lang/Cerune/issues/81) show/emit/build/run/via/release responsibilities are distinct from representation stages. Release is not an optimization alias. Select passes and their order explicitly, and record external-tool optimization separately from Cerune passes.
 
 [Lean verification](lean-verification.en.md) can first address unoptimized HIR→MIR correspondence, then individual passes. Matching interpreter runs is testing, not formal proof. The actual u8 functions increment, choose, and advance have HIR→MIR correspondence/property proofs using independent typed MIR locals, instructions, and CFGs. These check if/short-circuiting, while/for and mutable locals, innermost-loop break/continue behavior, initialization/updates, and overflow origins. The loop fixture also proves completion within separate explicit HIR/MIR bounds, not general loop termination, heap, the general lowering algorithm, or the whole compiler.
 

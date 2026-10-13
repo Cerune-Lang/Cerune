@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-現在地は[実行経路と未完了作業](design/development-status.ja.md)、優先順位は[ロードマップ](design/language-roadmap.ja.md)を参照してください。designは設計判断、referenceは実装済み仕様、ideaは未採用の題材を記録します。
+現在の機能・Issue・優先順位は[ロードマップ](design/language-roadmap.ja.md)、以前の判断と根拠は[2026-10-11の監査記録](design/development-status.ja.md)を参照してください。designは設計判断、referenceは実装済み仕様、ideaは未採用の題材を記録します。
 
 ## 設計
 
@@ -63,3 +63,16 @@
 - [アイデアカタログ](idea/idea-catalog.ja.md)
 
 [検証実験](../experiments/README.md)は通常のCerune実行exampleと分けて管理します。
+
+## 文書の確認
+
+リポジトリ直下で次を実行します。CIでも同じ検査を行います。
+
+```sh
+node scripts/check-docs.cjs
+node --test scripts/check-docs.test.cjs
+```
+
+Git管理対象と未追跡・非除外ファイルのMarkdownについて、リンク先のファイル／ディレクトリ、旧Cerune URL、日英ペアを確認します。公開ガイドは `.ja.md`／`.en.md`、READMEは `README.md`／`README.en.md` に揃えます。GitHub用の英語方針文書 `SECURITY.md` はペア検査の対象外です。
+
+検査は本文のインラインリンク・画像・参照リンク定義を対象とし、コード例は除外します。外部URLの到達性、見出しアンカー、日英の内容一致、実装状況の正しさは人が確認します。構文全体を解析するMarkdown検証器ではありません。

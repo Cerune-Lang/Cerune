@@ -1,6 +1,6 @@
 # SSA construction for MIR
 
-[日本語](mir-ssa.ja.md) · [IR stages](ir-stages.en.md) · [Issue #94](https://github.com/Hokutaka/Cerune/issues/94)
+[日本語](mir-ssa.ja.md) · [IR stages](ir-stages.en.md) · [Issue #94](https://github.com/Cerune-Lang/Cerune/issues/94)
 
 ## Status and decisions
 

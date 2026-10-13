@@ -2,7 +2,7 @@
 
 [日本語](development-status.ja.md) · [Roadmap](language-roadmap.en.md)
 
-This page records the audit baseline below. Since then, [LIR observation and structural validation](lir-observation.en.md) have been implemented and direct execution deferred. The subsequent language feature, `array_repeat`, is also implemented. See the [roadmap](language-roadmap.en.md) for current priorities.
+**The following is a historical audit from 2026-10-11, not the current specification or backlog.** Preserve its decisions and evidence at that baseline. LIR observation/validation (PR #124), array_repeat (#125), incremental output (#127), and MIT OR Apache-2.0 licensing (#129) have since merged. See the [roadmap](language-roadmap.en.md) for current capabilities, all open issues, and priorities.
 
 ## Audit baseline and conclusion
 

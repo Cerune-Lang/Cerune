@@ -1,6 +1,6 @@
 # 実行経路とbuild / releaseの責務
 
-[English](owned-routes.en.md) · [Issue #81](https://github.com/Hokutaka/Cerune/issues/81)
+[English](owned-routes.en.md) · [Issue #81](https://github.com/Cerune-Lang/Cerune/issues/81)
 
 ## 方針と現状
 
@@ -12,6 +12,22 @@ Ceruneが完成成果物と実行契約を定義する経路はIR・VM・Native�
 **build / release、Imageの保存・読み込み、Lean backendは未実装です。**
 以下の図の破線は計画を示します。言語機能の対応状況は経路ごとに別途管理します。
 動的配列はIR・MIR・VM・C・LLVM・QBE・WAT・Windows/Linux ASM・自前Objectで対応済みです。[IR段階設計](ir-stages.ja.md)のMIR生成・独立実行は実装済みです。これは新しいbuild／releaseの配布routeを確定するものではありません。
+
+## Issue #81の提案と現在の区別
+
+以下は責務を整理する設計案です。新しいCLIを実装済みとするものではありません。
+
+| 操作 | 役割・状態 |
+| --- | --- |
+| `run`／`run-ir`、`run-mir`（`--ssa`含む）、`run-vm` | 実装済み。選んだ表現を独立した実行器で評価 |
+| `emit-*`／`observe` | 実装済み。表現を生成・保存。observe自身は実行しない |
+| `show` | 未実装の案。Ceruneの意味を人間向けの別表記で表示。実際のRust等の生成とは別 |
+| `run --via` | 未実装の案。追加backendと外部ツールで実行。ツール欠落・生成失敗・build失敗・起動失敗・timeout・言語上の停止を区別 |
+| `build`／`release` | 未実装。下記の完成成果物・配布契約を設計してから追加 |
+
+ownedかどうかは外部ツールの有無ではなく、成立条件・成果物・互換性・失敗・実行をCeruneがどこまで管理するかで判断します。**owned・実装済み・この環境で利用可能・指定targetへbuild可能・ここで実行可能は別の状態です。** routeと成果物種別も分けます。
+
+Parsing（読み方）、Semantics（意味）、Realization（意味の具体化）、Execution（実行環境との接続）は責務の区分であり、必ず一度ずつ通る固定工程ではありません。追加backendでも生成結果が共通の意味を守る責任は残ります。Web UIへの接続だけを理由にJavaScript backendを必須にはせず、ホスト接続／WASMとの関係から判断します。
 
 ## 経路図
 
@@ -74,7 +90,7 @@ Nativeの最初の完成成果物には**実行ファイルを提案**します�
 
 ## 外部ツールとの境界
 
-現在のC・LLVM・QBE・WATはemit-onlyで、通常のCLIは後続ツールを管理しません。将来の`run --via`は、生成と外部実行を別の操作として扱う[#81](https://github.com/Hokutaka/Cerune/issues/81)の検討事項です。emit-onlyを永久の分類とはせず、対応環境・成果物・失敗・実行契約を管理できるかで判断します。Leanの証明器起動は引き続き別の検証作業です。
+現在のC・LLVM・QBE・WATはemit-onlyで、通常のCLIは後続ツールを管理しません。将来の`run --via`は、生成と外部実行を別の操作として扱う[#81](https://github.com/Cerune-Lang/Cerune/issues/81)の検討事項です。emit-onlyを永久の分類とはせず、対応環境・成果物・失敗・実行契約を管理できるかで判断します。Leanの証明器起動は引き続き別の検証作業です。
 一方、**生成結果がCerune IRの意味を守る責任と、その検証はCerune側に残ります。**
 Leanも同じ境界で、[意味の対応とプログラムの性質](lean-verification.ja.md)を検証します。
 
@@ -109,13 +125,13 @@ emitterが共通契約を参照し、CLIが利用可能な経路を組み合わ�
 1. 本文書で責務と未確定事項を整理する。Leanは別の検証実験から開始する。
 2. Nativeの完成成果物・リンカ指定・runtime依存と、build失敗の契約を決める。これが決まればNativeのbuildを先に実装できる。
 3. IR・BytecodeのImage形式、検証器、loaderを設計・実装する。
-4. IR・VMのbuildを実装し、各経路の完成成果物が安定した段階でreleaseを追加する。保存・再読込・配布後の実行を比較する。
+4. IR・VMのbuildを実装し、保存・再読込後の実行を比較する。releaseの詳細は完成成果物の安定後に、最適化の選択・観測設計との関係も整理して決める。最適化pass実装の完了をbuildの条件にはしない。
 5. 必要な境界からoptional emitterを分離する。
 
 全体の優先順は[ロードマップ](language-roadmap.ja.md)で管理します。Nativeのbuildは、最適化・再帰・新しい入出力・標準ライブラリ・IR/VMのImage loaderの完成を待つ必要はありません。既存exampleで開始し、入出力を追加した際はruntime依存とmanifestを更新します。
 
 各段階にexample、異常系、観測成果物を含めます。
-現行の動的配列などの経路間の未対応を、今回の分類によって解決済みとはしません。
+動的配列は現行の生成経路で対応済みです。入出力失敗などの残る差分は分類の変更だけで解決済みとはしません。
 
 ## 未確定事項
 

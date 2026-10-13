@@ -4,7 +4,7 @@
 
 ## Purpose and scope
 
-The first implementation of [#60](https://github.com/Hokutaka/Cerune/issues/60) saves HIR, non-SSA MIR, and annotated Native ASM from one frontend invocation. The manifest is an index, not a new IR.
+The first implementation of [#60](https://github.com/Cerune-Lang/Cerune/issues/60) saves HIR, non-SSA MIR, and annotated Native ASM from one frontend invocation. The manifest is an index, not a new IR.
 
 Use `cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>`. An explicit Windows/Linux x86-64 target is required. Existing heap-budget options apply.
 
@@ -54,7 +54,7 @@ Report write failures as failures. A directory without a manifest is not a compl
 
 ## Execution and distribution
 
-Do not run the program, launch external tools, or link. No repeated external effects or record/replay from [#104](https://github.com/Hokutaka/Cerune/issues/104) are introduced. This is not a completed `build`/`release` artifact and adds no IR/MIR loader.
+Do not run the program, launch external tools, or link. No repeated external effects or record/replay from [#104](https://github.com/Cerune-Lang/Cerune/issues/104) are introduced. This is not a completed `build`/`release` artifact and adds no IR/MIR loader.
 
 Explicit `--lir` selects v4 and adds `program.lir.txt`. `--ssa --lir` also adds `program.ssa.lir.txt`, producing 12 files (6 without SSA). Each LIR and its ASM come from the same Module. The manifest records MIR→LIR→ASM with `mir-lir-v1` and `artifact_inputs`. Default v1 and SSA-only v3 remain unchanged. See [format and validation scope](lir-observation.en.md).
 
