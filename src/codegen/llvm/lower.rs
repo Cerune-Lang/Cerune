@@ -4,7 +4,7 @@ use crate::ir as cerune_ir;
 
 use super::ir::{
     BinaryOp, CompareOp, Function, Instruction, Label, LocatedInstruction, Module, Operand, Origin,
-    Parameter, PrintFormat, Slot, SlotId, Temp, Type, TypeDefinition,
+    Parameter, Slot, SlotId, Temp, Type, TypeDefinition,
 };
 
 pub fn lower(program: &cerune_ir::Program) -> Module {
@@ -42,7 +42,6 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
         string_heap_limit: crate::codegen::support::string_heap_limit(program),
-        uses_write: crate::codegen::display::uses_write(program),
         target: None,
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
         type_definitions: program
@@ -335,9 +334,10 @@ impl Lowerer<'_> {
             cerune_ir::StatementKind::Write { value, quoted } => {
                 let kind = crate::codegen::display::kind(&value.ty, *quoted);
                 let value = self.lower_expr(value);
-                self.push(Instruction::Write {
+                self.push(Instruction::Output {
                     kind,
                     value: value.operand,
+                    newline: false,
                 });
                 false
             }
@@ -346,17 +346,13 @@ impl Lowerer<'_> {
                 false
             }
             cerune_ir::StatementKind::Print { value } => {
-                let unsigned = crate::codegen::is_u64(&value.ty);
+                let kind = crate::codegen::display::kind(&value.ty, false);
                 let value = self.lower_expr(value);
-                if unsigned {
-                    self.push(Instruction::CallPrintf {
-                        format: PrintFormat::U64,
-                        arg_ty: Type::I64,
-                        value: value.operand,
-                    });
-                } else {
-                    self.lower_print(value);
-                }
+                self.push(Instruction::Output {
+                    kind,
+                    value: value.operand,
+                    newline: true,
+                });
                 false
             }
 
@@ -1066,59 +1062,6 @@ impl Lowerer<'_> {
                     ty,
                     operand: Operand::Temp(dest),
                 }
-            }
-        }
-    }
-
-    fn lower_print(&mut self, value: Value) {
-        match value.ty {
-            Type::String => self.push(Instruction::PrintString {
-                value: value.operand,
-            }),
-            Type::Bool => {
-                let dest = self.next_temp();
-                self.push(Instruction::SelectBoolText {
-                    dest,
-                    value: value.operand,
-                });
-                self.push(Instruction::CallPuts {
-                    value: Operand::Temp(dest),
-                });
-            }
-
-            Type::I64 => {
-                self.push(Instruction::CallPrintf {
-                    format: PrintFormat::I64,
-                    arg_ty: Type::I64,
-                    value: value.operand,
-                });
-            }
-
-            Type::Float => {
-                // C varargs promote float to double.
-                let dest = self.next_temp();
-
-                self.push(Instruction::FPExt {
-                    dest,
-                    value: value.operand,
-                });
-
-                self.push(Instruction::CallPrintf {
-                    format: PrintFormat::F32,
-                    arg_ty: Type::Double,
-                    value: Operand::Temp(dest),
-                });
-            }
-
-            Type::Double => {
-                self.push(Instruction::CallPrintf {
-                    format: PrintFormat::F64,
-                    arg_ty: Type::Double,
-                    value: value.operand,
-                });
-            }
-            Type::DynamicArray { .. } | Type::Named(_) | Type::Array { .. } => {
-                unreachable!("semantic analysis rejects aggregate printing")
             }
         }
     }

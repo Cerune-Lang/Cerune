@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
 use super::ir::{
-    BinaryOp, CompareOp, Function, Instruction, Label, Module, Operand, Origin, PrintFormat, Slot,
-    SlotId, Temp, Type,
+    BinaryOp, CompareOp, Function, Instruction, Label, Module, Operand, Origin, Slot, SlotId, Temp,
+    Type,
 };
 
 pub fn emit(module: &Module) -> String {
@@ -17,28 +17,12 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     emit_origin(Origin::Synthetic, annotate_origins, &mut output);
     let i64_operations = i64_operations(module);
     let binary_stdout =
-        module.uses_strings || module.array_heap_limit.is_some() || uses_output(module);
+        module.uses_strings || module.array_heap_limit.is_some() || super::output::used(module);
     let runtime_failures = module.array_heap_limit.is_some()
         || module.string_heap_limit.is_some()
         || super::failure::first_failure_span(module).is_some();
     if let Some(target) = module.target {
         writeln!(output, "target triple = \"{}\"\n", target.triple()).unwrap();
-    }
-    if module
-        .instructions
-        .iter()
-        .chain(module.functions.iter().flat_map(|f| f.instructions.iter()))
-        .any(|i| {
-            matches!(
-                i.instruction,
-                Instruction::CallPrintf {
-                    format: PrintFormat::U64,
-                    ..
-                }
-            )
-        })
-    {
-        output.push_str("@.fmt_u64 = private unnamed_addr constant [6 x i8] c\"%llu\\0A\\00\"\n");
     }
     if runtime_failures {
         super::failure::emit_data(module, &mut output);
@@ -46,10 +30,6 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     if module.uses_strings {
         super::string::emit_data(module, &mut output);
     }
-
-    output.push_str("@.fmt_i64 = private unnamed_addr constant [6 x i8] c\"%lld\\0A\\00\"\n");
-    output.push_str("@.fmt_f32 = private unnamed_addr constant [6 x i8] c\"%.9g\\0A\\00\"\n");
-    output.push_str("@.fmt_f64 = private unnamed_addr constant [7 x i8] c\"%.17g\\0A\\00\"\n");
 
     if module.array_heap_limit.is_some() {
         output.push_str("%cerune.array = type { ptr, i64 }\n%cerune.array.owner = type { ptr, i64, i64, i64 }\n");
@@ -70,18 +50,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
         output.push_str(" }\n");
     }
 
-    if uses_bool_print(module) {
-        output.push_str("@.bool_true = private unnamed_addr constant [5 x i8] c\"true\\00\"\n");
-        output.push_str("@.bool_false = private unnamed_addr constant [6 x i8] c\"false\\00\"\n");
-    }
-
     output.push('\n');
-
-    output.push_str("declare i32 @printf(ptr, ...)\n");
-
-    if uses_bool_print(module) {
-        output.push_str("declare i32 @puts(ptr)\n");
-    }
 
     let array_types = array_types(module);
     let array_set_types = array_set_types(module);
@@ -132,9 +101,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     {
         output.push_str("declare i32 @_setmode(i32, i32)\n");
     }
-    if module.uses_write {
-        output.push_str(&crate::codegen::display::llvm());
-    }
+    super::output::emit_support(module, &mut output);
     for ty in &array_types {
         emit_array_get(ty, module, &mut output);
         output.push('\n');
@@ -353,20 +320,17 @@ fn emit_instruction(
             )
             .unwrap();
         }
-        Instruction::Write { kind, value } => {
+        Instruction::Output {
+            kind,
+            value,
+            newline,
+        } => {
             writeln!(
                 output,
-                "  call void @cerune.write.{kind}({} {})",
+                "  call void @cerune.output.{kind}({} {}, i1 {newline}, ptr {})",
                 crate::codegen::display::llvm_type(kind),
-                operand(*value)
-            )
-            .unwrap();
-        }
-        Instruction::PrintString { value } => {
-            writeln!(
-                output,
-                "  call void @cerune.print.string(%cerune.string {})",
-                operand(*value)
+                operand(*value),
+                super::output::origin_name(origin)
             )
             .unwrap();
         }
@@ -667,45 +631,6 @@ fn emit_instruction(
             )
             .unwrap();
         }
-
-        Instruction::FPExt { dest, value } => {
-            writeln!(
-                output,
-                "  {} = fpext float {} to double",
-                temp(*dest),
-                operand(*value),
-            )
-            .unwrap();
-        }
-
-        Instruction::CallPrintf {
-            format,
-            arg_ty,
-            value,
-        } => {
-            writeln!(
-                output,
-                "  call i32 (ptr, ...) @printf(ptr {}, {} {})",
-                format_name(*format),
-                type_name(arg_ty, module),
-                operand(*value),
-            )
-            .unwrap();
-        }
-
-        Instruction::SelectBoolText { dest, value } => {
-            writeln!(
-                output,
-                "  {} = select i1 {}, ptr @.bool_true, ptr @.bool_false",
-                temp(*dest),
-                operand(*value),
-            )
-            .unwrap();
-        }
-
-        Instruction::CallPuts { value } => {
-            writeln!(output, "  call i32 @puts(ptr {})", operand(*value)).unwrap();
-        }
     }
 }
 
@@ -910,15 +835,6 @@ fn compare_name(op: CompareOp, ty: &Type) -> &'static str {
     }
 }
 
-fn format_name(format: PrintFormat) -> &'static str {
-    match format {
-        PrintFormat::U64 => "@.fmt_u64",
-        PrintFormat::I64 => "@.fmt_i64",
-        PrintFormat::F32 => "@.fmt_f32",
-        PrintFormat::F64 => "@.fmt_f64",
-    }
-}
-
 fn operand(operand: Operand) -> String {
     match operand {
         Operand::String { id, length } => format!("{{ ptr @cerune.string.{id}, i64 {length} }}"),
@@ -940,40 +856,6 @@ fn operand(operand: Operand) -> String {
         Operand::Temp(id) => temp(id),
         Operand::Poison => "poison".into(),
     }
-}
-
-fn uses_output(module: &Module) -> bool {
-    module
-        .instructions
-        .iter()
-        .chain(
-            module
-                .functions
-                .iter()
-                .flat_map(|function| &function.instructions),
-        )
-        .any(|item| {
-            matches!(
-                item.instruction,
-                Instruction::Write { .. }
-                    | Instruction::PrintString { .. }
-                    | Instruction::CallPrintf { .. }
-                    | Instruction::CallPuts { .. }
-            )
-        })
-}
-
-fn uses_bool_print(module: &Module) -> bool {
-    module
-        .instructions
-        .iter()
-        .chain(
-            module
-                .functions
-                .iter()
-                .flat_map(|function| function.instructions.iter()),
-        )
-        .any(|instruction| matches!(instruction.instruction, Instruction::CallPuts { .. }))
 }
 
 fn array_types(module: &Module) -> Vec<Type> {
