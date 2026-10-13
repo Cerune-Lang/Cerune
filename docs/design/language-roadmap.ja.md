@@ -2,9 +2,9 @@
 
 [English](language-roadmap.en.md)
 
-2026-10-11時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
+2026-10-13時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
 
-[実行経路と未完了作業の棚卸し](development-status.ja.md)に、LIRを含む段階別の表現・観測・実行と全Issueの位置づけをまとめています。
+[以前の監査記録](development-status.ja.md)は2026-10-11時点の履歴です。現在の状態はこのページで管理します。
 
 ## Ceruneが持つべき性質
 
@@ -52,11 +52,11 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 | --- | --- | --- |
 | 実装済み | [MIR](ir-stages.ja.md)・[独立実行器](mir-executor.ja.md) | 非SSAの型・変換・検証・`emit-mir`・`run-mir`。既存経路と出力・停止理由・出自・所有の寿命を比較 |
 | 実装済み | [NativeのMIR入力](native-mir.ja.md) | 旧経路との実行比較、MIR→LIR→ASM/Objectの出自対応を検証 |
-| 初期範囲を実装 | [観測bundle](observation-bundle.ja.md) | 同一コンパイルのsources・HIR・MIR・注釈付きASM・manifestを保存。`--ssa`でSSA・変換後MIR・対応・SSA経由ASMも追加。その他の成果物は後続（[#60](https://github.com/Hokutaka/Cerune/issues/60)） |
+| 初期範囲を実装 | [観測bundle](observation-bundle.ja.md) | 同一コンパイルのsources・HIR・MIR・注釈付きASM・manifestを保存。`--ssa`でSSA・変換後MIR・対応・SSA経由ASMも追加。その他の成果物は後続（[#60](https://github.com/Cerune-Lang/Cerune/issues/60)） |
 | 一部実験済み | [Lean検証](lean-verification.ja.md) | u8のincrement・choose・advanceでHIR→Lean／HIR→MIRの対応と性質を検証。if・短絡・while／for・break／continue・入れ子・更新停止出自と明示上限内の完了まで対象。全言語・全lowering・処理系全体の証明や公開`emit-lean`は未実装 |
 | 一部実装済み | [SSA変換](mir-ssa.ja.md)・後続の最適化pass | scalar SSAと残存slotの表現・構造検証・観測テキスト・自動変換・Rust APIでの直接実行を実装。公開CLI・bundleもSSAに対応。SSA→MIR／Nativeも対応。MIR→SSA→MIRの有限例のLean検証も対応。定数畳み込みは設計済み・未実装で当面保留。一般の証明も後続 |
 | 実装済み | [LIRの観測・構造検証](lir-observation.ja.md) | `emit-lir`・`observe --lir`・検証器・両targetのexample比較。直接実行は調査を終えて保留 |
-| 計画・未実装 | [IR・VM・Nativeのbuild / release](owned-routes.ja.md) | [#81](https://github.com/Hokutaka/Cerune/issues/81)の責務整理を基準に、完成成果物・配布を最適化と分ける |
+| 計画・未実装 | [IR・VM・Nativeのbuild / release](owned-routes.ja.md) | [#81](https://github.com/Cerune-Lang/Cerune/issues/81)の責務整理を基準に、完成成果物・配布を最適化と分ける |
 
 ## 次に持つべきもの：提案する順序
 
@@ -68,14 +68,16 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | --- | --- | --- |
 | 完了した区切り | [LIR観測・構造検証と直接実行の採否](lir-observation.ja.md)（[#123](https://github.com/Cerune-Lang/Cerune/issues/123)） | 基準／SSA経由のLIR表示・保存・構造検証とexample比較を実装。直接実行器は保留し、次の言語機能へ戻る |
 | 実装した機能 | [動的配列の `array_repeat`](owned-arrays.ja.md)（[#122](https://github.com/Cerune-Lang/Cerune/issues/122)） | 実行時の個数、0個・負の個数、評価順、予算超過、入れ子の独立コピーを実装。example・生成過程・既存経路の比較テストを追加 |
-| 1：次の実装単位 | [標準入出力の設計](standard-io.ja.md)（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。4実行器とCLIの逐次出力を実装済み。標準入力・言語側flushは未実装 | 次は言語側のflushと生成経路の書込み・flush・失敗契約を揃える。その後、上限付きUTF-8行入力と対話例。同じ入力・操作列を比較し、観測は読み取り専用に保つ |
-| 2 | 小さな標準ライブラリ。標準モジュールの配置・APIは未設計 | 入出力で必要になった文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntimeが必要な操作を分け、既存importと明示的な失敗処理を使う。汎用Option/Resultやパッケージ管理を先に必須化しない |
-| 3：独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
-| 4 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
+| 今回 | 文書とIssueの整合性（[#130](https://github.com/Cerune-Lang/Cerune/issues/130)） | 現行状態と監査履歴を分離し、リンク・日英ペアを自動確認する |
+| 1：次の修正 | 文字列ヒープの所有者検証（[#134](https://github.com/Cerune-Lang/Cerune/issues/134)） | 同じIDでも異なるヒープの値を拒否し、retain/release失敗で所有数・liveバイト数・内容を変えない。通常のソースからの再現は未確認 |
+| 2：言語機能へ戻る | [標準入出力の設計](standard-io.ja.md)（[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。4実行器とCLIの逐次出力を実装済み。標準入力・言語側flushは未実装 | 次は言語側のflushと生成経路の書込み・flush・失敗契約を揃える。その後、上限付きUTF-8行入力と対話例。同じ入力・操作列を比較し、観測は読み取り専用に保つ |
+| 3 | 小さな標準ライブラリ。標準モジュールの配置・APIは未設計 | 入出力で必要になった文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntimeが必要な操作を分け、既存importと明示的な失敗処理を使う。汎用Option/Resultやパッケージ管理を先に必須化しない |
+| 独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
+| build安定後 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
 | 後続 | 再帰、配列の成長・借用、文字列操作の拡張、モジュール配布 | 再帰の呼出し領域・上限・終了処理、借用の寿命・更新規則、再export・依存の版・再現性を用途ごとに設計する |
 | 保留・実験 | 最適化pass、証明範囲の拡張、AST／LIR直接実行の追加、GPU／FPGA | 具体的な必要性から再開。言語機能・入出力・buildの着手条件にはしない |
 
-Native buildは新しい入力や標準ライブラリがなくても、現在のプログラムを対象に進められます。`array_repeat`も入力実装の技術的な前提ではなく、既存設計を小さく完結させるため先に置きます。releaseは最適化の別名ではありません。IR/VMのImage検証を省略して、観測テキストを実行可能な完成品と扱うこともしません。
+Native buildは新しい入力や標準ライブラリがなくても、現在のプログラムを対象に進められます。`array_repeat`は実装済みです。新しい調査課題をすべて入出力の前提にはしません。releaseは最適化の別名ではありません。IR/VMのImage検証を省略して、観測テキストを実行可能な完成品と扱うこともしません。
 
 ### 標準入出力と標準ライブラリの現状
 
@@ -96,21 +98,28 @@ Native buildは新しい入力や標準ライブラリがなくても、現在�
 
 この表は一括実装の約束ではありません。GPU実験は上記すべての完了を前提にしません。継承、暗黙の共有可変参照、自動GPU振り分け、汎用非同期処理は、現在の例から必要性が確認できていないため先行させません。
 
-ロードマップには優先順・依存関係・現在の到達点をまとめ、具体的な確認項目と議論は各Issueで管理します。下表の検討事項は、現段階で構文や採用を確定したものではありません。
+### 現在のIssue一覧
 
-| 検討 | 進め方 |
-| --- | --- |
-| [#60 観測結果の一括保存](https://github.com/Hokutaka/Cerune/issues/60) | 一回のコンパイルから各段階の表現と対応情報を保存。#94の段階設計・#81のCLI責務と整合させる |
-| [#88 整数演算の方針](https://github.com/Hokutaka/Cerune/issues/88) | 通常演算のcheckedを維持し、明示的wrappingなどの意味を分けて設計 |
-| [#89 外部入力と連携](https://github.com/Hokutaka/Cerune/issues/89) | 実用途から必要な入力・資源・失敗を整理し、各経路で意味を合わせる |
-| [#90 optional let](https://github.com/Hokutaka/Cerune/issues/90) | formatterと同時に検討し、束縛の意味やIRを増やさない |
-| [#92 QBEの上流patch](https://github.com/Hokutaka/Cerune/issues/92) | 既存回避処理を維持して検証し、正式な上流変更を基準に更新 |
-| [#103 コード構成](https://github.com/Hokutaka/Cerune/issues/103) | 機能追加に触れる責務から小さく分離。ファイルサイズだけで分割せず、出力・停止・出自を維持 |
-| [#104 比較と外部副作用](https://github.com/Hokutaka/Cerune/issues/104) | #89の外部I/O設計時に、同じ入力・操作列の比較と実際の副作用を分ける。今回のbundleは実行しない |
-| [#105 束縛・条件構文](https://github.com/Hokutaka/Cerune/issues/105) | `infer`省略→`else if`の順で検討。#90の`let`と整合させる。`?:`は別の意味設計、formatter・forの適用範囲は未決定 |
-| [#118 観測成果物の共有](https://github.com/Cerune-Lang/Cerune/issues/118) | ローカル観測の推奨先と公開fixtureを区別する。入出力記録・releaseの共有方法を広げる際に扱う |
-| [#119 ライセンスの検討](https://github.com/Cerune-Lang/Cerune/issues/119) | 現行MITを維持した検討事項。変更は未決定であり、配布の拡張時に確認する。言語機能追加の前提にしない |
-| [#93 FPGA](https://github.com/Hokutaka/Cerune/issues/93) | 同じIRの意味を別の実装形態で実現できるかを調査。言語の意味を分けない |
+2026-10-13にopenの18件を確認しました。以下は優先度と目的の整理です。調査Issueを確認済みの不具合として扱いません。
+
+| Issue | 目的 | 進め方・残件 |
+| --- | --- | --- |
+| [#130](https://github.com/Cerune-Lang/Cerune/issues/130) | 文書整合性 | 今回対応。旧URL・ライセンス・監査履歴・日英ペアを点検 |
+| [#134](https://github.com/Cerune-Lang/Cerune/issues/134) | 文字列所有の正しさ | 次の小修正。内部APIの所属・所有数検証。性能改善とは分ける |
+| [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | 標準入出力と副作用比較 | 出力接続は統合済み。言語側flush・生成経路の失敗契約→上限付きUTF-8入力→対話例 |
+| [#135](https://github.com/Cerune-Lang/Cerune/issues/135) | Parserの深い入力 | 未再現の調査。子プロセスと上限で再現を確認し、必要なら診断・深さ制限を設計 |
+| [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | 型付きプログラムの差分検証 | 固定seed・有限実行・既知の期待値で小さく開始。Parser耐性や内部API検査とは別 |
+| [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | メモリ効率の測定 | 論理予算・実際の確保・RSS・WATのページ数を区別。漏えい・性能退行は未確定。測定前に表現を変更しない |
+| [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | ActionsのNode.js警告 | 独立した保守。Actionの実行用NodeとWATテスト用Nodeを区別。入出力の前提にしない |
+| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release・経路の責務 | Native buildは独立着手可。Image検証・配布へ進む。show／via／optional backendは用途と詳細設計待ち |
+| [#60](https://github.com/Cerune-Lang/Cerune/issues/60) / [#94](https://github.com/Cerune-Lang/Cerune/issues/94) | 観測・変換・証明 | SSA・LIR観測まで部分完了。未収録の成果物・一般の証明・最適化は残件。非最適化表現を維持 |
+| [#88](https://github.com/Cerune-Lang/Cerune/issues/88) | 整数演算の追加方針 | checkedを維持し、実用途のwrappingを先に検討。飽和・overflow報告・拡幅・ビット破棄・除算は別々に意味を決める |
+| [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | 長いコードの構文 | optional letとinfer省略→else ifを整合。条件式の意味、formatter、for適用は別途設計 |
+| [#92](https://github.com/Cerune-Lang/Cerune/issues/92) | QBE Windows | 現行回避処理を維持。正式な上流変更を基準に再検証。調査ブランチは未統合で保管 |
+| [#103](https://github.com/Cerune-Lang/Cerune/issues/103) / [#118](https://github.com/Cerune-Lang/Cerune/issues/118) | コード構成・観測成果物 | 変更する責務から整理。ローカル記録と公開fixtureを区別し、共有する本文・パス・環境情報を確認 |
+| [#93](https://github.com/Cerune-Lang/Cerune/issues/93) | FPGA | 同じIR意味の別の実現形態を調査。機能追加の必須前提にしない |
+
+ライセンスの[#119](https://github.com/Cerune-Lang/Cerune/issues/119)は完了です。PR #129で **MIT OR Apache-2.0** を採用しました（[MIT](../../LICENSE-MIT)／[Apache-2.0](../../LICENSE-APACHE)）。LIRの#123・array_repeatの#122も完了済みで、open作業に戻しません。
 
 実験題材は[アイデアカタログ](../idea/idea-catalog.ja.md)に分けています。題材の掲載は採用・実装順の決定ではありません。Issueは詳細と議論、ロードマップは到達点と依存順、referenceは実装済み仕様を管理します。
 

@@ -1,6 +1,6 @@
 # MIRのSSA変換
 
-[English](mir-ssa.en.md) · [IR段階](ir-stages.ja.md) · [Issue #94](https://github.com/Hokutaka/Cerune/issues/94)
+[English](mir-ssa.en.md) · [IR段階](ir-stages.ja.md) · [Issue #94](https://github.com/Cerune-Lang/Cerune/issues/94)
 
 ## 状態と判断
 

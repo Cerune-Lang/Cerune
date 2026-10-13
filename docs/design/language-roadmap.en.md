@@ -2,9 +2,9 @@
 
 [日本語](language-roadmap.ja.md)
 
-This inventory records capabilities, execution routes, and next steps as of 2026-10-11. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+This inventory records capabilities, execution routes, and next steps as of 2026-10-13. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
-The [execution and unfinished-work inventory](development-status.en.md) maps representations, observation, and execution—including LIR—and all issues.
+The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline. This page tracks current status.
 
 ## Properties Cerune should preserve
 
@@ -52,11 +52,11 @@ Language features are tracked separately from compiler stages, distribution, and
 | --- | --- | --- |
 | Implemented | [MIR](ir-stages.en.md) and [independent interpreter](mir-executor.en.md) | Non-SSA types, lowering, validation, `emit-mir`, and `run-mir`; output, failures, origins, and ownership lifetimes compared with existing routes |
 | Implemented | [Native lowering from MIR](native-mir.en.md) | Before/after execution comparisons and MIR→LIR→ASM/Object provenance verified |
-| Initial scope implemented | [Observation bundle](observation-bundle.en.md) | Saves sources, HIR, MIR, annotated ASM, and manifest from one compilation; `--ssa` adds SSA, reconstructed MIR, mappings, and SSA-derived ASM. Additional artifacts remain future work ([#60](https://github.com/Hokutaka/Cerune/issues/60)) |
+| Initial scope implemented | [Observation bundle](observation-bundle.en.md) | Saves sources, HIR, MIR, annotated ASM, and manifest from one compilation; `--ssa` adds SSA, reconstructed MIR, mappings, and SSA-derived ASM. Additional artifacts remain future work ([#60](https://github.com/Cerune-Lang/Cerune/issues/60)) |
 | Partial experiment | [Lean verification](lean-verification.en.md) | HIR→Lean/HIR→MIR correspondence and properties checked for u8 increment/choose/advance, including if/short-circuiting/while/for/break/continue/nesting, update-failure origins, and completion within explicit bounds; no whole-language, general-lowering, or whole-compiler proof, or public `emit-lean` |
 | Partly implemented | [SSA construction](mir-ssa.en.md) and later optimization passes | Scalar SSA/residual-slot representation, structural validator, observation text, automatic construction, and direct execution through the Rust API implemented; public SSA CLI/bundle support also implemented; SSA→MIR/Native also implemented; finite-fixture Lean checks for MIR→SSA→MIR implemented; constant folding is designed but unimplemented and deferred; general proofs also remain future work |
 | Implemented | [LIR observation and validation](lir-observation.en.md) | `emit-lir`, `observe --lir`, validator, and example comparisons for both targets. Direct execution investigated and deferred |
-| Planned, unimplemented | [IR/VM/Native build / release](owned-routes.en.md) | Follow [#81](https://github.com/Hokutaka/Cerune/issues/81), keeping completed artifacts and distribution separate from optimization |
+| Planned, unimplemented | [IR/VM/Native build / release](owned-routes.en.md) | Follow [#81](https://github.com/Cerune-Lang/Cerune/issues/81), keeping completed artifacts and distribution separate from optimization |
 
 ## Proposed priorities
 
@@ -68,14 +68,16 @@ Prioritize the programs users can write and the artifacts they can use. This is 
 | --- | --- | --- |
 | Completed milestone | [LIR observation, validation, and executor decision](lir-observation.en.md) ([#123](https://github.com/Cerune-Lang/Cerune/issues/123)) | Baseline/SSA LIR display, saving, structural validation, and example comparisons implemented. Defer the executor and return to the next language feature |
 | Implemented feature | [Dynamic-array `array_repeat`](owned-arrays.en.md) ([#122](https://github.com/Cerune-Lang/Cerune/issues/122)) | Runtime counts, zero/negative counts, evaluation order, budget failures, and independent nested copies implemented; examples, observable lowering, and existing-route comparisons added |
-| 1: next implementation unit | [Standard I/O design](standard-io.en.md) ([#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#104](https://github.com/Cerune-Lang/Cerune/issues/104)). Incremental output implemented in four executors and CLI; stdin/language-level flush unimplemented | Next align language-level flush and generated-route write/flush/failure contracts, then bounded UTF-8 line input and interaction. Compare identical input/operation sequences; keep observation read-only |
-| 2 | Small standard library. Standard module layout/APIs undecided | Select text/numeric parsing helpers required by I/O. Separate functions expressible in Cerune from runtime operations; use existing imports and explicit failure handling. Do not require generic Option/Result or package management first |
-| 3: independently actionable | [Native build](owned-routes.en.md). Responsibilities outlined; CLI/link management unimplemented | An executable is the proposed first artifact. Define explicit target, external linker, dependencies, failures, and observation records; build/link current examples and compare with IR/VM |
-| 4 | IR/VM Images and release for three routes. Unimplemented | Validate versions, types, references, ownership, and budgets before loading; compare saved/reloaded execution. As each route's artifact stabilizes, verify distribution contents, compatibility, and failure origins |
+| This update | Documentation/issue consistency ([#130](https://github.com/Cerune-Lang/Cerune/issues/130)) | Separate current status from historical audits; automate local-link and translation-pair checks |
+| 1: next fix | String-heap owner validation ([#134](https://github.com/Cerune-Lang/Cerune/issues/134)) | Reject another heap’s value even with the same ID; failed retain/release must preserve ownership counts, live bytes, and contents. Reachability from ordinary source remains unconfirmed |
+| 2: return to language features | [Standard I/O design](standard-io.en.md) ([#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#104](https://github.com/Cerune-Lang/Cerune/issues/104)). Incremental output implemented in four executors and CLI; stdin/language-level flush unimplemented | Next align language-level flush and generated-route write/flush/failure contracts, then bounded UTF-8 line input and interaction. Compare identical input/operation sequences; keep observation read-only |
+| 3 | Small standard library. Standard module layout/APIs undecided | Select text/numeric parsing helpers required by I/O. Separate functions expressible in Cerune from runtime operations; use existing imports and explicit failure handling. Do not require generic Option/Result or package management first |
+| Independently actionable | [Native build](owned-routes.en.md). Responsibilities outlined; CLI/link management unimplemented | An executable is the proposed first artifact. Define explicit target, external linker, dependencies, failures, and observation records; build/link current examples and compare with IR/VM |
+| After stable build | IR/VM Images and release for three routes. Unimplemented | Validate versions, types, references, ownership, and budgets before loading; compare saved/reloaded execution. As each route's artifact stabilizes, verify distribution contents, compatibility, and failure origins |
 | Later | Recursion, array growth/borrowing, more string operations, module distribution | Design call storage/limits/cleanup, borrowing lifetimes/mutation, re-exports, dependency versions, and reproducibility around actual uses |
 | Deferred/experimental | Optimization passes, broader proofs, added AST/LIR execution, GPU/FPGA | Resume for concrete needs; these do not gate language features, I/O, or build |
 
-Native build can serve current programs without new input or standard-library features. `array_repeat` is not an implementation prerequisite for input either; it comes first to complete a bounded piece of existing design. Release is not another name for optimization. Do not treat observation text as a runnable artifact by bypassing IR/VM Image validation.
+Native build can serve current programs without new input or standard-library features. `array_repeat` is implemented. The new investigations do not all become prerequisites for I/O. Release is not another name for optimization. Do not treat observation text as a runnable artifact by bypassing IR/VM Image validation.
 
 ### Standard I/O and standard-library status
 
@@ -96,21 +98,28 @@ Existing foundations are [common failure records](runtime-diagnostics.en.md), [f
 
 This is not a commitment to implement everything together. GPU experiments need not await every stage. Inheritance, implicit shared mutable references, automatic GPU dispatch, and general async facilities are not prioritized without evidence from current examples.
 
-The roadmap records priorities, dependencies, and current progress; each issue holds detailed checks and discussion. The investigations below do not finalize syntax or adoption.
+### Current issue inventory
 
-| Investigation | Approach |
-| --- | --- |
-| [#60 Observation bundle](https://github.com/Hokutaka/Cerune/issues/60) | Save representations and correspondence from one compilation, aligned with #94 stages and #81 CLI responsibilities |
-| [#88 Integer arithmetic policies](https://github.com/Hokutaka/Cerune/issues/88) | Keep ordinary arithmetic checked; design explicit wrapping and other policies separately |
-| [#89 External input and interaction](https://github.com/Hokutaka/Cerune/issues/89) | Derive inputs, resources, and failures from real uses, preserving semantics across routes |
-| [#90 Optional let](https://github.com/Hokutaka/Cerune/issues/90) | Consider together with the formatter, without adding binding semantics or IR distinctions |
-| [#92 Upstream QBE patch](https://github.com/Hokutaka/Cerune/issues/92) | Validate while retaining the workaround; update against the official upstream change |
-| [#103 Code organization](https://github.com/Hokutaka/Cerune/issues/103) | Separate responsibilities in small steps where features touch them; preserve outputs/failures/origins rather than splitting solely by file size |
-| [#104 Comparison and external effects](https://github.com/Hokutaka/Cerune/issues/104) | With #89 I/O design, separate reproducible inputs/operation traces from real effects; the initial bundle does not execute |
-| [#105 Binding/conditional syntax](https://github.com/Hokutaka/Cerune/issues/105) | Consider omitted `infer`, then `else if`; align with #90 `let`. `?:` needs separate semantics; formatter/for coverage remains undecided |
-| [#118 Sharing observation artifacts](https://github.com/Cerune-Lang/Cerune/issues/118) | Separate recommended local output paths from published fixtures; address when expanding I/O recordings and release sharing |
-| [#119 License investigation](https://github.com/Cerune-Lang/Cerune/issues/119) | Current MIT remains unchanged; any change is undecided. Revisit for distribution work without blocking language features |
-| [#93 FPGA](https://github.com/Hokutaka/Cerune/issues/93) | Investigate another realization of the same IR semantics, without splitting language meaning |
+All 18 open issues were checked on 2026-10-13. The table records priorities and purposes; investigation issues are not confirmed defects.
+
+| Issues | Purpose | Next work and limits |
+| --- | --- | --- |
+| [#130](https://github.com/Cerune-Lang/Cerune/issues/130) | Documentation consistency | Address now: old URLs, licensing, historical audits, and bilingual pairs |
+| [#134](https://github.com/Cerune-Lang/Cerune/issues/134) | String ownership correctness | Next small fix: heap membership and owner counts at internal APIs, separate from performance |
+| [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | Standard I/O and effect comparisons | Output connections merged. Language flush/generated failure contract → bounded UTF-8 input → interactive example |
+| [#135](https://github.com/Cerune-Lang/Cerune/issues/135) | Deep parser inputs | Unreproduced investigation. Use bounded child processes; design diagnostics/depth limits if needed |
+| [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | Generated well-typed differential tests | Start with fixed seeds, finite execution, and known expectations; separate from parser and internal-API checks |
+| [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | Memory measurement | Distinguish logical budgets, actual allocations, RSS, and WAT pages. No confirmed leak/regression; measure before changing representation |
+| [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | Actions Node.js warning | Independent maintenance; distinguish action-runtime Node from WAT-test Node. Not an I/O prerequisite |
+| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release and route responsibilities | Native build can start independently; then Image validation/distribution. show/via/optional backends await use cases and detailed design |
+| [#60](https://github.com/Cerune-Lang/Cerune/issues/60) / [#94](https://github.com/Cerune-Lang/Cerune/issues/94) | Observation, transformations, proofs | Partly complete through SSA/LIR observation. More bundled artifacts, general proofs, and optimization remain; preserve unoptimized forms |
+| [#88](https://github.com/Cerune-Lang/Cerune/issues/88) | Integer arithmetic policies | Keep checked arithmetic; prioritize demonstrated wrapping uses. Define saturation, overflow reporting, widening, bit discard, and division separately |
+| [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | Longer-program syntax | Align optional let and omitted infer, then else if. Design conditional semantics, formatter, and for coverage separately |
+| [#92](https://github.com/Cerune-Lang/Cerune/issues/92) | QBE Windows | Retain workaround; revalidate against official upstream changes. Preserve the research branch unmerged |
+| [#103](https://github.com/Cerune-Lang/Cerune/issues/103) / [#118](https://github.com/Cerune-Lang/Cerune/issues/118) | Code organization and observation artifacts | Refactor affected responsibilities; distinguish local records from public fixtures and review shared source/path/environment data |
+| [#93](https://github.com/Cerune-Lang/Cerune/issues/93) | FPGA | Investigate another realization of the same IR semantics; not a prerequisite for language features |
+
+License issue [#119](https://github.com/Cerune-Lang/Cerune/issues/119) is complete: PR #129 adopted **MIT OR Apache-2.0** ([MIT](../../LICENSE-MIT) / [Apache-2.0](../../LICENSE-APACHE)). LIR #123 and array_repeat #122 are also complete, not reopened backlog.
 
 Experiment topics belong to the [idea catalog](../idea/idea-catalog.en.md), not the adoption/order commitments. Issues hold details/discussion, the roadmap tracks progress/dependencies, and references describe implemented behavior.
 

@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-See the [execution/work inventory](design/development-status.en.md) for current status and the [roadmap](design/language-roadmap.en.md) for priorities. Design records decisions, reference records implemented behavior, and ideas are unadopted topics.
+See the [roadmap](design/language-roadmap.en.md) for current capabilities, issues, and priorities, and the [2026-10-11 audit](design/development-status.en.md) for earlier decisions and evidence. Design records decisions, reference records implemented behavior, and ideas are unadopted topics.
 
 ## Design
 
@@ -63,3 +63,16 @@ Each document links to its Japanese counterpart.
 - [Idea catalog](idea/idea-catalog.en.md)
 
 [Verification experiments](../experiments/README.en.md) are separate from ordinary Cerune execution examples.
+
+## Documentation checks
+
+Run these commands from the repository root. CI runs the same checks.
+
+```sh
+node scripts/check-docs.cjs
+node --test scripts/check-docs.test.cjs
+```
+
+For tracked and untracked non-ignored Markdown, check local file/directory targets, obsolete Cerune URLs, and translation pairs. Public guides use `.ja.md`/`.en.md`; READMEs use `README.md`/`README.en.md`. The English GitHub policy `SECURITY.md` is exempt from pairing.
+
+Checks cover prose inline links/images and reference definitions, excluding code examples. External URL availability, heading anchors, translation equivalence, and implementation status require human review. This is not a full Markdown parser.

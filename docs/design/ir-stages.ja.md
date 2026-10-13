@@ -1,6 +1,6 @@
 # HIR／MIR／LIRと変換過程の観測
 
-[English](ir-stages.en.md) · [Issue #94](https://github.com/Hokutaka/Cerune/issues/94)
+[English](ir-stages.en.md) · [Issue #94](https://github.com/Cerune-Lang/Cerune/issues/94)
 
 ## 現状と今回の方針
 
@@ -131,7 +131,7 @@ HIRのNodeIdは引き続き意味上の元の文・式を指します。MIRのBl
 
 [#60の観測bundle](observation-bundle.ja.md)は、一回のfrontend処理からsources・HIR・MIR・注釈付きASMを保存します。manifestはtarget・heap予算・pass列（現状は空）と成果物を結ぶ索引であり、新しい意味IRではありません。Objectや他backendの同梱は後続です。
 
-[#81](https://github.com/Hokutaka/Cerune/issues/81)のshow／emit／build／run／via／releaseと、表現段階は別の分類です。最適化はreleaseの別名にせず、passとその順序を明示します。各backendの外部ツールによる最適化も、Ceruneのpassとは区別して記録します。
+[#81](https://github.com/Cerune-Lang/Cerune/issues/81)のshow／emit／build／run／via／releaseと、表現段階は別の分類です。最適化はreleaseの別名にせず、passとその順序を明示します。各backendの外部ツールによる最適化も、Ceruneのpassとは区別して記録します。
 
 [Lean検証](lean-verification.ja.md)では、まず非最適化のHIR→MIR対応、次に選択したpassの前後を検証対象にできます。MIR実行での一致はテストであり形式証明ではありません。実際のu8関数increment・choose・advanceについてHIR→MIR対応と性質を証明します。MIRの型付き局所値・命令列・CFGを独立にモデル化し、if・短絡・while／for・可変局所値・break／continueの最内周への作用・初期化／更新・overflow出自を検査します。ループ例はHIR/MIRそれぞれの明示上限内の完了も証明します。一般のloop停止性・heapや変換アルゴリズム一般、全処理系の証明には拡大解釈しません。
 
