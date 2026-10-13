@@ -1,7 +1,7 @@
 use super::{Target, ir::Origin};
 use crate::runtime::{FailureCode, RuntimeFailure};
 
-/// 停止分岐だけに記録処理を置きます。正常経路に可変な「現在位置」を作りません。
+/// 出自は不変データとして出力操作・停止分岐へ渡します。グローバルな可変の「現在位置」は作りません。
 pub(super) struct Reporter {
     pub origin: Origin,
     target: Target,
@@ -17,6 +17,25 @@ impl Reporter {
             count: 0,
             data: String::new(),
         }
+    }
+
+    pub fn output(&mut self, kind: &str, newline: bool, output: &mut String) {
+        let Origin::Source { node_id, span } = self.origin else {
+            panic!("output requires a source origin");
+        };
+        let label = format!(".Lcerune_output_origin_{}", self.count);
+        self.count += 1;
+        self.data.push_str(&format!(
+            "{label}:\n  .asciz \" node={}{} bytes={}..{}\\n\"\n",
+            node_id.0,
+            span.source_id().record_field(),
+            span.start(),
+            span.end()
+        ));
+        output.push_str(&format!(
+            "  movl ${}, %r10d\n  leaq {label}(%rip), %r11\n  callq cerune_output_{kind}\n",
+            u8::from(newline)
+        ));
     }
 
     pub fn flush(&mut self, output: &mut String) {

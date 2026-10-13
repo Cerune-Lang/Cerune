@@ -227,16 +227,37 @@ fn rejects_invalid_references_origins_frames_and_abi_before_emitting() {
         rejects(
             m.clone(),
             |m| {
-                m.uses_write = true;
-                append(m, Instruction::Write { kind: "invalid" });
+                append(
+                    m,
+                    Instruction::Output {
+                        kind: "i64",
+                        newline: true,
+                    },
+                )
             },
-            "write kind",
+            "source origin",
         );
         rejects(
             m.clone(),
-            |m| append(m, Instruction::Write { kind: "i64" }),
-            "write runtime",
+            |m| {
+                m.uses_write = true;
+                append(
+                    m,
+                    Instruction::Output {
+                        kind: "invalid",
+                        newline: false,
+                    },
+                );
+                *m.origins.last_mut().unwrap() = m
+                    .origins
+                    .iter()
+                    .copied()
+                    .find(|o| matches!(o, Origin::Source { .. }))
+                    .unwrap();
+            },
+            "write kind",
         );
+        rejects(m.clone(), |m| m.uses_write = false, "write runtime");
         rejects(
             m.clone(),
             |m| append(m, Instruction::ArrayLength),
@@ -255,11 +276,6 @@ fn rejects_invalid_references_origins_frames_and_abi_before_emitting() {
                     append(m, Instruction::StoreI64ToStack(offset));
                 },
                 "overlaps",
-            );
-            rejects(
-                m.clone(),
-                |m| append(m, Instruction::CallPrintSysV(Type::I64)),
-                "SysV",
             );
         }
         let text = lir::emit(&m).unwrap();

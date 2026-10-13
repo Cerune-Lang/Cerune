@@ -42,7 +42,7 @@ pub fn lower(
         for b in &f.blocks {
             for i in &b.instructions {
                 match &i.kind {
-                    Kind::Output { newline: false, .. } => module.uses_write = true,
+                    Kind::Output { .. } => module.uses_write = true,
                     Kind::StringManage { .. }
                     | Kind::Assign {
                         value: Op::StringConcat { .. },
@@ -111,7 +111,6 @@ struct Body {
 struct Lowerer<'a> {
     program: &'a mir::Program,
     function: &'a mir::Function,
-    target: super::Target,
     slots: Vec<usize>,
     next_slot: usize,
     label: usize,
@@ -143,7 +142,6 @@ fn lower_body(
     let mut l = Lowerer {
         program,
         function: f,
-        target,
         slots,
         next_slot,
         label: f.blocks.len() + 1,
@@ -432,15 +430,10 @@ impl Lowerer<'_> {
                 quoted,
             } => {
                 self.load(*value);
-                if !newline {
-                    self.push(Instruction::Write {
-                        kind: crate::codegen::display::kind(self.ty(*value), *quoted),
-                    });
-                } else if crate::codegen::is_u64(self.ty(*value)) {
-                    self.push(Instruction::CallPrintU64);
-                } else {
-                    self.lower_print(scalar_type(self.ty(*value)));
-                }
+                self.push(Instruction::Output {
+                    kind: crate::codegen::display::kind(self.ty(*value), *quoted),
+                    newline: *newline,
+                });
             }
             Kind::ArrayInitialize { array, value } => {
                 let owner_offset = self.offset(*array);
@@ -814,37 +807,6 @@ impl Lowerer<'_> {
             Type::F32 => Instruction::StoreF32ToStack(offset),
             Type::F64 => Instruction::StoreF64ToStack(offset),
         });
-    }
-
-    fn lower_print(&mut self, ty: Type) {
-        if self.target.is_linux() {
-            self.push(Instruction::CallPrintSysV(ty));
-            return;
-        }
-        match ty {
-            Type::DynamicArray => unreachable!("array display is expanded in common IR"),
-            Type::String => self.push(Instruction::PrintString),
-            Type::Bool => self.push(Instruction::CallPrintBool),
-            Type::I64 => {
-                self.push(Instruction::MoveRaxToRdx);
-                self.push(Instruction::LoadFormatI64ToRcx);
-                self.push(Instruction::CallPrintf);
-            }
-            Type::F32 => {
-                // C の可変長引数では float を double に拡張する。
-                self.push(Instruction::ConvertF32ToF64Argument);
-                // Windows x64 の可変長引数では、浮動小数点数を汎用レジスタにも複製する。
-                self.push(Instruction::MoveXmm1ToRdx);
-                self.push(Instruction::LoadFormatF32ToRcx);
-                self.push(Instruction::CallPrintf);
-            }
-            Type::F64 => {
-                self.push(Instruction::CopyXmm0ToXmm1F64Scalar);
-                self.push(Instruction::MoveXmm1ToRdx);
-                self.push(Instruction::LoadFormatF64ToRcx);
-                self.push(Instruction::CallPrintf);
-            }
-        }
     }
 }
 fn aggregate(ty: &hir::Type) -> bool {

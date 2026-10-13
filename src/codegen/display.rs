@@ -50,15 +50,6 @@ fn escapes() -> Vec<(u8, String)> {
         })
         .collect()
 }
-const FORMATS: &[(&str, &str)] = &[
-    ("i64", "%lld"),
-    ("u64", "%llu"),
-    ("f32", "%.9g"),
-    ("f64", "%.17g"),
-    ("true", "true"),
-    ("false", "false"),
-    ("bool", "%s"),
-];
 pub(super) fn llvm_type(kind: &str) -> &'static str {
     match kind {
         "string" | "quoted" => "%cerune.string",
@@ -135,90 +126,6 @@ pub(super) fn wat() -> String {
             o.push_str("    i32.const 34\n    call $write_byte\n");
         }
         o.push_str("  )\n");
-    }
-    o
-}
-pub(super) fn asm_call(kind: &str, linux: bool) -> String {
-    let mut o = String::new();
-    if matches!(kind, "string" | "quoted" | "bool") {
-        writeln!(
-            o,
-            "  movq %rax, {}\n  callq cerune_write_{kind}",
-            if linux { "%rdi" } else { "%rcx" }
-        )
-        .unwrap();
-    } else {
-        if matches!(kind, "f32" | "f64") {
-            if kind == "f32" {
-                o.push_str("  cvtss2sd %xmm0, %xmm0\n");
-            }
-            if linux {
-                o.push_str("  movl $1, %eax\n");
-            } else {
-                o.push_str("  movapd %xmm0, %xmm1\n  movq %xmm0, %rdx\n");
-            }
-        } else if linux {
-            o.push_str("  movq %rax, %rsi\n  xorl %eax, %eax\n");
-        } else {
-            o.push_str("  movq %rax, %rdx\n");
-        }
-        writeln!(
-            o,
-            "  leaq .Lwrite_{kind}(%rip), {}\n  callq printf",
-            if linux { "%rdi" } else { "%rcx" }
-        )
-        .unwrap();
-    }
-    o
-}
-pub(super) fn asm_support(linux: bool) -> String {
-    let mut o = String::from(if linux {
-        ".section .rodata\n"
-    } else {
-        ".section .rdata,\"dr\"\n"
-    });
-    for (kind, fmt) in FORMATS {
-        writeln!(o, ".Lwrite_{kind}:\n  .asciz \"{fmt}\"").unwrap();
-    }
-    o.push_str(".text\n");
-    let arg = if linux { "%edi" } else { "%ecx" };
-    let arg64 = if linux { "%rdi" } else { "%rcx" };
-    let frame = if linux { 8 } else { 40 };
-    writeln!(o, "cerune_write_escaped_byte:\n  subq ${frame}, %rsp").unwrap();
-    for (c, _) in escapes() {
-        writeln!(o, "  cmpl ${c}, {arg}\n  je .Lescape_{c}").unwrap();
-    }
-    writeln!(o, "  callq putchar\n  addq ${frame}, %rsp\n  retq").unwrap();
-    for (c, text) in escapes() {
-        writeln!(o, ".Lescape_{c}:").unwrap();
-        for b in text.bytes() {
-            writeln!(o, "  movl ${b}, {arg}\n  callq putchar").unwrap();
-        }
-        writeln!(o, "  addq ${frame}, %rsp\n  retq").unwrap();
-    }
-    writeln!(
-        o,
-        "cerune_write_bool:\n  subq ${frame}, %rsp\n  cmpl $0, {arg}\n  je .Lwrite_bool_false"
-    )
-    .unwrap();
-    for (label, text) in [("", "true"), (".Lwrite_bool_false:\n", "false")] {
-        o.push_str(label);
-        for b in text.bytes() {
-            writeln!(o, "  movl ${b}, {arg}\n  callq putchar").unwrap();
-        }
-        writeln!(o, "  addq ${frame}, %rsp\n  retq").unwrap();
-    }
-    let (frame, ptr, index) = if linux { (24, 0, 8) } else { (56, 32, 40) };
-    for (kind, quoted) in [("string", false), ("quoted", true)] {
-        writeln!(o,"cerune_write_{kind}:\n  subq ${frame}, %rsp\n  movq {arg64}, {ptr}(%rsp)\n  movq $0, {index}(%rsp)").unwrap();
-        if quoted {
-            writeln!(o, "  movl $34, {arg}\n  callq putchar").unwrap();
-        }
-        writeln!(o,".Lwrite_{kind}_loop:\n  movq {ptr}(%rsp), %rax\n  movq {index}(%rsp), %rdx\n  cmpq (%rax), %rdx\n  je .Lwrite_{kind}_end\n  movzbl 8(%rax,%rdx), {arg}\n  callq {}\n  incq {index}(%rsp)\n  jmp .Lwrite_{kind}_loop\n.Lwrite_{kind}_end:",if quoted{"cerune_write_escaped_byte"}else{"putchar"}).unwrap();
-        if quoted {
-            writeln!(o, "  movl $34, {arg}\n  callq putchar").unwrap();
-        }
-        writeln!(o, "  addq ${frame}, %rsp\n  retq").unwrap();
     }
     o
 }

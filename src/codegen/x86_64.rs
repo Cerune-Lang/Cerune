@@ -8,8 +8,12 @@ pub mod ir;
 pub mod lir;
 mod lower;
 mod object;
+mod output;
 mod rounding;
 mod string;
+#[cfg(test)]
+#[path = "../../tests/support/process.rs"]
+mod test_process;
 mod unsigned;
 
 pub use emit::emit;
@@ -205,7 +209,7 @@ mod tests {
         assert!(asm.contains("jno .Lcerune_main_integer_ok_"));
         assert!(asm.contains("movl $7, %ecx\n  int $0x29"));
 
-        assert!(asm.contains("callq printf"));
+        assert!(asm.contains("callq cerune_output_i64"));
     }
 
     #[test]
@@ -239,7 +243,7 @@ mod tests {
 
         assert!(asm.contains("addss %xmm1, %xmm0"));
 
-        assert!(asm.contains("cvtss2sd %xmm0, %xmm1"));
+        assert!(asm.contains("cvtss2sd %xmm0, %xmm0"));
     }
 
     #[test]
@@ -254,7 +258,7 @@ mod tests {
 
         assert!(asm.contains("addsd %xmm1, %xmm0"));
 
-        assert!(asm.contains("movq %xmm1, %rdx"));
+        assert!(asm.contains("movapd %xmm0, %xmm3"));
     }
 
     #[test]
@@ -291,7 +295,7 @@ mod tests {
         assert!(asm.contains("movsd %xmm0, -8(%rbp)"));
         assert!(asm.contains("movsd %xmm0, -16(%rbp)"));
         assert!(asm.contains("movsd -8(%rbp), %xmm0"));
-        assert!(asm.contains("callq printf"));
+        assert!(asm.contains("callq cerune_output_f64"));
     }
 
     #[test]

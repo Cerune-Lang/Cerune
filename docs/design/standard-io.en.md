@@ -2,7 +2,7 @@
 
 [日本語](standard-io.ja.md)
 
-**Status: Output connections in all four executors, incremental CLI output, and explicit flush across execution/generated routes are implemented. Ordinary generated C/LLVM/QBE writes are also supported. Stdin and Native/WAT write-failure contracts remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. API names, types, and detailed failure rules remain open below.
+**Status: Output connections in all four executors, incremental CLI output, and explicit flush across execution/generated routes are implemented. Ordinary generated C/LLVM/QBE/Native writes are also supported. Stdin and WAT write-failure contracts remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. API names, types, and detailed failure rules remain open below.
 
 ## Acceptance principles
 
@@ -23,8 +23,7 @@ The investigation covers `src/ir_executor.rs`, `src/mir_executor/`, `src/ssa_exe
 | Area | Current behavior | Required change |
 | --- | --- | --- |
 | IR/MIR/SSA/VM and CLI | Retain capture APIs, add incremental output APIs; CLI delivers output during execution and flushes at completion | A write-failure contract shared with generated routes |
-| Native | Use existing runtime output functions; output-failure checks are not consistent | Align partial writes and retries; explicit flush is implemented |
-| C/LLVM/QBE | Per-operation requested/accepted counts and origins; partial writes, interruption, and termination | Shared recording including successful operations remains future work |
+| C/LLVM/QBE/Native | Per-operation requested/accepted counts and origins; partial writes, interruption, and termination | Shared recording including successful operations remains future work |
 | WAT | Host output imports; the test host captures output; memory stays private | Flush-status import is implemented; input and write-failure host contracts remain |
 | Strings | Owned values containing valid UTF-8 | Strict input-byte validation, budgets, and ownership rules |
 | Process tests | Verify output arrival before termination and no duplicate output | Interactive tests that send input only after receiving the prompt |
@@ -113,26 +112,28 @@ C/LLVM/QBE/Native flush only stdout and stop on failure without stdio flushing a
 
 WAT artifacts containing explicit flush add `cerune.flush_stdout_v1() -> i32`. The host returns 0 on success and any nonzero status on failure. Failure writes the record through existing `write_error_byte` and traps. Missing required imports fail instantiation rather than silently succeeding. Internal memory stays private. The test host synchronously captures output and reports successful flushing.
 
-Ordinary C/LLVM/QBE writes support partial failure/retry handling; Native/WAT do not yet implement it. Completed explicit-flush support does not imply completed I/O-failure parity. Stdin remains unimplemented.
+Ordinary C/LLVM/QBE/Native writes support partial failure/retry handling; WAT does not yet implement it. Completed explicit-flush support does not imply completed I/O-failure parity. Stdin remains unimplemented.
 
-## Generated C/LLVM/QBE writes (implemented)
+## Generated C/LLVM/QBE/Native writes (implemented)
 
-Each common-IR output operation carries requested/accepted byte counts and immutable NodeId/Span. C/LLVM/QBE IR retains the origin, and arguments are evaluated once before output. Aggregate printing uses the existing common-IR operation sequence.
+Each common-IR output operation carries requested/accepted byte counts and immutable NodeId/Span. C/LLVM/QBE IR and Native LIR/ASM retain the origin, and arguments are evaluated once before output. Aggregate printing uses the existing common-IR operation sequence.
 
 | Item | Contract and implementation |
 | --- | --- |
 | Acceptance/retry | Send only the remainder after a short write; retry only EINTR. Stop on zero progress, a response exceeding the request, or any other error |
 | Termination | `io-v1 operation=write` retains operation-wide counts and origin, including a prefix ending inside UTF-8. No later execution, retransmission, or additional flush |
 | Formatting | Format numbers with `snprintf` in a fixed 128-byte buffer. Use existing string data; count quoted output before sending it through a fixed 256-byte buffer. Do not copy the entire output into heap storage |
-| Connection | The C compilation target or explicit LLVM/QBE target selects Linux `write` or Windows CRT `_write`. Limit each call to 65536 bytes. Never infer the generated target from the OS running Cerune |
+| Connection | The C compilation target or LLVM/QBE/Native target selects Linux `write` or Windows CRT `_write`. Limit each call to 65536 bytes. Never infer the generated target from the OS running Cerune |
 | Windows | Binary mode also covers numeric-only output; do not translate LF into CR/LF. Preserve Japanese/NUL/CR/LF as bytes |
 | Linux | Temporarily ignore SIGPIPE while writing and restore it on success. The same single-threaded artifact scope as explicit flush applies |
 
-Count bytes for a common-IR output operation without resetting at OS-call splits. Acceptance does not guarantee display or durable storage. Ordinary stdout output bypasses stdio buffering, so C/LLVM/QBE can detect a failure at `print`. Other generated routes will adopt this contract in subsequent steps. `flush();` remains an explicit operation with its existing failure contract.
+Count bytes for a common-IR output operation without resetting at OS-call splits. Acceptance does not guarantee display or durable storage. Ordinary stdout output bypasses stdio buffering, so C/LLVM/QBE/Native can detect a failure at `print`. Other generated routes will adopt this contract in subsequent steps. `flush();` remains an explicit operation with its existing failure contract.
 
-[Shared comparison tests](../../tests/support/generated_output.rs) for [C](../../tests/c_output.rs), [LLVM](../../tests/llvm_output.rs), and [QBE](../../tests/qbe_output.rs) supply each executor with an independent writer returning identical controlled responses, and generated C/LLVM/QBE with a test execution connection. Compare prefixes, requested/accepted counts, origins, and termination. No observation API can replace responses. Cases include interruption, short writes, zero progress, invalid responses, quoted values, numbers, and multiple files. A real disconnected pipe is tested separately.
+[Shared comparison tests](../../tests/support/generated_output.rs) for [C](../../tests/c_output.rs), [LLVM](../../tests/llvm_output.rs), and [QBE](../../tests/qbe_output.rs) supply each executor with an independent writer returning identical controlled responses, and generated C/LLVM/QBE/Native with a test execution connection. Compare prefixes, requested/accepted counts, origins, and termination. No observation API can replace responses. Cases include interruption, short writes, zero progress, invalid responses, quoted values, numbers, and multiple files. A real disconnected pipe is tested separately.
 
 LLVM/QBE require an explicit target even for numeric-only `print(1);`. Generated `cerune.output.*` (LLVM) / `cerune_output_*` (QBE) helpers expose operation state, formatting, connection, retries, and termination. Shared successful-operation recording remains unimplemented; origin annotations do not affect execution. A failure in `snprintf` itself stops with an origin-bearing formatting diagnostic rather than inventing requested/accepted counts for text that was never produced.
+
+Native retains LIR `Output { kind, newline }` with origins and uses the same `cerune_output_*` instructions for ASM and internal objects. [ASM tests](../../tests/native_output.rs) and [object tests](../../src/codegen/x86_64/output.rs) cover ordinary MIR, the SSA path, and origin annotations. Windows selects binary mode even for numeric-only output. The internal encoder supports `movb` for output bytes, checked against independent assembler bytes.
 
 OS connections follow Linux [write](https://man7.org/linux/man-pages/man2/write.2.html) and Windows CRT [_write](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/write?view=msvc-170).
 
@@ -183,7 +184,7 @@ The order follows dependencies of interaction. General record/replay, an effect 
 | 2 | Finalize bounded line-input details and implement from common IR through all routes | EOF/empty/final lines, strict UTF-8, budgets, failures/origins, ownership and release |
 | 3 | Add real interactive examples and route comparisons | Do not send input until the prompt arrives; compare identical input/responses/order on Windows/Linux and the WAT host |
 
-Stage 1 output connections are implemented. Explicit flush is also implemented. Ordinary C/LLVM/QBE writes are also implemented. Next, extend partial-write/retry/termination contracts to Native/WAT. Identify unsupported routes during partial implementation; parity across all existing routes is the final requirement.
+Stage 1 output connections are implemented. Explicit flush is also implemented. Ordinary C/LLVM/QBE/Native writes are also implemented. Next, extend partial-write/retry/termination contracts to WAT. Identify unsupported routes during partial implementation; parity across all existing routes is the final requirement.
 
 ## Details to resolve before implementation
 

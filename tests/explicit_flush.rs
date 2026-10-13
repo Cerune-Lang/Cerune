@@ -328,7 +328,7 @@ fn closed_socket_flush_has_a_record(exe: &Path, dir: &Path, route: &str) {
     assert_eq!(status.code(), Some(1), "{route}: {status}");
     let error = fs::read_to_string(stderr).unwrap();
     assert!(
-        error.starts_with(if matches!(route, "c" | "llvm" | "qbe") {
+        error.starts_with(if matches!(route, "c" | "llvm" | "qbe" | "asm" | "obj") {
             "cerune: io-v1 operation=write requested="
         } else {
             "cerune: io-v1 operation=flush requested=0 accepted=0 node="

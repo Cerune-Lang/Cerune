@@ -5,6 +5,12 @@ fn instruction_bytes_match_independent_llvm_assembler_reference() {
     // LLVM 22のアセンブラで照合した命令バイト。REX/SIB/変位の境界とSSE2を含みます。
     for (source, hex) in [
         ("pushq %r12", "4154"),
+        ("movb $10, (%rcx,%rax)", "c604010a"),
+        ("movb %al, (%rcx)", "8801"),
+        ("movb $255, 127(%r12,%r9,8)", "43c644cc7fff"),
+        ("movb %sil, %r9b", "4188f1"),
+        ("movb $1, %r8b", "41b001"),
+        ("movb 128(%r13), %sil", "418ab580000000"),
         ("popq %r13", "415d"),
         ("movabsq $-1, %r9", "49b9ffffffffffffffff"),
         ("movq %r9, %r10", "4d89ca"),
@@ -47,6 +53,9 @@ fn invalid_forms_and_unresolved_internal_labels_are_diagnostics() {
     for instruction in [
         "vaddps %xmm0, %xmm1",
         "movq %eax, %rbx",
+        "movb $256, (%rcx)",
+        "movb $-129, %al",
+        "movb %eax, (%rcx)",
         "movq %xmm0, %xmm1",
         "movss %rax, %xmm0",
         "shlq %dl, %rax",

@@ -1,5 +1,5 @@
 //! Native LIRの観測と構造検証。テキストを入力するloaderや実行器ではありません。
-use super::{Target, abi, ir::*};
+use super::{abi, ir::*};
 use crate::diagnostic::Diagnostic;
 use std::{collections::BTreeSet, fmt::Write};
 
@@ -105,8 +105,10 @@ fn body(
                 return Err(fail("source and MIR origins disagree"));
             }
         }
-        if matches!(i, Instruction::Flush) && !matches!(origins[index], Origin::Source { .. }) {
-            return Err(fail("flush needs a source origin"));
+        if matches!(i, Instruction::Flush | Instruction::Output { .. })
+            && !matches!(origins[index], Origin::Source { .. })
+        {
+            return Err(fail("output needs a source origin"));
         }
         // 集約値は基準slotから負方向へ8byteずつ配置します。
         let stack = |offset: isize, slots: usize| -> Result<(), Diagnostic> {
@@ -334,13 +336,10 @@ fn body(
             | ArrayFree
             | StringManage { .. }
             | Flush
-            | Write { .. }
-            | CallPrintSysV(_)
-            | CallPrintU64
+            | Output { .. }
             | CompareU64(_)
             | LoadStringLength
             | LoadStringConstant(_)
-            | PrintString
             | ConvertNumeric { .. }
             | BitNot { .. }
             | IntegerBinary { .. }
@@ -368,18 +367,9 @@ fn body(
             | F32Binary(_)
             | F64Binary(_)
             | CompareF32(_)
-            | CompareF64(_)
-            | MoveRaxToRdx
-            | LoadFormatI64ToRcx
-            | ConvertF32ToF64Argument
-            | MoveXmm1ToRdx
-            | LoadFormatF32ToRcx
-            | CopyXmm0ToXmm1F64Scalar
-            | LoadFormatF64ToRcx
-            | CallPrintf
-            | CallPrintBool => {}
+            | CompareF64(_) => {}
         }
-        if let Write { kind } = i
+        if let Output { kind, .. } = i
             && !matches!(
                 *kind,
                 "string" | "quoted" | "bool" | "i64" | "u64" | "f32" | "f64"
@@ -387,12 +377,12 @@ fn body(
         {
             return Err(fail("unknown write kind"));
         }
-        if matches!(i, Write { .. }) && !m.uses_write {
+        if matches!(i, Output { .. }) && !m.uses_write {
             return Err(fail("write runtime is absent"));
         }
         if matches!(
             i,
-            LoadStringConstant(_) | LoadStringLength | CompareString { .. } | PrintString
+            LoadStringConstant(_) | LoadStringLength | CompareString { .. }
         ) && !m.uses_strings
         {
             return Err(fail("string runtime is absent"));
@@ -414,9 +404,6 @@ fn body(
         ) && m.array_heap_limit.is_none()
         {
             return Err(fail("array runtime is absent"));
-        }
-        if matches!(i, CallPrintSysV(_)) && m.target != Target::X86_64UnknownLinuxGnu {
-            return Err(fail("SysV output instruction on Windows target"));
         }
     }
     Ok(())
