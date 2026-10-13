@@ -90,6 +90,12 @@ Native headers contain link, reference count, and length. WAT headers contain li
 
 LLVM uses explicit targets rather than the compiler host OS. Native COFF/ELF puts management state in non-executable writable `.data` while retaining read-only literals. WAT neither exports nor imports memory. Tool execution and linking remain the artifact consumer's responsibility.
 
+## Internal Rust string-owner validation
+
+StringHeap retain/release checks both the allocation ID and shared-handle identity (`Rc::ptr_eq`). IDs are assigned per heap, so an ID alone does not establish membership. Foreign handles, missing IDs, zero owner counts, and retain overflow return `InvalidStringOwnership` without changing counts, live bytes, or contents.
+
+This hardens a crate-internal invariant. Reachability from ordinary Cerune source has not been established; it adds neither a language-level stop condition nor value copying. Static and empty strings still have no dynamic owner count. Regression tests cover colliding IDs across heaps, invalid counts, double release, and successful cleanup after rejection.
+
 ## Executable checks
 
 [string_concat.ceru](../../examples/string_concat.ceru) covers concatenation, returns, reassignment, array copies, byte preservation, and loops. Shared `concat_cases` additionally cover defaults, enums, guarded matches, generic arguments, constants, side effects, self-assignment, and early return.
