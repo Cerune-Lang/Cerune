@@ -978,7 +978,7 @@ f64    有効数字17桁
 
 表示は値を変更しません。`1.0 + 1e-20 == 1.0`が`true`になるのは計算時の丸めであり、表示が小さな値を消しているわけではありません。[小さな数値の例](../../examples/small_values.ceru)で確認できます。
 
-VMはこの規則で整形し、生成C・LLVMは`snprintf`、QBE・Windows x86-64は`printf`の`%.9g`・`%.17g`を使います。WATは数値をそのままホストの`cerune.print_f32`・`cerune.print_f64`へ渡すため、ホスト側にも同じ表示規則が必要です。
+VMはこの規則で整形し、生成C・LLVM・QBEは`snprintf`、Windows x86-64は`printf`の`%.9g`・`%.17g`を使います。WATは数値をそのままホストの`cerune.print_f32`・`cerune.print_f64`へ渡すため、ホスト側にも同じ表示規則が必要です。
 
 複合値表示では、WATの`cerune.write_i64`・`write_u64`・`write_f32`・`write_f64`をホストが同じ数値規則・改行なしで実装します。文字列と区切り記号は`write_byte`で渡し、内部メモリは公開しません。
 

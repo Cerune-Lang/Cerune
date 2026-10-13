@@ -121,7 +121,7 @@ jobs:
         shell: pwsh
         run: |
           $env:CERUNE_TEST_QBE_CLANG = (Get-Command clang).Source
-          cargo test --test qbe_windows --test dynamic_arrays --test explicit_flush -- --include-ignored 2>&1 | Tee-Object target/qbe-windows-test.log
+          cargo test --test qbe_windows --test qbe_output --test dynamic_arrays --test explicit_flush -- --include-ignored 2>&1 | Tee-Object target/qbe-windows-test.log
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_TRACE: "1"

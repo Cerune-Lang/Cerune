@@ -1,6 +1,10 @@
+#[path = "support/qbe.rs"]
+mod qbe;
+use qbe::compile as compile_to_qbe;
+
 #[path = "support/llvm.rs"]
 mod llvm;
-use cerune_lang::{compile_to_c, compile_to_qbe, compile_to_wat, compile_to_x86_64_win_asm};
+use cerune_lang::{compile_to_c, compile_to_wat, compile_to_x86_64_win_asm};
 
 const SOURCE: &str = include_str!("fixtures/observation/float-output/source.ceru");
 

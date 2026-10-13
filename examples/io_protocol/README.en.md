@@ -17,7 +17,7 @@ cargo run --quiet -- emit-mir examples/io_protocol/explicit_flush.ceru
 cargo test --test explicit_flush --test execution_output
 ```
 
-[output_values.ceru](output_values.ceru) evaluates an argument once, then displays the u64 maximum, quoted strings, a Boolean, negative zero, and a small number. Compare its [expected output](output_values.stdout) in the four executors and generated C/LLVM; `cargo test --test c_output --test llvm_output` covers partial writes and failures.
+[output_values.ceru](output_values.ceru) evaluates an argument once, then displays the u64 maximum, quoted strings, a Boolean, negative zero, and a small number. Compare its [expected output](output_values.stdout) in the four executors and generated C/LLVM/QBE; `cargo test --test c_output --test llvm_output --test qbe_output` covers partial writes and failures.
 
 [input_flow.ceru](input_flow.ceru) selects operations using values scripted in the source. **It does not read stdin.** Cerune owns the state and operation rules.
 

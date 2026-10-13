@@ -270,9 +270,16 @@ pub fn run_mir(source: &str) -> Result<String, MirRunError> {
 
 #[cfg(test)]
 mod tests {
+    fn compile_to_qbe(source: &str) -> Result<String, crate::diagnostic::Diagnostic> {
+        super::compile_to_qbe_with_target(
+            source,
+            Some(crate::codegen::qbe::Target::X86_64UnknownLinuxGnu),
+        )
+    }
+
     use super::{
         RunError, compile_to_bytecode, compile_to_bytecode_text, compile_to_c, compile_to_ir_text,
-        compile_to_qbe, compile_to_wat, compile_to_x86_64_win_asm, run_vm,
+        compile_to_wat, compile_to_x86_64_win_asm, run_vm,
     };
     use crate::{
         bytecode::{InstructionKind, InstructionOrigin},

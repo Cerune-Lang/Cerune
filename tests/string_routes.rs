@@ -126,8 +126,12 @@ fn every_route_generates_deterministic_artifacts() {
 
 #[test]
 fn qbe_requires_an_explicit_runtime_target() {
+    assert!(compile_to_qbe("x: i64 = 1;").is_ok());
     for source in [
         "print(\"x\");",
+        "print(1);",
+        "print(true);",
+        "fn unused() -> i64 { print(1.5); return 0; }",
         "type Item { text: string, }",
         "fn unused(text: string) -> string { return text; }",
     ] {

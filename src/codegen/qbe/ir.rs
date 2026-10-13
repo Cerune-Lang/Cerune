@@ -2,7 +2,6 @@
 pub struct Module {
     pub array_heap_limit: Option<u64>,
     pub string_heap_limit: Option<u64>,
-    pub uses_write: bool,
     pub target: Option<super::Target>,
     pub uses_strings: bool,
     pub strings: Vec<String>,
@@ -97,14 +96,6 @@ pub enum CompareOp {
     GreaterEqual,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PrintFormat {
-    U64,
-    I64,
-    F32,
-    F64,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
     ArrayAllocate {
@@ -158,12 +149,11 @@ pub enum Instruction {
     Flush {
         origin: FailureOrigin,
     },
-    Write {
+    Output {
         kind: &'static str,
         value: Operand,
-    },
-    PrintString {
-        value: Operand,
+        newline: bool,
+        origin: FailureOrigin,
     },
     ConvertNumeric {
         origin: FailureOrigin,
@@ -257,24 +247,6 @@ pub enum Instruction {
         operand_ty: Type,
         left: Operand,
         right: Operand,
-    },
-    ExtendSingleToDouble {
-        dest: Temp,
-        value: Operand,
-    },
-    CallPrintf {
-        dest: Temp,
-        format: PrintFormat,
-        arg_ty: Type,
-        value: Operand,
-    },
-    CallPrintBool {
-        offset: Temp,
-        scaled_offset: Temp,
-        address: Temp,
-        text: Temp,
-        result: Temp,
-        value: Operand,
     },
 }
 

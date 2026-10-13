@@ -976,7 +976,7 @@ After rounding to the significant-digit limit, a decimal exponent below `-4` or 
 
 Printing does not change the value. `1.0 + 1e-20 == 1.0` is `true` because of arithmetic rounding, not because printing discards small values. See the [small-values example](../../examples/small_values.ceru).
 
-The VM formats values by these rules. Generated C and LLVM use `snprintf`, while QBE, and Windows x86-64 use `printf`, with `%.9g` and `%.17g`. WAT passes numeric values unchanged to host imports `cerune.print_f32` and `cerune.print_f64`; the host must provide the same formatting policy.
+The VM formats values by these rules. Generated C, LLVM, and QBE use `snprintf`, while Windows x86-64 uses `printf`, with `%.9g` and `%.17g`. WAT passes numeric values unchanged to host imports `cerune.print_f32` and `cerune.print_f64`; the host must provide the same formatting policy.
 
 For aggregate display, WAT hosts implement `cerune.write_i64`, `write_u64`, `write_f32`, and `write_f64` using the same numeric rules without a newline. Strings and punctuation use `write_byte`; internal memory is not exported.
 

@@ -79,7 +79,9 @@ LLVM loweringは式をソース順に命令化し、短絡評価やループの�
 
 再代入は変数や配列要素が持つ参照の置き換えです。共有する参照先が不変なので、以前のコピーは変わりません。積型・配列自体のコピーには既存の`blit`、メモリのload/store、スタックスロットのコピーを使います。動的文字列の保持・解放は共通IRから生成し、静的領域には作用しません。この実装上の参照はCeruneのポインタ型や外部ABIを追加するものではありません。
 
-QBEは静的データをLinuxでは`.rodata`、Windowsでは`.rdata`の読み取り専用領域に置き、`loadl`で長さ、`loadub`で各バイトを読みます。文字列では明示ターゲットが必須です。Linuxの`x86_64-unknown-linux-gnu`には`qbe -t amd64_sysv`、Windowsの`x86_64-pc-windows-msvc`には`qbe -t amd64_win`を対応させ、生成物のコメントにも残します。Windowsでは最初のCerune操作の前にstdout/stderrをバイナリモードにし、初期化失敗時は終了コード1で止めます。数値だけでも明示WindowsターゲットではLFを出力します。後続QBEのターゲットだけを変えてもCerune側の実行環境は変換されません。
+QBEは静的データをLinuxでは`.rodata`、Windowsでは`.rdata`の読み取り専用領域に置き、`loadl`で長さ、`loadub`で各バイトを読みます。文字列・標準出力では明示ターゲットが必須です。Linuxの`x86_64-unknown-linux-gnu`には`qbe -t amd64_sysv`、Windowsの`x86_64-pc-windows-msvc`には`qbe -t amd64_win`を対応させ、生成物のコメントにも残します。Windowsでは最初のCerune操作の前にstdout/stderrをバイナリモードにし、初期化失敗時は終了コード1で止めます。数値だけでも明示WindowsターゲットではLFを出力します。後続QBEのターゲットだけを変えてもCerune側の実行環境は変換されません。
+
+QBEの表示も[出自付きの書込み処理](standard-io.ja.md)を使います。要求/受理数、短い書込み、割込みの再試行、失敗時の停止を生成ILに残し、引用表示は固定256バイト領域から送ります。
 
 直接アセンブリはWindows/Linux x86-64ターゲットを選べます。以下のWindows初期化に対し、Linux版はSysV規約でバイト出力し、標準出力モードの切替は行いません。静的な長さとデータは読み取り専用領域へ置き、参照は`RAX`や8バイトのスタックスロットで運びます。比較時には左辺を退避してから右辺を評価し、補助関数へ渡します。出力の補助関数はWindows x64のshadow space・スタック境界・保存レジスタの規則を守ります。最初のCerune処理より前に`_setmode`を実行し、失敗時は終了コード1で停止します。
 

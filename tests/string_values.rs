@@ -227,7 +227,8 @@ fn numeric_only_programs_still_emit_through_every_backend() {
         Some(codegen::llvm::Target::X86_64UnknownLinuxGnu),
     )
     .unwrap();
-    codegen::emit_qbe(&program).unwrap();
+    codegen::qbe::emit_qbe_with_target(&program, Some(codegen::qbe::Target::X86_64UnknownLinuxGnu))
+        .unwrap();
 }
 
 fn vm_failure(instructions: Vec<InstructionKind>) -> VmErrorKind {

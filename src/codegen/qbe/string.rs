@@ -49,25 +49,4 @@ function w $cerune_string_equal(l %left, l %right) {
 @different
   ret 0
 }
-
-function $cerune_print_string(l %value) {
-@start
-  %length =l loadl %value
-  jmp @condition
-@condition
-  %index =l phi @start 0, @write %next
-  %done =w ceql %index, %length
-  jnz %done, @newline, @write
-@write
-  %offset =l add %index, 8
-  %address =l add %value, %offset
-  %byte =w loadub %address
-  call $putchar(w %byte)
-  %next =l add %index, 1
-  jmp @condition
-@newline
-  call $putchar(w 10)
-  ret
-}
-
 "#;

@@ -189,7 +189,7 @@ CeruneはLLVMの生成だけを行い、Clangや実行ファイルを起動し�
 
 ### QBEのターゲット指定
 
-QBEの`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`です。文字列・動的配列・`flush();`では必須です。省略・未対応のターゲット・オプションの重複は診断し、既存の出力ファイルを変更しません。数値だけの既存の呼び出しでは省略できますが、Windows用の出力・診断を選ぶには明示指定が必要です。
+QBEの`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`です。文字列・動的配列・標準出力（`print(1);`や`flush();`も含む）では必須です。省略・未対応のターゲット・オプションの重複は診断し、既存の出力ファイルを変更しません。これらを使わないプログラムでは省略できます。実行中のOSから生成先を推測しません。
 
 ```sh
 cerune emit-qbe examples/string_lookup.ceru --target x86_64-unknown-linux-gnu -o target/string_lookup.ssa

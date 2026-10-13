@@ -17,7 +17,7 @@ cargo run --quiet -- emit-mir examples/io_protocol/explicit_flush.ceru
 cargo test --test explicit_flush --test execution_output
 ```
 
-[output_values.ceru](output_values.ceru)は、引数を一度評価してからu64最大値・引用付き文字列・真偽値・負のゼロ・小さな数値を表示します。[期待値](output_values.stdout)を4実行器と生成C・LLVMで比較し、部分書込みや失敗は`cargo test --test c_output --test llvm_output`で確認します。
+[output_values.ceru](output_values.ceru)は、引数を一度評価してからu64最大値・引用付き文字列・真偽値・負のゼロ・小さな数値を表示します。[期待値](output_values.stdout)を4実行器と生成C・LLVM・QBEで比較し、部分書込みや失敗は`cargo test --test c_output --test llvm_output --test qbe_output`で確認します。
 
 [input_flow.ceru](input_flow.ceru)は、ソース内で用意した入力値で操作を選ぶ例です。**標準入力は読みません。** 状態と操作の規則はCerune側に置きます。
 

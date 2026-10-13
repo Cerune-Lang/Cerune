@@ -1,9 +1,12 @@
+#[path = "support/qbe.rs"]
+mod qbe;
+use qbe::compile as compile_to_qbe;
+
 #[path = "support/llvm.rs"]
 mod llvm;
 use cerune_lang::{
     RunError, bytecode, compile, compile_to_bytecode, compile_to_bytecode_text, compile_to_c,
-    compile_to_ir, compile_to_ir_text, compile_to_qbe, compile_to_wat, compile_to_x86_64_win_asm,
-    ir, run_vm,
+    compile_to_ir, compile_to_ir_text, compile_to_wat, compile_to_x86_64_win_asm, ir, run_vm,
     source::{ConversionSyntax, Span},
     types::{IntegerType, NumericType},
     vm::{self, NumericConversionFailure as Failure, VmErrorKind},

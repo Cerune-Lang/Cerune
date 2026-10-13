@@ -1,8 +1,7 @@
 use std::fmt::Write;
 
 use super::ir::{
-    BinaryOp, CompareOp, Function, Instruction, Module, Operand, ParameterPassing, PrintFormat,
-    Slot, Temp, Type,
+    BinaryOp, CompareOp, Function, Instruction, Module, Operand, ParameterPassing, Slot, Temp, Type,
 };
 
 pub fn emit(module: &Module) -> String {
@@ -16,27 +15,9 @@ pub fn emit(module: &Module) -> String {
         )
         .unwrap();
     }
-    if module.uses_write {
-        output.push_str(&crate::codegen::display::qbe());
-    }
+    super::output::emit(module, &mut output);
     let i64_operations = i64_operations(module);
     super::failure::emit(module, &mut output);
-    if module
-        .instructions
-        .iter()
-        .chain(module.functions.iter().flat_map(|f| f.instructions.iter()))
-        .any(|i| {
-            matches!(
-                i,
-                Instruction::CallPrintf {
-                    format: PrintFormat::U64,
-                    ..
-                }
-            )
-        })
-    {
-        output.push_str("data $fmt_u64 = { b \"%llu\", b 10, b 0 }\n");
-    }
     if module.uses_strings {
         super::string::emit(module, &mut output);
         if let Some(limit) = module.string_heap_limit {
@@ -52,20 +33,6 @@ pub fn emit(module: &Module) -> String {
 
     if let Some(limit) = module.array_heap_limit {
         output.push_str(&super::array::support(limit));
-    }
-
-    // printf format strings.
-    //
-    // b 10 = '\n'
-    // b 0  = '\0'
-    output.push_str("data $fmt_i64 = { b \"%lld\", b 10, b 0 }\n");
-    output.push_str("data $fmt_f32 = { b \"%.9g\", b 10, b 0 }\n");
-    output.push_str("data $fmt_f64 = { b \"%.17g\", b 10, b 0 }\n");
-
-    if uses_bool_print(module) {
-        output.push_str("data $bool_false = { b \"false\", b 0 }\n");
-        output.push_str("data $bool_true = { b \"true\", b 0 }\n");
-        output.push_str("data $bool_texts = align 8 { l $bool_false, l $bool_true }\n");
     }
 
     output.push('\n');
@@ -465,20 +432,19 @@ fn emit_instruction(
             )
             .unwrap();
         }
-        Instruction::Write { kind, value } => {
+        Instruction::Output {
+            kind,
+            value,
+            newline,
+            origin,
+        } => {
             writeln!(
                 output,
-                "  call $cerune_write_{kind}({} {})",
+                "  call $cerune_output_{kind}({} {}, w {}, l ${})",
                 crate::codegen::display::qbe_type(kind),
-                operand(value, slots)
-            )
-            .unwrap();
-        }
-        Instruction::PrintString { value } => {
-            writeln!(
-                output,
-                "  call $cerune_print_string(l {})",
-                operand(value, slots)
+                operand(value, slots),
+                u8::from(*newline),
+                super::output::origin_name(*origin)
             )
             .unwrap();
         }
@@ -772,72 +738,6 @@ fn emit_instruction(
             )
             .unwrap();
         }
-
-        Instruction::ExtendSingleToDouble { dest, value } => {
-            writeln!(
-                output,
-                "  {} =d exts {}",
-                temp(*dest),
-                operand(value, slots)
-            )
-            .unwrap();
-        }
-
-        Instruction::CallPrintf {
-            dest,
-            format,
-            arg_ty,
-            value,
-        } => {
-            writeln!(
-                output,
-                "  {} =w call $printf(l ${}, ..., {} {})",
-                temp(*dest),
-                format_name(*format),
-                type_name(*arg_ty),
-                operand(value, slots),
-            )
-            .unwrap();
-        }
-
-        Instruction::CallPrintBool {
-            offset,
-            scaled_offset,
-            address,
-            text,
-            result,
-            value,
-        } => {
-            writeln!(
-                output,
-                "  {} =l extsw {}",
-                temp(*offset),
-                operand(value, slots)
-            )
-            .unwrap();
-            writeln!(
-                output,
-                "  {} =l mul {}, 8",
-                temp(*scaled_offset),
-                temp(*offset)
-            )
-            .unwrap();
-            writeln!(
-                output,
-                "  {} =l add $bool_texts, {}",
-                temp(*address),
-                temp(*scaled_offset)
-            )
-            .unwrap();
-            writeln!(output, "  {} =l loadl {}", temp(*text), temp(*address)).unwrap();
-            writeln!(
-                output,
-                "  {} =w call $puts(l {})",
-                temp(*result),
-                temp(*text)
-            )
-            .unwrap();
-        }
     }
 }
 
@@ -934,15 +834,6 @@ fn checked_i64_helper(op: BinaryOp) -> Option<&'static str> {
     }
 }
 
-fn format_name(format: PrintFormat) -> &'static str {
-    match format {
-        PrintFormat::U64 => "fmt_u64",
-        PrintFormat::I64 => "fmt_i64",
-        PrintFormat::F32 => "fmt_f32",
-        PrintFormat::F64 => "fmt_f64",
-    }
-}
-
 fn operand(value: &Operand, slots: &[Slot]) -> String {
     match value {
         Operand::String(id) => format!("$cerune_string_{id}"),
@@ -965,19 +856,6 @@ fn operand(value: &Operand, slots: &[Slot]) -> String {
 
 fn temp(temp: Temp) -> String {
     format!("%tmp{}", temp.0)
-}
-
-fn uses_bool_print(module: &Module) -> bool {
-    module
-        .instructions
-        .iter()
-        .chain(
-            module
-                .functions
-                .iter()
-                .flat_map(|function| function.instructions.iter()),
-        )
-        .any(|instruction| matches!(instruction, Instruction::CallPrintBool { .. }))
 }
 
 fn unsigned_compare(op: CompareOp) -> &'static str {

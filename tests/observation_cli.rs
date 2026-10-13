@@ -97,13 +97,7 @@ fn expected_output(case_name: &str, file_name: &str) -> String {
 fn assert_observation(case_name: &str, command: &str, expected_file: &str) {
     let mut process = Command::new(env!("CARGO_BIN_EXE_cerune"));
     process.arg(command).arg(source_path(case_name));
-    if command == "emit-llvm"
-        || (command == "emit-qbe"
-            && matches!(
-                case_name,
-                "string-values" | "string-byte-length" | "string-concat" | "aggregate-values"
-            ))
-    {
+    if matches!(command, "emit-llvm" | "emit-qbe") {
         process.args(["--target", "x86_64-unknown-linux-gnu"]);
     }
     let output = process

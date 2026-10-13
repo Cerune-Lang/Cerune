@@ -1,5 +1,861 @@
 # target: x86_64-unknown-linux-gnu (qbe -t amd64_sysv)
 
+section ".rodata" data $cerune_output_origin_2_24_46 = { b " node=2 bytes=24..46", b 10, b 0 }
+section ".rodata" data $cerune_output_origin_5_47_67 = { b " node=5 bytes=47..67", b 10, b 0 }
+section ".rodata" data $cerune_output_record = { b "cerune: io-v1 operation=write requested=%llu accepted=%llu%s", b 0 }
+section ".rodata" data $cerune_output_format_error = { b "cerune: output formatting failed%s", b 0 }
+section ".rodata" data $cerune_output_true = { b "true", b 10 }
+section ".rodata" data $cerune_output_false = { b "false", b 10 }
+section ".rodata" data $cerune_output_lf = { b 10 }
+section ".rodata" data $cerune_output_quote = { b 34 }
+function l $cerune_output_write(l %data, l %length) {
+@start
+  %result =l call $write(w 1, l %data, l %length)
+  ret %result
+}
+function $cerune_output_diagnostic(l %data, w %length) {
+@start
+  %positive =w csgtw %length, 0
+  jnz %positive, @bound, @exit
+@bound
+  %fits =w cultw %length, 512
+  jnz %fits, @fit, @limit
+@fit
+  jmp @write
+@limit
+  jmp @write
+@write
+  %count =w phi @fit %length, @limit 511
+  %wide =l extuw %count
+  call $write(w 2, l %data, l %wide)
+  jmp @exit
+@exit
+  call $_Exit(w 1)
+  hlt
+}
+
+function $cerune_output_failed(l %op) {
+@start
+  %requested =l loadl %op
+  %accepted_ptr =l add %op, 8
+  %accepted =l loadl %accepted_ptr
+  %origin_ptr =l add %op, 16
+  %origin =l loadl %origin_ptr
+  %text =l alloc8 512
+  %n =w call $snprintf(l %text, l 512, l $cerune_output_record, ..., l %requested, l %accepted, l %origin)
+  call $cerune_output_diagnostic(l %text, w %n)
+  hlt
+}
+function $cerune_output_text(l %data, l %length, l %origin) {
+@start
+  %empty =w ceql %length, 0
+  jnz %empty, @done, @write
+@write
+  %op =l alloc8 32
+  call $cerune_output_begin(l %op, l %length, l %origin)
+  call $cerune_output_part(l %op, l %data, l %length)
+  call $cerune_output_end(l %op)
+  jmp @done
+@done
+  ret
+}
+function $cerune_output_begin(l %op, l %length, l %origin) {
+@start
+  storel %length, %op
+  %accepted_ptr =l add %op, 8
+  storel 0, %accepted_ptr
+  %origin_ptr =l add %op, 16
+  storel %origin, %origin_ptr
+  %prior =l call $signal(w 13, l 1)
+  %saved =l add %op, 24
+  storel %prior, %saved
+  %bad =w ceql %prior, -1
+  jnz %bad, @failed, @done
+@failed
+  call $cerune_output_failed(l %op)
+  hlt
+@done
+  ret
+}
+function $cerune_output_end(l %op) {
+@start
+  %saved =l add %op, 24
+  %prior =l loadl %saved
+  %restored =l call $signal(w 13, l %prior)
+  %bad =w ceql %restored, -1
+  jnz %bad, @failed, @done
+@failed
+  call $cerune_output_failed(l %op)
+  hlt
+@done
+  ret
+}
+
+function $cerune_output_part(l %op, l %data, l %length) {
+@start
+  %accepted_ptr =l add %op, 8
+  jmp @condition
+@condition
+  %cursor =l phi @start %data, @advance %next
+  %remaining =l phi @start %length, @advance %rest
+  %done =w ceql %remaining, 0
+  jnz %done, @end, @prepare
+@prepare
+  %small =w cultl %remaining, 65536
+  jnz %small, @short, @long
+@short
+  jmp @request
+@long
+  jmp @request
+@request
+  %request =l phi @short %remaining, @long 65536
+  jmp @write
+@write
+  %n =l call $cerune_output_write(l %cursor, l %request)
+  %negative =w csltl %n, 0
+  jnz %negative, @error, @check
+@error
+  %errno_ptr =l call $__errno_location()
+  %errno =w loadw %errno_ptr
+  %interrupted =w ceqw %errno, 4
+  jnz %interrupted, @write, @failed
+@check
+  %positive =w cugtl %n, 0
+  %bounded =w culel %n, %request
+  %valid =w and %positive, %bounded
+  jnz %valid, @advance, @failed
+@advance
+  %accepted =l loadl %accepted_ptr
+  %total =l add %accepted, %n
+  storel %total, %accepted_ptr
+  %next =l add %cursor, %n
+  %rest =l sub %remaining, %n
+  jmp @condition
+@failed
+  call $cerune_output_failed(l %op)
+  hlt
+@end
+  ret
+}
+section ".rodata" data $cerune_output_format_i64 = { b "%lld", b 0 }
+function $cerune_output_i64(l %value, w %newline, l %origin) {
+@start
+  %text =l alloc8 128
+  %n =w call $snprintf(l %text, l 128, l $cerune_output_format_i64, ..., l %value)
+  %valid =w cultw %n, 127
+  jnz %valid, @formatted, @failed
+@failed
+  %error =l alloc8 512
+  %error_length =w call $snprintf(l %error, l 512, l $cerune_output_format_error, ..., l %origin)
+  call $cerune_output_diagnostic(l %error, w %error_length)
+  hlt
+@formatted
+  %length =l extuw %n
+  %tail =l add %text, %length
+  storeb 10, %tail
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
+section ".rodata" data $cerune_output_format_u64 = { b "%llu", b 0 }
+function $cerune_output_u64(l %value, w %newline, l %origin) {
+@start
+  %text =l alloc8 128
+  %n =w call $snprintf(l %text, l 128, l $cerune_output_format_u64, ..., l %value)
+  %valid =w cultw %n, 127
+  jnz %valid, @formatted, @failed
+@failed
+  %error =l alloc8 512
+  %error_length =w call $snprintf(l %error, l 512, l $cerune_output_format_error, ..., l %origin)
+  call $cerune_output_diagnostic(l %error, w %error_length)
+  hlt
+@formatted
+  %length =l extuw %n
+  %tail =l add %text, %length
+  storeb 10, %tail
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
+section ".rodata" data $cerune_output_format_f32 = { b "%.9g", b 0 }
+function $cerune_output_f32(s %value, w %newline, l %origin) {
+@start
+  %text =l alloc8 128
+  %wide =d exts %value
+  %n =w call $snprintf(l %text, l 128, l $cerune_output_format_f32, ..., d %wide)
+  %valid =w cultw %n, 127
+  jnz %valid, @formatted, @failed
+@failed
+  %error =l alloc8 512
+  %error_length =w call $snprintf(l %error, l 512, l $cerune_output_format_error, ..., l %origin)
+  call $cerune_output_diagnostic(l %error, w %error_length)
+  hlt
+@formatted
+  %length =l extuw %n
+  %tail =l add %text, %length
+  storeb 10, %tail
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
+section ".rodata" data $cerune_output_format_f64 = { b "%.17g", b 0 }
+function $cerune_output_f64(d %value, w %newline, l %origin) {
+@start
+  %text =l alloc8 128
+  %n =w call $snprintf(l %text, l 128, l $cerune_output_format_f64, ..., d %value)
+  %valid =w cultw %n, 127
+  jnz %valid, @formatted, @failed
+@failed
+  %error =l alloc8 512
+  %error_length =w call $snprintf(l %error, l 512, l $cerune_output_format_error, ..., l %origin)
+  call $cerune_output_diagnostic(l %error, w %error_length)
+  hlt
+@formatted
+  %length =l extuw %n
+  %tail =l add %text, %length
+  storeb 10, %tail
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
+function $cerune_output_bool(w %value, w %newline, l %origin) {
+@start
+  jnz %value, @true, @false
+@true
+  jmp @write
+@false
+  jmp @write
+@write
+  %text =l phi @true $cerune_output_true, @false $cerune_output_false
+  %length =l phi @true 4, @false 5
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  call $cerune_output_text(l %text, l %requested, l %origin)
+  ret
+}
+function l $cerune_output_escape(w %byte, l %out) {
+@start
+  %is0 =w ceqw %byte, 0
+  jnz %is0, @escape0, @next0
+@next0
+  %is1 =w ceqw %byte, 1
+  jnz %is1, @escape1, @next1
+@next1
+  %is2 =w ceqw %byte, 2
+  jnz %is2, @escape2, @next2
+@next2
+  %is3 =w ceqw %byte, 3
+  jnz %is3, @escape3, @next3
+@next3
+  %is4 =w ceqw %byte, 4
+  jnz %is4, @escape4, @next4
+@next4
+  %is5 =w ceqw %byte, 5
+  jnz %is5, @escape5, @next5
+@next5
+  %is6 =w ceqw %byte, 6
+  jnz %is6, @escape6, @next6
+@next6
+  %is7 =w ceqw %byte, 7
+  jnz %is7, @escape7, @next7
+@next7
+  %is8 =w ceqw %byte, 8
+  jnz %is8, @escape8, @next8
+@next8
+  %is9 =w ceqw %byte, 9
+  jnz %is9, @escape9, @next9
+@next9
+  %is10 =w ceqw %byte, 10
+  jnz %is10, @escape10, @next10
+@next10
+  %is11 =w ceqw %byte, 11
+  jnz %is11, @escape11, @next11
+@next11
+  %is12 =w ceqw %byte, 12
+  jnz %is12, @escape12, @next12
+@next12
+  %is13 =w ceqw %byte, 13
+  jnz %is13, @escape13, @next13
+@next13
+  %is14 =w ceqw %byte, 14
+  jnz %is14, @escape14, @next14
+@next14
+  %is15 =w ceqw %byte, 15
+  jnz %is15, @escape15, @next15
+@next15
+  %is16 =w ceqw %byte, 16
+  jnz %is16, @escape16, @next16
+@next16
+  %is17 =w ceqw %byte, 17
+  jnz %is17, @escape17, @next17
+@next17
+  %is18 =w ceqw %byte, 18
+  jnz %is18, @escape18, @next18
+@next18
+  %is19 =w ceqw %byte, 19
+  jnz %is19, @escape19, @next19
+@next19
+  %is20 =w ceqw %byte, 20
+  jnz %is20, @escape20, @next20
+@next20
+  %is21 =w ceqw %byte, 21
+  jnz %is21, @escape21, @next21
+@next21
+  %is22 =w ceqw %byte, 22
+  jnz %is22, @escape22, @next22
+@next22
+  %is23 =w ceqw %byte, 23
+  jnz %is23, @escape23, @next23
+@next23
+  %is24 =w ceqw %byte, 24
+  jnz %is24, @escape24, @next24
+@next24
+  %is25 =w ceqw %byte, 25
+  jnz %is25, @escape25, @next25
+@next25
+  %is26 =w ceqw %byte, 26
+  jnz %is26, @escape26, @next26
+@next26
+  %is27 =w ceqw %byte, 27
+  jnz %is27, @escape27, @next27
+@next27
+  %is28 =w ceqw %byte, 28
+  jnz %is28, @escape28, @next28
+@next28
+  %is29 =w ceqw %byte, 29
+  jnz %is29, @escape29, @next29
+@next29
+  %is30 =w ceqw %byte, 30
+  jnz %is30, @escape30, @next30
+@next30
+  %is31 =w ceqw %byte, 31
+  jnz %is31, @escape31, @next31
+@next31
+  %is34 =w ceqw %byte, 34
+  jnz %is34, @escape34, @next34
+@next34
+  %is92 =w ceqw %byte, 92
+  jnz %is92, @escape92, @next92
+@next92
+  %is127 =w ceqw %byte, 127
+  jnz %is127, @escape127, @next127
+@next127
+  storeb %byte, %out
+  ret 1
+@escape0
+  %p0_0 =l add %out, 0
+  storeb 92, %p0_0
+  %p0_1 =l add %out, 1
+  storeb 48, %p0_1
+  ret 2
+@escape1
+  %p1_0 =l add %out, 0
+  storeb 92, %p1_0
+  %p1_1 =l add %out, 1
+  storeb 117, %p1_1
+  %p1_2 =l add %out, 2
+  storeb 123, %p1_2
+  %p1_3 =l add %out, 3
+  storeb 48, %p1_3
+  %p1_4 =l add %out, 4
+  storeb 49, %p1_4
+  %p1_5 =l add %out, 5
+  storeb 125, %p1_5
+  ret 6
+@escape2
+  %p2_0 =l add %out, 0
+  storeb 92, %p2_0
+  %p2_1 =l add %out, 1
+  storeb 117, %p2_1
+  %p2_2 =l add %out, 2
+  storeb 123, %p2_2
+  %p2_3 =l add %out, 3
+  storeb 48, %p2_3
+  %p2_4 =l add %out, 4
+  storeb 50, %p2_4
+  %p2_5 =l add %out, 5
+  storeb 125, %p2_5
+  ret 6
+@escape3
+  %p3_0 =l add %out, 0
+  storeb 92, %p3_0
+  %p3_1 =l add %out, 1
+  storeb 117, %p3_1
+  %p3_2 =l add %out, 2
+  storeb 123, %p3_2
+  %p3_3 =l add %out, 3
+  storeb 48, %p3_3
+  %p3_4 =l add %out, 4
+  storeb 51, %p3_4
+  %p3_5 =l add %out, 5
+  storeb 125, %p3_5
+  ret 6
+@escape4
+  %p4_0 =l add %out, 0
+  storeb 92, %p4_0
+  %p4_1 =l add %out, 1
+  storeb 117, %p4_1
+  %p4_2 =l add %out, 2
+  storeb 123, %p4_2
+  %p4_3 =l add %out, 3
+  storeb 48, %p4_3
+  %p4_4 =l add %out, 4
+  storeb 52, %p4_4
+  %p4_5 =l add %out, 5
+  storeb 125, %p4_5
+  ret 6
+@escape5
+  %p5_0 =l add %out, 0
+  storeb 92, %p5_0
+  %p5_1 =l add %out, 1
+  storeb 117, %p5_1
+  %p5_2 =l add %out, 2
+  storeb 123, %p5_2
+  %p5_3 =l add %out, 3
+  storeb 48, %p5_3
+  %p5_4 =l add %out, 4
+  storeb 53, %p5_4
+  %p5_5 =l add %out, 5
+  storeb 125, %p5_5
+  ret 6
+@escape6
+  %p6_0 =l add %out, 0
+  storeb 92, %p6_0
+  %p6_1 =l add %out, 1
+  storeb 117, %p6_1
+  %p6_2 =l add %out, 2
+  storeb 123, %p6_2
+  %p6_3 =l add %out, 3
+  storeb 48, %p6_3
+  %p6_4 =l add %out, 4
+  storeb 54, %p6_4
+  %p6_5 =l add %out, 5
+  storeb 125, %p6_5
+  ret 6
+@escape7
+  %p7_0 =l add %out, 0
+  storeb 92, %p7_0
+  %p7_1 =l add %out, 1
+  storeb 117, %p7_1
+  %p7_2 =l add %out, 2
+  storeb 123, %p7_2
+  %p7_3 =l add %out, 3
+  storeb 48, %p7_3
+  %p7_4 =l add %out, 4
+  storeb 55, %p7_4
+  %p7_5 =l add %out, 5
+  storeb 125, %p7_5
+  ret 6
+@escape8
+  %p8_0 =l add %out, 0
+  storeb 92, %p8_0
+  %p8_1 =l add %out, 1
+  storeb 117, %p8_1
+  %p8_2 =l add %out, 2
+  storeb 123, %p8_2
+  %p8_3 =l add %out, 3
+  storeb 48, %p8_3
+  %p8_4 =l add %out, 4
+  storeb 56, %p8_4
+  %p8_5 =l add %out, 5
+  storeb 125, %p8_5
+  ret 6
+@escape9
+  %p9_0 =l add %out, 0
+  storeb 92, %p9_0
+  %p9_1 =l add %out, 1
+  storeb 116, %p9_1
+  ret 2
+@escape10
+  %p10_0 =l add %out, 0
+  storeb 92, %p10_0
+  %p10_1 =l add %out, 1
+  storeb 110, %p10_1
+  ret 2
+@escape11
+  %p11_0 =l add %out, 0
+  storeb 92, %p11_0
+  %p11_1 =l add %out, 1
+  storeb 117, %p11_1
+  %p11_2 =l add %out, 2
+  storeb 123, %p11_2
+  %p11_3 =l add %out, 3
+  storeb 48, %p11_3
+  %p11_4 =l add %out, 4
+  storeb 98, %p11_4
+  %p11_5 =l add %out, 5
+  storeb 125, %p11_5
+  ret 6
+@escape12
+  %p12_0 =l add %out, 0
+  storeb 92, %p12_0
+  %p12_1 =l add %out, 1
+  storeb 117, %p12_1
+  %p12_2 =l add %out, 2
+  storeb 123, %p12_2
+  %p12_3 =l add %out, 3
+  storeb 48, %p12_3
+  %p12_4 =l add %out, 4
+  storeb 99, %p12_4
+  %p12_5 =l add %out, 5
+  storeb 125, %p12_5
+  ret 6
+@escape13
+  %p13_0 =l add %out, 0
+  storeb 92, %p13_0
+  %p13_1 =l add %out, 1
+  storeb 114, %p13_1
+  ret 2
+@escape14
+  %p14_0 =l add %out, 0
+  storeb 92, %p14_0
+  %p14_1 =l add %out, 1
+  storeb 117, %p14_1
+  %p14_2 =l add %out, 2
+  storeb 123, %p14_2
+  %p14_3 =l add %out, 3
+  storeb 48, %p14_3
+  %p14_4 =l add %out, 4
+  storeb 101, %p14_4
+  %p14_5 =l add %out, 5
+  storeb 125, %p14_5
+  ret 6
+@escape15
+  %p15_0 =l add %out, 0
+  storeb 92, %p15_0
+  %p15_1 =l add %out, 1
+  storeb 117, %p15_1
+  %p15_2 =l add %out, 2
+  storeb 123, %p15_2
+  %p15_3 =l add %out, 3
+  storeb 48, %p15_3
+  %p15_4 =l add %out, 4
+  storeb 102, %p15_4
+  %p15_5 =l add %out, 5
+  storeb 125, %p15_5
+  ret 6
+@escape16
+  %p16_0 =l add %out, 0
+  storeb 92, %p16_0
+  %p16_1 =l add %out, 1
+  storeb 117, %p16_1
+  %p16_2 =l add %out, 2
+  storeb 123, %p16_2
+  %p16_3 =l add %out, 3
+  storeb 49, %p16_3
+  %p16_4 =l add %out, 4
+  storeb 48, %p16_4
+  %p16_5 =l add %out, 5
+  storeb 125, %p16_5
+  ret 6
+@escape17
+  %p17_0 =l add %out, 0
+  storeb 92, %p17_0
+  %p17_1 =l add %out, 1
+  storeb 117, %p17_1
+  %p17_2 =l add %out, 2
+  storeb 123, %p17_2
+  %p17_3 =l add %out, 3
+  storeb 49, %p17_3
+  %p17_4 =l add %out, 4
+  storeb 49, %p17_4
+  %p17_5 =l add %out, 5
+  storeb 125, %p17_5
+  ret 6
+@escape18
+  %p18_0 =l add %out, 0
+  storeb 92, %p18_0
+  %p18_1 =l add %out, 1
+  storeb 117, %p18_1
+  %p18_2 =l add %out, 2
+  storeb 123, %p18_2
+  %p18_3 =l add %out, 3
+  storeb 49, %p18_3
+  %p18_4 =l add %out, 4
+  storeb 50, %p18_4
+  %p18_5 =l add %out, 5
+  storeb 125, %p18_5
+  ret 6
+@escape19
+  %p19_0 =l add %out, 0
+  storeb 92, %p19_0
+  %p19_1 =l add %out, 1
+  storeb 117, %p19_1
+  %p19_2 =l add %out, 2
+  storeb 123, %p19_2
+  %p19_3 =l add %out, 3
+  storeb 49, %p19_3
+  %p19_4 =l add %out, 4
+  storeb 51, %p19_4
+  %p19_5 =l add %out, 5
+  storeb 125, %p19_5
+  ret 6
+@escape20
+  %p20_0 =l add %out, 0
+  storeb 92, %p20_0
+  %p20_1 =l add %out, 1
+  storeb 117, %p20_1
+  %p20_2 =l add %out, 2
+  storeb 123, %p20_2
+  %p20_3 =l add %out, 3
+  storeb 49, %p20_3
+  %p20_4 =l add %out, 4
+  storeb 52, %p20_4
+  %p20_5 =l add %out, 5
+  storeb 125, %p20_5
+  ret 6
+@escape21
+  %p21_0 =l add %out, 0
+  storeb 92, %p21_0
+  %p21_1 =l add %out, 1
+  storeb 117, %p21_1
+  %p21_2 =l add %out, 2
+  storeb 123, %p21_2
+  %p21_3 =l add %out, 3
+  storeb 49, %p21_3
+  %p21_4 =l add %out, 4
+  storeb 53, %p21_4
+  %p21_5 =l add %out, 5
+  storeb 125, %p21_5
+  ret 6
+@escape22
+  %p22_0 =l add %out, 0
+  storeb 92, %p22_0
+  %p22_1 =l add %out, 1
+  storeb 117, %p22_1
+  %p22_2 =l add %out, 2
+  storeb 123, %p22_2
+  %p22_3 =l add %out, 3
+  storeb 49, %p22_3
+  %p22_4 =l add %out, 4
+  storeb 54, %p22_4
+  %p22_5 =l add %out, 5
+  storeb 125, %p22_5
+  ret 6
+@escape23
+  %p23_0 =l add %out, 0
+  storeb 92, %p23_0
+  %p23_1 =l add %out, 1
+  storeb 117, %p23_1
+  %p23_2 =l add %out, 2
+  storeb 123, %p23_2
+  %p23_3 =l add %out, 3
+  storeb 49, %p23_3
+  %p23_4 =l add %out, 4
+  storeb 55, %p23_4
+  %p23_5 =l add %out, 5
+  storeb 125, %p23_5
+  ret 6
+@escape24
+  %p24_0 =l add %out, 0
+  storeb 92, %p24_0
+  %p24_1 =l add %out, 1
+  storeb 117, %p24_1
+  %p24_2 =l add %out, 2
+  storeb 123, %p24_2
+  %p24_3 =l add %out, 3
+  storeb 49, %p24_3
+  %p24_4 =l add %out, 4
+  storeb 56, %p24_4
+  %p24_5 =l add %out, 5
+  storeb 125, %p24_5
+  ret 6
+@escape25
+  %p25_0 =l add %out, 0
+  storeb 92, %p25_0
+  %p25_1 =l add %out, 1
+  storeb 117, %p25_1
+  %p25_2 =l add %out, 2
+  storeb 123, %p25_2
+  %p25_3 =l add %out, 3
+  storeb 49, %p25_3
+  %p25_4 =l add %out, 4
+  storeb 57, %p25_4
+  %p25_5 =l add %out, 5
+  storeb 125, %p25_5
+  ret 6
+@escape26
+  %p26_0 =l add %out, 0
+  storeb 92, %p26_0
+  %p26_1 =l add %out, 1
+  storeb 117, %p26_1
+  %p26_2 =l add %out, 2
+  storeb 123, %p26_2
+  %p26_3 =l add %out, 3
+  storeb 49, %p26_3
+  %p26_4 =l add %out, 4
+  storeb 97, %p26_4
+  %p26_5 =l add %out, 5
+  storeb 125, %p26_5
+  ret 6
+@escape27
+  %p27_0 =l add %out, 0
+  storeb 92, %p27_0
+  %p27_1 =l add %out, 1
+  storeb 117, %p27_1
+  %p27_2 =l add %out, 2
+  storeb 123, %p27_2
+  %p27_3 =l add %out, 3
+  storeb 49, %p27_3
+  %p27_4 =l add %out, 4
+  storeb 98, %p27_4
+  %p27_5 =l add %out, 5
+  storeb 125, %p27_5
+  ret 6
+@escape28
+  %p28_0 =l add %out, 0
+  storeb 92, %p28_0
+  %p28_1 =l add %out, 1
+  storeb 117, %p28_1
+  %p28_2 =l add %out, 2
+  storeb 123, %p28_2
+  %p28_3 =l add %out, 3
+  storeb 49, %p28_3
+  %p28_4 =l add %out, 4
+  storeb 99, %p28_4
+  %p28_5 =l add %out, 5
+  storeb 125, %p28_5
+  ret 6
+@escape29
+  %p29_0 =l add %out, 0
+  storeb 92, %p29_0
+  %p29_1 =l add %out, 1
+  storeb 117, %p29_1
+  %p29_2 =l add %out, 2
+  storeb 123, %p29_2
+  %p29_3 =l add %out, 3
+  storeb 49, %p29_3
+  %p29_4 =l add %out, 4
+  storeb 100, %p29_4
+  %p29_5 =l add %out, 5
+  storeb 125, %p29_5
+  ret 6
+@escape30
+  %p30_0 =l add %out, 0
+  storeb 92, %p30_0
+  %p30_1 =l add %out, 1
+  storeb 117, %p30_1
+  %p30_2 =l add %out, 2
+  storeb 123, %p30_2
+  %p30_3 =l add %out, 3
+  storeb 49, %p30_3
+  %p30_4 =l add %out, 4
+  storeb 101, %p30_4
+  %p30_5 =l add %out, 5
+  storeb 125, %p30_5
+  ret 6
+@escape31
+  %p31_0 =l add %out, 0
+  storeb 92, %p31_0
+  %p31_1 =l add %out, 1
+  storeb 117, %p31_1
+  %p31_2 =l add %out, 2
+  storeb 123, %p31_2
+  %p31_3 =l add %out, 3
+  storeb 49, %p31_3
+  %p31_4 =l add %out, 4
+  storeb 102, %p31_4
+  %p31_5 =l add %out, 5
+  storeb 125, %p31_5
+  ret 6
+@escape34
+  %p34_0 =l add %out, 0
+  storeb 92, %p34_0
+  %p34_1 =l add %out, 1
+  storeb 34, %p34_1
+  ret 2
+@escape92
+  %p92_0 =l add %out, 0
+  storeb 92, %p92_0
+  %p92_1 =l add %out, 1
+  storeb 92, %p92_1
+  ret 2
+@escape127
+  %p127_0 =l add %out, 0
+  storeb 92, %p127_0
+  %p127_1 =l add %out, 1
+  storeb 117, %p127_1
+  %p127_2 =l add %out, 2
+  storeb 123, %p127_2
+  %p127_3 =l add %out, 3
+  storeb 55, %p127_3
+  %p127_4 =l add %out, 4
+  storeb 102, %p127_4
+  %p127_5 =l add %out, 5
+  storeb 125, %p127_5
+  ret 6
+}
+
+function $cerune_output_string(l %value, w %newline, l %origin) {
+@start
+  %length =l loadl %value
+  %data =l add %value, 8
+  %extra =l extuw %newline
+  %requested =l add %length, %extra
+  %op =l alloc8 32
+  call $cerune_output_begin(l %op, l %requested, l %origin)
+  call $cerune_output_part(l %op, l %data, l %length)
+  call $cerune_output_part(l %op, l $cerune_output_lf, l %extra)
+  call $cerune_output_end(l %op)
+  ret
+}
+function $cerune_output_quoted(l %value, w %newline, l %origin) {
+@start
+  %length =l loadl %value
+  %data =l add %value, 8
+  %extra =l extuw %newline
+  %initial =l add 2, %extra
+  %scratch =l alloc8 8
+  %buffer =l alloc8 256
+  %op =l alloc8 32
+  jmp @count
+@count
+  %index =l phi @start 0, @count_byte %next_index
+  %requested =l phi @start %initial, @count_byte %next_count
+  %counted =w ceql %index, %length
+  jnz %counted, @begin, @count_byte
+@count_byte
+  %source =l add %data, %index
+  %byte =w loadub %source
+  %n =l call $cerune_output_escape(w %byte, l %scratch)
+  %next_count =l add %requested, %n
+  %next_index =l add %index, 1
+  jmp @count
+@begin
+  call $cerune_output_begin(l %op, l %requested, l %origin)
+  storeb 34, %buffer
+  jmp @condition
+@condition
+  %i =l phi @begin 0, @append %next
+  %used =l phi @begin 1, @append %filled
+  %done =w ceql %i, %length
+  jnz %done, @tail, @space
+@space
+  %full =w cugtl %used, 250
+  jnz %full, @drain, @append
+@drain
+  call $cerune_output_part(l %op, l %buffer, l %used)
+  jmp @append
+@append
+  %offset =l phi @space %used, @drain 0
+  %p =l add %data, %i
+  %b =w loadub %p
+  %destination =l add %buffer, %offset
+  %size =l call $cerune_output_escape(w %b, l %destination)
+  %filled =l add %offset, %size
+  %next =l add %i, 1
+  jmp @condition
+@tail
+  call $cerune_output_part(l %op, l %buffer, l %used)
+  call $cerune_output_part(l %op, l $cerune_output_quote, l 1)
+  call $cerune_output_part(l %op, l $cerune_output_lf, l %extra)
+  call $cerune_output_end(l %op)
+  ret
+}
 section ".rodata" data $cerune_string_0 = align 8 { l 4, b 230, b 151, b 165, b 0 }
 section ".rodata" data $cerune_string_1 = align 8 { l 0 }
 
@@ -30,38 +886,14 @@ function w $cerune_string_equal(l %left, l %right) {
   ret 0
 }
 
-function $cerune_print_string(l %value) {
-@start
-  %length =l loadl %value
-  jmp @condition
-@condition
-  %index =l phi @start 0, @write %next
-  %done =w ceql %index, %length
-  jnz %done, @newline, @write
-@write
-  %offset =l add %index, 8
-  %address =l add %value, %offset
-  %byte =w loadub %address
-  call $putchar(w %byte)
-  %next =l add %index, 1
-  jmp @condition
-@newline
-  call $putchar(w 10)
-  ret
-}
-
-data $fmt_i64 = { b "%lld", b 10, b 0 }
-data $fmt_f32 = { b "%.9g", b 10, b 0 }
-data $fmt_f64 = { b "%.17g", b 10, b 0 }
-
 export function w $main() {
 @start
   %slot_text =l alloc8 8
   storel $cerune_string_0, %slot_text
   %tmp0 =l loadl %slot_text
   %tmp1 =l loadl %tmp0
-  %tmp2 =w call $printf(l $fmt_i64, ..., l %tmp1)
-  %tmp3 =l loadl $cerune_string_1
-  %tmp4 =w call $printf(l $fmt_i64, ..., l %tmp3)
+  call $cerune_output_i64(l %tmp1, w 1, l $cerune_output_origin_2_24_46)
+  %tmp2 =l loadl $cerune_string_1
+  call $cerune_output_i64(l %tmp2, w 1, l $cerune_output_origin_5_47_67)
   ret 0
 }
