@@ -190,17 +190,17 @@ The order follows dependencies of interaction. General record/replay, an effect 
 | 2 | Finalize bounded line-input details and implement from common IR through all routes | EOF/empty/final lines, strict UTF-8, budgets, failures/origins, ownership and release |
 | 3 | Add real interactive examples and route comparisons | Do not send input until the prompt arrives; compare identical input/responses/order on Windows/Linux and the WAT host |
 
-Stage 1 output connections, explicit flush, and ordinary C/LLVM/QBE/WAT/Native writes are implemented. Next, finalize bounded UTF-8 line-input details. Shared generated-route records including successful operations remain separate follow-up work.
+Stage 1 output connections, explicit flush, and ordinary C/LLVM/QBE/WAT/Native writes are implemented. The [bounded UTF-8 line-input contract](line-input.en.md) and shared Rust connection are implemented. Next integrate string ownership, the public result type, and input operations across routes. Actual stdin remains unsupported. Shared generated-route records including successful operations remain separate follow-up work.
 
 ## Details to resolve before implementation
 
-The following remain undecided. Align the design and expected test results before implementing the relevant stage.
+The following design and integration work remains. Distinguish the settled line-input contract from routes that are not implemented.
 
 - Remaining stage 1 work: shared generated-route I/O records including successful operations. Ordinary-write termination contracts cover all routes. Embedding partial-write/retry/record-limit behavior is implemented as specified above.
 - Stage 2: API names, result types, and standard-module distribution. Check whether existing enums/imports suffice; do not add implicit file lookup.
-- EOF detection exactly at the limit, lookahead ownership, and recovery after exceeding the limit. Do not assume lookahead leaves OS input unconsumed.
-- Budgets and peak simultaneous usage for scratch buffers, UTF-8 conversion, and completed strings. An existing `[u8]` element does not necessarily occupy one logical budget byte.
-- Stable OS-error classification and diagnostics, supported console/pipe behavior, and WAT input host ABI versioning/compatibility.
+- The [line-input contract](line-input.en.md) fixes EOF checks, at most one extra consumed byte, stopping on errors, and classified diagnostics. A separate recoverable API remains future work.
+- Connect whole-limit reservation and ownership transfer to the string heap. An existing `[u8]` element does not necessarily occupy one logical budget byte.
+- Supported console/pipe behavior, OS-error mappings to shared codes, and WAT input host ABI versioning/compatibility.
 
 ## Runnable baseline today
 
