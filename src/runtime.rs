@@ -1,5 +1,6 @@
 pub(crate) mod array_heap;
 pub(crate) mod float_output;
+pub mod input;
 pub(crate) mod numeric;
 pub mod output;
 pub(crate) mod string_heap;

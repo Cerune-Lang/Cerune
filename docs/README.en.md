@@ -22,6 +22,7 @@ Each document links to its Japanese counterpart.
 - [IR Executor](design/ir-executor.en.md)
 - [VM embedding](design/vm-embedding.en.md)
 - [Standard I/O: execution, control, and observation (design)](design/standard-io.en.md)
+- [Bounded UTF-8 line input](design/line-input.en.md)
 - [Owned routes and build / release](design/owned-routes.en.md)
 - [Lean verification](design/lean-verification.en.md)
 - [Output routes and targets](design/targets.en.md)
