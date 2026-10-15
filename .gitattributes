@@ -1,3 +1,6 @@
+# 生成用文字列に他言語のコードを含むRustも正しく分類します。
+*.rs linguist-language=Rust
+
 tests/fixtures/** text eol=lf
 tests/fixtures/dynamic-arrays/c.c -linguist-detectable
 tests/fixtures/dynamic-arrays/*.ll -linguist-detectable
