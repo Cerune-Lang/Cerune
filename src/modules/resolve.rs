@@ -473,7 +473,8 @@ impl Resolver<'_> {
             } => {
                 if !matches!(
                     name.as_str(),
-                    "byte_len"
+                    "$read_line"
+                        | "byte_len"
                         | "array_len"
                         | "concat"
                         | "array_copy"

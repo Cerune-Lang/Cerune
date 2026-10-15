@@ -52,6 +52,10 @@ pub fn render_compact_with_sources(error: &VmError, sources: &SourceMap, span: S
 
 fn render_message(error: &VmError) -> String {
     match error.kind() {
+        VmErrorKind::Input(failure) => failure.to_string(),
+        VmErrorKind::InputOriginMissing => {
+            "invalid bytecode: input operation lacks source origin".into()
+        }
         VmErrorKind::Output(failure) => failure.to_string(),
         VmErrorKind::ArrayRangeOutOfBounds => "array range is out of bounds".into(),
         VmErrorKind::ArrayLengthOutOfRange => "array length is out of range".into(),

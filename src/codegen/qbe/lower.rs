@@ -673,6 +673,9 @@ impl Lowerer<'_> {
                     operand: Operand::Temp(dest),
                 }
             }
+            cerune_ir::ExprKind::ReadLine { .. } => {
+                unreachable!("line input rejected before generated lowering")
+            }
             cerune_ir::ExprKind::StringByteLength { value } => {
                 let value = self.lower_expr(value);
                 let Value::Scalar {

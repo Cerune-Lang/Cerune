@@ -17,6 +17,12 @@ use lower::lower;
 use crate::{diagnostic::Diagnostic, ir as cerune_ir};
 
 pub fn emit_wat(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
+    if let Some(span) = program.first_input_span() {
+        return Err(Diagnostic::new(
+            "line input is not yet supported by this generated route",
+            span,
+        ));
+    }
     let module = lower(program);
 
     Ok(emit(&module))

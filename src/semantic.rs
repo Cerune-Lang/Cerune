@@ -1929,6 +1929,26 @@ fn check_call(
         }
         return Ok(ReturnType::Value(Type::DynamicArray { element }));
     }
+    if name == "$read_line" {
+        if arguments.len() != 1 {
+            return Err(Diagnostic::new(
+                "input operation expects one i64 limit",
+                name_span,
+            ));
+        }
+        let ty = model.type_of_expr_expected(
+            &arguments[0],
+            bindings,
+            Some(Type::Integer(IntegerType::I64)),
+        )?;
+        if ty != Type::Integer(IntegerType::I64) {
+            return Err(Diagnostic::new(
+                "input limit must be i64",
+                arguments[0].span,
+            ));
+        }
+        return Ok(ReturnType::Value(Type::String));
+    }
     if name == "concat" {
         if arguments.len() != 2 {
             return Err(Diagnostic::new(

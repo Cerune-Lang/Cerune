@@ -555,6 +555,7 @@ impl<'a> Builder<'a> {
                 ownership: self.ownership(*function_id, o)?,
             },
             E::ArrayLength { value } => Operation::ArrayLength(self.expr(value)?),
+            E::ReadLine { max_bytes } => Operation::ReadLine(self.expr(max_bytes)?),
             E::StringByteLength { value } => Operation::StringByteLength(self.expr(value)?),
             E::StringConcat { left, right } => {
                 let left = self.expr(left)?;

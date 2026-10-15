@@ -9,7 +9,10 @@ pub(super) fn lower(program: &mut Program) {
         visit_body(
             &mut f.body,
             &mut |e| {
-                needed |= matches!(e.kind, ExprKind::StringConcat { .. });
+                needed |= matches!(
+                    e.kind,
+                    ExprKind::StringConcat { .. } | ExprKind::ReadLine { .. }
+                );
             },
             &mut |_| {},
         );
@@ -17,7 +20,10 @@ pub(super) fn lower(program: &mut Program) {
     visit_body(
         &mut program.statements,
         &mut |e| {
-            needed |= matches!(e.kind, ExprKind::StringConcat { .. });
+            needed |= matches!(
+                e.kind,
+                ExprKind::StringConcat { .. } | ExprKind::ReadLine { .. }
+            );
         },
         &mut |_| {},
     );
@@ -636,6 +642,7 @@ impl Lowerer {
             value.kind,
             ExprKind::Call { .. }
                 | ExprKind::StringConcat { .. }
+                | ExprKind::ReadLine { .. }
                 | ExprKind::Array(_)
                 | ExprKind::Construct { base: None, .. }
         );
@@ -662,6 +669,7 @@ impl Lowerer {
         };
         match &mut value.kind {
             ExprKind::ArrayLength { value }
+            | ExprKind::ReadLine { max_bytes: value }
             | ExprKind::StringByteLength { value }
             | ExprKind::ConvertNumeric { value, .. }
             | ExprKind::ConvertInteger { value, .. }

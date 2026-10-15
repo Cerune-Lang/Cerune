@@ -809,6 +809,9 @@ impl LoweringContext<'_> {
                 instructions.push(Instruction::StringConcat.at(expr));
                 Value::Scalar(Type::String)
             }
+            cerune_ir::ExprKind::ReadLine { .. } => {
+                unreachable!("line input rejected before generated lowering")
+            }
             cerune_ir::ExprKind::StringByteLength { value } => {
                 self.lower_expr(value, instructions);
                 instructions.push(Instruction::I64Load { offset: 0 });

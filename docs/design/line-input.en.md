@@ -6,9 +6,9 @@ This specifies line input for [standard I/O](standard-io.en.md). The initial lan
 
 ## Implementation scope
 
-The shared Rust input connection and [contract tests](../../tests/line_input.rs) are implemented. **Language syntax, HIR/MIR/SSA/VM input operations, generated routes, and actual stdin connections are not implemented.** The route comparison table below defines completion criteria.
+The [virtual std:io module](standard-modules.en.md) and common IR input operation are implemented. HIR/MIR/SSA/VM accept explicit input connections through Rust run_with_io APIs. **Generated routes and CLI stdin bindings remain unimplemented.** Unconfigured input stops with a diagnostic rather than EOF.
 
-Existing enums can represent a string-bearing line or EOF. A blank line contains LF or CRLF. No generic Result type is required. Public function/type names and built-in versus standard-module distribution will be finalized with frontend integration. The Rust API below is an implementation component, not the public Cerune language API.
+Existing enums can represent a string-bearing line or EOF. A blank line contains LF or CRLF. No generic Result type is required. The public API is `import "std:io" as io;` and `io::read_line(max_bytes)`, returning `io::ReadLine`. The Rust connection API below is an execution component.
 
 ## Bytes and termination
 
@@ -44,7 +44,7 @@ Framing precedes UTF-8 validation: an oversized invalid line reports limit-excee
 
 Transfer the buffer rather than allocating another full-sized copy. Logical bytes differ from physical capacity and allocator metadata. The completed string retains the reserved capacity, so this budget does not guarantee a physical memory limit. A large requested limit can exhaust the budget even for a short actual line. Unknown EOF still requires reservation; known EOF does not.
 
-The Rust component's read_line checks available_bytes supplied by its caller as the logical budget available for this operation. It does not track other live strings. Executor integration must use StringHeap's remaining budget, avoid intervening allocations between reservation and ownership registration, and charge the returned string for its lifetime. That integration is not implemented yet.
+The Rust component's read_line checks the caller-supplied available_bytes budget. The four executors use StringHeap's remaining budget, reserving the full limit and ownership metadata before reading. Success transfers the original buffer and charges its length; EOF/failure releases the reservation. Exclusive heap borrowing prevents intervening string allocations. Existing retain/release operations manage copied values and final release.
 
 Failures have distinct codes. Budget exhaustion is not reported as an OS read failure.
 
@@ -97,7 +97,7 @@ After integration, give each route independent identical input and responses. Do
 
 | Route | Comparison | Current state |
 | --- | --- | --- |
-| HIR, MIR, SSA, VM | Line/EOF, prior output, failure reason/origin, consumption, ownership/release | Not connected |
+| HIR, MIR, SSA, VM | Line/EOF, prior output, failure reason/origin, consumption, ownership/release | Implemented and compared through Rust APIs |
 | C, LLVM, QBE, WAT | Same input, requests/responses, prior output/diagnostics, no later execution | Not implemented |
 | LIR, ASM, native Object (ordinary/SSA) | Input origin, explicit target, same failures and prior output | Not implemented |
 | CLI / actual OS | Print then flush the prompt before input; failed flush means zero reads | Not implemented |

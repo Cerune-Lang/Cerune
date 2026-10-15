@@ -91,8 +91,7 @@ pub enum RunError {
 }
 
 pub fn compile(source: &str) -> Result<Program, Diagnostic> {
-    let tokens = lexer::lex(source)?;
-    let program = parser::parse(tokens)?;
+    let program = modules::parse_inline(source)?;
 
     semantic::check(&program)?;
 
@@ -100,8 +99,7 @@ pub fn compile(source: &str) -> Result<Program, Diagnostic> {
 }
 
 pub fn compile_to_ir(source: &str) -> Result<ir::Program, Diagnostic> {
-    let tokens = lexer::lex(source)?;
-    let program = parser::parse(tokens)?;
+    let program = modules::parse_inline(source)?;
 
     ir::builder::build(&program)
 }
@@ -266,6 +264,15 @@ pub fn run_mir(source: &str) -> Result<String, MirRunError> {
     let hir = compile_to_ir(source).map_err(MirRunError::Compilation)?;
     let mir = mir::lower(&hir).map_err(|e| MirRunError::Compilation(e.diagnostic()))?;
     mir_executor::run(&mir).map_err(MirRunError::Execution)
+}
+
+pub fn run_bytecode_with_io<R: std::io::Read, W: std::io::Write>(
+    bytecode: &bytecode::BytecodeProgram,
+    input: &mut runtime::input::Input<R>,
+    output: &mut runtime::output::Output<W>,
+) -> Result<(), ExecutionError> {
+    vm::run_with_io(bytecode, input, output)
+        .map_err(|vm_error| ExecutionError::from_vm_error(bytecode, vm_error))
 }
 
 #[cfg(test)]

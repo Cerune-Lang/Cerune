@@ -77,32 +77,46 @@ impl StringHeap {
         if size == 0 {
             return Ok(String::new().into());
         }
-        let live = self
-            .live
-            .checked_add(size as u64)
-            .filter(|n| *n <= self.limit)
-            .ok_or(HeapError::AllocationLimitExceeded)?;
-        #[cfg(test)]
-        if std::mem::take(&mut self.fail_next_allocation) {
-            return Err(HeapError::AllocationFailed);
-        }
+        let reservation = self.reserve(size)?;
         let mut bytes = String::new();
         bytes
             .try_reserve_exact(size)
             .map_err(|_| HeapError::AllocationFailed)?;
+        bytes.push_str(&left);
+        bytes.push_str(&right);
+        Ok(reservation.finish(bytes))
+    }
+    pub(crate) fn available(&self) -> u64 {
+        self.limit - self.live
+    }
+    /// 本文を読む前に、予算・所有者・登録先をすべて準備します。
+    pub(crate) fn reserve(&mut self, size: usize) -> HeapResult<Reservation<'_>> {
+        let size = allocation_size(size, 0)? as u64;
+        if size > self.available() {
+            return Err(HeapError::AllocationLimitExceeded);
+        }
+        #[cfg(test)]
+        if std::mem::take(&mut self.fail_next_allocation) {
+            return Err(HeapError::AllocationFailed);
+        }
+        let next = self
+            .next
+            .checked_add(1)
+            .ok_or(HeapError::AllocationFailed)?;
         self.allocations
             .try_reserve(1)
             .map_err(|_| HeapError::AllocationFailed)?;
-        bytes.push_str(&left);
-        bytes.push_str(&right);
-        let bytes = Rc::new(RefCell::new(bytes));
+        let bytes = Rc::new(RefCell::new(String::new()));
         let id = self.next;
-        self.next += 1;
+        self.next = next;
         self.allocations.insert(id, (bytes.clone(), 1));
-        self.live = live;
-        Ok(StringValue {
+        self.live += size;
+        Ok(Reservation {
+            heap: self,
+            id,
+            size,
             bytes,
-            allocation: Some(id),
+            committed: false,
         })
     }
     pub(crate) fn manage(&mut self, value: &StringValue, retain: bool) -> HeapResult<()> {
@@ -131,6 +145,38 @@ impl StringHeap {
             *bytes.borrow_mut() = String::new();
         }
         Ok(())
+    }
+}
+/// 可変借用で予約から登録までを排他的にし、途中失敗では必ず予約を戻します。
+pub(crate) struct Reservation<'h> {
+    heap: &'h mut StringHeap,
+    id: u64,
+    size: u64,
+    bytes: Rc<RefCell<String>>,
+    committed: bool,
+}
+impl Reservation<'_> {
+    /// 予約済みの所有者へ領域を移します。追加の本文確保や登録用確保を行いません。
+    pub(crate) fn finish(mut self, text: String) -> StringValue {
+        assert!(
+            text.len() as u64 <= self.size,
+            "completed string exceeds its reservation"
+        );
+        self.heap.live -= self.size - text.len() as u64;
+        *self.bytes.borrow_mut() = text;
+        self.committed = true;
+        StringValue {
+            bytes: self.bytes.clone(),
+            allocation: Some(self.id),
+        }
+    }
+}
+impl Drop for Reservation<'_> {
+    fn drop(&mut self) {
+        if !self.committed {
+            self.heap.allocations.remove(&self.id);
+            self.heap.live -= self.size;
+        }
     }
 }
 impl Drop for StringHeap {
@@ -280,6 +326,131 @@ mod tests {
             heap.manage(value, false).unwrap();
         }
         heap.manage(&live, false).unwrap();
+        heap.assert_empty();
+    }
+}
+
+#[cfg(test)]
+mod input_tests {
+    use super::*;
+    use crate::{
+        ir::NodeId,
+        runtime::input::{Code, Input, Origin},
+        source::Span,
+    };
+    use std::io::{self, Read};
+    fn origin() -> Origin {
+        Origin {
+            node_id: NodeId(4),
+            span: Span::new(8, 20),
+        }
+    }
+    fn code(error: HeapError) -> Code {
+        match error {
+            HeapError::AllocationLimitExceeded => Code::BudgetExceeded,
+            _ => Code::AllocationFailed,
+        }
+    }
+    fn read<R: Read>(
+        input: &mut Input<R>,
+        heap: &mut StringHeap,
+        limit: i64,
+    ) -> Result<Option<StringValue>, crate::runtime::input::Failure> {
+        let available = heap.available();
+        input
+            .read_line_prepared(limit, available, origin(), |size| {
+                heap.reserve(size).map_err(code)
+            })
+            .map(|line| line.map(|(text, reservation)| reservation.finish(text)))
+    }
+    #[test]
+    fn input_adopts_storage_and_charges_only_live_bytes_until_last_release() {
+        let mut heap = StringHeap::new(20);
+        let mut input = Input::new(&b"abc\nlast"[..]);
+        let available = heap.available();
+        let (text, reservation) = input
+            .read_line_prepared(10, available, origin(), |size| {
+                heap.reserve(size).map_err(code)
+            })
+            .unwrap()
+            .unwrap();
+        let pointer = text.as_ptr();
+        let first = reservation.finish(text);
+        assert_eq!(first.bytes.borrow().as_ptr(), pointer);
+        assert_eq!(heap.live, 4);
+        let second = read(&mut input, &mut heap, 10).unwrap().unwrap();
+        assert_eq!(second.text(), "last");
+        assert_eq!(heap.live, 8);
+        assert!(read(&mut input, &mut heap, 10).unwrap().is_none());
+        heap.manage(&first, true).unwrap();
+        heap.manage(&first, false).unwrap();
+        assert_eq!(first.text(), "abc\n");
+        heap.manage(&first, false).unwrap();
+        assert_eq!(heap.live, 4);
+        heap.manage(&second, false).unwrap();
+        heap.assert_empty();
+    }
+    #[test]
+    fn failed_or_empty_input_rolls_back_reservation_without_releasing_existing_values() {
+        for bytes in [&b""[..], &b"\xff\n"[..], &b"longer than limit"[..]] {
+            let mut heap = StringHeap::new(10);
+            let a = "a".to_owned().into();
+            let prior = heap.concat(&a, &a).unwrap();
+            let mut input = Input::new(bytes);
+            let result = read(&mut input, &mut heap, 4);
+            assert!(result.is_err() || result.unwrap().is_none());
+            assert_eq!(heap.live, 2);
+            assert_eq!(heap.allocations.len(), 1);
+            assert_eq!(prior.text(), "aa");
+            heap.manage(&prior, false).unwrap();
+            heap.assert_empty();
+        }
+    }
+    struct NeverRead;
+    impl Read for NeverRead {
+        fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+            panic!("must not read")
+        }
+    }
+    #[test]
+    fn budget_and_metadata_failure_stop_before_consumption() {
+        let mut heap = StringHeap::new(4);
+        let a = "a".to_owned().into();
+        let prior = heap.concat(&a, &a).unwrap();
+        for allocation in [false, true] {
+            let mut input = Input::with_trace_limit(NeverRead, 2);
+            heap.fail_next_allocation = allocation;
+            let failure = read(&mut input, &mut heap, if allocation { 2 } else { 3 }).unwrap_err();
+            assert_eq!(
+                failure.code,
+                if allocation {
+                    Code::AllocationFailed
+                } else {
+                    Code::BudgetExceeded
+                }
+            );
+            assert_eq!(failure.consumed, 0);
+            assert_eq!(input.events()[0].read_calls, 0);
+            assert_eq!(heap.live, 2);
+            assert_eq!(input.failure(), Some(failure));
+        }
+        heap.manage(&prior, false).unwrap();
+        heap.assert_empty();
+    }
+    #[test]
+    fn reservation_drop_restores_budget_and_identity_is_not_reused() {
+        let mut heap = StringHeap::new(4);
+        let first_id;
+        {
+            let reservation = heap.reserve(4).unwrap();
+            first_id = reservation.id;
+            assert_eq!(reservation.heap.live, 4);
+        }
+        heap.assert_empty();
+        let value = heap.reserve(4).unwrap().finish("x".into());
+        assert_ne!(value.allocation, Some(first_id));
+        assert_eq!(heap.live, 1);
+        heap.manage(&value, false).unwrap();
         heap.assert_empty();
     }
 }

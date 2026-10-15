@@ -34,6 +34,8 @@ Aliases belong only to their declaring file. A `pub enum` exposes all variants a
 
 ## Loading and execution
 
+Resolve `std:` identifiers first as [virtual standard modules](standard-modules.en.md). Only `std:io` is recognized; unknown identifiers fail without filesystem fallback.
+
 Relative paths resolve against the importing file's directory, with no fallback to the process working directory or environment search paths. Import paths use forward slashes and end in `.ceru`. Parent-directory `..` references are allowed; absolute paths, drive prefixes, backslashes, and control characters are rejected. The entry CLI argument accepts ordinary OS paths.
 
 Canonical physical paths identify duplicate files and cycles. Imports through symbolic links resolve relative to the target directory. Hard links with distinct canonical paths are separate modules. File IDs follow entry-first, depth-first traversal in import declaration order. Cycles are diagnosed and import nesting is limited to 128 levels. Files are read as UTF-8 without Unicode or CR/LF normalization.
@@ -46,7 +48,7 @@ Unused definitions are still checked and generated. Modules do not bypass existi
 
 `modules::load(entry)` parses files and resolves imports and visibility into a common AST with distinct names. Existing semantic analysis, common IR, and lowering remain shared. Backends do not reinterpret modules. Internal names are `module_<file ID>_<definition name>`, except entry function `main`. [File-aware spans](source-files.en.md) retain original spelling and byte ranges.
 
-Existing string-based APIs such as `compile(&str)` perform no file I/O and request the file API for import/pub declarations. CLI inputs without import/pub preserve existing artifacts and diagnostics. Module inputs assign numeric file IDs, including the entry, and failure records include `file=N`.
+`compile(&str)` and `compile_to_ir(&str)` resolve in-memory source and virtual standard imports without file I/O. File imports require `modules::load`; `modules::from_source` also returns the SourceMap including standard sources. CLI inputs without import/pub preserve existing artifacts and diagnostics. Module inputs assign numeric file IDs, including the entry, and failure records include `file=N`.
 
 ```sh
 cerune emit-sources examples/modules/main.ceru -o sources.json

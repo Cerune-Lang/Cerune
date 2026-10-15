@@ -3,7 +3,7 @@ use crate::{
     ast::*,
     diagnostic::{Diagnostic, render},
     lexer, parser,
-    source::{SourceId, SourceMap, Span},
+    source::{SourceId, SourceKind, SourceMap, Span},
 };
 use std::{
     collections::HashMap,
@@ -60,10 +60,20 @@ impl Compilation {
             .files()
             .map(|file| {
                 format!(
-                    "{{\"id\":{},\"name\":{},\"text\":{}}}",
+                    "{{\"id\":{},\"name\":{},\"text\":{}{}}}",
                     if self.modular { file.id().index() } else { 0 },
                     json(file.name()),
-                    json(file.text())
+                    json(file.text()),
+                    match file.kind() {
+                        SourceKind::User => String::new(),
+                        SourceKind::Standard {
+                            identifier,
+                            version,
+                        } => format!(
+                            ",\"kind\":\"standard\",\"module\":{},\"version\":{version}",
+                            json(identifier)
+                        ),
+                    }
                 )
             })
             .collect::<Vec<_>>()
@@ -143,7 +153,7 @@ pub fn load(entry: &Path) -> Result<Compilation, LoadError> {
             complete: false,
         }];
         let mut paths = HashMap::from([(units[0].path.clone(), 0)]);
-        visit(0, &mut units, &mut paths, &mut sources, 0)?;
+        visit(0, &mut units, &mut paths, &mut sources, 0, true)?;
         Ok((resolve::resolve(&units)?, true))
     })();
     match result {
@@ -167,6 +177,7 @@ fn visit(
     paths: &mut HashMap<PathBuf, usize>,
     sources: &mut SourceMap,
     depth: usize,
+    allow_files: bool,
 ) -> Result<(), Diagnostic> {
     for import in units[index].module.imports.clone() {
         if depth >= 128 {
@@ -189,6 +200,53 @@ fn visit(
         {
             return Err(Diagnostic::new(
                 format!("import alias `{}` is reserved", import.alias),
+                import.span,
+            ));
+        }
+        if import.path.starts_with("std:") {
+            if import.path != "std:io" {
+                return Err(Diagnostic::new(
+                    format!("unknown standard module `{}`", import.path),
+                    import.span,
+                ));
+            }
+            let target = if let Some(target) = units.iter().position(|u| {
+                matches!(
+                    sources.get(u.id).unwrap().kind(),
+                    SourceKind::Standard {
+                        identifier: "std:io",
+                        ..
+                    }
+                )
+            }) {
+                target
+            } else {
+                let id = sources.add_standard("std:io", 1, include_str!("standard/io.ceru"));
+                let mut tokens = lexer::lex_source(sources.get(id).unwrap())?;
+                for token in &mut tokens {
+                    if let lexer::TokenKind::Identifier(name) = &mut token.kind
+                        && name == "__cerune_read_line_utf8"
+                    {
+                        *name = "$read_line".into();
+                    }
+                }
+                let module = parser::parse_module(tokens)?;
+                let target = units.len();
+                units.push(Unit {
+                    id,
+                    path: PathBuf::new(),
+                    module,
+                    imports: HashMap::new(),
+                    complete: true,
+                });
+                target
+            };
+            units[index].imports.insert(import.alias, target);
+            continue;
+        }
+        if !allow_files {
+            return Err(Diagnostic::new(
+                "relative imports require modules::load with an entry file",
                 import.span,
             ));
         }
@@ -244,7 +302,7 @@ fn visit(
                 imports: HashMap::new(),
                 complete: false,
             });
-            visit(target, units, paths, sources, depth + 1)?;
+            visit(target, units, paths, sources, depth + 1, allow_files)?;
             target
         };
         units[index].imports.insert(import.alias, target);
@@ -266,4 +324,61 @@ fn json(text: &str) -> String {
     }
     result.push('"');
     result
+}
+
+/// メモリ中の入口と同梱標準モジュールだけを解決し、ファイルI/Oを行いません。
+pub fn from_source(text: &str) -> Result<Compilation, LoadError> {
+    let mut sources = SourceMap::new();
+    let id = sources.add("<memory>", text);
+    let result = (|| {
+        let mut tokens = lexer::lex(text)?;
+        let modular = tokens
+            .iter()
+            .any(|t| matches!(t.kind, lexer::TokenKind::Import | lexer::TokenKind::Pub));
+        if modular {
+            for token in &mut tokens {
+                token.span = token.span.with_source(id);
+            }
+        }
+        let module = parser::parse_module(tokens)?;
+        if !modular {
+            return Ok((module.program, false));
+        }
+        let mut units = vec![Unit {
+            id,
+            path: PathBuf::new(),
+            module,
+            imports: HashMap::new(),
+            complete: false,
+        }];
+        visit(0, &mut units, &mut HashMap::new(), &mut sources, 0, false)?;
+        Ok((resolve::resolve(&units)?, true))
+    })();
+    match result {
+        Ok((program, modular)) => Ok(Compilation {
+            sources,
+            program,
+            entry: id,
+            modular,
+        }),
+        Err(diagnostic) => Err(LoadError {
+            diagnostic,
+            sources,
+            entry: Some(id),
+        }),
+    }
+}
+
+pub(crate) fn parse_inline(text: &str) -> Result<Program, Diagnostic> {
+    let tokens = lexer::lex(text)?;
+    if tokens
+        .iter()
+        .any(|t| matches!(t.kind, lexer::TokenKind::Import))
+    {
+        from_source(text)
+            .map(|c| c.program)
+            .map_err(|e| e.diagnostic)
+    } else {
+        parser::parse(tokens)
+    }
 }

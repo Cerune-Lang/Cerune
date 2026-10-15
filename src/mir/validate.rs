@@ -283,6 +283,10 @@ fn operation(p: &Program, f: &Function, op: &Operation, dst: &T, o: Origin) -> R
             same(ty(*v)?, &T::String)?;
             same(dst, &I64)
         }
+        Operation::ReadLine(value) => {
+            same(ty(*value)?, &I64)?;
+            same(dst, &T::String)
+        }
         Operation::StringConcat { left, right } => {
             same(ty(*left)?, &T::String)?;
             same(ty(*right)?, &T::String)?;
@@ -402,6 +406,7 @@ pub(super) fn operation_reads(op: &Operation) -> Vec<LocalId> {
         Operation::Literal(_) => vec![],
         Operation::Copy(v)
         | Operation::ArrayLength(v)
+        | Operation::ReadLine(v)
         | Operation::StringByteLength(v)
         | Operation::ArrayReleaseOwner(v) => vec![*v],
         Operation::Unary { value, .. }

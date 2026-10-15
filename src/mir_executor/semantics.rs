@@ -1,5 +1,6 @@
 //! MIRとSSAで共有する個々の演算・所有操作です。CFGの実行や値の参照方式は含みません。
 use super::{Fault, Result};
+use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Sink};
 use crate::{
     ir,
@@ -16,6 +17,7 @@ use crate::{
 
 pub(crate) struct State<'a> {
     pub output: &'a mut dyn Sink,
+    pub input: Option<&'a mut dyn Source>,
     pub strings: StringHeap,
     pub arrays: ArrayHeap<Value>,
 }
@@ -23,6 +25,7 @@ impl<'a> State<'a> {
     pub fn new(string_limit: u64, array_limit: u64, output: &'a mut dyn Sink) -> Self {
         Self {
             output,
+            input: None,
             strings: StringHeap::new(string_limit),
             arrays: ArrayHeap::new(array_limit),
         }
@@ -59,7 +62,7 @@ pub(crate) fn instruction<'a, R: Copy>(
     match i {
         I::Assign { destination, value } => {
             let ty = frame.ty(*destination)?.clone();
-            let v = operation(executor, value, &ty, frame)?;
+            let v = operation(executor, value, &ty, frame, origin)?;
             v.check(&ty)?;
             frame.set(*destination, v)?;
         }
@@ -166,8 +169,34 @@ fn operation<'a, R: Copy>(
     op: &O<R>,
     ty: &ir::Type,
     frame: &impl Frame<R>,
+    origin: mir::Origin,
 ) -> Result<Value> {
     Ok(match op {
+        O::ReadLine(value) => {
+            let limit = frame.get(*value)?.integer(IntegerType::I64)? as i64;
+            let origin = origin
+                .source()
+                .ok_or_else(|| Fault::invalid("input operation lacks source origin"))?;
+            let origin = input::Origin {
+                node_id: origin.node_id,
+                span: origin.span,
+            };
+            let state = executor.state();
+            let mut missing = input::unconfigured();
+            let source = state.input.as_deref_mut().unwrap_or(&mut missing);
+            Value::String(
+                source
+                    .read_value(&mut state.strings, limit, origin)
+                    .map_err(|f| Fault {
+                        kind: super::ErrorKind::Input(Box::new(f)),
+                        origin: Some(mir::SourceOrigin {
+                            node_id: origin.node_id,
+                            span: origin.span,
+                        }),
+                        location: None,
+                    })?,
+            )
+        }
         O::Literal(v) => match v {
             mir::Literal::Boolean(v) => Value::Bool(*v),
             mir::Literal::String(v) => Value::String(v.clone().into()),

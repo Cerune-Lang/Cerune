@@ -118,15 +118,29 @@ impl SourceId {
     }
 }
 
+/// ソースの提供元です。名前やパス文字列から推測しません。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SourceKind {
+    User,
+    Standard {
+        identifier: &'static str,
+        version: u32,
+    },
+}
+
 /// 読み込んだままの本文と表示名。パス解決やファイルI/Oは行いません。
 #[derive(Debug, Clone)]
 pub struct SourceFile {
+    kind: SourceKind,
     id: SourceId,
     name: String,
     text: String,
 }
 
 impl SourceFile {
+    pub fn kind(&self) -> SourceKind {
+        self.kind
+    }
     pub const fn id(&self) -> SourceId {
         self.id
     }
@@ -153,10 +167,25 @@ impl SourceMap {
     pub fn add(&mut self, name: impl Into<String>, text: impl Into<String>) -> SourceId {
         let id = SourceId(self.files.len() + 1);
         self.files.push(SourceFile {
+            kind: SourceKind::User,
             id,
             name: name.into(),
             text: text.into(),
         });
+        id
+    }
+
+    pub(crate) fn add_standard(
+        &mut self,
+        identifier: &'static str,
+        version: u32,
+        text: &str,
+    ) -> SourceId {
+        let id = self.add(identifier, text);
+        self.files[id.index() - 1].kind = SourceKind::Standard {
+            identifier,
+            version,
+        };
         id
     }
 

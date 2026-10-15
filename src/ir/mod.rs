@@ -1,4 +1,5 @@
 mod aggregates;
+mod input;
 mod ownership;
 pub(crate) mod string_usage;
 
@@ -284,6 +285,10 @@ pub enum ExprKind {
     ArrayReleaseOwner {
         value: Box<Expr>,
     },
+    /// 空文字列はEOFの内部表現です。公開enumへの変換は標準モジュールで観測できます。
+    ReadLine {
+        max_bytes: Box<Expr>,
+    },
     /// 左から右へ評価し、新しい不変のバイト列を確保・コピーします。
     StringConcat {
         left: Box<Expr>,
@@ -463,5 +468,11 @@ impl Program {
             &mut |_| {},
         );
         span.get()
+    }
+}
+
+impl Program {
+    pub(crate) fn first_input_span(&self) -> Option<Span> {
+        input::first_span(self)
     }
 }
