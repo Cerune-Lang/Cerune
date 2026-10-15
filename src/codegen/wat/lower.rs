@@ -57,6 +57,7 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
             .map(|_| program.array_heap_limit),
         string_heap_start: context.next_address,
         string_heap_limit: crate::codegen::support::string_heap_limit(program),
+        uses_input: program.first_input_span().is_some(),
         uses_write: uses_output,
         uses_flush: crate::codegen::support::first_flush_span(program).is_some(),
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
@@ -809,8 +810,10 @@ impl LoweringContext<'_> {
                 instructions.push(Instruction::StringConcat.at(expr));
                 Value::Scalar(Type::String)
             }
-            cerune_ir::ExprKind::ReadLine { .. } => {
-                unreachable!("line input rejected before generated lowering")
+            cerune_ir::ExprKind::ReadLine { max_bytes } => {
+                self.lower_expr(max_bytes, instructions);
+                instructions.push(Instruction::ReadLine.at(expr));
+                Value::Scalar(Type::String)
             }
             cerune_ir::ExprKind::StringByteLength { value } => {
                 self.lower_expr(value, instructions);

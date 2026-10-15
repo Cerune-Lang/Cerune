@@ -25,6 +25,7 @@
 - [CLI・生成C・LLVM・QBEの実stdin接続](design/stdin-connections.ja.md)
 - [仮想標準モジュールと出自](design/standard-modules.ja.md)
 - [上限付きUTF-8行入力](design/line-input.ja.md)
+- [WATの版付き入力host](design/wat-input-host.ja.md)
 - [実行・配布の責務](design/owned-routes.ja.md)
 - [意味の対応とプログラムの証明](design/lean-verification.ja.md)
 - [出力経路とターゲット](design/targets.ja.md)

@@ -16,6 +16,9 @@ pub fn emit(module: &Module) -> String {
     }
 
     writeln!(output, "(module").unwrap();
+    if module.uses_input {
+        output.push_str(super::input::IMPORT);
+    }
     if module.uses_write {
         output.push_str(super::output::IMPORT);
         for kind in super::output::float_kinds(module) {
@@ -59,6 +62,9 @@ pub fn emit(module: &Module) -> String {
     }
     if module.uses_write {
         super::output::support(module, &mut output);
+    }
+    if module.uses_input {
+        output.push_str(&super::input::support(module.string_heap_start));
     }
     for function in &module.functions {
         emit_function(function, module, &mut output);
@@ -165,6 +171,7 @@ fn emit_helper(instruction: &Instruction, origin: Origin, name: &str, output: &m
         Instruction::ArrayAllocate { .. }
         | Instruction::ArrayAddress
         | Instruction::ArrayRangeCheck => super::array::checked(instruction, origin, name, output),
+        Instruction::ReadLine => super::input::located(origin, name, output),
         Instruction::StringConcat => super::heap::concat(origin, name, output),
         Instruction::ConvertNumeric { conversion } => {
             super::conversion::emit_support(*conversion, origin, name, output)
@@ -300,6 +307,7 @@ fn emit_instruction(
             writeln!(output, "{prefix}call $cerune_array_release_owner").unwrap()
         }
         Instruction::ArrayFree => writeln!(output, "{prefix}call $cerune_array_free").unwrap(),
+        Instruction::ReadLine => unreachable!("input carries its source origin"),
         Instruction::StringConcat => unreachable!("concat carries its source origin"),
         Instruction::StringManage { retain } => {
             writeln!(

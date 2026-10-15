@@ -25,6 +25,7 @@ Each document links to its Japanese counterpart.
 - [Actual stdin in CLI and generated C/LLVM/QBE](design/stdin-connections.en.md)
 - [Virtual standard modules and origins](design/standard-modules.en.md)
 - [Bounded UTF-8 line input](design/line-input.en.md)
+- [Versioned WAT input hosts](design/wat-input-host.en.md)
 - [Owned routes and build / release](design/owned-routes.en.md)
 - [Lean verification](design/lean-verification.en.md)
 - [Output routes and targets](design/targets.en.md)
