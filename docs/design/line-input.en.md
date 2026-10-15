@@ -6,7 +6,7 @@ This specifies line input for [standard I/O](standard-io.en.md). The initial lan
 
 ## Implementation scope
 
-The [virtual std:io module](standard-modules.en.md) and common IR input operation are implemented. HIR/MIR/SSA/VM accept explicit input connections through Rust run_with_io APIs. [CLI and generated C/LLVM/QBE stdin bindings](stdin-connections.en.md) are also implemented. [Versioned WAT input hosts](wat-input-host.en.md) are also implemented. **Native input remains unimplemented.** Unconfigured input stops with a diagnostic rather than EOF.
+The [virtual std:io module](standard-modules.en.md) and common IR input operation are implemented. HIR/MIR/SSA/VM accept explicit input connections through Rust run_with_io APIs. [CLI and generated C/LLVM/QBE/Native stdin bindings](stdin-connections.en.md) are also implemented. [Versioned WAT input hosts](wat-input-host.en.md) are also implemented. Unconfigured input stops with a diagnostic rather than EOF.
 
 Existing enums can represent a string-bearing line or EOF. A blank line contains LF or CRLF. No generic Result type is required. The public API is `import "std:io" as io;` and `io::read_line(max_bytes)`, returning `io::ReadLine`. The Rust connection API below is an execution component.
 
@@ -101,7 +101,7 @@ After integration, give each route independent identical input and responses. Do
 | HIR, MIR, SSA, VM | Line/EOF, prior output, failure reason/origin, consumption, ownership/release | Implemented and compared through Rust APIs |
 | C / LLVM / QBE | Identical input, prior output/diagnostics, ownership, actual file/pipe, C/LLVM at -O0/-O2 | Implemented |
 | WAT | Same input, requests/responses, prior output/diagnostics, no later execution | Implemented and compared with versioned hosts |
-| LIR, ASM, native Object (ordinary/SSA) | Input origin, explicit target, same failures and prior output | Not implemented |
+| LIR, ASM, native Object (ordinary/SSA) | Input origin, explicit target, same failures and prior output | Implemented and compared on Windows/Linux |
 | CLI / actual OS | Print then flush the prompt before input; failed flush means zero reads | Windows/Linux pipe/file implemented; Windows console unsupported |
 
-Add a real interactive stdin example after route parity. Do not describe the existing scripted input_flow example as actual stdin support. Keep observation separate from supplying input through execution connections.
+A [real stdin example](../../examples/stdin/README.en.md) is available. Do not describe the existing scripted input_flow example as actual stdin support. Keep observation separate from supplying input through execution connections.

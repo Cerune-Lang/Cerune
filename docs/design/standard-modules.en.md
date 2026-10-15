@@ -29,9 +29,9 @@ Preserve the [line-input contract](line-input.en.md), including limits, consumpt
 
 ## Execution and checks
 
-Pass Input and Output explicitly to HIR/MIR/SSA `run_with_io` or VM `run_bytecode_with_io`. Existing capture APIs keep input unconfigured. [CLI and generated C/LLVM/QBE](stdin-connections.en.md) connect actual stdin. [Versioned WAT input hosts](wat-input-host.en.md) are also implemented. Native diagnoses programs containing input operations. Unused read_line functions are not eliminated, so importing std:io alone also prevents generation on unsupported routes.
+Pass Input and Output explicitly to HIR/MIR/SSA `run_with_io` or VM `run_bytecode_with_io`. Existing capture APIs keep input unconfigured. [CLI and generated C/LLVM/QBE/Native](stdin-connections.en.md) connect actual stdin. [Versioned WAT input hosts](wat-input-host.en.md) are also implemented. Native lowers input from ordinary/SSA MIR through LIR, ASM, and self-encoded Object. Unused functions are retained, so importing std:io alone includes input support in generated artifacts.
 
-The [Cerune line-input fixture](../../tests/fixtures/line_input.ceru) executes print → flush → read_line → match. [Differential tests](../../tests/standard_input.rs) supply independent identical inputs to four executors and check [expected output](../../tests/fixtures/line_input.stdout), operation order, failures, and ownership. CLI/C/LLVM/QBE also test actual input; keep it separate from ordinary examples until the remaining generated routes support input.
+The [Cerune line-input fixture](../../tests/fixtures/line_input.ceru) executes print → flush → read_line → match. [Differential tests](../../tests/standard_input.rs) supply independent identical inputs to four executors and check [expected output](../../tests/fixtures/line_input.stdout), operation order, failures, and ownership. A [real stdin example](../../examples/stdin/README.en.md) is also tested across all routes.
 
 ```sh
 cargo test --test standard_input

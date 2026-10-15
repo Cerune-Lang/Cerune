@@ -481,7 +481,7 @@ Re-exports, wildcards, imported variables, and mutable module state are unsuppor
 
 Explicitly import the bundled module with `import "std:io" as io;` and call `io::read_line(max_bytes)`. The result is the ordinary enum `io::ReadLine::Line { text: string }` / `io::ReadLine::End {}`. Preserve LF/CRLF and distinguish blank lines from EOF. Limits range from 1 to 2147483647 bytes including line endings. Read, UTF-8, limit, budget, and other errors diagnose and stop execution.
 
-Currently available through HIR/MIR/SSA/VM Rust input connection APIs. [CLI and generated C/LLVM/QBE stdin](../design/stdin-connections.en.md) are also available. [Versioned WAT input hosts](../design/wat-input-host.en.md) are also implemented. **Native input and Windows console support are not implemented yet.** Standard modules are not searched through files or environment variables; emit-sources exposes their text, types can be inspected in IR, and source origins remain observable. See [resolution and execution examples](../design/standard-modules.en.md) and the [consumption/failure contract](../design/line-input.en.md).
+Currently available through HIR/MIR/SSA/VM Rust input connection APIs. [CLI and generated C/LLVM/QBE/Native stdin](../design/stdin-connections.en.md) are also available. [Versioned WAT input hosts](../design/wat-input-host.en.md) are also implemented. **Windows console input remains unsupported.** Standard modules are not searched through files or environment variables; emit-sources exposes their text, types can be inspected in IR, and source origins remain observable. See [resolution and execution examples](../design/standard-modules.en.md) and the [consumption/failure contract](../design/line-input.en.md).
 
 ## Functions and entrypoint
 

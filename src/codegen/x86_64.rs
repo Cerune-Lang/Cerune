@@ -4,6 +4,7 @@ mod conversion;
 mod emit;
 mod failure;
 mod heap;
+mod input;
 pub mod ir;
 pub mod lir;
 mod lower;

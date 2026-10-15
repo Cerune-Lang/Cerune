@@ -1,0 +1,19 @@
+// 入力を待つ前にpromptを送り、行とEOFを区別します。
+import "std:io" as io;
+
+mut done: bool = false;
+while !done {
+    print("line>");
+    flush();
+    result: io::ReadLine = io::read_line(64);
+    match result {
+        io::ReadLine::Line { text: text } => {
+            print([text]);
+            print(byte_len(text));
+        },
+        io::ReadLine::End {} => {
+            print("end");
+            done = true;
+        },
+    }
+}
