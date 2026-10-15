@@ -192,6 +192,7 @@ fn operation<R: Copy + std::fmt::Display>(op: &Operation<R>) -> String {
             ownership,
         } => call(*function, arguments, *ownership),
         Operation::ArrayLength(v) => format!("array.length {}", value(*v)),
+        Operation::ReadLine(v) => format!("input.read_line.utf8 {}", value(*v)),
         Operation::StringByteLength(v) => format!("string.byte_length {}", value(*v)),
         Operation::StringConcat { left, right } => {
             format!("string.concat {}, {}", value(*left), value(*right))

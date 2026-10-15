@@ -37,6 +37,8 @@ pub fn reading(amount: u64) -> Reading {
 
 ## 読み込みと実行
 
+`std:`で始まる識別子は[仮想標準モジュール](standard-modules.ja.md)として先に解決します。現在は`std:io`だけを認識し、未知の識別子は診断します。ファイル探索へは移りません。
+
 相対パスの基準はimportを書いたファイルのディレクトリです。CLIを起動したディレクトリや環境変数の検索パスから補いません。パスは`/`区切りの相対`.ceru`に限定し、`..`による親ディレクトリへの参照は可能です。絶対パス・ドライブ指定・バックスラッシュ・制御文字は診断します。入口ファイルのCLI引数にはOSの通常のパスを使えます。
 
 ファイルの重複・循環判定にはOSが解決した実体のパスを使います。シンボリックリンクから読み込む場合、相対importも実体側のディレクトリを基準にします。別パスのハードリンクは別モジュールとして扱います。入口、続いてimportの記述順の深さ優先でファイルIDを割り当てます。循環依存は診断し、読み込みの入れ子は128段までです。ディスク上のファイルはUTF-8として読み、本文のUnicode正規化やCR/LF変換は行いません。
@@ -49,7 +51,7 @@ pub fn reading(amount: u64) -> Reading {
 
 `modules::load(entry)`がファイルを解析してimport・公開範囲を解決し、名前が衝突しない共通ASTを作ります。その後の意味解析・共通IR・各loweringを共有します。生成先ごとにモジュールの意味を解釈し直しません。内部名は`module_<file ID>_<定義名>`となり、入口の関数`main`だけは入口として残します。元の表記とバイト範囲は[ファイル付きSpan](source-files.ja.md)から追えます。
 
-従来の`compile(&str)`等はファイルI/Oを行わず、importやpub宣言にファイルAPIの利用を求めます。import/pubを使わないCLI入力の成果物・診断は従来通りです。モジュール入力では入口を含めて数値のファイルIDを持ち、実行時停止には`file=N`を記録します。
+`compile(&str)`・`compile_to_ir(&str)`はファイルI/Oを行わず、メモリ中の入口と仮想標準モジュールのimportを解決します。ファイルimportには`modules::load`が必要です。`modules::from_source`は標準ソースを含むSourceMapも返します。import/pubを使わないCLI入力の成果物・診断は従来通りです。モジュール入力では入口を含めて数値のファイルIDを持ち、実行時停止には`file=N`を記録します。
 
 ```sh
 cerune emit-sources examples/modules/main.ceru -o sources.json

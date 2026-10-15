@@ -474,6 +474,11 @@ fn emit_expr(expr: &Expr, program: &Program, output: &mut String) {
             emit_expr(right, program, output);
             output.push(')');
         }
+        ExprKind::ReadLine { max_bytes } => {
+            output.push_str("input.read_line.utf8(");
+            emit_expr(max_bytes, program, output);
+            output.push(')');
+        }
         ExprKind::StringByteLength { value } => {
             output.push_str("byte_len.string(");
             emit_expr(value, program, output);

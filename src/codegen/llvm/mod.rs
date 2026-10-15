@@ -94,6 +94,12 @@ pub fn emit_llvm_with_options(
             span,
         ));
     }
+    if let Some(span) = program.first_input_span() {
+        return Err(Diagnostic::new(
+            "line input is not yet supported by this generated route",
+            span,
+        ));
+    }
     let mut module = lower(program);
     if target.is_none()
         && let Some(span) = failure::first_failure_span(&module)

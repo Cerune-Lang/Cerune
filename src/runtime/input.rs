@@ -1,4 +1,4 @@
-//! 上限付き行入力の共通接続です。言語命令・実stdinへの接続は別途行います。
+//! 上限付き行入力の共通接続です。言語命令との接続を持ち、実stdinへの接続は別途行います。
 //! 読取り結果と、最初の異常で停止する方針を分離します。
 use std::io::{self, Read};
 
@@ -167,14 +167,31 @@ impl<R: Read> Input<R> {
         available_bytes: u64,
         origin: Origin,
     ) -> Result<Line, Failure> {
+        self.read_line_prepared(max_bytes, available_bytes, origin, |_| Ok(()))
+            .map(|result| match result {
+                Some((text, ())) => Line::Text(text),
+                None => Line::End,
+            })
+    }
+
+    /// 実行用の所有準備です。観測callbackではありません。
+    /// EOF確定後は準備せず、失敗・空EOFでは準備した値を破棄します。
+    /// 成功時の所有確定は、準備済みの値を使って追加確保なしで行います。
+    pub(crate) fn read_line_prepared<T>(
+        &mut self,
+        max_bytes: i64,
+        available_bytes: u64,
+        origin: Origin,
+        prepare: impl FnOnce(usize) -> Result<T, Code>,
+    ) -> Result<Option<(String, T)>, Failure> {
         if let Some(failure) = self.failure {
             return Err(failure);
         }
         let mut progress = Progress::default();
-        let result = self.read(max_bytes, available_bytes, &mut progress);
+        let result = self.read(max_bytes, available_bytes, &mut progress, prepare);
         let outcome = match &result {
-            Ok(Line::Text(_)) => Outcome::Line,
-            Ok(Line::End) => Outcome::End,
+            Ok(Some(_)) => Outcome::Line,
+            Ok(None) => Outcome::End,
             Err(code) => Outcome::Failed(*code),
         };
         let event = Event {
@@ -202,23 +219,25 @@ impl<R: Read> Input<R> {
         })
     }
 
-    fn read(
+    fn read<T>(
         &mut self,
         max_bytes: i64,
         available_bytes: u64,
         progress: &mut Progress,
-    ) -> Result<Line, Code> {
+        prepare: impl FnOnce(usize) -> Result<T, Code>,
+    ) -> Result<Option<(String, T)>, Code> {
         if !(1..=MAX_LINE_BYTES).contains(&max_bytes) {
             return Err(Code::InvalidLimit);
         }
         let reader = self.reader.as_mut().ok_or(Code::Unconfigured)?;
         if self.eof {
-            return Ok(Line::End);
+            return Ok(None);
         }
         if max_bytes as u64 > available_bytes {
             return Err(Code::BudgetExceeded);
         }
         let limit = max_bytes as usize;
+        let prepared = prepare(limit)?;
         #[cfg(test)]
         if std::mem::take(&mut self.fail_allocation) {
             return Err(Code::AllocationFailed);
@@ -227,7 +246,10 @@ impl<R: Read> Input<R> {
         bytes
             .try_reserve_exact(limit)
             .map_err(|_| Code::AllocationFailed)?;
-        read_frame(reader, &mut self.eof, bytes, limit, progress)
+        match read_frame(reader, &mut self.eof, bytes, limit, progress)? {
+            Line::Text(text) => Ok(Some((text, prepared))),
+            Line::End => Ok(None),
+        }
     }
 
     fn record(&mut self, event: Event) {
@@ -308,6 +330,39 @@ fn read_frame<R: Read>(
     String::from_utf8(bytes)
         .map(Line::Text)
         .map_err(|_| Code::InvalidUtf8)
+}
+
+/// 実行器が選ぶ入力接続です。観測側には公開しません。
+pub(crate) trait Source {
+    fn read_value(
+        &mut self,
+        heap: &mut super::string_heap::StringHeap,
+        limit: i64,
+        origin: Origin,
+    ) -> Result<super::string_heap::StringValue, Failure>;
+}
+impl<R: Read> Source for Input<R> {
+    fn read_value(
+        &mut self,
+        heap: &mut super::string_heap::StringHeap,
+        limit: i64,
+        origin: Origin,
+    ) -> Result<super::string_heap::StringValue, Failure> {
+        let available = heap.available();
+        self.read_line_prepared(limit, available, origin, |size| {
+            heap.reserve(size).map_err(|e| match e {
+                super::string_heap::HeapError::AllocationLimitExceeded => Code::BudgetExceeded,
+                _ => Code::AllocationFailed,
+            })
+        })
+        .map(|line| match line {
+            Some((text, reservation)) => reservation.finish(text),
+            None => String::new().into(),
+        })
+    }
+}
+pub(crate) fn unconfigured() -> Input<io::Empty> {
+    Input::unconfigured()
 }
 
 #[cfg(test)]

@@ -477,6 +477,12 @@ Imported files allow only imports, types, functions, and constants at top level.
 
 Re-exports, wildcards, imported variables, and mutable module state are unsupported. See the [rules and loading limits](../design/modules.en.md) and [executable examples](../../examples/modules/README.en.md).
 
+### Line input through a virtual standard module
+
+Explicitly import the bundled module with `import "std:io" as io;` and call `io::read_line(max_bytes)`. The result is the ordinary enum `io::ReadLine::Line { text: string }` / `io::ReadLine::End {}`. Preserve LF/CRLF and distinguish blank lines from EOF. Limits range from 1 to 2147483647 bytes including line endings. Read, UTF-8, limit, budget, and other errors diagnose and stop execution.
+
+Currently available through HIR/MIR/SSA/VM Rust input connection APIs. **Generated routes and CLI stdin are not implemented yet.** Standard modules are not searched through files or environment variables; emit-sources exposes their text, types can be inspected in IR, and source origins remain observable. See [resolution and execution examples](../design/standard-modules.en.md) and the [consumption/failure contract](../design/line-input.en.md).
+
 ## Functions and entrypoint
 
 `fn` defines a named computation. Every parameter and the return type are explicit.

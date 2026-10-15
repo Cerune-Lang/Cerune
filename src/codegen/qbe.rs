@@ -83,6 +83,12 @@ pub fn emit_qbe_with_target(
             span,
         ));
     }
+    if let Some(span) = program.first_input_span() {
+        return Err(Diagnostic::new(
+            "line input is not yet supported by this generated route",
+            span,
+        ));
+    }
     let mut module = lower(program);
     if target.is_none()
         && let Some(span) = output::first_span(&module)

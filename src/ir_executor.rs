@@ -1,5 +1,6 @@
 //! 完成済みのCerune IRを直接実行します。命令列や別のIRへ変換しません。
 use crate::runtime::array_heap::{ArrayError, ArrayHeap};
+use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::value::{self, write_quoted};
 use crate::{
@@ -24,6 +25,7 @@ pub struct Origin {
 /// 言語の異常停止と、不正なIRによる内部問題を区別します。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
+    Input(Box<input::Failure>),
     Output(Box<output::Failure>),
     Runtime(FailureCode),
     InvalidIr(&'static str),
@@ -56,6 +58,7 @@ impl ExecutionError {
     }
     pub fn diagnostic(&self) -> crate::diagnostic::Diagnostic {
         let message = match &self.kind {
+            ErrorKind::Input(failure) => failure.to_string(),
             ErrorKind::Output(failure) => failure.to_string(),
             ErrorKind::Runtime(code) => format!("runtime error: {}", code.name()),
             ErrorKind::InvalidIr(reason) => format!("invalid Cerune IR: {reason}"),
@@ -139,6 +142,7 @@ enum Flow {
 struct Executor<'a, 'o> {
     program: &'a ir::Program,
     output: &'o mut dyn Sink,
+    input: &'o mut dyn Source,
     heap: StringHeap,
     arrays: ArrayHeap<Value>,
 }
@@ -161,9 +165,24 @@ fn run_sink(
     program: &ir::Program,
     output: &mut dyn Sink,
 ) -> std::result::Result<String, ExecutionError> {
+    run_connections(program, output, &mut crate::runtime::input::unconfigured())
+}
+pub fn run_with_io<R: std::io::Read, W: std::io::Write>(
+    program: &ir::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+) -> std::result::Result<(), ExecutionError> {
+    run_connections(program, output, input).map(|_| ())
+}
+fn run_connections(
+    program: &ir::Program,
+    output: &mut dyn Sink,
+    input: &mut dyn Source,
+) -> std::result::Result<String, ExecutionError> {
     let mut executor = Executor {
         program,
         output,
+        input,
         heap: StringHeap::new(program.string_heap_limit),
         arrays: ArrayHeap::new(program.array_heap_limit),
     };
@@ -553,6 +572,24 @@ impl Executor<'_, '_> {
                 .value
                 .clone(),
             E::Constant { value, .. } => self.expr(value, frame)?,
+            E::ReadLine { max_bytes } => {
+                let limit = self.expr(max_bytes, frame)?.integer(IntegerType::I64)? as i64;
+                Value::String(
+                    self.input
+                        .read_value(
+                            &mut self.heap,
+                            limit,
+                            input::Origin {
+                                node_id: e.id,
+                                span: e.span,
+                            },
+                        )
+                        .map_err(|failure| Fault {
+                            kind: ErrorKind::Input(Box::new(failure)),
+                            origin: None,
+                        })?,
+                )
+            }
             E::StringConcat { left, right } => {
                 let left = self.expr(left, frame)?.string()?;
                 let right = self.expr(right, frame)?.string()?;
@@ -781,6 +818,7 @@ mod tests {
         let mut executor = Executor {
             program: &program,
             output: &mut captured,
+            input: &mut crate::runtime::input::unconfigured(),
             heap: StringHeap::new(program.string_heap_limit),
             arrays: ArrayHeap::new(program.array_heap_limit),
         };
@@ -824,6 +862,7 @@ mod tests {
         let mut executor = Executor {
             program: &p,
             output: &mut captured,
+            input: &mut crate::runtime::input::unconfigured(),
             heap: StringHeap::new(p.string_heap_limit),
             arrays: ArrayHeap::new(p.array_heap_limit),
         };

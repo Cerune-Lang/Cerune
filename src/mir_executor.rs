@@ -12,6 +12,7 @@ use crate::{
 };
 
 pub(crate) mod semantics;
+use crate::runtime::input;
 use crate::runtime::output::{self, Capture, Sink};
 use semantics::{Calls, Frame as _, State};
 
@@ -24,6 +25,7 @@ pub struct Location {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
+    Input(Box<input::Failure>),
     Output(Box<output::Failure>),
     Validation(Box<mir::Error>),
     Runtime(FailureCode),
@@ -64,6 +66,7 @@ impl ExecutionError {
             return e.diagnostic();
         }
         let message = match &self.kind {
+            ErrorKind::Input(failure) => failure.to_string(),
             ErrorKind::Output(failure) => failure.to_string(),
             ErrorKind::Runtime(code) => format!("runtime error: {}", code.name()),
             ErrorKind::InvalidMir(reason) => format!("invalid Cerune MIR: {reason}"),
@@ -203,8 +206,23 @@ fn run_sink(
     program: &mir::Program,
     output: &mut dyn Sink,
 ) -> std::result::Result<String, ExecutionError> {
+    run_connections(program, output, None)
+}
+pub fn run_with_io<R: std::io::Read, W: std::io::Write>(
+    program: &mir::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+) -> std::result::Result<(), ExecutionError> {
+    run_connections(program, output, Some(input)).map(|_| ())
+}
+fn run_connections<'o>(
+    program: &mir::Program,
+    output: &'o mut dyn Sink,
+    input: Option<&'o mut dyn input::Source>,
+) -> std::result::Result<String, ExecutionError> {
     mir::validate(program).map_err(validation_error)?;
     let mut executor = Executor::new(program, output);
+    executor.state.input = input;
     let result = executor.entry();
     finish(result, executor.state)
 }

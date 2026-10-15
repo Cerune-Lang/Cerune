@@ -450,6 +450,15 @@ impl Builder<'_> {
         let kind = match &expr.kind {
             ast::ExprKind::Call {
                 name, arguments, ..
+            } if name == "$read_line" => ExprKind::ReadLine {
+                max_bytes: Box::new(self.build_expr(
+                    &arguments[0],
+                    Some(semantic::Type::Integer(IntegerType::I64)),
+                    bindings,
+                )?),
+            },
+            ast::ExprKind::Call {
+                name, arguments, ..
             } if name == "concat" => ExprKind::StringConcat {
                 left: Box::new(self.build_expr(
                     &arguments[0],

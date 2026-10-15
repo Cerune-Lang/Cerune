@@ -2,7 +2,7 @@
 
 [日本語](standard-io.ja.md)
 
-**Status: Output connections in all four executors, incremental CLI output, and explicit flush across execution/generated routes are implemented. Ordinary generated C/LLVM/QBE/WAT/Native writes are also supported. Stdin and shared generated-route records including successful operations remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. API names, types, and detailed failure rules remain open below.
+**Status: Output connections in all four executors, incremental CLI output, and explicit flush across execution/generated routes are implemented. Ordinary generated C/LLVM/QBE/WAT/Native writes are also supported. std:io line input is implemented in four executor Rust APIs. Generated input, CLI stdin, and shared generated-route records including successful operations remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. Public names/types are defined by [virtual standard modules](standard-modules.en.md), with detailed failures in the [line-input contract](line-input.en.md).
 
 ## Acceptance principles
 
@@ -64,7 +64,7 @@ All four executors provide `run_with_output(program, &mut Output<W>)`. The VM en
 
 Records correspond to common-IR output operations. Aggregate printing expands into multiple operations. OS write chunk counts are not the recording unit. There is no live notification of pending operations. To compare output content, collect bytes in an explicitly selected writer.
 
-I/O failures use `ErrorKind::Output` / `VmErrorKind::Output`, not fabricated language-check `runtime-v1` records. Ordinary writes and explicit flush now cover existing routes. This does not imply complete stdin or successful-operation recording support.
+Output failures use `ErrorKind::Output` / `VmErrorKind::Output`, not fabricated language-check `runtime-v1` records. Ordinary writes and explicit flush now cover existing routes. This does not imply complete stdin or successful-operation recording support.
 
 Embedding code can select a destination and record limit before execution.
 
@@ -112,7 +112,7 @@ C/LLVM/QBE/Native flush only stdout and stop on failure without stdio flushing a
 
 WAT artifacts containing explicit flush add `cerune.flush_stdout_v1() -> i32`. The host returns 0 on success and any nonzero status on failure. Failure writes the record through existing `write_error_byte` and traps. Missing required imports fail instantiation rather than silently succeeding. Internal memory stays private. The test host synchronously captures output and reports successful flushing.
 
-Ordinary C/LLVM/QBE/WAT/Native writes support partial failure/retry handling. Stdin and shared generated-route records including successful operations remain unimplemented.
+Ordinary C/LLVM/QBE/WAT/Native writes support partial failure/retry handling. std:io line input is implemented in four executor Rust APIs. Generated input, CLI stdin, and shared generated-route records including successful operations remain unimplemented.
 
 ## Generated C/LLVM/QBE/Native writes (implemented)
 
@@ -145,7 +145,7 @@ WAT formats integers and Booleans internally. Versioned float-format imports ret
 
 ## Initial input and output order
 
-The intended user-facing operation reads a UTF-8 line with an explicit byte limit. The following defines the semantic direction, not finalized public function names or result types.
+The public std:io read_line API takes an explicit byte limit and returns the ordinary ReadLine enum. The following contract is implemented in four executors; generated routes and CLI connections follow.
 
 | Item | Direction |
 | --- | --- |
@@ -190,16 +190,16 @@ The order follows dependencies of interaction. General record/replay, an effect 
 | 2 | Finalize bounded line-input details and implement from common IR through all routes | EOF/empty/final lines, strict UTF-8, budgets, failures/origins, ownership and release |
 | 3 | Add real interactive examples and route comparisons | Do not send input until the prompt arrives; compare identical input/responses/order on Windows/Linux and the WAT host |
 
-Stage 1 output connections, explicit flush, and ordinary C/LLVM/QBE/WAT/Native writes are implemented. The [bounded UTF-8 line-input contract](line-input.en.md) and shared Rust connection are implemented. Next integrate string ownership, the public result type, and input operations across routes. Actual stdin remains unsupported. Shared generated-route records including successful operations remain separate follow-up work.
+Stage 1 output connections, explicit flush, and ordinary C/LLVM/QBE/WAT/Native writes are implemented. The [bounded UTF-8 line-input contract](line-input.en.md) and shared Rust connection are implemented. std:io, string ownership, and input operations are connected to four executors. Generated routes and actual stdin bindings come next. Shared generated-route records including successful operations remain separate follow-up work.
 
 ## Details to resolve before implementation
 
 The following design and integration work remains. Distinguish the settled line-input contract from routes that are not implemented.
 
 - Remaining stage 1 work: shared generated-route I/O records including successful operations. Ordinary-write termination contracts cover all routes. Embedding partial-write/retry/record-limit behavior is implemented as specified above.
-- Stage 2: API names, result types, and standard-module distribution. Check whether existing enums/imports suffice; do not add implicit file lookup.
+- Stage 2: [std:io](standard-modules.en.md), its public API, ordinary enum, and virtual source resolution are implemented. Generated routes and OS bindings remain.
 - The [line-input contract](line-input.en.md) fixes EOF checks, at most one extra consumed byte, stopping on errors, and classified diagnostics. A separate recoverable API remains future work.
-- Connect whole-limit reservation and ownership transfer to the string heap. An existing `[u8]` element does not necessarily occupy one logical budget byte.
+- Whole-limit reservation and ownership transfer are connected to the four executors' string heap. Implement the same budgets and release in generated routes.
 - Supported console/pipe behavior, OS-error mappings to shared codes, and WAT input host ABI versioning/compatibility.
 
 ## Runnable baseline today

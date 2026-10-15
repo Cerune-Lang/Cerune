@@ -1,0 +1,13 @@
+// テストの入力接続で実行します。CLIの実stdin接続はまだありません。
+import "std:io" as io;
+
+mut done: bool = false;
+while !done {
+    print("ready");
+    flush();
+    result: io::ReadLine = io::read_line(16);
+    match result {
+        io::ReadLine::Line { text: text } => { print([text]); },
+        io::ReadLine::End {} => { done = true; print("end"); },
+    }
+}

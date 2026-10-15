@@ -1,0 +1,13 @@
+// std:io contract version 1. The compiler supplies the internal input operation.
+pub enum ReadLine {
+    Line { text: string },
+    End
+}
+
+pub fn read_line(max_bytes: i64) -> ReadLine {
+    text: string = __cerune_read_line_utf8(max_bytes);
+    if byte_len(text) == 0 {
+        return ReadLine::End {};
+    }
+    return ReadLine::Line { text: text };
+}

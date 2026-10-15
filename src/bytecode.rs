@@ -137,6 +137,7 @@ pub enum InstructionKind {
         element: Type,
         length: usize,
     },
+    ReadLine,
     StringByteLength,
     StringConcat,
     StringManage {
@@ -367,7 +368,12 @@ pub fn format_program(program: &BytecodeProgram) -> String {
         .instructions
         .iter()
         .chain(program.functions.iter().flat_map(|f| &f.instructions))
-        .any(|i| matches!(i.kind, InstructionKind::StringConcat))
+        .any(|i| {
+            matches!(
+                i.kind,
+                InstructionKind::StringConcat | InstructionKind::ReadLine
+            )
+        })
     {
         writeln!(
             output,
@@ -836,6 +842,10 @@ impl Compiler {
                 self.emit_expr(right);
                 self.emit_source(InstructionKind::StringConcat, expr.id, expr.span);
             }
+            ExprKind::ReadLine { max_bytes } => {
+                self.emit_expr(max_bytes);
+                self.emit_source(InstructionKind::ReadLine, expr.id, expr.span);
+            }
             ExprKind::StringByteLength { value } => {
                 self.emit_expr(value);
                 self.emit_source(InstructionKind::StringByteLength, expr.id, expr.span);
@@ -1300,6 +1310,9 @@ fn format_instruction(
                 if *retain { "retain" } else { "release" }
             )
             .unwrap();
+        }
+        InstructionKind::ReadLine => {
+            writeln!(output, "input.read_line.utf8").unwrap();
         }
         InstructionKind::StringByteLength => {
             writeln!(output, "byte_len.string").unwrap();
