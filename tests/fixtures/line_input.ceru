@@ -1,4 +1,4 @@
-// CLIと生成C/LLVM/QBEは実stdin、WATはhost、Rust APIは明示した入力接続で実行できます。
+// CLIと生成C/LLVM/QBE/Nativeは実stdin、WATはhost、Rust APIは明示した入力接続で実行できます。
 import "std:io" as io;
 
 mut done: bool = false;

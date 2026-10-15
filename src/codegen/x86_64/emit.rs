@@ -43,6 +43,10 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
         output.push_str(&super::array::support(limit, module.target.is_linux()));
     }
 
+    if super::input::used(module) {
+        output.push_str(&super::input::support(module.target.is_linux()));
+    }
+
     for function in &module.functions {
         emit_function(function, module, annotate, &mut reporter, &mut output);
         output.push('\n');
@@ -242,6 +246,7 @@ fn emit_instruction(
         return;
     }
     match instruction {
+        Instruction::ReadLine => reporter.input(output),
         Instruction::Flush => reporter.flush(output),
         Instruction::ArrayAllocate { .. }
         | Instruction::ArrayRangeCheck { .. }

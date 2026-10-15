@@ -105,10 +105,12 @@ fn body(
                 return Err(fail("source and MIR origins disagree"));
             }
         }
-        if matches!(i, Instruction::Flush | Instruction::Output { .. })
-            && !matches!(origins[index], Origin::Source { .. })
+        if matches!(
+            i,
+            Instruction::ReadLine | Instruction::Flush | Instruction::Output { .. }
+        ) && !matches!(origins[index], Origin::Source { .. })
         {
-            return Err(fail("output needs a source origin"));
+            return Err(fail("I/O needs a source origin"));
         }
         // 集約値は基準slotから負方向へ8byteずつ配置します。
         let stack = |offset: isize, slots: usize| -> Result<(), Diagnostic> {
@@ -335,6 +337,7 @@ fn body(
             | ArrayReleaseOwner
             | ArrayFree
             | StringManage { .. }
+            | ReadLine
             | Flush
             | Output { .. }
             | CompareU64(_)
@@ -387,7 +390,9 @@ fn body(
         {
             return Err(fail("string runtime is absent"));
         }
-        if matches!(i, StringConcat { .. } | StringManage { .. }) && m.string_heap_limit.is_none() {
+        if matches!(i, ReadLine | StringConcat { .. } | StringManage { .. })
+            && m.string_heap_limit.is_none()
+        {
             return Err(fail("string heap runtime is absent"));
         }
         if matches!(

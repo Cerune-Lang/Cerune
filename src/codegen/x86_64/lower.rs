@@ -14,29 +14,6 @@ pub fn lower(
     target: super::Target,
 ) -> Result<Module, crate::diagnostic::Diagnostic> {
     mir::validate(program).map_err(|e| e.diagnostic())?;
-    for f in program
-        .functions
-        .iter()
-        .chain(std::iter::once(&program.main))
-    {
-        for b in &f.blocks {
-            for i in &b.instructions {
-                if matches!(
-                    i.kind,
-                    Kind::Assign {
-                        value: Op::ReadLine(_),
-                        ..
-                    }
-                ) {
-                    let message = "line input is not yet supported by Native generation";
-                    return Err(match i.origin.source() {
-                        Some(origin) => crate::diagnostic::Diagnostic::new(message, origin.span),
-                        None => crate::diagnostic::Diagnostic::without_span(message),
-                    });
-                }
-            }
-        }
-    }
     let mut module = Module {
         target,
         strings: vec![],
@@ -68,7 +45,7 @@ pub fn lower(
                     Kind::Output { .. } => module.uses_write = true,
                     Kind::StringManage { .. }
                     | Kind::Assign {
-                        value: Op::StringConcat { .. },
+                        value: Op::StringConcat { .. } | Op::ReadLine(_),
                         ..
                     } => module.string_heap_limit = Some(program.string_heap_limit),
                     _ => {}
@@ -687,7 +664,10 @@ impl Lowerer<'_> {
                     self.push(Instruction::ArrayLength);
                 }
             },
-            Op::ReadLine(_) => unreachable!("line input rejected before Native lowering"),
+            Op::ReadLine(v) => {
+                self.load(*v);
+                self.push(Instruction::ReadLine);
+            }
             Op::StringByteLength(v) => {
                 self.load(*v);
                 self.push(Instruction::LoadStringLength);

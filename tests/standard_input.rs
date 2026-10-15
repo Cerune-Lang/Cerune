@@ -311,30 +311,29 @@ fn copied_line_values_release_storage_between_calls() {
 }
 
 #[test]
-fn generated_routes_explicitly_reject_input_while_not_yet_connected() {
+fn native_input_lowers_with_origins_for_both_targets_and_ssa() {
+    use cerune_lang::codegen::x86_64 as native;
     let hir =
         modules::from_source(r#"import "std:io" as io; value:io::ReadLine=io::read_line(4);"#)
             .unwrap()
             .to_ir()
             .unwrap();
-    let mut errors = Vec::new();
     let mir = mir::lower(&hir).unwrap();
     let ssa_mir = mir::ssa::lower(&mir::ssa::construct(&mir).unwrap())
         .unwrap()
         .program;
     for target in [
-        cerune_lang::codegen::x86_64::Target::X86_64PcWindowsMsvc,
-        cerune_lang::codegen::x86_64::Target::X86_64UnknownLinuxGnu,
+        native::Target::X86_64PcWindowsMsvc,
+        native::Target::X86_64UnknownLinuxGnu,
     ] {
-        errors.push(cerune_lang::codegen::x86_64::emit_asm(&hir, target).unwrap_err());
-        errors.push(cerune_lang::codegen::x86_64::emit_object(&hir, target, true).unwrap_err());
-        errors.push(
-            cerune_lang::codegen::x86_64::emit_object_from_mir(&ssa_mir, target, true).unwrap_err(),
-        );
-    }
-    for error in errors {
-        assert!(error.message().contains("line input is not yet supported"));
-        assert!(error.primary_span().is_some());
+        for program in [&mir, &ssa_mir] {
+            let lir = native::lower_mir(program, target).unwrap();
+            let assembly = native::emit_asm_from_lir(&lir, true).unwrap();
+            assert!(assembly.contains("callq cerune_input_read_line"));
+            assert!(assembly.contains("io-v1 operation=read-line"));
+            assert!(assembly.contains(" file="));
+            assert!(!native::emit_object_from_lir(&lir, true).unwrap().is_empty());
+        }
     }
 }
 

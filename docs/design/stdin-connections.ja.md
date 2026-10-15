@@ -1,8 +1,8 @@
-# 実stdin接続：CLIと生成C・LLVM・QBE
+# 実stdin接続：CLIと生成C・LLVM・QBE・Native
 
 [English](stdin-connections.en.md)
 
-std:ioのread_lineの[共通契約](line-input.ja.md)を、CLIのHIR・MIR・SSA・VMと生成C・LLVM・QBEの実stdinへ接続します。WATは[版付き入力host](wat-input-host.ja.md)で対応済みです。Nativeへの入力loweringは後続です。
+std:ioのread_lineの[共通契約](line-input.ja.md)を、CLIのHIR・MIR・SSA・VMと生成C・LLVM・QBE・Nativeの実stdinへ接続します。WATは[版付き入力host](wat-input-host.ja.md)で対応済みです。Nativeも通常／SSA経由のMIRからLIR・ASM・自前Objectへ入力を展開します。
 
 ## 初版の範囲
 
@@ -17,7 +17,7 @@ std:ioのread_lineの[共通契約](line-input.ja.md)を、CLIのHIR・MIR・SSA
 
 ## 読取りと失敗
 
-Linuxは`read(0, ..., 1)`、Windowsは借用した標準handleへ`ReadFile(..., 1, ...)`を使います。stdioの先読みを挟まず、stdinをcloseしません。CはCコンパイラの`_WIN32`／`__linux__`で対象を選ぶため、Ceruneを起動したOSから生成先を決めません。LLVM・QBEは明示した`--target x86_64-unknown-linux-gnu`／`--target x86_64-pc-windows-msvc`で選び、省略時は診断します。Rust接続はCLIバイナリの対象OSで選びます。
+Linuxは`read(0, ..., 1)`、Windowsは借用した標準handleへ`ReadFile(..., 1, ...)`を使います。stdioの先読みを挟まず、stdinをcloseしません。CはCコンパイラの`_WIN32`／`__linux__`で対象を選ぶため、Ceruneを起動したOSから生成先を決めません。LLVM・QBE・Nativeは明示した`--target x86_64-unknown-linux-gnu`／`--target x86_64-pc-windows-msvc`で選び、省略時は診断します。Rust接続はCLIバイナリの対象OSで選びます。
 
 Windowsのconsole判定とhandle情報は一度だけ取得します。pipe切断はEOF、message pipeのERROR_MORE_DATAは返されたバイトを保持します。pipeの成功応答で0バイトなら空メッセージとして読み進め、EOFを捏造しません。ファイル終端は0またはERROR_HANDLE_EOFで確認します。LinuxはEINTRのみ再試行します。OS呼出し回数と共通接続の要求回数の一致は求めません。
 
@@ -25,15 +25,17 @@ Windowsのconsole判定とhandle情報は一度だけ取得します。pipe切�
 
 検査順は上限→接続→既知EOF→予算・確保→読取り→UTF-8です。unsupported-connectionも消費0でNodeId/Spanを保持します。入力命令の出自は仮想std:io本体を指し、呼出し元はIRから辿れます。入力は暗黙にflushしません。質問を出す場合はprint→flush→read_lineと書きます。
 
-生成C・LLVM・QBEでは上限分の領域と所有情報を一度に確保します。失敗・空EOFでは解放し、成功時は同じ領域を既存の文字列所有リストへ渡して実長を課金します。終了診断はio-v1で、入力本文やOSエラー本文を含めず、後続処理を実行しません。生成経路の成功操作を読む共通APIはまだ追加していません。
+生成C・LLVM・QBE・Nativeでは上限分の領域と所有情報を一度に確保します。失敗・空EOFでは解放し、成功時は同じ領域を既存の文字列所有リストへ渡して実長を課金します。終了診断はio-v1で、入力本文やOSエラー本文を含めず、後続処理を実行しません。生成経路の成功操作を読む共通APIはまだ追加していません。
 
 LLVMは共通IRのReadLineを専用命令へloweringし、`cerune.input.read_line`、OS接続、UTF-8検査、予算・所有、診断を生成LLVMに展開します。入力地点には不変のNodeId/Spanを渡します。`--annotate-origins`はコメントだけを追加し、注釈なしでも同じ命令・診断を保ちます。
 
 QBEも共通IRのReadLineを専用命令へloweringし、`cerune_input_read_line`と接続・検査・所有・診断をILへ展開します。出自は読み取り専用のデータに保持し、明示targetに対応するQBE 1.3の`amd64_sysv`／`amd64_win`でassemblyへ生成します。QBEへの出自コメント追加オプションは新設しません。
 
+NativeはReadLineを専用LIR命令として残し、OS接続・UTF-8検査・予算・所有・診断をASMへ展開します。自前Objectも同じ命令列を符号化します。NodeId/Spanは不変データとして入力地点から渡し、注釈や観測の有無で読取りを変えません。
+
 ## 実行例
 
-[ソース](../../tests/fixtures/line_input.ceru)、[入力](../../tests/fixtures/line_input.stdin)、[期待出力](../../tests/fixtures/line_input.stdout)は、空行・日本語・NUL・CRLF・結合文字・改行なし最終行を確認します。残る生成経路が揃うまでは通常のexamples一覧と分けて置きます。
+[ソース](../../tests/fixtures/line_input.ceru)、[入力](../../tests/fixtures/line_input.stdin)、[期待出力](../../tests/fixtures/line_input.stdout)は、空行・日本語・NUL・CRLF・結合文字・改行なし最終行を確認します。バイト保持の試験fixtureは、[対話example](../../examples/stdin/README.md)とは分けて置きます。
 
 まず`cargo build`を実行します。WindowsのPowerShellではcmdのファイルリダイレクトを使い、PowerShellのテキストpipeによる文字コード変換を挟みません。
 
@@ -57,4 +59,4 @@ clang target/line-input-qbe.s -o target/line-input-qbe
 target/line-input-qbe < tests/fixtures/line_input.stdin
 ```
 
-[経路テスト](../../tests/stdin_routes.rs)はCLI各経路とC・LLVMの-O0/-O2、QBE 1.3のWindows/Linux生成物を比較します。対話テストは質問を受信するまで入力を送らず、pipeを閉じてEOFも確認します。実fileの共有位置から先読みがないことを検証し、入力失敗・契約外応答・割込み・確保失敗は比較用接続へ注入します。LLVM・QBEではOS呼出しへの試験応答によりEINTR、空message、ERROR_MORE_DATA、pipe切断、ファイル終端、console拒否も検証します。Windows consoleの拒否理由と検査順はテストしますが、画面を開くconsole試験やUTF-16変換の対応完了を意味しません。
+[経路テスト](../../tests/stdin_routes.rs)はCLI各経路とC・LLVMの-O0/-O2、QBE 1.3、WAT host、通常／SSA経由のNative ASM・自前ObjectをWindows/Linuxで比較します。対話テストは質問を受信するまで入力を送らず、pipeを閉じてEOFも確認します。実fileの共有位置から先読みがないことを検証し、入力失敗・契約外応答・割込み・確保失敗は比較用接続へ注入します。LLVM・QBE・NativeではOS呼出しへの試験応答によりEINTR、空message、ERROR_MORE_DATA、pipe切断、ファイル終端、console拒否も検証します。Windows consoleの拒否理由と検査順はテストしますが、画面を開くconsole試験やUTF-16変換の対応完了を意味しません。
