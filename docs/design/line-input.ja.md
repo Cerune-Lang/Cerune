@@ -6,7 +6,7 @@
 
 ## 実装の範囲
 
-[仮想標準モジュールstd:io](standard-modules.ja.md)と共通IRの入力命令を実装しました。HIR・MIR・SSA・VMはRustのrun_with_io APIで入力接続を受けます。[CLIと生成C・LLVMの実stdin接続](stdin-connections.ja.md)も実装済みです。**QBE・WAT・Nativeの入力は未実装です。** 未設定入力はEOFではなく診断で停止します。
+[仮想標準モジュールstd:io](standard-modules.ja.md)と共通IRの入力命令を実装しました。HIR・MIR・SSA・VMはRustのrun_with_io APIで入力接続を受けます。[CLIと生成C・LLVM・QBEの実stdin接続](stdin-connections.ja.md)も実装済みです。**WAT・Nativeの入力は未実装です。** 未設定入力はEOFではなく診断で停止します。
 
 既存enumの値付き選択肢で「行（string）／EOF」を表現できます。空行はLFまたはCRLFを含む行です。汎用Result型は前提にしません。公開APIは `import "std:io" as io;` と `io::read_line(max_bytes)`、結果型は `io::ReadLine` です。以下のRust接続APIは実行用の部品です。
 
@@ -99,8 +99,8 @@ fileは匿名ソースでは省略します。bytesはソースのSpanであり�
 | 経路 | 比較内容 | 現在 |
 | --- | --- | --- |
 | HIR・MIR・SSA・VM | 行／EOF、先行出力、停止理由と出自、消費数、所有と解放 | Rust APIで実装・比較済み |
-| C / LLVM | 同じ入力、先行出力と停止診断、所有、実file/pipe・-O0/-O2比較 | 実装済み |
-| QBE・WAT | 同じ入力、要求／応答、先行出力と停止診断、後続処理なし | 未実装 |
+| C / LLVM / QBE | 同じ入力、先行出力と停止診断、所有、実file/pipe、C・LLVMの-O0/-O2比較 | 実装済み |
+| WAT | 同じ入力、要求／応答、先行出力と停止診断、後続処理なし | 未実装 |
 | LIR・ASM・自前Object（通常／SSA） | 入力操作の出自、明示target、同じ失敗と先行出力 | 未実装 |
 | CLI／実OS | 質問をprint→flushしてから入力。flush失敗なら読取り0回 | Windows/Linuxのpipe/fileで実装。Windows consoleは未対応 |
 

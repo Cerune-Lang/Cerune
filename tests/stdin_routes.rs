@@ -1,5 +1,5 @@
 use cerune_lang::{
-    codegen::{c, llvm},
+    codegen::{c, llvm, qbe},
     ir_executor, modules,
     runtime::{
         input::{Failure, Input},
@@ -151,7 +151,7 @@ fn compare(o: std::process::Output, expected: &(Vec<u8>, Option<Failure>)) {
 }
 
 #[test]
-fn files_preserve_bytes_and_errors_across_cli_c_and_llvm() {
+fn files_preserve_bytes_and_errors_across_cli_and_generated_routes() {
     let dir = directory("files");
     let original = include_str!("fixtures/line_input.ceru");
     let cases: &[(&[u8], i64, u64)] = &[
@@ -193,6 +193,9 @@ fn files_preserve_bytes_and_errors_across_cli_c_and_llvm() {
                 file_run(&mut cli(route, &file, budget), &dir, bytes),
                 &expected,
             );
+        }
+        if let Some(exe) = compile_qbe(&dir, &format!("case{i}"), &generated_qbe(&hir)) {
+            compare(file_run(&mut Command::new(exe), &dir, bytes), &expected);
         }
         for opt in ["-O0", "-O2"] {
             if let Some(exe) = compile_c(
@@ -287,6 +290,9 @@ fn prompts_precede_pipe_input_and_pipe_closure_is_eof() {
     for route in ROUTES {
         dialogue(&mut cli(route, &file, 64), &dir);
     }
+    if let Some(exe) = compile_qbe(&dir, "dialogue", &generated_qbe(&hir)) {
+        dialogue(&mut Command::new(exe), &dir);
+    }
     for opt in ["-O0", "-O2"] {
         if let Some(exe) = compile_c(&dir, opt, &c::emit_c(&hir).unwrap(), opt) {
             dialogue(&mut Command::new(exe), &dir);
@@ -319,6 +325,7 @@ fn copied_lines_short_circuit_and_argument_order_match_generated_routes() {
         for route in ROUTES {compare(file_run(&mut cli(route,&file,8),&dir,bytes),&expected);}
         if let Some(exe)=compile_c(&dir,&format!("ownership{i}"),&c::emit_c(&hir).unwrap(),"-O2") {compare(file_run(&mut Command::new(exe),&dir,bytes),&expected);}
         if let Some(exe)=compile_llvm(&dir,&format!("ownership{i}"),&generated_llvm(&hir,true),"-O2") {compare(file_run(&mut Command::new(exe),&dir,bytes),&expected);}
+        if let Some(exe)=compile_qbe(&dir,&format!("ownership{i}"),&generated_qbe(&hir)) {compare(file_run(&mut Command::new(exe),&dir,bytes),&expected);}
     }
 }
 
@@ -438,6 +445,13 @@ fn input_stops_at_the_line_or_probe_without_hidden_read_ahead() {
             &format!("cursor-{limit}-{budget}"),
             &generated_llvm(&hir, true),
             "-O2",
+        ) {
+            commands.push(Command::new(exe));
+        }
+        if let Some(exe) = compile_qbe(
+            &dir,
+            &format!("cursor-{limit}-{budget}"),
+            &generated_qbe(&hir),
         ) {
             commands.push(Command::new(exe));
         }
@@ -821,3 +835,67 @@ end:
         }
     }
 }
+
+fn qbe_target() -> qbe::Target {
+    if cfg!(windows) {
+        qbe::Target::X86_64PcWindowsMsvc
+    } else {
+        qbe::Target::X86_64UnknownLinuxGnu
+    }
+}
+fn generated_qbe(hir: &cerune_lang::ir::Program) -> String {
+    qbe::emit_qbe_with_target(hir, Some(qbe_target())).unwrap()
+}
+fn compile_qbe(dir: &Path, stem: &str, text: &str) -> Option<PathBuf> {
+    let configured = std::env::var_os("CERUNE_TEST_QBE");
+    let qbe = configured.clone().unwrap_or_else(|| "qbe".into());
+    if !Command::new(&qbe)
+        .arg("-h")
+        .output()
+        .is_ok_and(|o| o.status.success())
+    {
+        assert!(configured.is_none(), "configured QBE unavailable");
+        eprintln!("QBE input execution skipped; set CERUNE_TEST_QBE to require it");
+        return None;
+    }
+    let cc = std::env::var_os("CERUNE_TEST_QBE_CLANG").unwrap_or_else(|| "clang".into());
+    let source = dir.join(format!("{stem}-qbe.ssa"));
+    let assembly = dir.join(format!("{stem}-qbe.s"));
+    let exe = dir.join(format!("{stem}-qbe{}", std::env::consts::EXE_SUFFIX));
+    fs::write(&source, text).unwrap();
+    let out = process::bounded_output(
+        Command::new(qbe)
+            .args(["-t", qbe_target().qbe_name(), "-o"])
+            .arg(&assembly)
+            .arg(&source),
+        dir,
+        "QBE input generation",
+        Duration::from_secs(30),
+    )
+    .unwrap();
+    assert!(
+        out.status.success(),
+        "{stem}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let out = process::bounded_output(
+        Command::new(cc)
+            .arg(format!("--target={}", qbe_target().triple()))
+            .arg(&assembly)
+            .arg("-o")
+            .arg(&exe),
+        dir,
+        "QBE input link",
+        Duration::from_secs(30),
+    )
+    .unwrap();
+    assert!(
+        out.status.success(),
+        "{stem}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    Some(exe)
+}
+
+#[path = "support/qbe_input.rs"]
+mod qbe_input;

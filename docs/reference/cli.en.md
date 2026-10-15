@@ -189,7 +189,7 @@ Library callers can use `compile_to_llvm_with_target(source, Some(codegen::llvm:
 
 ### QBE target selection
 
-QBE accepts `--target x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Strings, dynamic arrays, and stdout operations (including `print(1);` and `flush();`) require a target. Missing or unsupported targets and duplicate options produce diagnostics without changing existing output files. Programs using none of these may omit the target. Never infer it from the OS running Cerune.
+QBE accepts `--target x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Strings, dynamic arrays, stdout operations (including `print(1);` and `flush();`), and std:io line input require a target. Missing or unsupported targets and duplicate options produce diagnostics without changing existing output files. Programs using none of these may omit the target. Never infer it from the OS running Cerune.
 
 ```sh
 cerune emit-qbe examples/string_lookup.ceru --target x86_64-unknown-linux-gnu -o target/string_lookup.ssa

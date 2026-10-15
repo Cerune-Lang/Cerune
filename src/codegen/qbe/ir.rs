@@ -136,6 +136,11 @@ pub enum Instruction {
         value: Operand,
         retain: bool,
     },
+    ReadLine {
+        dest: Temp,
+        max_bytes: Operand,
+        origin: FailureOrigin,
+    },
     StringConcat {
         dest: Temp,
         left: Operand,

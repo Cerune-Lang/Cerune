@@ -317,14 +317,7 @@ fn generated_routes_explicitly_reject_input_while_not_yet_connected() {
             .unwrap()
             .to_ir()
             .unwrap();
-    let errors = [
-        cerune_lang::codegen::qbe::emit_qbe_with_target(
-            &hir,
-            Some(cerune_lang::codegen::qbe::Target::X86_64PcWindowsMsvc),
-        )
-        .unwrap_err(),
-        cerune_lang::codegen::wat::emit_wat(&hir).unwrap_err(),
-    ];
+    let errors = [cerune_lang::codegen::wat::emit_wat(&hir).unwrap_err()];
     let mut errors = errors.to_vec();
     let mir = mir::lower(&hir).unwrap();
     let ssa_mir = mir::ssa::lower(&mir::ssa::construct(&mir).unwrap())
