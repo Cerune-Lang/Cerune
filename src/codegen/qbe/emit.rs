@@ -16,6 +16,7 @@ pub fn emit(module: &Module) -> String {
         .unwrap();
     }
     super::output::emit(module, &mut output);
+    super::input::emit(module, &mut output);
     let i64_operations = i64_operations(module);
     super::failure::emit(module, &mut output);
     if module.uses_strings {
@@ -404,6 +405,20 @@ fn emit_instruction(
                 output,
                 "  call $cerune_array_{name}(l {})",
                 operand(value, slots)
+            )
+            .unwrap();
+        }
+        Instruction::ReadLine {
+            dest,
+            max_bytes,
+            origin,
+        } => {
+            writeln!(
+                output,
+                "  {} =l call $cerune_input_read_line(l {}, l ${})",
+                temp(*dest),
+                operand(max_bytes, slots),
+                super::input::origin_name(*origin)
             )
             .unwrap();
         }

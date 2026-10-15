@@ -22,7 +22,7 @@ Each document links to its Japanese counterpart.
 - [IR Executor](design/ir-executor.en.md)
 - [VM embedding](design/vm-embedding.en.md)
 - [Standard I/O: execution, control, and observation (design)](design/standard-io.en.md)
-- [Actual stdin in CLI and generated C/LLVM](design/stdin-connections.en.md)
+- [Actual stdin in CLI and generated C/LLVM/QBE](design/stdin-connections.en.md)
 - [Virtual standard modules and origins](design/standard-modules.en.md)
 - [Bounded UTF-8 line input](design/line-input.en.md)
 - [Owned routes and build / release](design/owned-routes.en.md)

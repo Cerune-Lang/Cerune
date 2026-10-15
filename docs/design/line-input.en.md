@@ -6,7 +6,7 @@ This specifies line input for [standard I/O](standard-io.en.md). The initial lan
 
 ## Implementation scope
 
-The [virtual std:io module](standard-modules.en.md) and common IR input operation are implemented. HIR/MIR/SSA/VM accept explicit input connections through Rust run_with_io APIs. [CLI and generated C/LLVM stdin bindings](stdin-connections.en.md) are also implemented. **QBE/WAT/Native input remains unimplemented.** Unconfigured input stops with a diagnostic rather than EOF.
+The [virtual std:io module](standard-modules.en.md) and common IR input operation are implemented. HIR/MIR/SSA/VM accept explicit input connections through Rust run_with_io APIs. [CLI and generated C/LLVM/QBE stdin bindings](stdin-connections.en.md) are also implemented. **WAT/Native input remains unimplemented.** Unconfigured input stops with a diagnostic rather than EOF.
 
 Existing enums can represent a string-bearing line or EOF. A blank line contains LF or CRLF. No generic Result type is required. The public API is `import "std:io" as io;` and `io::read_line(max_bytes)`, returning `io::ReadLine`. The Rust connection API below is an execution component.
 
@@ -99,8 +99,8 @@ After integration, give each route independent identical input and responses. Do
 | Route | Comparison | Current state |
 | --- | --- | --- |
 | HIR, MIR, SSA, VM | Line/EOF, prior output, failure reason/origin, consumption, ownership/release | Implemented and compared through Rust APIs |
-| C / LLVM | Identical input, prior output/diagnostics, ownership, actual file/pipe at -O0/-O2 | Implemented |
-| QBE, WAT | Same input, requests/responses, prior output/diagnostics, no later execution | Not implemented |
+| C / LLVM / QBE | Identical input, prior output/diagnostics, ownership, actual file/pipe, C/LLVM at -O0/-O2 | Implemented |
+| WAT | Same input, requests/responses, prior output/diagnostics, no later execution | Not implemented |
 | LIR, ASM, native Object (ordinary/SSA) | Input origin, explicit target, same failures and prior output | Not implemented |
 | CLI / actual OS | Print then flush the prompt before input; failed flush means zero reads | Windows/Linux pipe/file implemented; Windows console unsupported |
 
