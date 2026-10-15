@@ -481,7 +481,7 @@ print(item.amount);
 
 `import "std:io" as io;`で同梱標準モジュールを明示し、`io::read_line(max_bytes)`を呼びます。結果は通常のenum `io::ReadLine::Line { text: string }`／`io::ReadLine::End {}`です。LF・CRLFを保持し、空行とEOFを区別します。上限は改行を含む1〜2147483647バイトです。読取り・UTF-8・上限・予算などの異常は診断して停止します。
 
-現在はHIR・MIR・SSA・VMのRust入力接続APIで利用できます。[CLI・生成C・LLVM・QBEの実stdin](../design/stdin-connections.ja.md)も利用できます。**WAT・Nativeの入力とWindows console対応は未実装です。** 標準モジュールはファイルや環境変数から探さず、本文・型・出自をemit-sources等で確認できます。[解決規則と実行例](../design/standard-modules.ja.md)・[消費数と失敗の契約](../design/line-input.ja.md)を参照してください。
+現在はHIR・MIR・SSA・VMのRust入力接続APIで利用できます。[CLI・生成C・LLVM・QBEの実stdin](../design/stdin-connections.ja.md)も利用できます。[WATの版付きhost接続](../design/wat-input-host.ja.md)も実装済みです。**Nativeの入力とWindows console対応は未実装です。** 標準モジュールはファイルや環境変数から探さず、本文・型・出自をemit-sources等で確認できます。[解決規則と実行例](../design/standard-modules.ja.md)・[消費数と失敗の契約](../design/line-input.ja.md)を参照してください。
 
 ## 関数とentry point
 

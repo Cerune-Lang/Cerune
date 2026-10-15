@@ -2,7 +2,7 @@
 
 [English](stdin-connections.en.md)
 
-std:ioのread_lineの[共通契約](line-input.ja.md)を、CLIのHIR・MIR・SSA・VMと生成C・LLVM・QBEの実stdinへ接続します。WAT・Nativeへの入力loweringは後続です。
+std:ioのread_lineの[共通契約](line-input.ja.md)を、CLIのHIR・MIR・SSA・VMと生成C・LLVM・QBEの実stdinへ接続します。WATは[版付き入力host](wat-input-host.ja.md)で対応済みです。Nativeへの入力loweringは後続です。
 
 ## 初版の範囲
 

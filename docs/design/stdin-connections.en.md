@@ -2,7 +2,7 @@
 
 [日本語](stdin-connections.ja.md)
 
-Connect the [shared std:io line-input contract](line-input.en.md) to actual stdin in CLI HIR/MIR/SSA/VM execution and generated C/LLVM/QBE. Input lowering for WAT/Native follows separately.
+Connect the [shared std:io line-input contract](line-input.en.md) to actual stdin in CLI HIR/MIR/SSA/VM execution and generated C/LLVM/QBE. WAT supports [versioned input hosts](wat-input-host.en.md). Input lowering for Native follows separately.
 
 ## Initial scope
 

@@ -197,6 +197,9 @@ fn files_preserve_bytes_and_errors_across_cli_and_generated_routes() {
         if let Some(exe) = compile_qbe(&dir, &format!("case{i}"), &generated_qbe(&hir)) {
             compare(file_run(&mut Command::new(exe), &dir, bytes), &expected);
         }
+        if let Some(mut cmd) = wat_command(&dir, &format!("case{i}"), &generated_wat(&hir)) {
+            compare(file_run(&mut cmd, &dir, bytes), &expected);
+        }
         for opt in ["-O0", "-O2"] {
             if let Some(exe) = compile_c(
                 &dir,
@@ -293,6 +296,9 @@ fn prompts_precede_pipe_input_and_pipe_closure_is_eof() {
     if let Some(exe) = compile_qbe(&dir, "dialogue", &generated_qbe(&hir)) {
         dialogue(&mut Command::new(exe), &dir);
     }
+    if let Some(mut cmd) = wat_command(&dir, "dialogue", &generated_wat(&hir)) {
+        dialogue(&mut cmd, &dir);
+    }
     for opt in ["-O0", "-O2"] {
         if let Some(exe) = compile_c(&dir, opt, &c::emit_c(&hir).unwrap(), opt) {
             dialogue(&mut Command::new(exe), &dir);
@@ -326,6 +332,7 @@ fn copied_lines_short_circuit_and_argument_order_match_generated_routes() {
         if let Some(exe)=compile_c(&dir,&format!("ownership{i}"),&c::emit_c(&hir).unwrap(),"-O2") {compare(file_run(&mut Command::new(exe),&dir,bytes),&expected);}
         if let Some(exe)=compile_llvm(&dir,&format!("ownership{i}"),&generated_llvm(&hir,true),"-O2") {compare(file_run(&mut Command::new(exe),&dir,bytes),&expected);}
         if let Some(exe)=compile_qbe(&dir,&format!("ownership{i}"),&generated_qbe(&hir)) {compare(file_run(&mut Command::new(exe),&dir,bytes),&expected);}
+        if let Some(mut cmd)=wat_command(&dir,&format!("ownership{i}"),&generated_wat(&hir)) {compare(file_run(&mut cmd,&dir,bytes),&expected);}
     }
 }
 
@@ -454,6 +461,13 @@ fn input_stops_at_the_line_or_probe_without_hidden_read_ahead() {
             &generated_qbe(&hir),
         ) {
             commands.push(Command::new(exe));
+        }
+        if let Some(cmd) = wat_command(
+            &dir,
+            &format!("cursor-{limit}-{budget}"),
+            &generated_wat(&hir),
+        ) {
+            commands.push(cmd);
         }
         for mut cmd in commands {
             let input = dir.join("input.bin");
@@ -899,3 +913,50 @@ fn compile_qbe(dir: &Path, stem: &str, text: &str) -> Option<PathBuf> {
 
 #[path = "support/qbe_input.rs"]
 mod qbe_input;
+
+fn wat_command(dir: &Path, stem: &str, text: &str) -> Option<Command> {
+    let configured = std::env::var_os("CERUNE_TEST_NODE");
+    let node = configured.clone().unwrap_or_else(|| "node".into());
+    let wabt_config = std::env::var_os("CERUNE_TEST_WAT2WASM_JS");
+    let wabt = wabt_config.clone().map(PathBuf::from).unwrap_or_else(|| {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("target/wasm-tools/node_modules/wabt/bin/wat2wasm")
+    });
+    if !Command::new(&node)
+        .arg("--version")
+        .output()
+        .is_ok_and(|o| o.status.success())
+        || !wabt.is_file()
+    {
+        assert!(
+            configured.is_none() && wabt_config.is_none(),
+            "configured WAT tools unavailable"
+        );
+        eprintln!("WAT input checks skipped: tools unavailable");
+        return None;
+    }
+    let wat = dir.join(format!("{stem}.wat"));
+    let wasm = dir.join(format!("{stem}.wasm"));
+    fs::write(&wat, text).unwrap();
+    let out = process::bounded_output(
+        Command::new(&node).arg(wabt).arg(&wat).arg("-o").arg(&wasm),
+        dir,
+        "WAT input assembly",
+        Duration::from_secs(30),
+    )
+    .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let mut cmd = Command::new(node);
+    cmd.arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/run_wasm_input.cjs"))
+        .arg(wasm);
+    Some(cmd)
+}
+fn generated_wat(hir: &cerune_lang::ir::Program) -> String {
+    cerune_lang::codegen::wat::emit_wat(hir).unwrap()
+}
+#[path = "support/wat_input.rs"]
+mod wat_input;
