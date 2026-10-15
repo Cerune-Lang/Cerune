@@ -2,7 +2,7 @@
 
 [日本語](standard-io.ja.md)
 
-**Status: Output connections in all four executors, incremental CLI output, and explicit flush across execution/generated routes are implemented. Ordinary generated C/LLVM/QBE/Native writes are also supported. Stdin and WAT write-failure contracts remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. API names, types, and detailed failure rules remain open below.
+**Status: Output connections in all four executors, incremental CLI output, and explicit flush across execution/generated routes are implemented. Ordinary generated C/LLVM/QBE/WAT/Native writes are also supported. Stdin and shared generated-route records including successful operations remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. API names, types, and detailed failure rules remain open below.
 
 ## Acceptance principles
 
@@ -22,9 +22,9 @@ The investigation covers `src/ir_executor.rs`, `src/mir_executor/`, `src/ssa_exe
 
 | Area | Current behavior | Required change |
 | --- | --- | --- |
-| IR/MIR/SSA/VM and CLI | Retain capture APIs, add incremental output APIs; CLI delivers output during execution and flushes at completion | A write-failure contract shared with generated routes |
+| IR/MIR/SSA/VM and CLI | Retain capture APIs, add incremental output APIs; CLI delivers output during execution and flushes at completion | Standard input and shared generated-route records |
 | C/LLVM/QBE/Native | Per-operation requested/accepted counts and origins; partial writes, interruption, and termination | Shared recording including successful operations remains future work |
-| WAT | Host output imports; the test host captures output; memory stays private | Flush-status import is implemented; input and write-failure host contracts remain |
+| WAT | Versioned write/format imports, partial failure, retry, and termination; private memory | Input host contract and shared recording including successful operations |
 | Strings | Owned values containing valid UTF-8 | Strict input-byte validation, budgets, and ownership rules |
 | Process tests | Verify output arrival before termination and no duplicate output | Interactive tests that send input only after receiving the prompt |
 
@@ -64,7 +64,7 @@ All four executors provide `run_with_output(program, &mut Output<W>)`. The VM en
 
 Records correspond to common-IR output operations. Aggregate printing expands into multiple operations. OS write chunk counts are not the recording unit. There is no live notification of pending operations. To compare output content, collect bytes in an explicitly selected writer.
 
-I/O failures use `ErrorKind::Output` / `VmErrorKind::Output`, not fabricated language-check `runtime-v1` records. Do not claim parity across all routes until generated-route failure contracts agree.
+I/O failures use `ErrorKind::Output` / `VmErrorKind::Output`, not fabricated language-check `runtime-v1` records. Ordinary writes and explicit flush now cover existing routes. This does not imply complete stdin or successful-operation recording support.
 
 Embedding code can select a destination and record limit before execution.
 
@@ -112,7 +112,7 @@ C/LLVM/QBE/Native flush only stdout and stop on failure without stdio flushing a
 
 WAT artifacts containing explicit flush add `cerune.flush_stdout_v1() -> i32`. The host returns 0 on success and any nonzero status on failure. Failure writes the record through existing `write_error_byte` and traps. Missing required imports fail instantiation rather than silently succeeding. Internal memory stays private. The test host synchronously captures output and reports successful flushing.
 
-Ordinary C/LLVM/QBE/Native writes support partial failure/retry handling; WAT does not yet implement it. Completed explicit-flush support does not imply completed I/O-failure parity. Stdin remains unimplemented.
+Ordinary C/LLVM/QBE/WAT/Native writes support partial failure/retry handling. Stdin and shared generated-route records including successful operations remain unimplemented.
 
 ## Generated C/LLVM/QBE/Native writes (implemented)
 
@@ -127,7 +127,7 @@ Each common-IR output operation carries requested/accepted byte counts and immut
 | Windows | Binary mode also covers numeric-only output; do not translate LF into CR/LF. Preserve Japanese/NUL/CR/LF as bytes |
 | Linux | Temporarily ignore SIGPIPE while writing and restore it on success. The same single-threaded artifact scope as explicit flush applies |
 
-Count bytes for a common-IR output operation without resetting at OS-call splits. Acceptance does not guarantee display or durable storage. Ordinary stdout output bypasses stdio buffering, so C/LLVM/QBE/Native can detect a failure at `print`. Other generated routes will adopt this contract in subsequent steps. `flush();` remains an explicit operation with its existing failure contract.
+Count bytes for a common-IR output operation without resetting at OS-call splits. Acceptance does not guarantee display or durable storage. Ordinary stdout output bypasses stdio buffering, so C/LLVM/QBE/Native can detect a failure at `print`. WAT implements the same operation contract through its versioned host connection. `flush();` remains an explicit operation with its existing failure contract.
 
 [Shared comparison tests](../../tests/support/generated_output.rs) for [C](../../tests/c_output.rs), [LLVM](../../tests/llvm_output.rs), and [QBE](../../tests/qbe_output.rs) supply each executor with an independent writer returning identical controlled responses, and generated C/LLVM/QBE/Native with a test execution connection. Compare prefixes, requested/accepted counts, origins, and termination. No observation API can replace responses. Cases include interruption, short writes, zero progress, invalid responses, quoted values, numbers, and multiple files. A real disconnected pipe is tested separately.
 
@@ -136,6 +136,12 @@ LLVM/QBE require an explicit target even for numeric-only `print(1);`. Generated
 Native retains LIR `Output { kind, newline }` with origins and uses the same `cerune_output_*` instructions for ASM and internal objects. [ASM tests](../../tests/native_output.rs) and [object tests](../../src/codegen/x86_64/output.rs) cover ordinary MIR, the SSA path, and origin annotations. Windows selects binary mode even for numeric-only output. The internal encoder supports `movb` for output bytes, checked against independent assembler bytes.
 
 OS connections follow Linux [write](https://man7.org/linux/man-pages/man2/write.2.html) and Windows CRT [_write](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/write?view=msvc-170).
+
+## WAT writes (implemented)
+
+The [WAT output host contract v1](wat-output-host.en.md) routes ordinary output through `write_stdout_v1`. The host receives up to eight bytes by value; generated WAT distinguishes partial acceptance, interruption, zero progress, invalid responses, and failure. It preserves requested/accepted counts and NodeId/Span, stopping with an `io-v1` diagnostic on failure.
+
+WAT formats integers and Booleans internally. Versioned float-format imports return the complete length and bytes into a fixed 128-byte buffer before writing, making requested counts exact. Memory remains private and `flush_stdout_v1` is unchanged. Old hosts missing required imports fail instantiation. See the [compatibility, formatting, and test details](wat-output-host.en.md).
 
 ## Initial input and output order
 
@@ -164,7 +170,7 @@ Executors will support captured output, real OS connections, and controlled comp
 | LIR/ASM/native objects | Use the explicit target's ABI and I/O helpers, retaining visibility into generation |
 | WAT | Supply input through imports returning values/status; do not expose internal heap pointers or mutable memory |
 
-Verify UTF-8/NUL/CR/LF preservation on Windows and Linux, and document console versus pipe behavior. Resolve WAT host compatibility before changing imports. C and similar backends remain emit-only; no implicit build route is introduced.
+Verify UTF-8/NUL/CR/LF preservation on Windows and Linux, and document console versus pipe behavior. The [output host contract](wat-output-host.en.md) specifies WAT migration; input imports need a separate design. C and similar backends remain emit-only; no implicit build route is introduced.
 
 ## Observation and comparison
 
@@ -184,17 +190,17 @@ The order follows dependencies of interaction. General record/replay, an effect 
 | 2 | Finalize bounded line-input details and implement from common IR through all routes | EOF/empty/final lines, strict UTF-8, budgets, failures/origins, ownership and release |
 | 3 | Add real interactive examples and route comparisons | Do not send input until the prompt arrives; compare identical input/responses/order on Windows/Linux and the WAT host |
 
-Stage 1 output connections are implemented. Explicit flush is also implemented. Ordinary C/LLVM/QBE/Native writes are also implemented. Next, extend partial-write/retry/termination contracts to WAT. Identify unsupported routes during partial implementation; parity across all existing routes is the final requirement.
+Stage 1 output connections, explicit flush, and ordinary C/LLVM/QBE/WAT/Native writes are implemented. Next, finalize bounded UTF-8 line-input details. Shared generated-route records including successful operations remain separate follow-up work.
 
 ## Details to resolve before implementation
 
 The following remain undecided. Align the design and expected test results before implementing the relevant stage.
 
-- Remaining stage 1 work: generated-write failure classification/termination and shared I/O records including successful operations. Embedding partial-write/retry/record-limit behavior is implemented as specified above.
+- Remaining stage 1 work: shared generated-route I/O records including successful operations. Ordinary-write termination contracts cover all routes. Embedding partial-write/retry/record-limit behavior is implemented as specified above.
 - Stage 2: API names, result types, and standard-module distribution. Check whether existing enums/imports suffice; do not add implicit file lookup.
 - EOF detection exactly at the limit, lookahead ownership, and recovery after exceeding the limit. Do not assume lookahead leaves OS input unconsumed.
 - Budgets and peak simultaneous usage for scratch buffers, UTF-8 conversion, and completed strings. An existing `[u8]` element does not necessarily occupy one logical budget byte.
-- Stable OS-error classification and diagnostics, supported console/pipe behavior, and WAT host ABI versioning/compatibility.
+- Stable OS-error classification and diagnostics, supported console/pipe behavior, and WAT input host ABI versioning/compatibility.
 
 ## Runnable baseline today
 

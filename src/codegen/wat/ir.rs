@@ -71,8 +71,10 @@ pub enum Instruction {
     Flush {
         origin: Origin,
     },
-    Write {
+    Output {
         kind: &'static str,
+        newline: bool,
+        origin: Origin,
     },
     /// 検査の呼び出し先をソース位置ごとに静的に生成します。
     Located {
@@ -80,7 +82,6 @@ pub enum Instruction {
         instruction: Box<Instruction>,
     },
     Failure(crate::runtime::RuntimeFailure),
-    CallPrintU64,
     I64LtU,
     I64LeU,
     I64GtU,
@@ -203,8 +204,6 @@ pub enum Instruction {
     F64Le,
     F64Gt,
     F64Ge,
-
-    CallPrint(Type),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

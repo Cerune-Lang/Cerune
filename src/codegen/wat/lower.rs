@@ -7,7 +7,9 @@ use super::ir::{Function, Instruction, Local, LoopKind, Module, Origin, Type};
 
 pub fn lower(program: &cerune_ir::Program) -> Module {
     let mut strings = Vec::new();
-    let mut next_address = 0;
+    let uses_output = super::output::uses_output(program);
+    // 固定128バイトの整形領域はprivate memoryの先頭に予約します。
+    let mut next_address = if uses_output { 128 } else { 0 };
     let mut functions = Vec::new();
     for function in &program.function_definitions {
         functions.push(lower_function(
@@ -55,7 +57,7 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
             .map(|_| program.array_heap_limit),
         string_heap_start: context.next_address,
         string_heap_limit: crate::codegen::support::string_heap_limit(program),
-        uses_write: crate::codegen::display::uses_write(program),
+        uses_write: uses_output,
         uses_flush: crate::codegen::support::first_flush_span(program).is_some(),
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
         memory_pages: if context.next_address == 0 {
@@ -432,7 +434,14 @@ impl LoweringContext<'_> {
             cerune_ir::StatementKind::Write { value, quoted } => {
                 let kind = crate::codegen::display::kind(&value.ty, *quoted);
                 self.lower_expr(value, instructions);
-                instructions.push(Instruction::Write { kind });
+                instructions.push(Instruction::Output {
+                    kind,
+                    newline: false,
+                    origin: Origin {
+                        node_id: statement.id,
+                        span: statement.span,
+                    },
+                });
             }
             cerune_ir::StatementKind::Flush => {
                 instructions.push(Instruction::Flush {
@@ -443,13 +452,14 @@ impl LoweringContext<'_> {
                 });
             }
             cerune_ir::StatementKind::Print { value } => {
-                let Value::Scalar(ty) = self.lower_expr(value, instructions) else {
-                    unreachable!("semantic analysis rejects aggregate printing")
-                };
-                instructions.push(if crate::codegen::is_u64(&value.ty) {
-                    Instruction::CallPrintU64
-                } else {
-                    Instruction::CallPrint(ty)
+                self.lower_expr(value, instructions);
+                instructions.push(Instruction::Output {
+                    kind: crate::codegen::display::kind(&value.ty, false),
+                    newline: true,
+                    origin: Origin {
+                        node_id: statement.id,
+                        span: statement.span,
+                    },
                 });
             }
 

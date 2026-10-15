@@ -89,9 +89,9 @@ WAT puts data in private linear memory and uses 32-bit addresses. Its eight-byte
 
 ### WAT output and the external boundary
 
-WAT programs using strings import `cerune.write_byte(i32) -> void`. Generated code reads each content byte, passes its value in 0–255, and finally passes LF (10). The host must preserve these bytes in order without character encoding or line-ending translation. Numbers and Booleans retain the existing `print_i64`, `print_u64`, `print_f32`, `print_f64`, and `print_bool` contracts.
+WAT sends byte values through `write_stdout_v1` in the [versioned host contract](wat-output-host.en.md), retaining requested/accepted counts and origins in generated code. Hosts preserve encoding and line endings and report partial acceptance, interruption, and failure. Numbers and Booleans use the same write connection.
 
-Strings nested in aggregates are quoted/escaped; numeric fragments use host functions without a newline. See the [aggregate display contract](aggregate-values.en.md). Standalone string display is unchanged.
+Strings nested in aggregates are quoted/escaped; formatted numeric bytes also use the common write connection without a newline. See the [aggregate display contract](aggregate-values.en.md). Standalone string display is unchanged.
 
 Memory is neither exported nor imported for output. Passing byte values instead of string storage references adds no output interface for modifying contents. This is a runtime output contract, not a compiler observation API or a way for observations to control compilation.
 
@@ -103,7 +103,7 @@ The LLVM snapshot explicitly selects Linux. On supported Windows/Linux hosts, `c
 
 The `string-values` observation fixture fixes all eight artifacts. Shared inputs and known expectations in `tests/support/string_cases.rs` are checked against VM, C, LLVM, and, through `cargo test --test string_routes`, QBE, WAT, and direct assembly. Checks distinguish output bytes, evaluation order, short-circuiting, independent copies, and stopping on out-of-bounds access. Even when strings occur only in unused defaults, Windows C, LLVM, and assembly select the same output mode.
 
-QBE and assembly run on Windows x64 and Linux x86-64. The dedicated `qbe_windows` test retains generation stages for Windows comparisons. WAT is validated and converted with WABT, then run in Node's WebAssembly engine; tests also require `main` to be its only export. The test host's floating-point output is limited to the shared fixture's exact values `1.5`, `2`, `2.5`, and `4`, not a general numeric formatter. Unavailable execution routes print a reason and are distinguished from completed comparisons. Together, both CI jobs require execution of every route.
+QBE and assembly run on Windows x64 and Linux x86-64. The dedicated `qbe_windows` test retains generation stages for Windows comparisons. WAT is validated and converted with WABT, then run in Node's WebAssembly engine; tests also require `main` to be its only export. The test host implements nine/seventeen significant digits with ties-to-even rounding, compared with executors including negative zero, minimum subnormals, and maximum values. Unavailable execution routes print a reason and are distinguished from completed comparisons. Together, both CI jobs require execution of every route.
 
 Development tools can be selected through `CERUNE_TEST_QBE`, `CERUNE_TEST_ASM_CLANG`, `CERUNE_TEST_NODE`, and `CERUNE_TEST_WAT2WASM_JS` (WABT's `bin/wat2wasm`). An unavailable configured tool fails the test. Install WABT with `npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39`. Launching these tools belongs to development tests; Cerune's emission commands do not launch them.
 

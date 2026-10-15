@@ -2,7 +2,7 @@
 
 [English](standard-io.en.md)
 
-**状態：4実行器の出力接続、CLIの逐次出力、全実行・生成経路の明示flushを実装済み。生成C・LLVM・QBE・Nativeの通常書込みも対応済み。標準入力と、WATの書込み失敗契約は未実装です。** [#89](https://github.com/Cerune-Lang/Cerune/issues/89)の最初の用途を、上限付きUTF-8行入力による小さな対話とします。API名・型・失敗の詳細は後述の未決事項です。
+**状態：4実行器の出力接続、CLIの逐次出力、全実行・生成経路の明示flushを実装済み。生成C・LLVM・QBE・WAT・Nativeの通常書込みも対応済み。標準入力と生成経路の成功操作を含む共通記録は未実装です。** [#89](https://github.com/Cerune-Lang/Cerune/issues/89)の最初の用途を、上限付きUTF-8行入力による小さな対話とします。API名・型・失敗の詳細は後述の未決事項です。
 
 ## 採用条件
 
@@ -22,9 +22,9 @@
 
 | 対象 | 現在 | 必要な変更 |
 | --- | --- | --- |
-| IR・MIR・SSA・VMとCLI | 出力収集APIを維持し、逐次出力APIを追加。CLIは実行中に出力し、終了時にflush | 生成経路との書込み失敗契約の統一 |
+| IR・MIR・SSA・VMとCLI | 出力収集APIを維持し、逐次出力APIを追加。CLIは実行中に出力し、終了時にflush | 標準入力の追加と生成経路の共通記録 |
 | C・LLVM・QBE・Native | 操作ごとの要求/受理数・出自、短い書込み・割込み・停止に対応 | 成功操作を含む共通記録は後続 |
-| WAT | hostの出力importを利用。テストhostは出力を収集。memoryは非公開 | flushの状態importは実装済み。入力・書込み失敗のhost契約が残る |
+| WAT | 版付き書込み・整形import、部分失敗・再試行・停止に対応。memoryは非公開 | 入力のhost契約と成功操作を含む共通記録 |
 | 文字列 | 有効なUTF-8を保持する所有値 | 入力バイトからの厳密な検証、予算と所有の規則 |
 | プロセステスト | 終了前の出力到着と二重表示防止を検証済み | 質問の出力を受けてから入力を送る対話テスト |
 
@@ -64,7 +64,7 @@ Ceruneプログラム → 明示的なI/O操作 → 実行用I/O接続 → OSま
 
 記録の単位は共通IRの出力操作です。配列の表示等は複数操作へ展開されます。OSへの書込み分割回数は記録単位にしません。保留中の操作のライブ通知はありません。出力本文も比較する場合は、明示的に選んだwriterでバイト列を収集します。
 
-I/O失敗は`ErrorKind::Output`／`VmErrorKind::Output`で返し、既存の言語検査の`runtime-v1`には偽装しません。生成経路の失敗契約を統一するまでは、全経路対応済みとは扱いません。
+I/O失敗は`ErrorKind::Output`／`VmErrorKind::Output`で返し、既存の言語検査の`runtime-v1`には偽装しません。通常書込みと明示flushは既存経路へ展開済みです。標準入力や成功操作の記録まで全経路対応したという意味ではありません。
 
 埋め込み側では、出力先と記録上限を選んで実行できます。
 
@@ -112,7 +112,7 @@ C・LLVM・QBE・Nativeはstdoutのみをflushし、失敗時は終了時のstdi
 
 WATは明示flushを含む成果物だけに`cerune.flush_stdout_v1() -> i32`を追加します。hostは成功で0、失敗で0以外を返します。失敗記録を既存の`write_error_byte`へ送りtrapします。必要なimportがなければinstantiateに失敗し、暗黙に成功とはしません。内部memoryは非公開のままです。テストhostは同期的に出力を収集し、flush成功を返します。
 
-通常書込みの部分失敗・再試行はC・LLVM・QBE・Nativeで対応済みです。WATには未展開です。明示flushの対応完了を、I/O失敗全体の対応完了とは扱いません。標準入力も未実装です。
+通常書込みの部分失敗・再試行はC・LLVM・QBE・WAT・Nativeで対応済みです。標準入力と、生成経路の成功操作を含む共通記録は未実装です。
 
 ## 生成C・LLVM・QBE・Nativeの書込み（実装済み）
 
@@ -127,7 +127,7 @@ WATは明示flushを含む成果物だけに`cerune.flush_stdout_v1() -> i32`を
 | Windows | 数値だけの出力もバイナリモードとし、LFをCR/LFへ書き換えない。日本語・NUL・CR/LFをバイトで保持 |
 | Linux | 書込み中はSIGPIPEを一時的に無視し、成功時に戻す。明示flushと同じ単一スレッド成果物の範囲 |
 
-要求/受理数は共通IRの1出力操作について数え、OS呼出しの分割ごとにはリセットしません。受理は画面描画・永続保存の保証ではありません。stdoutの通常出力にstdioバッファを挟まないため、C・LLVM・QBE・Nativeでは`print`時点で失敗を検出する場合があります。他の生成経路にはこの書込み契約を順に展開します。`flush();`は引き続き操作として残り、既存のflush失敗契約も維持します。
+要求/受理数は共通IRの1出力操作について数え、OS呼出しの分割ごとにはリセットしません。受理は画面描画・永続保存の保証ではありません。stdoutの通常出力にstdioバッファを挟まないため、C・LLVM・QBE・Nativeでは`print`時点で失敗を検出する場合があります。WATは同じ操作契約を版付きhost接続で扱います。`flush();`は引き続き操作として残り、既存のflush失敗契約も維持します。
 
 [C](../../tests/c_output.rs)・[LLVM](../../tests/llvm_output.rs)・[QBE](../../tests/qbe_output.rs)の[共通比較テスト](../../tests/support/generated_output.rs)では、各実行器へ同じ制御応答を渡すwriter、生成C・LLVM・QBE・Nativeへ試験用の実行接続を用意し、prefix・要求/受理数・出自・停止を照合します。観測APIから応答を書き換える窓口は追加しません。割込み、短い書込み、0進行、契約外の応答、引用表示、数値、複数ファイルを含み、実際の切断pipeは別テストで確認します。
 
@@ -136,6 +136,12 @@ LLVM・QBEでは、数値のみの`print(1);`も明示targetが必要です。�
 NativeはLIRの`Output { kind, newline }`と出自を保持し、ASM・自前Objectで同じ`cerune_output_*`処理を使います。通常MIRとSSA経由、出自注釈の有無を[ASM比較](../../tests/native_output.rs)と[Object比較](../../src/codegen/x86_64/output.rs)で確認します。Windowsは数値だけの出力もバイナリモードにします。本文バイトの保存は自前エンコーダの`movb`にも対応し、外部アセンブラの命令バイトと照合します。
 
 OS接続の根拠はLinuxの[write](https://man7.org/linux/man-pages/man2/write.2.html)とWindows CRTの[_write](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/write?view=msvc-170)です。
+
+## WATの書込み（実装済み）
+
+[WAT出力host契約 v1](wat-output-host.ja.md)は、通常出力を `write_stdout_v1` にまとめます。hostへ最大8バイトの値を渡し、生成WATで部分受理・割込み・0進行・契約違反・失敗を区別します。要求/受理数とNodeId/Spanを保持し、失敗時は `io-v1` 診断で停止します。
+
+整数・真偽値はWAT内で整形します。floatは版付き整形importから全長とバイトを固定128バイト領域へ受け、検査後に出力するため要求数を正確に数えられます。内部memoryは非公開、`flush_stdout_v1` は従来どおりです。旧hostは必要なimportがなければinstantiateに失敗します。[互換性・整形・テストの詳細](wat-output-host.ja.md)を参照してください。
 
 ## 最初の入力と出力順
 
@@ -164,7 +170,7 @@ flush成功は接続先へ出力を渡したことを意味し、画面描画や
 | LIR・ASM・自前Object | 明示されたtargetのABIとI/O補助処理を使い、生成過程も観測できる |
 | WAT | 値・状態を返すimportで入力を渡す。hostへ内部heapのポインタや可変memoryを公開しない |
 
-Windows/LinuxでUTF-8・NUL・CR/LFを保つ接続を検証します。consoleとpipeの違いも明記します。WATのimport変更は既存hostとの互換性を整理してから行います。C等は引き続きemit-onlyであり、新たな暗黙ビルド経路は加えません。
+Windows/LinuxでUTF-8・NUL・CR/LFを保つ接続を検証します。consoleとpipeの違いも明記します。WATの出力importの移行範囲は[host契約](wat-output-host.ja.md)に記載しています。入力用importは別途設計します。C等は引き続きemit-onlyであり、新たな暗黙ビルド経路は加えません。
 
 ## 観測と比較
 
@@ -184,17 +190,17 @@ Windows/LinuxでUTF-8・NUL・CR/LFを保つ接続を検証します。console�
 | 2 | 上限付き行入力の詳細を確定し、共通IRから各経路へ実装 | EOF・空行・末尾、厳密UTF-8、予算、失敗と出自、所有と解放 |
 | 3 | 実際の対話exampleと経路比較を追加 | 質問が届くまで入力を送らないテスト、同じ入力・応答・操作順、Windows/LinuxとWAT host |
 
-段階1の出力接続は実装済みです。明示flushも対応済みです。C・LLVM・QBE・Nativeの通常書込みも対応済みです。次はWATへ部分失敗・再試行・停止契約を展開します。部分対応の間は未対応経路を明記し、既存機能と同等の全経路対応を最終条件にします。
+段階1の出力接続は実装済みです。明示flushも対応済みです。C・LLVM・QBE・WAT・Nativeの通常書込みも対応済みです。次は上限付きUTF-8行入力の詳細を確定します。生成経路の成功操作を含む共通記録は後続として明示し、入力の設計と混同しません。
 
 ## 実装前に詰める詳細
 
 次の項目は未確定です。関係する段階へ入る前に設計とテスト期待値を揃えます。
 
-- 段階1の残り：生成経路の書込み失敗分類と停止契約、成功操作を含む共通のI/O記録。埋め込み接続の部分書込み・再試行・記録上限は上記のとおり実装済み。
+- 段階1の残り：生成経路の成功操作を含む共通のI/O記録。通常書込みの停止契約は全経路へ展開済み。埋め込み接続の部分書込み・再試行・記録上限は上記のとおり実装済み。
 - 段階2：API名・戻り値型・標準モジュールの供給方法。既存enum/importで足りるか確認し、暗黙のファイル探索を加えない。
 - 上限ちょうどのEOF確認、先読みの所有、超過後の回復。先読みがOS入力を消費しないとは仮定しない。
 - 作業バッファ・UTF-8変換・完成文字列の予算と最大同時使用量。既存の`[u8]`の論理要素幅は1バイトとは限らない。
-- OSエラーの安定した分類と診断、console/pipeの対応範囲、WAT host ABIの版と互換性。
+- OSエラーの安定した分類と診断、console/pipeの対応範囲、WAT入力用host ABIの版と互換性。
 
 ## 現在動かせる基準例
 

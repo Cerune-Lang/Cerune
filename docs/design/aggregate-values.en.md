@@ -71,7 +71,7 @@ All routes share expansion into typed IR before backend lowering.
 
 Generated functions carry `generated` and their original source ranges. Outer values used by a match expression are copied through parameters; guard/result calculations stay inside their corresponding functions and branches. Constants retain their initializer and evaluated result. Bytecode and annotated LLVM/assembly retain origins; failures inside helpers preserve the original failing expression's location, reason, and prior output.
 
-`write` is an internal operation without a newline, not a new source builtin. C/LLVM/QBE/assembly use the existing numeric formats and byte output. String quoting introduces no dynamic allocation. When aggregate display is needed, WAT additionally imports `cerune.write_i64`, `write_u64`, `write_f32`, and `write_f64`. Hosts write the existing numeric format without a newline. Strings and punctuation use existing `write_byte`; memory stays unexported. Targets remain explicit rather than selected from the running host OS.
+`write` is an internal operation without a newline, not a new source builtin. C/LLVM/QBE/assembly use the existing numeric formats and byte output. String quoting introduces no dynamic allocation. WAT sends formatted bytes through the [versioned output contract](wat-output-host.en.md), retaining per-operation requested/accepted counts, origins, and partial failures without exporting memory. Targets remain explicit rather than selected from the running host OS.
 
 Observation adds no external mutation interface. Independent copies and short-circuit evaluation remain intact while the generated steps are inspectable.
 

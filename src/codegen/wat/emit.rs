@@ -5,7 +5,7 @@ use super::ir::{Function, Instruction, LoopKind, Module, Origin, Type};
 pub fn emit(module: &Module) -> String {
     let mut output = String::new();
     let mut helpers = std::collections::BTreeMap::new();
-    let mut uses_failures = module.uses_flush;
+    let mut uses_failures = module.uses_flush || module.uses_write;
     for instruction in module.instructions.iter().chain(
         module
             .functions
@@ -17,52 +17,21 @@ pub fn emit(module: &Module) -> String {
 
     writeln!(output, "(module").unwrap();
     if module.uses_write {
-        output.push_str(&crate::codegen::display::wat_imports());
+        output.push_str(super::output::IMPORT);
+        for kind in super::output::float_kinds(module) {
+            output.push_str(&super::output::float_import(kind));
+        }
     }
     if uses_failures {
         output.push_str(
             "  (import \"cerune\" \"write_error_byte\" (func $write_error_byte (param i32)))\n",
         );
     }
-    if module.uses_strings {
-        output.push_str("  (import \"cerune\" \"write_byte\" (func $write_byte (param i32)))\n");
-    }
-
     if module.uses_flush {
         output.push_str(
             "  (import \"cerune\" \"flush_stdout_v1\" (func $flush_stdout_v1 (result i32)))\n",
         );
     }
-    if module_uses_u64_print(module) {
-        output.push_str("  (import \"cerune\" \"print_u64\" (func $print_u64 (param i64)))\n");
-    }
-    // print() is provided by the host.
-    if module_uses_bool_print(module) {
-        writeln!(
-            output,
-            "  (import \"cerune\" \"print_bool\" (func $print_bool (param i32)))"
-        )
-        .unwrap();
-    }
-
-    writeln!(
-        output,
-        "  (import \"cerune\" \"print_i64\" (func $print_i64 (param i64)))"
-    )
-    .unwrap();
-
-    writeln!(
-        output,
-        "  (import \"cerune\" \"print_f32\" (func $print_f32 (param f32)))"
-    )
-    .unwrap();
-
-    writeln!(
-        output,
-        "  (import \"cerune\" \"print_f64\" (func $print_f64 (param f64)))"
-    )
-    .unwrap();
-
     writeln!(output).unwrap();
 
     for (name, (instruction, origin)) in helpers {
@@ -89,7 +58,7 @@ pub fn emit(module: &Module) -> String {
         ));
     }
     if module.uses_write {
-        output.push_str(&crate::codegen::display::wat());
+        super::output::support(module, &mut output);
     }
     for function in &module.functions {
         emit_function(function, module, &mut output);
@@ -150,6 +119,13 @@ fn collect_helpers<'a>(
                 (instruction, *origin),
             );
         }
+        Instruction::Output { origin, .. } => {
+            *uses_failures = true;
+            helpers.insert(
+                super::failure::helper_name(instruction, *origin),
+                (instruction, *origin),
+            );
+        }
         Instruction::Failure(_) => *uses_failures = true,
         Instruction::If {
             then_instructions,
@@ -183,6 +159,9 @@ fn collect_helpers<'a>(
 
 fn emit_helper(instruction: &Instruction, origin: Origin, name: &str, output: &mut String) {
     match instruction {
+        Instruction::Output { kind, newline, .. } => {
+            super::output::located(kind, *newline, origin, name, output)
+        }
         Instruction::ArrayAllocate { .. }
         | Instruction::ArrayAddress
         | Instruction::ArrayRangeCheck => super::array::checked(instruction, origin, name, output),
@@ -294,10 +273,14 @@ fn emit_instruction(
         )
         .unwrap(),
         Instruction::Failure(record) => super::failure::emit(*record, &prefix, output),
-        Instruction::Write { kind } => {
-            writeln!(output, "{prefix}call $cerune_write_{kind}").unwrap()
+        Instruction::Output { origin, .. } => {
+            writeln!(
+                output,
+                "{prefix}call ${}",
+                super::failure::helper_name(instruction, *origin)
+            )
+            .unwrap();
         }
-        Instruction::CallPrintU64 => writeln!(output, "{prefix}call $print_u64").unwrap(),
         Instruction::I64LtU => writeln!(output, "{prefix}i64.lt_u").unwrap(),
         Instruction::I64LeU => writeln!(output, "{prefix}i64.le_u").unwrap(),
         Instruction::I64GtU => writeln!(output, "{prefix}i64.gt_u").unwrap(),
@@ -488,21 +471,6 @@ fn emit_instruction(
         Instruction::F64Le => emit_simple("f64.le", &prefix, output),
         Instruction::F64Gt => emit_simple("f64.gt", &prefix, output),
         Instruction::F64Ge => emit_simple("f64.ge", &prefix, output),
-
-        Instruction::CallPrint(ty) => {
-            let function = match ty {
-                Type::String => "$cerune_print_string",
-                Type::Bool => "$print_bool",
-                Type::I64 => "$print_i64",
-                Type::F32 => "$print_f32",
-                Type::F64 => "$print_f64",
-                Type::DynamicArray | Type::Pointer => {
-                    unreachable!("pointers are not printable Cerune values")
-                }
-            };
-
-            writeln!(output, "{prefix}call {function}").unwrap();
-        }
     }
 }
 
@@ -528,87 +496,9 @@ fn wat_type(ty: Type) -> &'static str {
     }
 }
 
-fn instruction_uses_bool_print(instruction: &Instruction) -> bool {
-    match instruction {
-        Instruction::CallPrint(Type::Bool) => true,
-        Instruction::If {
-            then_instructions,
-            else_instructions,
-        }
-        | Instruction::IfBool {
-            then_instructions,
-            else_instructions,
-        } => {
-            then_instructions.iter().any(instruction_uses_bool_print)
-                || else_instructions.iter().any(instruction_uses_bool_print)
-        }
-        Instruction::Loop {
-            condition_instructions,
-            body_instructions,
-            update_instructions,
-            ..
-        } => {
-            condition_instructions
-                .iter()
-                .any(instruction_uses_bool_print)
-                || body_instructions.iter().any(instruction_uses_bool_print)
-                || update_instructions.iter().any(instruction_uses_bool_print)
-        }
-        _ => false,
-    }
-}
-
-fn module_uses_bool_print(module: &Module) -> bool {
-    module.instructions.iter().any(instruction_uses_bool_print)
-        || module.functions.iter().any(|function| {
-            function
-                .instructions
-                .iter()
-                .any(instruction_uses_bool_print)
-        })
-}
-
 fn loop_name(kind: LoopKind) -> &'static str {
     match kind {
         LoopKind::While => "while",
         LoopKind::For => "for",
     }
-}
-
-fn instruction_uses_u64_print(instruction: &Instruction) -> bool {
-    match instruction {
-        Instruction::CallPrintU64 => true,
-        Instruction::If {
-            then_instructions,
-            else_instructions,
-        }
-        | Instruction::IfBool {
-            then_instructions,
-            else_instructions,
-        } => {
-            then_instructions.iter().any(instruction_uses_u64_print)
-                || else_instructions.iter().any(instruction_uses_u64_print)
-        }
-        Instruction::Loop {
-            condition_instructions,
-            body_instructions,
-            update_instructions,
-            ..
-        } => {
-            condition_instructions
-                .iter()
-                .any(instruction_uses_u64_print)
-                || body_instructions.iter().any(instruction_uses_u64_print)
-                || update_instructions.iter().any(instruction_uses_u64_print)
-        }
-        _ => false,
-    }
-}
-
-fn module_uses_u64_print(module: &Module) -> bool {
-    module.instructions.iter().any(instruction_uses_u64_print)
-        || module
-            .functions
-            .iter()
-            .any(|function| function.instructions.iter().any(instruction_uses_u64_print))
 }
