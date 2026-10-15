@@ -8,6 +8,7 @@ Normal examples are the `.ceru` files in this directory.
 | --- | --- |
 | This directory | Standalone programs; included in the batch runner |
 | [dynamic_arrays](dynamic_arrays/README.en.md) | Dynamic array copies, ranges, nesting; IR/MIR/VM/C/LLVM/QBE/WAT/ASM/native-object execution |
+| [stdin](stdin/README.en.md) | Actual stdin lines/blank lines/EOF, prompt flush, UTF-8 byte counts; compared across routes |
 | [io_protocol](io_protocol/README.en.md) | Output/evaluation order, explicit flush, and scripted input; distinguish EOF, empty lines, and failure (no stdin) |
 | [ir_stages](ir_stages/README.en.md) | Execute short circuits, loops, and calls; observe HIR→MIR→LIR→Native lowering and target-specific ABI |
 | [modules](modules/README.en.md) | Imports, single-file comparison, and expected failures |

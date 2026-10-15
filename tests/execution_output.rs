@@ -1,7 +1,7 @@
 use cerune_lang::{
     compile_to_ir, ir, ir_executor, mir, mir_executor,
     runtime::{
-        RuntimeFailure,
+        RuntimeFailure, input,
         output::{Event, Failure, Operation, Origin, Output},
     },
     ssa_executor,
@@ -11,6 +11,7 @@ use std::io::{self, Write};
 #[derive(Debug, PartialEq, Eq)]
 struct Stopped {
     io: Option<Failure>,
+    input: Option<input::Failure>,
     runtime: Option<RuntimeFailure>,
     origin: Option<Origin>,
 }
@@ -27,6 +28,10 @@ fn execute<W: Write>(
                     ir_executor::ErrorKind::Output(f) => Some(**f),
                     _ => None,
                 },
+                input: match e.kind() {
+                    ir_executor::ErrorKind::Input(f) => Some(**f),
+                    _ => None,
+                },
                 runtime: e.runtime_failure(),
                 origin: e.origin().map(|o| Origin {
                     node_id: o.node_id,
@@ -39,6 +44,10 @@ fn execute<W: Write>(
             Box::new(Stopped {
                 io: match e.kind() {
                     mir_executor::ErrorKind::Output(f) => Some(**f),
+                    _ => None,
+                },
+                input: match e.kind() {
+                    mir_executor::ErrorKind::Input(f) => Some(**f),
                     _ => None,
                 },
                 runtime: e.runtime_failure(),
@@ -59,6 +68,10 @@ fn execute<W: Write>(
                     mir_executor::ErrorKind::Output(f) => Some(**f),
                     _ => None,
                 },
+                input: match e.kind() {
+                    mir_executor::ErrorKind::Input(f) => Some(**f),
+                    _ => None,
+                },
                 runtime: e.runtime_failure(),
                 origin: e.origin().map(|o| Origin {
                     node_id: o.node_id,
@@ -75,6 +88,10 @@ fn execute<W: Write>(
             Box::new(Stopped {
                 io: match e.vm_error().kind() {
                     cerune_lang::vm::VmErrorKind::Output(f) => Some(*f),
+                    _ => None,
+                },
+                input: match e.vm_error().kind() {
+                    cerune_lang::vm::VmErrorKind::Input(f) => Some(*f),
                     _ => None,
                 },
                 runtime: e.runtime_failure(),
@@ -216,6 +233,7 @@ fn partial_utf8_write_failure_keeps_exact_prefix_origin_and_stops_later_operatio
             assert_eq!(failure.accepted, 1);
             assert_eq!(failure.origin, error.origin);
             assert!(error.runtime.is_none());
+            assert!(error.input.is_none());
             let span = error.origin.unwrap().span;
             assert_eq!(&source[span.start()..span.end()], r#"print("日本");"#);
             if let Some(reference) = &reference {
@@ -295,6 +313,7 @@ fn runtime_failure_preserves_prior_output_and_capture_apis() {
         let error = execute(route, &hir, &mut output).unwrap_err();
         assert_eq!(error.runtime, captured.runtime_failure());
         assert_eq!(error.io, None);
+        assert_eq!(error.input, None);
         output.flush().unwrap();
         assert_eq!(output.into_inner().bytes, b"before\n");
     }
@@ -337,6 +356,29 @@ fn every_runnable_example_matches_existing_captured_output_in_all_executors() {
                 Err(error) => {
                     let stopped = result.unwrap_err();
                     assert_eq!(stopped.io, None);
+
+                    let expected_input = match error.kind() {
+                        ir_executor::ErrorKind::Input(f) => Some(**f),
+                        _ => None,
+                    };
+                    if let Some(failure) = expected_input {
+                        assert_eq!(failure.code, input::Code::Unconfigured);
+                        assert_eq!(
+                            stopped.origin,
+                            Some(Origin {
+                                node_id: failure.origin.node_id,
+                                span: failure.origin.span,
+                            }),
+                            "{} route {route}: input origin",
+                            path.display()
+                        );
+                    }
+                    assert_eq!(
+                        stopped.input,
+                        expected_input,
+                        "{} route {route}: input failure",
+                        path.display()
+                    );
                     assert_eq!(
                         stopped.runtime,
                         error.runtime_failure(),

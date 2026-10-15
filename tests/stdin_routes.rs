@@ -197,6 +197,9 @@ fn files_preserve_bytes_and_errors_across_cli_and_generated_routes() {
         if let Some(exe) = compile_qbe(&dir, &format!("case{i}"), &generated_qbe(&hir)) {
             compare(file_run(&mut Command::new(exe), &dir, bytes), &expected);
         }
+        for exe in native_commands(&dir, &format!("case{i}"), &hir) {
+            compare(file_run(&mut Command::new(exe), &dir, bytes), &expected);
+        }
         if let Some(mut cmd) = wat_command(&dir, &format!("case{i}"), &generated_wat(&hir)) {
             compare(file_run(&mut cmd, &dir, bytes), &expected);
         }
@@ -296,6 +299,9 @@ fn prompts_precede_pipe_input_and_pipe_closure_is_eof() {
     if let Some(exe) = compile_qbe(&dir, "dialogue", &generated_qbe(&hir)) {
         dialogue(&mut Command::new(exe), &dir);
     }
+    for exe in native_commands(&dir, "dialogue", &hir) {
+        dialogue(&mut Command::new(exe), &dir);
+    }
     if let Some(mut cmd) = wat_command(&dir, "dialogue", &generated_wat(&hir)) {
         dialogue(&mut cmd, &dir);
     }
@@ -332,6 +338,7 @@ fn copied_lines_short_circuit_and_argument_order_match_generated_routes() {
         if let Some(exe)=compile_c(&dir,&format!("ownership{i}"),&c::emit_c(&hir).unwrap(),"-O2") {compare(file_run(&mut Command::new(exe),&dir,bytes),&expected);}
         if let Some(exe)=compile_llvm(&dir,&format!("ownership{i}"),&generated_llvm(&hir,true),"-O2") {compare(file_run(&mut Command::new(exe),&dir,bytes),&expected);}
         if let Some(exe)=compile_qbe(&dir,&format!("ownership{i}"),&generated_qbe(&hir)) {compare(file_run(&mut Command::new(exe),&dir,bytes),&expected);}
+        for exe in native_commands(&dir, &format!("ownership{i}"), &hir) { compare(file_run(&mut Command::new(exe), &dir, bytes), &expected); }
         if let Some(mut cmd)=wat_command(&dir,&format!("ownership{i}"),&generated_wat(&hir)) {compare(file_run(&mut cmd,&dir,bytes),&expected);}
     }
 }
@@ -469,6 +476,11 @@ fn input_stops_at_the_line_or_probe_without_hidden_read_ahead() {
         ) {
             commands.push(cmd);
         }
+        commands.extend(
+            native_commands(&dir, &format!("cursor-{limit}-{budget}"), &hir)
+                .into_iter()
+                .map(Command::new),
+        );
         for mut cmd in commands {
             let input = dir.join("input.bin");
             fs::write(&input, bytes).unwrap();
@@ -960,3 +972,72 @@ fn generated_wat(hir: &cerune_lang::ir::Program) -> String {
 }
 #[path = "support/wat_input.rs"]
 mod wat_input;
+
+fn native_target() -> cerune_lang::codegen::x86_64::Target {
+    use cerune_lang::codegen::x86_64::Target;
+    if cfg!(windows) {
+        Target::X86_64PcWindowsMsvc
+    } else {
+        Target::X86_64UnknownLinuxGnu
+    }
+}
+fn native_link(dir: &Path, stem: &str, bytes: &[u8], ext: &str) -> Option<PathBuf> {
+    let configured = std::env::var_os("CERUNE_TEST_ASM_CLANG");
+    let cc = configured
+        .clone()
+        .unwrap_or_else(|| if cfg!(windows) { "clang" } else { "cc" }.into());
+    if !Command::new(&cc)
+        .arg("--version")
+        .output()
+        .is_ok_and(|o| o.status.success())
+    {
+        assert!(configured.is_none(), "configured Native linker unavailable");
+        eprintln!("Native stdin checks skipped: linker unavailable");
+        return None;
+    }
+    let source = dir.join(format!("{stem}.{ext}"));
+    let exe = dir.join(format!("{stem}{}", std::env::consts::EXE_SUFFIX));
+    fs::write(&source, bytes).unwrap();
+    let out = process::bounded_output(
+        Command::new(cc).arg(&source).arg("-o").arg(&exe),
+        dir,
+        "Native input link",
+        Duration::from_secs(30),
+    )
+    .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    Some(exe)
+}
+fn native_commands(dir: &Path, stem: &str, hir: &cerune_lang::ir::Program) -> Vec<PathBuf> {
+    use cerune_lang::{codegen::x86_64 as native, mir};
+    let mir = mir::lower(hir).unwrap();
+    let ssa = mir::ssa::lower(&mir::ssa::construct(&mir).unwrap())
+        .unwrap()
+        .program;
+    let mut commands = Vec::new();
+    for (stage, program) in [("mir", &mir), ("ssa", &ssa)] {
+        let lir = native::lower_mir(program, native_target()).unwrap();
+        let asm = native::emit_asm_from_lir(&lir, true).unwrap();
+        let obj = native::emit_object_from_lir(&lir, true).unwrap();
+        for (kind, bytes, ext) in [
+            ("asm", asm.as_bytes(), "s"),
+            (
+                "obj",
+                obj.as_slice(),
+                if cfg!(windows) { "obj" } else { "o" },
+            ),
+        ] {
+            if let Some(exe) = native_link(dir, &format!("{stem}-{stage}-{kind}"), bytes, ext) {
+                commands.push(exe);
+            }
+        }
+    }
+    commands
+}
+
+#[path = "support/native_input.rs"]
+mod native_input;

@@ -2,7 +2,7 @@
 
 [日本語](standard-io.ja.md)
 
-**Status: Output connections in all four executors, incremental CLI output, and explicit flush across execution/generated routes are implemented. Ordinary generated C/LLVM/QBE/WAT/Native writes are also supported. std:io line input is implemented in four executor Rust APIs. CLI and generated C/LLVM/QBE connect actual stdin. WAT supports [versioned input hosts](wat-input-host.en.md). Native input and shared generated-route records including successful operations remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. Public names/types are defined by [virtual standard modules](standard-modules.en.md), with detailed failures in the [line-input contract](line-input.en.md).
+**Status: Output connections in all four executors, incremental CLI output, and explicit flush across execution/generated routes are implemented. Ordinary generated C/LLVM/QBE/WAT/Native writes are also supported. std:io line input is implemented in four executor Rust APIs. CLI and generated C/LLVM/QBE/Native connect actual stdin. WAT supports [versioned input hosts](wat-input-host.en.md). Native input is also implemented. Shared generated-route records including successful operations remain unimplemented.** The first use case for [#89](https://github.com/Cerune-Lang/Cerune/issues/89) is a small interaction using bounded UTF-8 line input. Public names/types are defined by [virtual standard modules](standard-modules.en.md), with detailed failures in the [line-input contract](line-input.en.md).
 
 ## Acceptance principles
 
@@ -25,8 +25,8 @@ The investigation covers `src/ir_executor.rs`, `src/mir_executor/`, `src/ssa_exe
 | IR/MIR/SSA/VM and CLI | Retain capture APIs, add incremental output APIs; CLI delivers output during execution and flushes at completion; stdin connected | Windows console input and shared generated-route records |
 | C/LLVM/QBE/Native | Per-operation requested/accepted counts and origins; partial writes, interruption, and termination | Shared recording including successful operations remains future work |
 | WAT | Versioned write/format imports, partial failure, retry, and termination; private memory | Input host contract and shared recording including successful operations |
-| Strings | Owned valid UTF-8; four executors and C validate input and account for budgets/ownership | Connect the remaining generated routes to the same input rules |
-| Process tests | Verify output arrival/no duplication and CLI/C/LLVM/QBE dialogue that sends input only after the prompt | Extend dialogue comparisons to remaining generated routes |
+| Strings | Owned valid UTF-8; four executors and all generated routes validate input and account for budgets/ownership | Maintain identical input rules across routes |
+| Process tests | Verify output arrival/no duplication and CLI/C/LLVM/QBE/Native dialogue that sends input only after the prompt | Dialogue comparisons also cover WAT and Native |
 
 Existing language-failure diagnostics do not specify OS read/write failure semantics. Extend the contract and diagnostic coverage explicitly.
 
@@ -112,7 +112,7 @@ C/LLVM/QBE/Native flush only stdout and stop on failure without stdio flushing a
 
 WAT artifacts containing explicit flush add `cerune.flush_stdout_v1() -> i32`. The host returns 0 on success and any nonzero status on failure. Failure writes the record through existing `write_error_byte` and traps. Missing required imports fail instantiation rather than silently succeeding. Internal memory stays private. The test host synchronously captures output and reports successful flushing.
 
-Ordinary C/LLVM/QBE/WAT/Native writes support partial failure/retry handling. std:io line input is implemented in four executor Rust APIs. CLI and generated C/LLVM/QBE connect actual stdin. WAT supports [versioned input hosts](wat-input-host.en.md). Native input and shared generated-route records including successful operations remain unimplemented.
+Ordinary C/LLVM/QBE/WAT/Native writes support partial failure/retry handling. std:io line input is implemented in four executor Rust APIs. CLI and generated C/LLVM/QBE/Native connect actual stdin. WAT supports [versioned input hosts](wat-input-host.en.md). Native input is also implemented. Shared generated-route records including successful operations remain unimplemented.
 
 ## Generated C/LLVM/QBE/Native writes (implemented)
 
@@ -145,7 +145,7 @@ WAT formats integers and Booleans internally. Versioned float-format imports ret
 
 ## Initial input and output order
 
-The public std:io read_line API takes an explicit byte limit and returns the ordinary ReadLine enum. The following contract is implemented in four executors; CLI/C/LLVM/QBE stdin is also connected within the [initial scope](stdin-connections.en.md); remaining generated routes follow.
+The public std:io read_line API takes an explicit byte limit and returns the ordinary ReadLine enum. The following contract is implemented in four executors; CLI/C/LLVM/QBE/Native stdin is also connected within the [initial scope](stdin-connections.en.md); WAT hosts and Native input are also implemented.
 
 | Item | Direction |
 | --- | --- |
@@ -190,19 +190,21 @@ The order follows dependencies of interaction. General record/replay, an effect 
 | 2 | Finalize bounded line-input details and implement from common IR through all routes | EOF/empty/final lines, strict UTF-8, budgets, failures/origins, ownership and release |
 | 3 | Add real interactive examples and route comparisons | Do not send input until the prompt arrives; compare identical input/responses/order on Windows/Linux and the WAT host |
 
-Stage 1 output connections, explicit flush, and ordinary C/LLVM/QBE/WAT/Native writes are implemented. The [bounded UTF-8 line-input contract](line-input.en.md) and shared Rust connection are implemented. std:io, string ownership, and input operations are connected to four executors. CLI/C/LLVM/QBE actual stdin is connected; versioned WAT input hosts are implemented; Native input comes next. Shared generated-route records including successful operations remain separate follow-up work.
+Stage 1 output connections, explicit flush, and ordinary C/LLVM/QBE/WAT/Native writes are implemented. The [bounded UTF-8 line-input contract](line-input.en.md) and shared Rust connection are implemented. std:io, string ownership, and input operations are connected to four executors. CLI/C/LLVM/QBE/Native actual stdin is connected; versioned WAT input hosts are implemented; Native input is implemented. Shared generated-route records including successful operations remain separate follow-up work.
 
 ## Details to resolve before implementation
 
 The following design and integration work remains. Distinguish the settled line-input contract from routes that are not implemented.
 
 - Remaining stage 1 work: shared generated-route I/O records including successful operations. Ordinary-write termination contracts cover all routes. Embedding partial-write/retry/record-limit behavior is implemented as specified above.
-- Stage 2: [std:io](standard-modules.en.md), its public API, ordinary enum, and virtual source resolution are implemented. CLI/C/LLVM/QBE OS bindings are also implemented; versioned WAT input hosts are implemented. Connect the remaining Native route.
+- Stage 2: [std:io](standard-modules.en.md), its public API, ordinary enum, and virtual source resolution are implemented. CLI/C/LLVM/QBE/Native OS bindings are also implemented; versioned WAT input hosts are implemented. Native Assembly and self-encoded Object through ordinary/SSA MIR are also connected.
 - The [line-input contract](line-input.en.md) fixes EOF checks, at most one extra consumed byte, stopping on errors, and classified diagnostics. A separate recoverable API remains future work.
-- Whole-limit reservation and ownership transfer are connected to the four executors, C, LLVM, QBE, and WAT. Native input still needs matching budgets and release.
-- Remaining console support and Native OS-error mappings. WAT input host ABI v1 and compatibility are defined in the [contract](wat-input-host.en.md).
+- Whole-limit reservation and ownership transfer are connected to the four executors, C, LLVM, QBE, WAT, and Native.
+- Windows console conversion and consumption accounting remain. Synchronous pipe/file OS-error mappings are implemented. WAT input host ABI v1 and compatibility are defined in the [contract](wat-input-host.en.md).
 
 ## Runnable baseline today
+
+The [stdin example](../../examples/stdin/README.en.md) runs prompt → flush → read_line → line/EOF branching across all routes.
 
 [explicit_flush.ceru](../../examples/io_protocol/explicit_flush.ceru) covers flushing inside functions/loops and Japanese/NUL/CR/LF. [Generated-route tests](../../tests/explicit_flush.rs) compare output, controlled flush failures/origins, and output arrival before termination; on Linux they also check diagnostics with a disconnected socket.
 

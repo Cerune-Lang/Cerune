@@ -1,7 +1,10 @@
 use cerune_lang::{
-    compile_to_ir, ir,
+    compile_to_ir, ir, ir_executor,
     mir::{self, InstructionKind as I, Operation as O, ssa},
+    mir_executor,
+    runtime::input::Code,
     ssa_executor as executor,
+    vm::VmErrorKind,
 };
 #[path = "../experiments/ssa/fixtures.rs"]
 #[allow(dead_code)]
@@ -12,13 +15,16 @@ mod runtime_cases;
 fn program(source: &str) -> ssa::Program {
     ssa::construct(&mir::lower(&compile_to_ir(source).unwrap()).unwrap()).unwrap()
 }
+
 fn compare(hir: &ir::Program) {
     let mir = mir::lower(hir).unwrap();
     let p = ssa::construct(&mir).unwrap();
     let before = p.clone();
+
     let a = cerune_lang::ir_executor::run(hir);
     let b = cerune_lang::mir_executor::run(&mir);
     let c = executor::run(&p);
+
     let lowered = ssa::lower(&p).unwrap();
     assert_eq!(lowered, ssa::lower(&p).unwrap(), "deterministic lowering");
     assert_eq!(
@@ -26,35 +32,63 @@ fn compare(hir: &ir::Program) {
         b,
         "lowered SSA agrees with original MIR"
     );
+
     let d = cerune_lang::run_bytecode(&cerune_lang::bytecode::lower(hir).unwrap());
+
     match (&a, &b, &c, &d) {
         (Ok(a), Ok(b), Ok(c), Ok(d)) => {
             assert_eq!(a, b);
             assert_eq!(a, c);
             assert_eq!(a, d);
         }
+
         (Err(a), Err(b), Err(c), Err(d)) => {
-            assert!(a.runtime_failure().is_some());
-            assert_eq!(a.runtime_failure(), b.runtime_failure());
-            assert_eq!(a.runtime_failure(), c.runtime_failure(), "{c:?}");
-            assert_eq!(a.runtime_failure(), d.runtime_failure());
+            match (a.kind(), b.kind(), c.kind(), d.vm_error().kind()) {
+                (
+                    ir_executor::ErrorKind::Input(ai),
+                    mir_executor::ErrorKind::Input(bi),
+                    mir_executor::ErrorKind::Input(ci),
+                    VmErrorKind::Input(di),
+                ) => {
+                    assert_eq!(ai.code, Code::Unconfigured);
+                    assert_eq!(ai.as_ref(), bi.as_ref());
+                    assert_eq!(ai.as_ref(), ci.as_ref());
+                    assert_eq!(ai.as_ref(), di.as_ref());
+                }
+
+                _ => {
+                    assert!(a.runtime_failure().is_some(), "{a:?}");
+                    assert_eq!(a.runtime_failure(), b.runtime_failure());
+                    assert_eq!(a.runtime_failure(), c.runtime_failure(), "{c:?}");
+                    assert_eq!(a.runtime_failure(), d.runtime_failure());
+                }
+            }
+
+            // 入力エラー・Runtimeエラー両方で出力を比較
             assert_eq!(a.output(), b.output());
             assert_eq!(a.output(), c.output());
             assert_eq!(a.output(), d.vm_error().output());
+
+            // MIRとSSAの命令位置の対応を検証
             let original = b.location().unwrap();
             let loc = c.location().unwrap();
+
             assert_eq!(loc.function, original.function);
             assert_eq!(loc.original_block, original.block);
             assert_eq!(loc.original_instruction, original.instruction);
+
             let f = loc.function.map_or(&p.main, |id| &p.functions[id.0]);
             assert_eq!(f.blocks[loc.block.0].original_block, loc.original_block);
         }
+
         _ => panic!("HIR={a:?}\nMIR={b:?}\nSSA={c:?}\nVM={d:?}"),
     }
+
     assert_eq!(executor::run(&p), c, "fresh execution");
     assert_eq!(p, before);
     assert_eq!(p.original, mir);
 }
+
 #[test]
 fn all_runnable_examples_match_hir_mir_and_vm() {
     fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
