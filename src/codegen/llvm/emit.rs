@@ -102,6 +102,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
         output.push_str("declare i32 @_setmode(i32, i32)\n");
     }
     super::output::emit_support(module, &mut output);
+    super::input::emit_support(module, &mut output);
     for ty in &array_types {
         emit_array_get(ty, module, &mut output);
         output.push('\n');
@@ -304,6 +305,16 @@ fn emit_instruction(
                 operand(*length),
                 operand(*start),
                 operand(*end)
+            )
+            .unwrap();
+        }
+        Instruction::ReadLine { dest, max_bytes } => {
+            writeln!(
+                output,
+                "  {} = call %cerune.string @cerune.input.read_line(i64 {}, ptr {})",
+                temp(*dest),
+                operand(*max_bytes),
+                super::input::origin_name(origin)
             )
             .unwrap();
         }

@@ -3,6 +3,7 @@ mod conversion;
 mod emit;
 mod failure;
 mod heap;
+mod input;
 mod integer;
 pub mod ir;
 mod lower;
@@ -69,6 +70,14 @@ pub fn emit_llvm_with_options(
     options: Options,
 ) -> Result<String, Diagnostic> {
     let target = options.target;
+    if let Some(span) = program.first_input_span()
+        && target.is_none()
+    {
+        return Err(Diagnostic::new(
+            "LLVM line input requires an explicit --target: x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc",
+            span,
+        ));
+    }
     if target.is_none()
         && let Some(span) = super::support::first_flush_span(program)
     {
@@ -91,12 +100,6 @@ pub fn emit_llvm_with_options(
     {
         return Err(Diagnostic::new(
             "LLVM string values require an explicit --target: x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc",
-            span,
-        ));
-    }
-    if let Some(span) = program.first_input_span() {
-        return Err(Diagnostic::new(
-            "line input is not yet supported by this generated route",
             span,
         ));
     }
