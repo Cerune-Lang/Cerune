@@ -45,10 +45,10 @@ fn generated_backends_keep_significant_digit_formats_and_typed_host_calls() {
         assert!(artifact.contains("%.17g"));
     }
     let wat = compile_to_wat(SOURCE).unwrap();
-    assert!(wat.contains("(func $print_f32 (param f32))"));
-    assert!(wat.contains("(func $print_f64 (param f64))"));
-    assert!(wat.contains("call $print_f32"));
-    assert!(wat.contains("call $print_f64"));
+    assert!(wat.contains("(func $format_f32_v1 (param f32 i32) (result i64 i32))"));
+    assert!(wat.contains("(func $format_f64_v1 (param f64 i32) (result i64 i32))"));
+    assert!(wat.contains("call $cerune_output_f32"));
+    assert!(wat.contains("call $cerune_output_f64"));
 }
 
 #[test]

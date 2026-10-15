@@ -213,9 +213,9 @@ clang --target=x86_64-pc-windows-msvc target/function_arguments.s -o target/func
 
 `emit-wat`はWebAssembly固定です。`emit-asm`は明示的にWindows/Linuxを選べ、省略時は従来のWindows固定です。
 
-文字列を使うWATは`cerune.write_byte(i32) -> void`をimportし、各バイトと末尾LFを渡します。メモリは公開しません。数値・真偽値の既存のホスト関数も含め、ホストは[文字列の出力契約](../design/strings.ja.md#watの出力と外部との境界)を実装します。`emit-wat`自体はホストを起動しません。
+通常出力を持つWATは`cerune.write_stdout_v1(i64, i32) -> i32`をimportし、最大8バイトの値と受理数・失敗をやり取りします。メモリは公開しません。hostは[版付き出力契約](../design/wat-output-host.ja.md)を実装します。`emit-wat`自体はhostを起動しません。
 
-複合値を表示するWATは`cerune.write_i64`・`write_u64`・`write_f32`・`write_f64`もimportします。ホストは数値を既存の規則で改行せず出力します。引用した文字列と区切りは`write_byte`を使います。[複合値の出力契約](../design/aggregate-values.ja.md)を参照してください。
+float表示には`format_f32_v1`・`format_f64_v1`も必要です。全長とバイトを整形用の非公開領域へ受け取ってから、通常出力と同じ接続で書き込みます。旧hostは必要なimportがなければinstantiateに失敗します。
 
 実行時検査を持つWATは`cerune.write_error_byte(i32) -> void`もimportします。ホストはこのASCII診断をstderrとして出力し、`unreachable`で停止しても先行stdoutを保持します。[実行時診断の契約](../design/runtime-diagnostics.ja.md)を参照してください。
 

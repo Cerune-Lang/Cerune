@@ -59,31 +59,4 @@ const SUPPORT: &str = r#"
     i32.const 1
   )
 
-  (func $cerune_print_string (param $value i32)
-    (local $length i32) (local $index i32)
-    local.get $value
-    i32.load
-    local.set $length
-    block $newline
-      loop $write
-        local.get $index
-        local.get $length
-        i32.eq
-        br_if $newline
-        local.get $value
-        local.get $index
-        i32.add
-        i32.load8_u offset=8
-        call $write_byte
-        local.get $index
-        i32.const 1
-        i32.add
-        local.set $index
-        br $write
-      end
-    end
-    i32.const 10
-    call $write_byte
-  )
-
 "#;

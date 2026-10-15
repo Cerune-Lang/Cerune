@@ -112,7 +112,7 @@ fn every_route_generates_deterministic_artifacts() {
         assert!(qbe.starts_with("# target: x86_64-unknown-linux-gnu"));
         assert!(qbe.contains("loadub"));
         let wat = compile_to_wat(source).unwrap();
-        assert!(wat.contains("\"write_byte\"") && wat.contains("i32.load8_u"));
+        assert!(wat.contains("\"write_stdout_v1\"") && wat.contains("i32.load8_u"));
         assert!(
             !wat.contains("(export \"memory\"") && !wat.contains("(import \"cerune\" \"memory\"")
         );

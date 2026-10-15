@@ -976,9 +976,9 @@ After rounding to the significant-digit limit, a decimal exponent below `-4` or 
 
 Printing does not change the value. `1.0 + 1e-20 == 1.0` is `true` because of arithmetic rounding, not because printing discards small values. See the [small-values example](../../examples/small_values.ceru).
 
-The VM formats values by these rules. Generated C, LLVM, QBE, and Native use `snprintf` with `%.9g` and `%.17g`. WAT passes numeric values unchanged to host imports `cerune.print_f32` and `cerune.print_f64`; the host must provide the same formatting policy.
+The VM formats values by these rules. Generated C, LLVM, QBE, and Native use `snprintf` with `%.9g` and `%.17g`. WAT receives formatted bytes and complete lengths using `format_f32_v1` and `format_f64_v1`, validates them, then writes through `write_stdout_v1`.
 
-For aggregate display, WAT hosts implement `cerune.write_i64`, `write_u64`, `write_f32`, and `write_f64` using the same numeric rules without a newline. Strings and punctuation use `write_byte`; internal memory is not exported.
+WAT formats integers and Booleans in generated code. All ordinary output, including strings, quoting, and punctuation, uses the [versioned host contract](../design/wat-output-host.en.md), preserving requested/accepted counts and origins on partial failure without exposing internal memory.
 
 The VM prints infinities as `inf` and `-inf`, and NaN as `NaN`. Generated-code spellings of special values depend on the target runtime. Decimal `print` output does not distinguish NaN payloads.
 

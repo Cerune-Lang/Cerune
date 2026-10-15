@@ -2,7 +2,7 @@
 
 [日本語](language-roadmap.ja.md)
 
-This inventory records capabilities, execution routes, and next steps as of 2026-10-13. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+This inventory records capabilities, execution routes, and next steps as of 2026-10-15. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
 The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline. This page tracks current status.
 
@@ -70,7 +70,7 @@ Prioritize the programs users can write and the artifacts they can use. This is 
 | Implemented feature | [Dynamic-array `array_repeat`](owned-arrays.en.md) ([#122](https://github.com/Cerune-Lang/Cerune/issues/122)) | Runtime counts, zero/negative counts, evaluation order, budget failures, and independent nested copies implemented; examples, observable lowering, and existing-route comparisons added |
 | Complete | Documentation/issue consistency ([#130](https://github.com/Cerune-Lang/Cerune/issues/130)) | Separate current status from historical audits; automate local-link and translation-pair checks |
 | Complete | String-heap owner validation ([#134](https://github.com/Cerune-Lang/Cerune/issues/134)) | Reject another heap’s value even with the same ID; failed retain/release must preserve ownership counts, live bytes, and contents. Reachability from ordinary source remains unconfirmed |
-| 1: language features | [Standard I/O design](standard-io.en.md) ([#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#104](https://github.com/Cerune-Lang/Cerune/issues/104)). Incremental output implemented in four executors and CLI; explicit flush also implemented across routes; stdin unimplemented | C/LLVM/QBE/Native write failures are also implemented; next extend the contract to WAT, then bounded UTF-8 line input and interaction. Compare identical input/operation sequences; keep observation read-only |
+| 1: language features | [Standard I/O design](standard-io.en.md) ([#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#104](https://github.com/Cerune-Lang/Cerune/issues/104)). Incremental output implemented in four executors and CLI; explicit flush also implemented across routes; stdin unimplemented | C/LLVM/QBE/WAT/Native write failures are also implemented; next implement bounded UTF-8 line input and interaction. Compare identical input/operation sequences; keep observation read-only |
 | 3 | Small standard library. Standard module layout/APIs undecided | Select text/numeric parsing helpers required by I/O. Separate functions expressible in Cerune from runtime operations; use existing imports and explicit failure handling. Do not require generic Option/Result or package management first |
 | Independently actionable | [Native build](owned-routes.en.md). Responsibilities outlined; CLI/link management unimplemented | An executable is the proposed first artifact. Define explicit target, external linker, dependencies, failures, and observation records; build/link current examples and compare with IR/VM |
 | After stable build | IR/VM Images and release for three routes. Unimplemented | Validate versions, types, references, ownership, and budgets before loading; compare saved/reloaded execution. As each route's artifact stabilizes, verify distribution contents, compatibility, and failure origins |
@@ -85,7 +85,7 @@ Separate existing behavior from decisions for the next design.
 
 | Area | Current behavior | Next decisions |
 | --- | --- | --- |
-| Standard output | `print` displays values; `run`/`run-mir`/`run-vm` deliver output during execution and flush at completion; captured Rust APIs remain | `flush();` is implemented; C/LLVM/QBE/Native write failures are also implemented; WAT remain, and tests showing prompts before waiting for input |
+| Standard output | `print` displays values; `run`/`run-mir`/`run-vm` deliver output during execution and flush at completion; captured Rust APIs remain | `flush();` is implemented; C/LLVM/QBE/WAT/Native write failures are also implemented; add tests showing prompts before waiting for input |
 | Standard error | Used for compiler/runtime diagnostics; no general program-facing write API | Distinguish program output from runtime diagnostics and define write failures |
 | Standard input/arguments | No general program-facing API | Use stdin as the first use case; scope CLI arguments, files, FFI, and networking separately later |
 | Standard library | Built-ins and user modules exist; standard-module distribution, lookup, and compatibility policies do not | Distinguish language built-ins, runtime connections to external resources, and libraries written in Cerune |
@@ -100,13 +100,13 @@ This is not a commitment to implement everything together. GPU experiments need 
 
 ### Current issue inventory
 
-On 2026-10-13, 16 open issues and two recently completed issues were checked. The table records priorities and purposes; investigation issues are not confirmed defects.
+On 2026-10-15, 16 open issues and two recently completed issues were checked. The table records priorities and purposes; investigation issues are not confirmed defects.
 
 | Issues | Purpose | Next work and limits |
 | --- | --- | --- |
 | [#130](https://github.com/Cerune-Lang/Cerune/issues/130) | Documentation consistency | Merged in PR #136: old URLs, licensing, historical audits, and bilingual pairs |
 | [#134](https://github.com/Cerune-Lang/Cerune/issues/134) | String ownership correctness | Merged in PR #137: validate heap membership/owner counts before mutation, separately from performance |
-| [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | Standard I/O and effect comparisons | Output connections merged. Explicit flush implemented; C/LLVM/QBE/Native write failures also implemented; remaining WAT work → bounded UTF-8 input → interactive example |
+| [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | Standard I/O and effect comparisons | Output connections merged. Explicit flush implemented; C/LLVM/QBE/WAT/Native write failures also implemented; next bounded UTF-8 input → interactive example. Shared successful-operation records remain follow-up work |
 | [#135](https://github.com/Cerune-Lang/Cerune/issues/135) | Deep parser inputs | Unreproduced investigation. Use bounded child processes; design diagnostics/depth limits if needed |
 | [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | Generated well-typed differential tests | Start with fixed seeds, finite execution, and known expectations; separate from parser and internal-API checks |
 | [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | Memory measurement | Distinguish logical budgets, actual allocations, RSS, and WAT pages. No confirmed leak/regression; measure before changing representation |

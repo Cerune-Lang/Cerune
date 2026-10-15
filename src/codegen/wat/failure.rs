@@ -6,6 +6,9 @@ use super::ir::{Instruction, Origin};
 
 pub(super) fn helper_name(instruction: &Instruction, origin: Origin) -> String {
     let base = match instruction {
+        Instruction::Output { kind, newline, .. } => {
+            format!("cerune_output_{kind}_lf{}", u8::from(*newline))
+        }
         Instruction::ArrayAllocate { width, stride } => {
             format!("cerune_array_allocate_w{width}_s{stride}")
         }

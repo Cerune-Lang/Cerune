@@ -6,6 +6,7 @@ mod heap;
 mod integer;
 pub mod ir;
 mod lower;
+mod output;
 mod rounding;
 mod string;
 mod unsigned;
@@ -25,11 +26,7 @@ pub fn emit_wat(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
 mod tests {
     use crate::compile_to_ir;
 
-    use super::{
-        emit_wat,
-        ir::{Instruction, Type},
-        lower,
-    };
+    use super::{emit_wat, ir::Instruction, lower};
 
     #[test]
     fn lowers_i64_negation_to_stack_instructions() {
@@ -56,7 +53,11 @@ mod tests {
 
         assert!(matches!(
             module.instructions.last(),
-            Some(Instruction::CallPrint(Type::I64))
+            Some(Instruction::Output {
+                kind: "i64",
+                newline: true,
+                ..
+            })
         ));
     }
 
@@ -76,7 +77,7 @@ mod tests {
 
         assert!(wat.contains("(local $cerune_x i64)"));
 
-        assert!(wat.contains("call $print_i64"));
+        assert!(wat.contains("call $cerune_output_i64"));
     }
 
     #[test]
@@ -115,7 +116,7 @@ mod tests {
 
         assert!(wat.contains("f32.add"));
 
-        assert!(wat.contains("call $print_f32"));
+        assert!(wat.contains("call $cerune_output_f32"));
     }
 
     #[test]
@@ -130,7 +131,7 @@ mod tests {
 
         assert!(wat.contains("f64.add"));
 
-        assert!(wat.contains("call $print_f64"));
+        assert!(wat.contains("call $cerune_output_f64"));
     }
 
     #[test]
@@ -177,7 +178,7 @@ mod tests {
         assert!(wat.contains("(memory 1)"));
         assert!(wat.contains("f64.store"));
         assert!(wat.contains("f64.load"));
-        assert!(wat.contains("call $print_f64"));
+        assert!(wat.contains("call $cerune_output_f64"));
     }
 
     #[test]

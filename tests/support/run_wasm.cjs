@@ -4,12 +4,31 @@ const { parseRuntimeFailure } = require('../../scripts/observe-native.cjs');
 const output = [];
 const diagnostics = [];
 const writeText = value => output.push(Buffer.from(`${value}\n`, 'utf8'));
-// fixtureで使う、二進数でも十進数でも正確な値だけを整形します。
-const exactFloat = value => {
-  if (![0, 1, 1.5, 2, 2.5, 3, 4, 10, 11, 13, 15, 20, 35, 99].includes(value)) throw new Error('unsupported test float');
-  return value.toString();
-};
+const floatFormat = require('../../tests/support/wat_float_format.cjs');
+const config = process.env.CERUNE_TEST_WAT_OUTPUT ? JSON.parse(process.env.CERUNE_TEST_WAT_OUTPUT) : null;
+let accepted = 0, interrupted = false, interruptedAfter = false, failed = false;
+function writePacked(bits, count) {
+  if (failed) throw new Error('output after write failure');
+  if (!Number.isInteger(count) || count < 1 || count > 8) throw new Error('invalid output count');
+  if (config) {
+    if (!interrupted) { interrupted = true; return -2; }
+    if (!interruptedAfter && accepted) { interruptedAfter = true; return -2; }
+    if (accepted === config.limit) {
+      failed = true;
+      return config.mode === 'zero' ? 0 : config.mode === 'invalid' ? count + 1 : config.mode === 'negative' ? -3 : -1;
+    }
+    count = Math.min(count, config.chunk, config.limit - accepted);
+  }
+  const bytes = Buffer.alloc(8);
+  bytes.writeBigInt64LE(bits);
+  output.push(bytes.subarray(0, count));
+  accepted += count;
+  return count;
+}
 const imports = { cerune: {
+  write_stdout_v1: writePacked,
+  format_f32_v1: (value, offset) => floatFormat.chunk(value, 9, offset),
+  format_f64_v1: (value, offset) => floatFormat.chunk(value, 17, offset),
   // 収集先は同期的に受理済みです。実OSへ接続するhostでは実際にflushします。
   flush_stdout_v1: () => 0,
   write_error_byte(value) {
@@ -22,15 +41,21 @@ const imports = { cerune: {
   },
   write_i64: value => output.push(Buffer.from(value.toString())),
   write_u64: value => output.push(Buffer.from(BigInt.asUintN(64, value).toString())),
-  write_f32: value => output.push(Buffer.from(exactFloat(value))),
-  write_f64: value => output.push(Buffer.from(exactFloat(value))),
+  write_f32: value => output.push(Buffer.from(floatFormat.format(value, 9))),
+  write_f64: value => output.push(Buffer.from(floatFormat.format(value, 17))),
   print_bool: value => writeText(value ? 'true' : 'false'),
   print_i64: value => writeText(value.toString()),
   print_u64: value => writeText(BigInt.asUintN(64, value).toString()),
-  // 汎用の数値整形ホストではありません。
-  print_f32: value => writeText(exactFloat(value)),
-  print_f64: value => writeText(exactFloat(value)),
+  // 旧生成物と診断拒否fixture向けの旧importも保持します。
+  print_f32: value => writeText(floatFormat.format(value, 9)),
+  print_f64: value => writeText(floatFormat.format(value, 17)),
 } };
+// 失敗後の追加flushを検出します。explicit_flushテストの差替えも保持します。
+const flush = imports.cerune.flush_stdout_v1;
+imports.cerune.flush_stdout_v1 = () => {
+  if (failed) throw new Error('flush after write failure');
+  return flush();
+};
 WebAssembly.instantiate(fs.readFileSync(process.argv[2]), imports).then(({ instance }) => {
   if (Object.keys(instance.exports).join(',') !== 'main') throw new Error('unexpected public export');
   const repeats = Number(process.argv[3] || 1);
@@ -44,7 +69,8 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]), imports).then(({ insta
   const record = Buffer.concat(diagnostics);
   process.stderr.write(record);
   const valid = parseRuntimeFailure(record) !== null ||
-    /^cerune: io-v1 operation=flush requested=0 accepted=0 node=\d+(?: file=\d+)? bytes=\d+\.\.\d+\n$/.test(record.toString('utf8'));
+    /^cerune: output formatting failed node=\d+(?: file=\d+)? bytes=\d+\.\.\d+\n$/.test(record.toString('utf8')) ||
+    /^cerune: io-v1 operation=(?:write|flush) requested=\d+ accepted=\d+ node=\d+(?: file=\d+)? bytes=\d+\.\.\d+\n$/.test(record.toString('utf8'));
   if (!(error instanceof WebAssembly.RuntimeError) || error.message !== 'unreachable' || !valid) console.error(error.message);
   process.exitCode = 1;
 });
