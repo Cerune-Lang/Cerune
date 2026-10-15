@@ -124,6 +124,10 @@ pub enum Instruction {
         start: Operand,
         end: Operand,
     },
+    ReadLine {
+        dest: Temp,
+        max_bytes: Operand,
+    },
     StringConcat {
         dest: Temp,
         left: Operand,

@@ -318,11 +318,6 @@ fn generated_routes_explicitly_reject_input_while_not_yet_connected() {
             .to_ir()
             .unwrap();
     let errors = [
-        cerune_lang::codegen::llvm::emit_llvm_with_target(
-            &hir,
-            Some(cerune_lang::codegen::llvm::Target::X86_64PcWindowsMsvc),
-        )
-        .unwrap_err(),
         cerune_lang::codegen::qbe::emit_qbe_with_target(
             &hir,
             Some(cerune_lang::codegen::qbe::Target::X86_64PcWindowsMsvc),
