@@ -13,12 +13,22 @@ pub fn bounded_output(
     label: &str,
     limit: Duration,
 ) -> Result<Output, String> {
+    bounded_output_with_stdin(command, directory, label, limit, Stdio::null())
+}
+
+pub fn bounded_output_with_stdin(
+    command: &mut Command,
+    directory: &Path,
+    label: &str,
+    limit: Duration,
+    stdin: Stdio,
+) -> Result<Output, String> {
     use std::sync::atomic::{AtomicUsize, Ordering};
     static NEXT: AtomicUsize = AtomicUsize::new(0);
     let id = NEXT.fetch_add(1, Ordering::Relaxed);
     let stdout = directory.join(format!("process-{id}.stdout"));
     let stderr = directory.join(format!("process-{id}.stderr"));
-    command.stdin(Stdio::null());
+    command.stdin(stdin);
     command.stdout(Stdio::from(fs::File::create(&stdout).unwrap()));
     command.stderr(Stdio::from(fs::File::create(&stderr).unwrap()));
     #[cfg(unix)]

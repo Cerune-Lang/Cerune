@@ -121,6 +121,7 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
         ExprKind::ArrayAllocate { length: value, .. }
         | ExprKind::ArrayReleaseOwner { value }
         | ExprKind::ArrayLength { value, .. }
+        | ExprKind::ReadLine { max_bytes: value }
         | ExprKind::StringByteLength { value }
         | ExprKind::ConvertNumeric { value, .. }
         | ExprKind::CheckIntegerRange { value, .. }
@@ -181,6 +182,7 @@ fn observable(expr: &Expr) -> bool {
         ExprKind::ArrayAllocate { .. }
         | ExprKind::ArrayReleaseOwner { .. }
         | ExprKind::StringConcat { .. }
+        | ExprKind::ReadLine { .. }
         | ExprKind::Call { .. }
         | ExprKind::Index { .. }
         | ExprKind::ConvertNumeric { .. }

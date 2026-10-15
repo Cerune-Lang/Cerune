@@ -194,7 +194,7 @@ fn real_line_enum_and_output_order_match_all_four_executors() {
     let source = include_str!("fixtures/line_input.ceru");
     let compilation = modules::from_source(source).unwrap();
     let hir = compilation.to_ir().unwrap();
-    let bytes = "\n日本\0\r\ne\u{301}\nlast".as_bytes();
+    let bytes = include_bytes!("fixtures/line_input.stdin");
     let expected = include_bytes!("fixtures/line_input.stdout");
     let mut reference = None;
     for route in 0..4 {
@@ -318,7 +318,6 @@ fn generated_routes_explicitly_reject_input_while_not_yet_connected() {
             .to_ir()
             .unwrap();
     let errors = [
-        cerune_lang::codegen::c::emit_c(&hir).unwrap_err(),
         cerune_lang::codegen::llvm::emit_llvm_with_target(
             &hir,
             Some(cerune_lang::codegen::llvm::Target::X86_64PcWindowsMsvc),

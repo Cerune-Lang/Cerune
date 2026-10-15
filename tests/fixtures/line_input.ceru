@@ -1,4 +1,4 @@
-// テストの入力接続で実行します。CLIの実stdin接続はまだありません。
+// CLIと生成Cは実stdin、Rust APIは明示した入力接続で実行できます。
 import "std:io" as io;
 
 mut done: bool = false;

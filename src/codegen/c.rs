@@ -3,6 +3,7 @@ mod conversion;
 mod emit;
 mod failure;
 mod heap;
+mod input;
 mod integer;
 pub mod ir;
 mod lower;
@@ -18,12 +19,6 @@ use lower::lower;
 use crate::{diagnostic::Diagnostic, ir as cerune_ir};
 
 pub fn emit_c(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
-    if let Some(span) = program.first_input_span() {
-        return Err(Diagnostic::new(
-            "line input is not yet supported by C generation",
-            span,
-        ));
-    }
     let module = lower(program);
 
     Ok(emit(&module))

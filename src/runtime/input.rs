@@ -1,6 +1,8 @@
-//! 上限付き行入力の共通接続です。言語命令との接続を持ち、実stdinへの接続は別途行います。
+//! 上限付き行入力の共通接続です。言語命令と、明示的な実stdinへの接続を提供します。
 //! 読取り結果と、最初の異常で停止する方針を分離します。
 use std::io::{self, Read};
+mod os;
+pub use os::{Stdin, stdin};
 
 pub use super::output::Origin;
 
@@ -17,6 +19,7 @@ pub enum Line {
 pub enum Code {
     InvalidLimit,
     Unconfigured,
+    UnsupportedConnection,
     BudgetExceeded,
     AllocationFailed,
     ReadFailed,
@@ -29,6 +32,7 @@ impl Code {
         match self {
             Self::InvalidLimit => "invalid-limit",
             Self::Unconfigured => "unconfigured",
+            Self::UnsupportedConnection => "unsupported-connection",
             Self::BudgetExceeded => "budget-exceeded",
             Self::AllocationFailed => "allocation-failed",
             Self::ReadFailed => "read-failed",
@@ -100,6 +104,7 @@ pub struct Event {
 /// 最初の失敗とEOFを保持し、停止後の接続呼出しを防ぎます。
 pub struct Input<R> {
     reader: Option<R>,
+    connection_error: Option<Code>,
     eof: bool,
     failure: Option<Failure>,
     events: Vec<Event>,
@@ -129,6 +134,7 @@ impl<R: Read> Input<R> {
     pub fn unconfigured() -> Self {
         Self {
             reader: None,
+            connection_error: None,
             eof: false,
             failure: None,
             events: Vec::new(),
@@ -230,6 +236,9 @@ impl<R: Read> Input<R> {
             return Err(Code::InvalidLimit);
         }
         let reader = self.reader.as_mut().ok_or(Code::Unconfigured)?;
+        if let Some(code) = self.connection_error {
+            return Err(code);
+        }
         if self.eof {
             return Ok(None);
         }
@@ -380,6 +389,23 @@ mod tests {
         fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
             panic!("reservation failure must precede reading");
         }
+    }
+
+    #[test]
+    fn unsupported_connection_precedes_reservation_and_remains_sticky() {
+        let mut input = Input::with_trace_limit(NeverRead, 4);
+        input.connection_error = Some(Code::UnsupportedConnection);
+        let failure = input.read_line(4, 0, origin()).unwrap_err();
+        assert_eq!(failure.code, Code::UnsupportedConnection);
+        assert_eq!(failure.consumed, 0);
+        assert_eq!(input.read_line(0, 0, origin()), Err(failure));
+        assert_eq!(input.events().len(), 1);
+        let mut input = Input::new(NeverRead);
+        input.connection_error = Some(Code::UnsupportedConnection);
+        assert_eq!(
+            input.read_line(0, 0, origin()).unwrap_err().code,
+            Code::InvalidLimit
+        );
     }
 
     #[test]

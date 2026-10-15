@@ -41,7 +41,7 @@ cerune --version
 
 `run`, `run-ir`, `run-mir` (including `--ssa`), and `run-vm` deliver output during execution. Destination buffering still applies; this does not guarantee delivery of every byte before program termination. Unless the connection failed, the CLI flushes at both normal completion and language failure, without printing prior output again.
 
-Write/flush failures produce diagnostics and exit code 1. If both language execution and the final flush fail, both are reported. Source `flush();` flushes at that point and stops later execution on failure. Stdin remains unimplemented. See the [output connection contract](../design/standard-io.en.md) for APIs and coverage.
+Write/flush failures produce diagnostics and exit code 1. If both language execution and the final flush fail, both are reported. Source `flush();` flushes at that point and stops later execution on failure. Read stdin through std:io read_line. Synchronous Windows/Linux pipes and files are supported; Windows console stops with unsupported-connection. See the [input contract and runnable fixture](../design/stdin-connections.en.md). See the [output connection contract](../design/standard-io.en.md) for APIs and coverage.
 
 `--diagnostic-format runtime-v1` retains `runtime-v1` for language failures and uses `io-v1` for write/flush failures. I/O records contain the operation, requested/accepted counts, and NodeId/Span; final host flushing uses `origin=host`. Zero flush counts do not measure bytes delivered to the OS.
 

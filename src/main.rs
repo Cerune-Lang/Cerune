@@ -328,45 +328,56 @@ fn run() -> Result<(), String> {
             let ir = ir_for(&source, string_heap_limit, array_heap_limit)?;
             let stdout = std::io::stdout();
             let mut output = cerune_lang::runtime::output::Output::new(stdout.lock());
-            let mut result = if command == "run-mir" {
-                let mir = render_compilation_result(
-                    cerune_lang::mir::lower(&ir).map_err(|e| e.diagnostic()),
-                    &source,
-                )?;
-                if ssa {
-                    let ssa = ssa_for(&mir, &source)?;
-                    cerune_lang::ssa_executor::run_with_output(&ssa, &mut output).map_err(|error| {
-                        if runtime_format && let Some(failure) = error.runtime_failure() {
-                            return failure.record();
-                        }
-                        source.render(&error.diagnostic())
-                    })
+            let mut stdin = cerune_lang::runtime::input::stdin();
+            let mut result =
+                if command == "run-mir" {
+                    let mir = render_compilation_result(
+                        cerune_lang::mir::lower(&ir).map_err(|e| e.diagnostic()),
+                        &source,
+                    )?;
+                    if ssa {
+                        let ssa = ssa_for(&mir, &source)?;
+                        cerune_lang::ssa_executor::run_with_io(&ssa, &mut stdin, &mut output)
+                            .map_err(|error| {
+                                if runtime_format && let Some(failure) = error.runtime_failure() {
+                                    return failure.record();
+                                }
+                                source.render(&error.diagnostic())
+                            })
+                    } else {
+                        cerune_lang::mir_executor::run_with_io(&mir, &mut stdin, &mut output)
+                            .map_err(|error| {
+                                if runtime_format && let Some(failure) = error.runtime_failure() {
+                                    return failure.record();
+                                }
+                                source.render(&error.diagnostic())
+                            })
+                    }
+                } else if command != "run-vm" {
+                    cerune_lang::ir_executor::run_with_io(&ir, &mut stdin, &mut output).map_err(
+                        |error| {
+                            if runtime_format && let Some(failure) = error.runtime_failure() {
+                                return failure.record();
+                            }
+                            source.render(&error.diagnostic())
+                        },
+                    )
                 } else {
-                    cerune_lang::mir_executor::run_with_output(&mir, &mut output).map_err(|error| {
-                        if runtime_format && let Some(failure) = error.runtime_failure() {
-                            return failure.record();
-                        }
-                        source.render(&error.diagnostic())
-                    })
-                }
-            } else if command != "run-vm" {
-                cerune_lang::ir_executor::run_with_output(&ir, &mut output).map_err(|error| {
-                    if runtime_format && let Some(failure) = error.runtime_failure() {
-                        return failure.record();
-                    }
-                    source.render(&error.diagnostic())
-                })
-            } else {
-                let bytecode =
-                    render_compilation_result(cerune_lang::bytecode::lower(&ir), &source)?;
-                cerune_lang::run_bytecode_with_output(&bytecode, &mut output).map_err(|error| {
-                    if runtime_format && let Some(failure) = error.runtime_failure() {
-                        return failure.record();
-                    }
-                    source.render_execution(&error)
-                })
-            };
+                    let bytecode =
+                        render_compilation_result(cerune_lang::bytecode::lower(&ir), &source)?;
+                    cerune_lang::run_bytecode_with_io(&bytecode, &mut stdin, &mut output).map_err(
+                        |error| {
+                            if runtime_format && let Some(failure) = error.runtime_failure() {
+                                return failure.record();
+                            }
+                            source.render_execution(&error)
+                        },
+                    )
+                };
 
+            if runtime_format && let Some(failure) = stdin.failure() {
+                result = Err(failure.record());
+            }
             if runtime_format && let Some(failure) = output.failure() {
                 result = Err(failure.record());
             }

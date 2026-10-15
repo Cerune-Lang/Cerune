@@ -2,7 +2,7 @@
 
 [English](standard-io.en.md)
 
-**状態：4実行器の出力接続、CLIの逐次出力、全実行・生成経路の明示flushを実装済み。生成C・LLVM・QBE・WAT・Nativeの通常書込みも対応済み。std:ioの行入力は4実行器のRust APIで実装済みです。生成経路・CLIの実stdin接続と、生成経路の成功操作を含む共通記録は未実装です。** [#89](https://github.com/Cerune-Lang/Cerune/issues/89)の最初の用途を、上限付きUTF-8行入力による小さな対話とします。公開API・型は[仮想標準モジュール](standard-modules.ja.md)、詳細な失敗規則は[行入力契約](line-input.ja.md)で定義します。
+**状態：4実行器の出力接続、CLIの逐次出力、全実行・生成経路の明示flushを実装済み。生成C・LLVM・QBE・WAT・Nativeの通常書込みも対応済み。std:ioの行入力は4実行器のRust APIで実装済みです。CLIと生成Cは実stdinへ接続済みです。LLVM・QBE・WAT・Nativeの入力と、生成経路の成功操作を含む共通記録は未実装です。** [#89](https://github.com/Cerune-Lang/Cerune/issues/89)の最初の用途を、上限付きUTF-8行入力による小さな対話とします。公開API・型は[仮想標準モジュール](standard-modules.ja.md)、詳細な失敗規則は[行入力契約](line-input.ja.md)で定義します。
 
 ## 採用条件
 
@@ -22,11 +22,11 @@
 
 | 対象 | 現在 | 必要な変更 |
 | --- | --- | --- |
-| IR・MIR・SSA・VMとCLI | 出力収集APIを維持し、逐次出力APIを追加。CLIは実行中に出力し、終了時にflush | 標準入力の追加と生成経路の共通記録 |
+| IR・MIR・SSA・VMとCLI | 出力収集APIを維持し、逐次出力APIを追加。CLIは実行中に出力し、終了時にflush。実stdinも接続済み | Windows console入力と生成経路の共通記録 |
 | C・LLVM・QBE・Native | 操作ごとの要求/受理数・出自、短い書込み・割込み・停止に対応 | 成功操作を含む共通記録は後続 |
 | WAT | 版付き書込み・整形import、部分失敗・再試行・停止に対応。memoryは非公開 | 入力のhost契約と成功操作を含む共通記録 |
-| 文字列 | 有効なUTF-8を保持する所有値 | 入力バイトからの厳密な検証、予算と所有の規則 |
-| プロセステスト | 終了前の出力到着と二重表示防止を検証済み | 質問の出力を受けてから入力を送る対話テスト |
+| 文字列 | 有効なUTF-8を保持する所有値。4実行器とCは入力を検証し、予算・所有を管理 | 残る生成経路へ同じ入力規則を接続 |
+| プロセステスト | 出力到着と二重表示防止、CLI/Cで質問を受けてから入力を送る対話を検証済み | 残る生成経路へ対話比較を拡張 |
 
 既存の言語停止診断だけでは、OSの読取り・書込み失敗を規定できません。新しい契約と診断範囲を明示して追加します。
 
@@ -112,7 +112,7 @@ C・LLVM・QBE・Nativeはstdoutのみをflushし、失敗時は終了時のstdi
 
 WATは明示flushを含む成果物だけに`cerune.flush_stdout_v1() -> i32`を追加します。hostは成功で0、失敗で0以外を返します。失敗記録を既存の`write_error_byte`へ送りtrapします。必要なimportがなければinstantiateに失敗し、暗黙に成功とはしません。内部memoryは非公開のままです。テストhostは同期的に出力を収集し、flush成功を返します。
 
-通常書込みの部分失敗・再試行はC・LLVM・QBE・WAT・Nativeで対応済みです。生成経路の入力と成功操作を含む共通記録は未実装です。
+通常書込みの部分失敗・再試行はC・LLVM・QBE・WAT・Nativeで対応済みです。LLVM・QBE・WAT・Nativeの入力と、生成経路の成功操作を含む共通記録は未実装です。
 
 ## 生成C・LLVM・QBE・Nativeの書込み（実装済み）
 
@@ -145,7 +145,7 @@ OS接続の根拠はLinuxの[write](https://man7.org/linux/man-pages/man2/write.
 
 ## 最初の入力と出力順
 
-公開APIはstd:ioのread_lineで、バイト上限を明示し、既存enumのReadLineを返します。以下の契約を4実行器に実装しました。生成経路・CLI接続は後続です。
+公開APIはstd:ioのread_lineで、バイト上限を明示し、既存enumのReadLineを返します。以下の契約を4実行器に実装しました。CLI・Cの実stdinも[初版の範囲](stdin-connections.ja.md)で接続済みです。残る生成経路は後続です。
 
 | 項目 | 方針 |
 | --- | --- |
@@ -190,14 +190,14 @@ Windows/LinuxでUTF-8・NUL・CR/LFを保つ接続を検証します。console�
 | 2 | 上限付き行入力の詳細を確定し、共通IRから各経路へ実装 | EOF・空行・末尾、厳密UTF-8、予算、失敗と出自、所有と解放 |
 | 3 | 実際の対話exampleと経路比較を追加 | 質問が届くまで入力を送らないテスト、同じ入力・応答・操作順、Windows/LinuxとWAT host |
 
-段階1の出力接続は実装済みです。明示flushも対応済みです。C・LLVM・QBE・WAT・Nativeの通常書込みも対応済みです。[上限付きUTF-8行入力](line-input.ja.md)の契約と共通Rust接続を追加しました。std:io・文字列所有・入力命令を4実行器へ接続しました。次は生成経路と実stdin接続です。生成経路の成功操作を含む共通記録は後続として明示し、入力の設計と混同しません。
+段階1の出力接続は実装済みです。明示flushも対応済みです。C・LLVM・QBE・WAT・Nativeの通常書込みも対応済みです。[上限付きUTF-8行入力](line-input.ja.md)の契約と共通Rust接続を追加しました。std:io・文字列所有・入力命令を4実行器へ接続しました。CLI/Cの実stdinを接続済みです。次はLLVM・QBE・WAT・Nativeの入力です。生成経路の成功操作を含む共通記録は後続として明示し、入力の設計と混同しません。
 
 ## 実装前に詰める詳細
 
 残る設計・接続作業を次に示します。確定した行入力契約と未実装の経路を区別します。
 
 - 段階1の残り：生成経路の成功操作を含む共通のI/O記録。通常書込みの停止契約は全経路へ展開済み。埋め込み接続の部分書込み・再試行・記録上限は上記のとおり実装済み。
-- 段階2：[std:io](standard-modules.ja.md)の公開API・既存enum・仮想ソースの解決は実装済み。次は生成経路と実OS接続。
+- 段階2：[std:io](standard-modules.ja.md)の公開API・既存enum・仮想ソースの解決は実装済み。CLI/Cの実OS接続も実装済み。残る4生成経路へ入力を接続する。
 - 行入力のEOF確認・最大1バイトの追加消費・異常時停止・分類済み診断は[契約](line-input.ja.md)で確定。回復可能な別APIは後続。
 - 上限分の事前予約と所有移行は4実行器の文字列heapへ接続済み。生成経路にも同じ予算と解放を実装する。
 - console/pipeの対応範囲、OSエラーから共通分類への対応、WAT入力用host ABIの版と互換性。
