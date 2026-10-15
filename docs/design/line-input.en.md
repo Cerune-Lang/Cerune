@@ -6,7 +6,7 @@ This specifies line input for [standard I/O](standard-io.en.md). The initial lan
 
 ## Implementation scope
 
-The [virtual std:io module](standard-modules.en.md) and common IR input operation are implemented. HIR/MIR/SSA/VM accept explicit input connections through Rust run_with_io APIs. **Generated routes and CLI stdin bindings remain unimplemented.** Unconfigured input stops with a diagnostic rather than EOF.
+The [virtual std:io module](standard-modules.en.md) and common IR input operation are implemented. HIR/MIR/SSA/VM accept explicit input connections through Rust run_with_io APIs. [CLI and generated-C stdin bindings](stdin-connections.en.md) are also implemented. **LLVM/QBE/WAT/Native input remains unimplemented.** Unconfigured input stops with a diagnostic rather than EOF.
 
 Existing enums can represent a string-bearing line or EOF. A blank line contains LF or CRLF. No generic Result type is required. The public API is `import "std:io" as io;` and `io::read_line(max_bytes)`, returning `io::ReadLine`. The Rust connection API below is an execution component.
 
@@ -51,6 +51,7 @@ Failures have distinct codes. Budget exhaustion is not reported as an OS read fa
 | Code | Condition |
 | --- | --- |
 | invalid-limit | Limit outside the common range |
+| unsupported-connection | Actual connection unsupported in the initial scope, such as Windows console |
 | unconfigured | No input connection |
 | budget-exceeded | Insufficient logical reservation budget |
 | allocation-failed | Cannot physically reserve scratch storage |
@@ -65,7 +66,7 @@ Internal reading returns a line, EOF, or classified failure with consumption met
 
 The reader must return zero (EOF) or one for a one-byte request; errors and interruptions consume no bytes. It must not secretly consume beyond the request. Invalid counts retain the previously confirmed consumption and mark consumption by that response as unknown. Do not invent an exact count or a rewind.
 
-Actual stdin connections come later. Raw pipe/file bytes and Windows console character conversion require separate definitions; never infer the generated target from the host OS. WAT needs a separately versioned value/status input contract without exposing internal memory. Reading does not flush output implicitly.
+Synchronous Windows/Linux pipe/file stdin is implemented first. Windows console stops with a dedicated diagnostic; character conversion follows later. Never infer the generated target from the host OS. WAT needs a separately versioned value/status input contract without exposing internal memory. Reading does not flush output implicitly.
 
 ## Diagnostics and observation
 
@@ -98,8 +99,9 @@ After integration, give each route independent identical input and responses. Do
 | Route | Comparison | Current state |
 | --- | --- | --- |
 | HIR, MIR, SSA, VM | Line/EOF, prior output, failure reason/origin, consumption, ownership/release | Implemented and compared through Rust APIs |
-| C, LLVM, QBE, WAT | Same input, requests/responses, prior output/diagnostics, no later execution | Not implemented |
+| C | Identical input, prior output/diagnostics, ownership, actual file/pipe at -O0/-O2 | Implemented |
+| LLVM, QBE, WAT | Same input, requests/responses, prior output/diagnostics, no later execution | Not implemented |
 | LIR, ASM, native Object (ordinary/SSA) | Input origin, explicit target, same failures and prior output | Not implemented |
-| CLI / actual OS | Print then flush the prompt before input; failed flush means zero reads | Not implemented |
+| CLI / actual OS | Print then flush the prompt before input; failed flush means zero reads | Windows/Linux pipe/file implemented; Windows console unsupported |
 
 Add a real interactive stdin example after route parity. Do not describe the existing scripted input_flow example as actual stdin support. Keep observation separate from supplying input through execution connections.

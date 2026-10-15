@@ -41,7 +41,7 @@ cerune --version
 
 `run`・`run-ir`・`run-mir`（`--ssa`含む）・`run-vm`は、実行中に標準出力へ渡します。出力先のバッファリングは残り、プログラム終了前に全バイトの配送を保証するものではありません。接続が失敗していなければ、正常終了・言語停止の最後にflushします。先行出力を終了時に再表示しません。
 
-書込み・flush失敗は診断して終了コード1を返します。言語停止と終了時flushの両方が失敗した場合は、両方を表示します。ソースの`flush();`はその位置でflushし、失敗時は後続処理を止めます。標準入力は未実装です。[出力接続の契約](../design/standard-io.ja.md)にAPIと対応範囲を記載しています。
+書込み・flush失敗は診断して終了コード1を返します。言語停止と終了時flushの両方が失敗した場合は、両方を表示します。ソースの`flush();`はその位置でflushし、失敗時は後続処理を止めます。標準入力はstd:ioのread_lineで読みます。Windows/Linuxの同期pipe・fileを対象とし、Windows consoleはunsupported-connectionで停止します。[入力契約・実行例](../design/stdin-connections.ja.md)を参照してください。[出力接続の契約](../design/standard-io.ja.md)にAPIと対応範囲を記載しています。
 
 `--diagnostic-format runtime-v1`では、言語停止は従来の`runtime-v1`、書込み・flush失敗は`io-v1`で表示します。I/O記録は操作・要求/受理バイト数・NodeId/Spanを持ち、終了時のhost flushでは`origin=host`です。flushの要求/受理数0はOSへの配送バイト数を表しません。
 

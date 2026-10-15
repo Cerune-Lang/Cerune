@@ -21,3 +21,4 @@ examples/io_protocol/explicit_flush.stdout -text
 
 # 同梱仮想ソースの本文とSpanをcheckout先OSに依存させません。
 src/standard/*.ceru text eol=lf
+tests/fixtures/line_input.stdin -text

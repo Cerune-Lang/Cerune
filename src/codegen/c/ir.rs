@@ -179,6 +179,9 @@ pub enum ExprKind {
     ArrayReleaseOwner {
         value: Box<Expr>,
     },
+    ReadLine {
+        max_bytes: Box<Expr>,
+    },
     StringConcat {
         left: Box<Expr>,
         right: Box<Expr>,

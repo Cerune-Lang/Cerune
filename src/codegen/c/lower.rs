@@ -400,9 +400,9 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
             left: Box::new(lower_expr(left)),
             right: Box::new(lower_expr(right)),
         },
-        cerune_ir::ExprKind::ReadLine { .. } => {
-            unreachable!("line input rejected before C lowering")
-        }
+        cerune_ir::ExprKind::ReadLine { max_bytes } => ExprKind::ReadLine {
+            max_bytes: Box::new(lower_expr(max_bytes)),
+        },
         cerune_ir::ExprKind::StringByteLength { value } => ExprKind::StringByteLength {
             value: Box::new(lower_expr(value)),
         },

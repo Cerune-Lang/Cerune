@@ -26,6 +26,7 @@ pub fn emit(module: &Module) -> String {
     {
         output.push_str("#include <stdlib.h>\n#include <signal.h>\n");
     }
+    let reads = support.input;
     let writes = super::output::used(module);
     let strings = module.uses_strings || support.strings || super::string::uses_type(module);
     if !support.conversions.is_empty() || support.nonfinite {
@@ -65,6 +66,13 @@ pub fn emit(module: &Module) -> String {
         }
     }
 
+    if reads {
+        output.push_str(&super::input::support(
+            module
+                .string_heap_limit
+                .expect("input uses string ownership"),
+        ));
+    }
     if let Some(limit) = module.array_heap_limit {
         output.push_str(&super::array::support(limit));
     }
@@ -556,6 +564,12 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
                 output.push_str(").length");
             }
         }
+        ExprKind::ReadLine { max_bytes } => {
+            output.push_str("cerune_input_read_line(");
+            emit_expr(max_bytes, module, output);
+            super::failure::argument(expr.origin, output);
+            output.push(')');
+        }
         ExprKind::StringConcat { left, right } => {
             output.push_str("cerune_string_concat(");
             emit_expr(left, module, output);
@@ -829,6 +843,7 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
 
 #[derive(Clone, Default)]
 struct RuntimeSupport {
+    input: bool,
     strings: bool,
     nonfinite: bool,
     conversions: std::collections::BTreeSet<crate::codegen::NumericConversion>,
@@ -859,6 +874,10 @@ impl RuntimeSupport {
         self.strings |= expr.ty == Type::String;
         self.nonfinite |= matches!(&expr.kind, ExprKind::Float { text, .. } if matches!(text.as_str(), "nan" | "inf" | "-inf"));
         match &expr.kind {
+            ExprKind::ReadLine { max_bytes } => {
+                self.input = true;
+                self.include_expr(max_bytes);
+            }
             ExprKind::ArrayAllocate { length: value, .. }
             | ExprKind::ArrayReleaseOwner { value }
             | ExprKind::ArrayLength { value, .. }

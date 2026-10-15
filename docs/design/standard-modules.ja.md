@@ -29,9 +29,9 @@ SourceMapには利用者ソースと標準ソースの種別を保持します�
 
 ## 実行と確認
 
-HIR・MIR・SSAの `run_with_io` とVMの `run_bytecode_with_io` に、InputとOutputを明示的に渡します。従来の収集型APIは入力未設定を維持します。C・LLVM・QBE・WAT・Nativeは入力操作を含むプログラムを診断します。未使用のread_line関数も除去しないため、現段階ではstd:ioをimportするだけでも生成できません。
+HIR・MIR・SSAの `run_with_io` とVMの `run_bytecode_with_io` に、InputとOutputを明示的に渡します。従来の収集型APIは入力未設定を維持します。[CLIと生成C](stdin-connections.ja.md)は実stdinへ接続します。LLVM・QBE・WAT・Nativeは入力操作を含むプログラムを診断します。未使用のread_line関数も除去しないため、未対応経路ではstd:ioをimportするだけでも生成できません。
 
-[行入力のCerune例](../../tests/fixtures/line_input.ceru)は、print→flush→read_line→matchを実行します。[比較テスト](../../tests/standard_input.rs)が独立した同じ入力を4実行器へ供給し、[期待出力](../../tests/fixtures/line_input.stdout)・操作順・失敗・所有を確認します。CLIの実stdin接続はまだないため、通常のexamples一覧ではなくテスト用に置きます。
+[行入力のCerune例](../../tests/fixtures/line_input.ceru)は、print→flush→read_line→matchを実行します。[比較テスト](../../tests/standard_input.rs)が独立した同じ入力を4実行器へ供給し、[期待出力](../../tests/fixtures/line_input.stdout)・操作順・失敗・所有を確認します。CLI/Cの実入力でも検証し、残る生成経路が揃うまでは通常のexamples一覧と分けて置きます。
 
 ```sh
 cargo test --test standard_input

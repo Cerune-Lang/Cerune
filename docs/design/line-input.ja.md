@@ -6,7 +6,7 @@
 
 ## 実装の範囲
 
-[仮想標準モジュールstd:io](standard-modules.ja.md)と共通IRの入力命令を実装しました。HIR・MIR・SSA・VMはRustのrun_with_io APIで入力接続を受けます。**生成経路とCLIの実stdin接続は未実装です。** 未設定入力はEOFではなく診断で停止します。
+[仮想標準モジュールstd:io](standard-modules.ja.md)と共通IRの入力命令を実装しました。HIR・MIR・SSA・VMはRustのrun_with_io APIで入力接続を受けます。[CLIと生成Cの実stdin接続](stdin-connections.ja.md)も実装済みです。**LLVM・QBE・WAT・Nativeの入力は未実装です。** 未設定入力はEOFではなく診断で停止します。
 
 既存enumの値付き選択肢で「行（string）／EOF」を表現できます。空行はLFまたはCRLFを含む行です。汎用Result型は前提にしません。公開APIは `import "std:io" as io;` と `io::read_line(max_bytes)`、結果型は `io::ReadLine` です。以下のRust接続APIは実行用の部品です。
 
@@ -52,6 +52,7 @@ Rust部品のread_lineは、呼出し側が与えるavailable_bytesを今回の�
 | --- | --- |
 | invalid-limit | 上限が共通範囲外 |
 | unconfigured | 入力接続なし |
+| unsupported-connection | Windows console等、初版で扱わない実接続 |
 | budget-exceeded | 予約できる論理予算が不足 |
 | allocation-failed | 物理的な作業領域を確保できない |
 | read-failed | 割込み以外のreaderエラー |
@@ -65,7 +66,7 @@ Rust部品のread_lineは、呼出し側が与えるavailable_bytesを今回の�
 
 readerの契約は、1バイト要求に0（EOF）または1を返し、エラーや割込みではバイトを消費しないことです。要求より先を隠れて消費してはなりません。契約外の数を返したときは、直前までに確認した消費数を保持し、その応答での実消費は不明と記録します。偽の正確な数や巻戻しを報告しません。
 
-実stdinとの接続は後続です。pipe/fileの生バイトとWindows consoleの文字変換を分けて定義し、生成targetを実行中のOSから推測しません。WATは版付きの値／状態importを別途定義し、内部memoryを公開しません。読取り自体は出力をflushしません。
+実stdinはWindows/Linuxの同期pipe/fileを先行して実装しました。Windows consoleは専用診断で停止し、文字変換は後続です。生成targetを実行中のOSから推測しません。WATは版付きの値／状態importを別途定義し、内部memoryを公開しません。読取り自体は出力をflushしません。
 
 ## 診断と観測
 
@@ -98,8 +99,9 @@ fileは匿名ソースでは省略します。bytesはソースのSpanであり�
 | 経路 | 比較内容 | 現在 |
 | --- | --- | --- |
 | HIR・MIR・SSA・VM | 行／EOF、先行出力、停止理由と出自、消費数、所有と解放 | Rust APIで実装・比較済み |
-| C・LLVM・QBE・WAT | 同じ入力、要求／応答、先行出力と停止診断、後続処理なし | 未実装 |
+| C | 同じ入力、先行出力と停止診断、所有、実file/pipe・-O0/-O2比較 | 実装済み |
+| LLVM・QBE・WAT | 同じ入力、要求／応答、先行出力と停止診断、後続処理なし | 未実装 |
 | LIR・ASM・自前Object（通常／SSA） | 入力操作の出自、明示target、同じ失敗と先行出力 | 未実装 |
-| CLI／実OS | 質問をprint→flushしてから入力。flush失敗なら読取り0回 | 未実装 |
+| CLI／実OS | 質問をprint→flushしてから入力。flush失敗なら読取り0回 | Windows/Linuxのpipe/fileで実装。Windows consoleは未対応 |
 
 全経路が揃った後で実stdinの対話exampleを追加します。既存の固定データによるinput_flowを実stdin対応と表示しません。観測での記録取得と、実行接続による入力供給を分離したまま検証します。
