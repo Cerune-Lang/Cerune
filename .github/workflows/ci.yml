@@ -142,6 +142,7 @@ jobs:
           CERUNE_TEST_LLVM_CLANG: clang
           CERUNE_TEST_NODE: node
           CERUNE_TEST_OBJDUMP: objdump
+          CERUNE_TEST_OBJCOPY: objcopy
       - name: Preserve Linux route diagnostics
         if: always()
         uses: actions/upload-artifact@v7
@@ -306,6 +307,7 @@ jobs:
           CERUNE_TEST_LLVM_CLANG: clang
           CERUNE_TEST_ASM_CLANG: clang
           CERUNE_TEST_OBJDUMP: llvm-objdump
+          CERUNE_TEST_OBJCOPY: llvm-objcopy
           CERUNE_TEST_NODE: node
       - name: Preserve Windows test observations
         if: always()

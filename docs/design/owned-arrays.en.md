@@ -183,7 +183,7 @@ WAT uses private Wasm32 linear memory and passes dynamic arrays as i32 owner ref
 | 32 / 40 / 48 | i64 logical bytes / element stride / physical capacity |
 | 56 onward | Element storage |
 
-Following the existing WAT layout, scalar storage slots occupy eight bytes. String and array references are i32 values, but count as sixteen bytes in the common logical budget. Allocate owner and elements together; validate length, logical width, and Wasm32 physical size using i64 before narrowing addresses. Check indices at full i64 width as well.
+Following the existing WAT layout, scalar storage slots occupy eight bytes. String and array references are i32 values, but count as sixteen bytes in the common byte accounting. Allocate owner and elements together; validate length, logical width, and Wasm32 physical size using i64 before narrowing addresses. Check indices at full i64 width as well.
 
 Strings and arrays share one physical allocation cursor to prevent overlap, with independent live budgets and reuse lists. Reuse a sufficiently large freed block or grow only the required pages with `memory.grow`. Blocks are not split, coalesced, or shrunk; fragmentation or exhausted linear address space can cause allocation failure. Return budgets on success; discard the instance after a trap.
 
@@ -201,7 +201,7 @@ Native passes dynamic arrays as eight-byte references to ownership headers. One 
 | 24 / 32 / 40 | Logical bytes / initialized count / element stride |
 | 48 onward | Element storage |
 
-Following the existing Native ABI, element slots and aggregate fields descend from the base address in eight-byte steps. An internal array reference occupies eight bytes but counts as sixteen logical budget bytes. Logical size and physical size including the 48-byte header are checked separately before allocation. The budget increases only after successful allocation and returns on `array.free-elements` after the final owner releases the elements. This does not expose a pointer API to users.
+Following the existing Native ABI, element slots and aggregate fields descend from the base address in eight-byte steps. An internal array reference occupies eight bytes but counts as sixteen bytes toward the memory limit. Logical size and physical size including the 48-byte header are checked separately before allocation. The budget increases only after successful allocation and returns on `array.free-elements` after the final owner releases the elements. This does not expose a pointer API to users.
 
 Explicit Windows/Linux targets select argument placement and OS allocation, output, and failure conventions. Shared lowering produces ASM and self-encoded COFF/ELF; both use external linking. Inspect [Linux ASM](../../tests/fixtures/dynamic-arrays/linux.s), [Windows ASM](../../tests/fixtures/dynamic-arrays/windows.s), and `--annotate-origins` to follow allocation, element loads/stores, checks, and cleanup.
 

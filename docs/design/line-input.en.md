@@ -36,9 +36,9 @@ Create a connection per execution. A failed connection returns its original fail
 1. Evaluate the limit once. The common range is 1 through 2147483647 bytes; reject zero, negatives, and larger values.
 2. Require an input connection. Unconfigured input is not EOF.
 3. If EOF is already known, return EOF without reading or reserving storage.
-4. Reserve the whole limit from the same logical budget as live dynamic strings. Budget exhaustion and physical allocation failure stop before reading.
+4. Reserve the whole requested line limit against the same byte limit as live dynamic strings. Budget exhaustion and physical allocation failure stop before reading.
 5. Read through LF, EOF, overflow, or a read failure. Retry interruptions, which consume no bytes; do not retry other failures.
-6. Strictly validate UTF-8 only after framing a complete line. Transfer ownership into an immutable string and reduce the logical charge to actual length. Release scratch storage on failure or empty EOF.
+6. Strictly validate UTF-8 only after framing a complete line. Transfer ownership into an immutable string and reduce the accounted bytes to actual length. Release scratch storage on failure or empty EOF.
 
 Framing precedes UTF-8 validation: an oversized invalid line reports limit-exceeded, and a read failure during an incomplete line reports read-failed. Failure while checking EOF after the last byte does not return a successful partial line.
 
@@ -108,4 +108,4 @@ A [real stdin example](../../examples/stdin/README.en.md) is available. Do not d
 
 ## Retained-capacity measurements
 
-See [measurements and improvement candidates](input-memory.en.md), separating logical charges, retained capacity, and OS memory metrics. Short lines with large limits retain excess capacity. The logical heap limit is not a physical-memory bound.
+See [measurements and improvement candidates](input-memory.en.md), separating accounted bytes, retained capacity, and OS memory metrics. Short lines with large limits retain excess capacity. The string memory limit is not a physical-memory bound.

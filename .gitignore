@@ -16,3 +16,4 @@
 
 # Input allocation measurement harness
 !tests/support/input_memory.c
+!tests/support/input_memory_probe.c

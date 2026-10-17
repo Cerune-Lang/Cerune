@@ -45,6 +45,13 @@ const imports = { cerune: {
     diagnostics.push(value);
   },
 }};
+
+const memoryEvents = [];
+if (process.env.CERUNE_TEST_WAT_MEMORY_TRACE) {
+  imports.probe = { memory(phase, logical, capacity, free, owners, pages) {
+    memoryEvents.push({phase,logical:Number(logical),capacity:Number(capacity),free:Number(free),owners,pages});
+  }};
+}
 for (const name of config.omit || []) delete imports.cerune[name];
 WebAssembly.instantiate(fs.readFileSync(process.argv[2]),imports).then(({instance})=>{
   if (Object.keys(instance.exports).join(',')!=='main') throw new Error('unexpected public export');
@@ -59,6 +66,34 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]),imports).then(({instanc
     throw error;
   }
   if (diagnostics.length) throw new Error('diagnostic without a trap');
+  if (process.env.CERUNE_TEST_WAT_MEMORY_TRACE) {
+    const assert = require('node:assert/strict');
+    const lines = memoryEvents.filter(e => e.phase === 1);
+    const releases = memoryEvents.filter(e => e.phase === 2 && e.owners === 0);
+    assert.equal(lines.length, 24);
+    assert.equal(memoryEvents.filter(e => e.phase === 2).length, 24);
+    assert.equal(releases.length, 3);
+    const block = lines[0].capacity;
+    assert.ok(block === 8 || block === 1048576);
+    for (let i=0; i<lines.length; ++i) {
+      const e=lines[i], owners=i%8+1;
+      assert.equal(e.logical, owners*2);
+      assert.equal(e.owners, owners);
+      assert.equal(e.capacity, owners*block);
+      if (i>=8) {
+        assert.equal(e.free, (8-owners)*block);
+        assert.equal(e.pages, lines[7].pages);
+      }
+    }
+    for (const e of releases) {
+      assert.equal(e.logical,0);
+      assert.equal(e.capacity,0);
+      assert.equal(e.free,8*block);
+      assert.equal(e.pages,lines[7].pages);
+    }
+    fs.writeFileSync(process.env.CERUNE_TEST_WAT_MEMORY_TRACE,JSON.stringify(memoryEvents,null,2));
+  }
+
 }).catch(error=>{
   fs.writeSync(2,Buffer.from(diagnostics));
   if (!(error instanceof WebAssembly.RuntimeError) || error.message!=='unreachable' || !diagnostics.length) console.error(error.message);

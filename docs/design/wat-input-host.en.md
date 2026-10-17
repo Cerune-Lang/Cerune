@@ -19,7 +19,7 @@ Artifacts without input still work with existing hosts. Input artifacts require 
 
 ## Generated WAT responsibilities
 
-Check limit, connection, known EOF, budget/allocation, reads, then UTF-8. Reserve the maximum using the existing string allocator; on success shrink the same allocation's length and logical charge to the actual length. Release on failure or empty EOF. Physical allocation failure, including memory.grow failure, reports allocation-failed.
+Check limit, connection, known EOF, budget/allocation, reads, then UTF-8. Reserve the maximum using the existing string allocator; on success shrink the same allocation's length and accounted bytes to the actual length. Release on failure or empty EOF. Physical allocation failure, including memory.grow failure, reports allocation-failed.
 
 Failures emit an io-v1 reason, limit, consumption, and NodeId/Span through write_error_byte and stop with unreachable. Diagnostics exclude input text. Shared records of successful generated operations are not added here. Host exceptions that never return to main and diagnostic delivery failures remain host failures, never successful language input results.
 
