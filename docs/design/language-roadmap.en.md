@@ -2,7 +2,7 @@
 
 [日本語](language-roadmap.ja.md)
 
-This inventory records capabilities, execution routes, and next steps as of 2026-10-15. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+This inventory records capabilities, execution routes, and next steps as of 2026-10-18. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
 The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline. This page tracks current status.
 
@@ -56,6 +56,7 @@ Language features are tracked separately from compiler stages, distribution, and
 | Partial experiment | [Lean verification](lean-verification.en.md) | HIR→Lean/HIR→MIR correspondence and properties checked for u8 increment/choose/advance, including if/short-circuiting/while/for/break/continue/nesting, update-failure origins, and completion within explicit bounds; no whole-language, general-lowering, or whole-compiler proof, or public `emit-lean` |
 | Partly implemented | [SSA construction](mir-ssa.en.md) and later optimization passes | Scalar SSA/residual-slot representation, structural validator, observation text, automatic construction, and direct execution through the Rust API implemented; public SSA CLI/bundle support also implemented; SSA→MIR/Native also implemented; finite-fixture Lean checks for MIR→SSA→MIR implemented; constant folding is designed but unimplemented and deferred; general proofs also remain future work |
 | Implemented | [LIR observation and validation](lir-observation.en.md) | `emit-lir`, `observe --lir`, validator, and example comparisons for both targets. Direct execution investigated and deferred |
+| Distributed | Compiler binaries v0.1.0 | Published for Windows x64, Linux x64/arm64, and macOS x64/arm64. Separate from Cerune program build/release and a Darwin Native backend |
 | Planned, unimplemented | [IR/VM/Native build / release](owned-routes.en.md) | Follow [#81](https://github.com/Cerune-Lang/Cerune/issues/81), keeping completed artifacts and distribution separate from optimization |
 
 ## Proposed priorities
@@ -70,8 +71,12 @@ Prioritize the programs users can write and the artifacts they can use. This is 
 | Implemented feature | [Dynamic-array `array_repeat`](owned-arrays.en.md) ([#122](https://github.com/Cerune-Lang/Cerune/issues/122)) | Runtime counts, zero/negative counts, evaluation order, budget failures, and independent nested copies implemented; examples, observable lowering, and existing-route comparisons added |
 | Complete | Documentation/issue consistency ([#130](https://github.com/Cerune-Lang/Cerune/issues/130)) | Separate current status from historical audits; automate local-link and translation-pair checks |
 | Complete | String-heap owner validation ([#134](https://github.com/Cerune-Lang/Cerune/issues/134)) | Reject another heap’s value even with the same ID; failed retain/release must preserve ownership counts, live bytes, and contents. Reachability from ordinary source remains unconfirmed |
-| 1: language features | [Standard I/O design](standard-io.en.md) ([#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#104](https://github.com/Cerune-Lang/Cerune/issues/104)). Incremental output implemented in four executors and CLI; explicit flush also implemented across routes; line input implemented in four executor Rust APIs | C/LLVM/QBE/WAT/Native write failures are also implemented; virtual std:io, common IR input, and string ownership are connected; CLI/C/LLVM/QBE/Native actual stdin and dialogue tests are implemented; versioned WAT input hosts are implemented; Native input is implemented; next select small standard-library helpers needed by examples. Compare identical input/operation sequences; keep observation read-only |
-| 3 | Small standard library. [Virtual std:io](standard-modules.en.md) resolution and the line-input API implemented | Select text/numeric parsing helpers required by I/O. Separate functions expressible in Cerune from runtime operations; use existing imports and explicit failure handling. Do not require generic Option/Result or package management first |
+| Initial scope complete | [Standard I/O](standard-io.en.md) ([#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104)) | Output, flush, and line input in four executors; CLI/C/LLVM/QBE/WAT/Native connections, failure and dialogue tests implemented. Windows console and shared generated-route success records remain follow-up work |
+| 1 | Floating-point rounding and route differences ([#156](https://github.com/Cerune-Lang/Cerune/issues/156)) | Isolate contraction with minimal f32/f64 cases, value bits, and generated assembly. Preserve per-operation rounding without hiding differences behind tolerances |
+| 2 | Parser depth and source-loading bounds ([#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135)) | Check reproducibility in bounded child processes; design diagnostics for nesting, file count, individual and total bytes. Separate static concerns from reproduced defects |
+| 3 | Line-input allocation capacity and logical budgets ([#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133)) | Measure length, retained capacity, budget, and OS memory use for short lines with large limits. Preserve consumed-input, ownership, and failure contracts when selecting improvements |
+| 4 | Typed function calls from JS/TS ([#161](https://github.com/Cerune-Lang/Cerune/issues/161)) | Compare IR/VM embedding with WAT exports; select an initial route for repeated calls to a small pure scalar function. Distinguish pub from external exports, integer widths, failures, and ownership |
+| 5 | Small standard library. [Virtual std:io](standard-modules.en.md) resolution and line input are implemented | Select text/numeric parsing needed by examples. Separate Cerune functions from runtime operations; do not require generic Option/Result or package management first |
 | Independently actionable | [Native build](owned-routes.en.md). Responsibilities outlined; CLI/link management unimplemented | An executable is the proposed first artifact. Define explicit target, external linker, dependencies, failures, and observation records; build/link current examples and compare with IR/VM |
 | After stable build | IR/VM Images and release for three routes. Unimplemented | Validate versions, types, references, ownership, and budgets before loading; compare saved/reloaded execution. As each route's artifact stabilizes, verify distribution contents, compatibility, and failure origins |
 | Later | Recursion, array growth/borrowing, more string operations, module distribution | Design call storage/limits/cleanup, borrowing lifetimes/mutation, re-exports, dependency versions, and reproducibility around actual uses |
@@ -85,7 +90,7 @@ Separate existing behavior from decisions for the next design.
 
 | Area | Current behavior | Next decisions |
 | --- | --- | --- |
-| Standard output | `print` displays values; `run`/`run-mir`/`run-vm` deliver output during execution and flush at completion; captured Rust APIs remain | `flush();` is implemented; C/LLVM/QBE/WAT/Native write failures are also implemented; add tests showing prompts before waiting for input |
+| Standard output | `print` displays values; `run`/`run-mir`/`run-vm` deliver output during execution and flush at completion; captured Rust APIs remain | `flush();` is implemented; C/LLVM/QBE/WAT/Native write failures are also implemented; dialogue tests already verify prompts before waiting for input |
 | Standard error | Used for compiler/runtime diagnostics; no general program-facing write API | Distinguish program output from runtime diagnostics and define write failures |
 | Standard input/arguments | io::read_line and the line/EOF enum work in four executors, CLI, generated C/LLVM/QBE/Native, and versioned WAT hosts | Windows console support remains; CLI arguments, files, FFI, and networking follow separately |
 | Standard library | std:io is a bundled virtual source with observable types, text, and origins; no file lookup | Distinguish language built-ins, runtime connections to external resources, and libraries written in Cerune |
@@ -100,17 +105,19 @@ This is not a commitment to implement everything together. GPU experiments need 
 
 ### Current issue inventory
 
-On 2026-10-15, 16 open issues and two recently completed issues were checked. The table records priorities and purposes; investigation issues are not confirmed defects.
+On 2026-10-18, 19 open issues and recent merges were checked. The table records priorities and purposes; investigation issues are not confirmed defects.
 
 | Issues | Purpose | Next work and limits |
 | --- | --- | --- |
+| [#156](https://github.com/Cerune-Lang/Cerune/issues/156) | Floating-point semantic consistency | Priority 1. A C/VM difference was observed on Apple Silicon. Disabling Clang contraction restored CI; minimal cases, assembly, and other compilers still need checking |
+| [#161](https://github.com/Cerune-Lang/Cerune/issues/161) | Typed JS/TS function calls | Priority 4. Distinguish source checking/emission/stdout collection from repeated calls with typed arguments/results. Compare IR/VM and WAT designs |
 | [#130](https://github.com/Cerune-Lang/Cerune/issues/130) | Documentation consistency | Merged in PR #136: old URLs, licensing, historical audits, and bilingual pairs |
 | [#134](https://github.com/Cerune-Lang/Cerune/issues/134) | String ownership correctness | Merged in PR #137: validate heap membership/owner counts before mutation, separately from performance |
 | [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | Standard I/O and effect comparisons | Output connections merged. Explicit flush implemented; C/LLVM/QBE/WAT/Native write failures also implemented; virtual std:io, line input, and ownership connected to four executors; CLI/C/LLVM/QBE/Native stdin and dialogue tests added; versioned WAT input hosts implemented; Native input implemented. Shared successful-operation records remain follow-up work |
-| [#135](https://github.com/Cerune-Lang/Cerune/issues/135) | Deep parser inputs | Unreproduced investigation. Use bounded child processes; design diagnostics/depth limits if needed |
+| [#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135) | Parser and source-loading bounds | Priority 2. Share deep-input investigation and evaluate loading budgets; import isolation, generated C, and CI candidates remain separate stages |
 | [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | Generated well-typed differential tests | Start with fixed seeds, finite execution, and known expectations; separate from parser and internal-API checks |
-| [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | Memory measurement | Distinguish logical budgets, actual allocations, RSS, and WAT pages. No confirmed leak/regression; measure before changing representation |
-| [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | Actions Node.js warning | Independent maintenance; distinguish action-runtime Node from WAT-test Node. Not an I/O prerequisite |
+| [#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | Input capacity and memory measurement | Priority 3. Distinguish logical budget, capacity, RSS, and WAT pages. Measure large limits with short input; do not claim unconfirmed leaks or regressions |
+| [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | Actions Node.js warning | Completed in PR #157. Distinguish action-runtime Node 24 from WAT-test Node 20.20.2 |
 | [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release and route responsibilities | Native build can start independently; then Image validation/distribution. show/via/optional backends await use cases and detailed design |
 | [#60](https://github.com/Cerune-Lang/Cerune/issues/60) / [#94](https://github.com/Cerune-Lang/Cerune/issues/94) | Observation, transformations, proofs | Partly complete through SSA/LIR observation. More bundled artifacts, general proofs, and optimization remain; preserve unoptimized forms |
 | [#88](https://github.com/Cerune-Lang/Cerune/issues/88) | Integer arithmetic policies | Keep checked arithmetic; prioritize demonstrated wrapping uses. Define saturation, overflow reporting, widening, bit discard, and division separately |
