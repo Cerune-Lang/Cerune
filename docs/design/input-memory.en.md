@@ -1,4 +1,4 @@
-# Line-input retained capacity and logical budgets
+# Line-input retained capacity and memory limits
 
 [日本語](input-memory.ja.md)
 
@@ -12,16 +12,16 @@ A line read reserves its entire requested limit before reading, then counts only
 
 ## Findings
 
-**Short lines retain their reservation capacity, exceeding logical charges.** Measurements of the shared Rust runtime and generated C on Windows/Linux retained eight two-byte lines.
+**Short lines retain their reservation capacity, exceeding accounted bytes.** Measurements of the shared Rust runtime and generated C on Windows/Linux retained eight two-byte lines.
 
-| Per-line limit | Total length / logical charge | Rust total capacity | Live generated-C malloc requests |
+| Per-line limit | Total length / accounted bytes | Rust total capacity | Live generated-C malloc requests |
 | --- | ---: | ---: | ---: |
 | 2 bytes | 16 | 16 | 208 |
 | 1 MiB | 16 | 8,388,608 | 8,388,800 |
 
 C includes 24 bytes of ownership metadata per line. These are requested sizes, excluding allocator rounding and metadata. Rust capacity excludes ownership metadata and HashMap storage.
 
-Three retain/release cycles each returned owner count, logical charge, and tracked live allocations to zero. This case does not show a leak; it does not prove general leak freedom or bound whole-process memory.
+Three retain/release cycles each returned owner count, accounted bytes, and tracked live allocations to zero. This case does not show a leak; it does not prove general leak freedom or bound whole-process memory.
 
 ## Separate OS measurements
 
@@ -43,7 +43,7 @@ Windows private commit is PrivateUsage in [PROCESS_MEMORY_COUNTERS_EX](https://l
 | Route | Evidence in this change |
 | --- | --- |
 | HIR / MIR / SSA / VM | Unit measurements of shared StringHeap length, capacity, accounting, and release; identical source example executed through each executor |
-| C | Real emitted input/ownership functions called from a probe main; malloc/free requests, live owners, logical charges, and OS metrics recorded |
+| C | Real emitted input/ownership functions called from a probe main; malloc/free requests, live owners, accounted bytes, and OS metrics recorded |
 | LLVM / QBE / ASM / self-encoded Object | Malloc/free references in objects generated from the same source instrumented; ASM and Object output/allocation/release measured separately |
 | WAT | Live/free capacity and pages measured; full release and reuse across three cycles verified |
 
@@ -89,10 +89,10 @@ The prototype demonstrates that C can tolerate shrinking failure without a new i
 | Incremental growth while reading | Lower allocations for short lines | Allocation can fail after consuming input, changing the current pre-read allocation-failure contract |
 | Mandatory shrinking on completion | Less excess capacity in successful strings | Reallocation for shrinking may introduce a new failure after reading |
 | Optional shrinking on completion | Preserve results/accounting by keeping original storage on failure | No memory bound; copying, temporary peaks, ownership transfer, and WAT reuse need separate validation |
-| Charge capacity to the logical budget | Account for retained capacity | Changes where the same source exceeds its budget; allocator-dependent sizes would break route consistency |
+| Count allocation capacity toward the memory limit | Account for retained capacity | Changes where the same source exceeds its budget; allocator-dependent sizes would break route consistency |
 | Separate host memory limit | Can cover metadata, output, compiler memory, and more | OS/host specific; needs separate configuration, termination, and diagnostic design rather than treating it as an ordinary io-v1 failure |
 
-**Keep logical budgets and pre-read reservations for now. Optional shrinking on completion is the next candidate to evaluate.** A C test-only prototype is verified; product adoption and implementation remain. Review the current promise of no additional allocation on success, and verify that injected shrinking failures preserve results, consumption, and subsequent output before deciding.
+**Keep memory limits and pre-read reservations for now. Optional shrinking on completion is the next candidate to evaluate.** A C test-only prototype is verified; product adoption and implementation remain. Review the current promise of no additional allocation on success, and verify that injected shrinking failures preserve results, consumption, and subsequent output before deciding.
 
 #154 remains open: native-Linux CI metrics, a product shrinking design, and cross-route failure/ownership comparisons remain. This study excludes #133 array/output copies/compiler peaks and the cost of one-byte read calls.
 
