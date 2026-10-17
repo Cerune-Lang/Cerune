@@ -2,9 +2,13 @@
 name = "cerune-lang"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/Cerune-Lang/Cerune"
 description = "A small experimental programming language designed to keep the path from source code to generated code observable."
 publish = false
 license = "MIT OR Apache-2.0"
+
+[package.metadata.dist]
+dist = true
 
 [[bin]]
 name = "cerune"
@@ -19,3 +23,8 @@ name = "ssa_model"
 path = "experiments/ssa/main.rs"
 
 [dependencies]
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
