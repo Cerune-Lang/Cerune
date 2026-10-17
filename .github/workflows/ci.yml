@@ -99,50 +99,8 @@ jobs:
           path: target/lean-verification-test
           if-no-files-found: ignore
 
-  windows-qbe:
-    runs-on: windows-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.98.0
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          install: mingw-w64-ucrt-x86_64-gcc make
-      - name: Build pinned QBE 1.3 for the Windows host
-        shell: msys2 {0}
-        run: |
-          mkdir -p target
-          curl --fail --location https://c9x.me/compile/release/qbe-1.3.tar.xz -o target/qbe-1.3.tar.xz
-          echo 'd587905d620dc5e1d2bfa7c2cc642b9b837aa89a3188c6e37b53d756cf66e320  target/qbe-1.3.tar.xz' | sha256sum --check
-          tar -xf target/qbe-1.3.tar.xz -C target
-          make -C target/qbe-1.3 CC=gcc CFLAGS='-std=c99 -O2' LDFLAGS=-static -j2
-          target/qbe-1.3/qbe.exe -h
-      - name: Compare Windows QBE execution with IR and VM
-        shell: pwsh
-        run: |
-          $env:CERUNE_TEST_QBE_CLANG = (Get-Command clang).Source
-          cargo test --test qbe_windows --test qbe_output --test dynamic_arrays --test explicit_flush --test stdin_routes -- --include-ignored 2>&1 | Tee-Object target/qbe-windows-test.log
-          exit $LASTEXITCODE
-        env:
-          CERUNE_TEST_TRACE: "1"
-          CERUNE_TEST_QBE: ${{ github.workspace }}/target/qbe-1.3/qbe.exe
-          CERUNE_TEST_CC: clang
-          CERUNE_TEST_LLVM_CLANG: clang
-          CERUNE_TEST_ASM_CLANG: clang
-      - name: Preserve generation stages and execution results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: qbe-windows-observations
-          path: |
-            target/qbe-windows-observations
-            target/qbe-windows-test.log
-            target/stdin-*
-          if-no-files-found: ignore
-
-  # #152: each original windows-strings target belongs to one suite (QBE adds
-  # intentional cross-backend repetitions); checked by check-ci-windows-coverage.cjs.
+  # #152: core/backend/cross-route suites plus QBE share the same matrix.
+  # QBE intentionally reuses cross-route tests; inventory verified by check-ci-windows-coverage.cjs.
   windows-backends:
     name: Windows / ${{ matrix.suite }}
     runs-on: windows-latest
@@ -181,18 +139,31 @@ jobs:
             tests: >-
               --test source_files --test string_routes --test runtime_routes --test string_heap_routes
               --test dynamic_arrays
+          - suite: qbe
+            timeout: 25
+            tests: >-
+              --test qbe_windows --test qbe_output --test dynamic_arrays --test explicit_flush
+              --test stdin_routes
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.0
       - uses: actions/setup-node@v4
         with:
           node-version: "20.20.2"
+      - uses: msys2/setup-msys2@v2
+        if: ${{ matrix.suite == 'qbe' }}
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-gcc make
+      - name: Prepare test-log directory
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path target | Out-Null
       - name: Require Windows execution tools
         shell: pwsh
         run: |
           $suite = '${{ matrix.suite }}'
           $tools = @('node')
-          if ($suite -in @('c-llvm', 'native', 'cross-io', 'cross-runtime')) {
+          if ($suite -in @('c-llvm', 'native', 'cross-io', 'cross-runtime', 'qbe')) {
             $tools += 'clang'
           }
           if ($suite -in @('native', 'cross-runtime')) {
@@ -203,6 +174,27 @@ jobs:
             & $binary --version
             if ($LASTEXITCODE -ne 0) { throw "$tool is not usable" }
           }
+      - name: Build pinned QBE 1.3 for Windows
+        if: ${{ matrix.suite == 'qbe' }}
+        shell: msys2 {0}
+        run: |
+          mkdir -p target
+          curl --fail --location https://c9x.me/compile/release/qbe-1.3.tar.xz -o target/qbe-1.3.tar.xz
+          echo 'd587905d620dc5e1d2bfa7c2cc642b9b837aa89a3188c6e37b53d756cf66e320  target/qbe-1.3.tar.xz' | sha256sum --check
+          tar -xf target/qbe-1.3.tar.xz -C target
+          make -C target/qbe-1.3 CC=gcc CFLAGS='-std=c99 -O2' LDFLAGS=-static -j2
+          target/qbe-1.3/qbe.exe -h
+      - name: Require QBE and MSVC Clang
+        if: ${{ matrix.suite == 'qbe' }}
+        shell: pwsh
+        run: |
+          $qbe = Join-Path $env:GITHUB_WORKSPACE 'target/qbe-1.3/qbe.exe'
+          if (-not (Test-Path -PathType Leaf $qbe)) { throw "QBE missing: $qbe" }
+          & $qbe -h
+          if ($LASTEXITCODE -ne 0) { throw 'QBE smoke test failed' }
+          $clang = (Get-Command clang -ErrorAction Stop).Source
+          "CERUNE_TEST_QBE=$qbe" >> $env:GITHUB_ENV
+          "CERUNE_TEST_QBE_CLANG=$clang" >> $env:GITHUB_ENV
       - name: Install and validate WAT execution tool
         if: ${{ matrix.suite == 'wat' || startsWith(matrix.suite, 'cross-') }}
         shell: pwsh
@@ -220,7 +212,11 @@ jobs:
       - name: Run ${{ matrix.suite }} tests
         shell: pwsh
         run: |
-          cargo test ${{ matrix.tests }} 2>&1 | Tee-Object "target/windows-${{ matrix.suite }}.log"
+          $testArgs = '${{ matrix.tests }}' -split '\s+'
+          if ('${{ matrix.suite }}' -eq 'qbe') {
+            $testArgs += @('--', '--include-ignored')
+          }
+          cargo test @testArgs 2>&1 | Tee-Object "target/windows-${{ matrix.suite }}.log"
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_TRACE: "1"
@@ -236,5 +232,6 @@ jobs:
           name: windows-${{ matrix.suite }}-observations
           path: |
             target/windows-${{ matrix.suite }}.log
+            target/qbe-windows-observations
             target/stdin-*
           if-no-files-found: ignore
