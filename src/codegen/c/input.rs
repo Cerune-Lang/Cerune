@@ -79,6 +79,11 @@ static cerune_string cerune_input_read_line(int64_t limit, const char *origin) {
         if (code) cerune_input_failed(code, limit, consumed, known, origin);
         return (cerune_string){(const unsigned char *)"", 0};
     }
+    /* Compact only before publishing the owner; failure keeps the input. */
+    if (length <= (size_t)limit / 2 && (size_t)limit - length >= 4096) {
+        void *cerune_compacted = realloc(p, sizeof(cerune_string_owner) + length);
+        if (cerune_compacted) p = cerune_compacted;
+    }
     p->next = cerune_string_owners;
     p->references = 1;
     p->length = length;

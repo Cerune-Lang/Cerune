@@ -52,6 +52,7 @@ pub(super) fn support(linux: bool) -> String {
     });
     out.push_str("  callq _Exit\n  ud2\n");
     out.replace("@ARG@", if linux { "%rdi" } else { "%rcx" })
+        .replace("@ARG2@", if linux { "%rsi" } else { "%rdx" })
 }
 // 入口rax=limit、r11=不変の出自。戻り値rax=既存string表現。
 // frame: 64 limit,72 origin,80 owner,88 length,96 consumed,104 known,112 code,
@@ -179,6 +180,22 @@ cerune_input_read_line:
   subq %rax, .Lcerune_heap_live(%rip)
   cmpq $0, 88(%rsp)
   je .Linput_free_empty
+  movq 64(%rsp), %rax
+  shrq $1, %rax
+  cmpq 88(%rsp), %rax
+  jb .Linput_publish
+  movq 64(%rsp), %rax
+  subq 88(%rsp), %rax
+  cmpq $4096, %rax
+  jb .Linput_publish
+  movq 80(%rsp), @ARG@
+  movq 88(%rsp), @ARG2@
+  addq $24, @ARG2@
+  callq realloc
+  testq %rax, %rax
+  je .Linput_publish
+  movq %rax, 80(%rsp)
+.Linput_publish:
   movq 80(%rsp), %rax
   movq .Lcerune_heap_head(%rip), %rcx
   movq %rcx, (%rax)

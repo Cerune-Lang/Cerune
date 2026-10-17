@@ -115,6 +115,20 @@ pub struct Input<R> {
     fail_allocation: bool,
     #[cfg(test)]
     fail_record_allocation: bool,
+    #[cfg(test)]
+    fail_compaction: bool,
+}
+// 失敗しても完成した入力を失わない、任意の容量削減です。
+fn compact_line(text: String, reserved: usize, allocation_failed: bool) -> String {
+    if text.len() > reserved / 2 || reserved - text.len() < 4096 {
+        return text;
+    }
+    let mut small = String::new();
+    if allocation_failed || small.try_reserve_exact(text.len()).is_err() {
+        return text;
+    }
+    small.push_str(&text);
+    small
 }
 impl<R: Read> Input<R> {
     pub fn new(reader: R) -> Self {
@@ -145,6 +159,8 @@ impl<R: Read> Input<R> {
             fail_allocation: false,
             #[cfg(test)]
             fail_record_allocation: false,
+            #[cfg(test)]
+            fail_compaction: false,
         }
     }
 
@@ -166,7 +182,7 @@ impl<R: Read> Input<R> {
     /// 上限はLF/CRを含むバイト数です。未確認のEOFには予約が必要です。
     /// available_bytesは呼出し側が管理する文字列予算の残量です。
     /// この部品は返却後のStringの寿命や他の生存文字列の使用バイト数を管理しません。
-    /// 実行器は予約から所有登録まで割当てを挟まず、完成文字列の使用バイト数を継続して管理します。
+    /// 実行器は読取り前に所有情報も予約し、完成文字列の使用バイト数を継続して管理します。
     pub fn read_line(
         &mut self,
         max_bytes: i64,
@@ -182,7 +198,7 @@ impl<R: Read> Input<R> {
 
     /// 実行用の所有準備です。観測callbackではありません。
     /// EOF確定後は準備せず、失敗・空EOFでは準備した値を破棄します。
-    /// 成功時の所有確定は、準備済みの値を使って追加確保なしで行います。
+    /// 完成後の任意縮小に失敗しても元の領域を保ち、準備済みの所有情報へ移します。
     pub(crate) fn read_line_prepared<T>(
         &mut self,
         max_bytes: i64,
@@ -256,7 +272,14 @@ impl<R: Read> Input<R> {
             .try_reserve_exact(limit)
             .map_err(|_| Code::AllocationFailed)?;
         match read_frame(reader, &mut self.eof, bytes, limit, progress)? {
-            Line::Text(text) => Ok(Some((text, prepared))),
+            Line::Text(text) => {
+                #[cfg(test)]
+                let compact = !std::mem::take(&mut self.fail_compaction);
+                #[cfg(not(test))]
+                let compact = true;
+                let text = compact_line(text, limit, !compact);
+                Ok(Some((text, prepared)))
+            }
             Line::End => Ok(None),
         }
     }
@@ -457,5 +480,51 @@ mod tests {
         };
         assert_eq!(text.as_ptr(), allocation);
         assert_eq!(text, "hello\n");
+    }
+
+    #[test]
+    fn compaction_preserves_text_events_and_first_failure() {
+        for payload in ["a\0\r\n", "日本語\r\n", "e\u{301}", ""] {
+            let bytes = payload.as_bytes();
+            let mut normal = Input::with_trace_limit(bytes, 4);
+            let mut fallback = Input::with_trace_limit(bytes, 4);
+            fallback.fail_compaction = true;
+            let a = normal.read_line(8192, 8192, origin());
+            let b = fallback.read_line(8192, 8192, origin());
+            assert_eq!(a, b);
+            assert_eq!(normal.events(), fallback.events());
+            if let (Ok(Line::Text(a)), Ok(Line::Text(b))) = (&a, &b) {
+                assert_eq!(a.capacity(), a.len());
+                assert_eq!(b.capacity(), 8192);
+            }
+            assert_eq!(
+                normal.read_line(8192, 8192, origin()),
+                fallback.read_line(8192, 8192, origin())
+            );
+            assert_eq!(normal.events(), fallback.events());
+        }
+        for bytes in [&b"\xff\n"[..], &b"abc"[..]] {
+            let mut input = Input::with_trace_limit(bytes, 4);
+            input.fail_compaction = true;
+            let first = input.read_line(2, 2, origin()).unwrap_err();
+            let events = input.events().to_vec();
+            assert_eq!(input.read_line(2, 2, origin()).unwrap_err(), first);
+            assert_eq!(input.events(), events);
+        }
+    }
+    #[test]
+    fn compaction_requires_both_savings_and_ratio_thresholds() {
+        for (limit, length, shrunk) in [
+            (4097, 2, false),
+            (4098, 2, true),
+            (8192, 4096, true),
+            (8193, 4097, false),
+        ] {
+            let mut text = String::with_capacity(limit);
+            text.push_str(&"x".repeat(length));
+            let compact = compact_line(text, limit, false);
+            assert_eq!(compact.len(), length);
+            assert_eq!(compact.capacity(), if shrunk { length } else { limit });
+        }
     }
 }

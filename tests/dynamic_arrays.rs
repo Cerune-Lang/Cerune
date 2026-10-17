@@ -637,7 +637,7 @@ fn llvm_allocation_failures_keep_the_original_operation_and_prior_output() {
 }
 
 #[test]
-fn logical_budget_is_independent_of_llvm_element_layout() {
+fn array_memory_limit_is_independent_of_llvm_element_layout() {
     for (ty, value) in [("bool", "true"), ("f32", "1.5")] {
         let source = format!("source:[{ty};1]=[{value}]; a:[{ty}]=array_copy(source);print(a[0]);");
         assert_eq!(compare(&source, 8).unwrap(), format!("{value}\n"));

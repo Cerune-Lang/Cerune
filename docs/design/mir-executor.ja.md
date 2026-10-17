@@ -28,7 +28,7 @@ MIRからHIRやbytecodeを再構築して実行することはありません。
 | [mir_executor/semantics.rs](../../src/mir_executor/semantics.rs) | MIR・SSAで共有する個々の命令・演算・所有操作。CFGと値参照は各実行器が担当 |
 | [runtime/value.rs](../../src/runtime/value.rs) | HIR・MIR・SSAで共有する値表現、数値・比較・ビット演算、表示。制御フローは含めない |
 | [runtime/numeric.rs](../../src/runtime/numeric.rs) | 数値変換・丸めの意味 |
-| [runtime/string_heap.rs](../../src/runtime/string_heap.rs)、[array_heap.rs](../../src/runtime/array_heap.rs) | 論理的な所有数、確保予算、領域の回収 |
+| [runtime/string_heap.rs](../../src/runtime/string_heap.rs)、[array_heap.rs](../../src/runtime/array_heap.rs) | 値の所有数、文字列・配列のメモリ上限、領域の回収 |
 | [mir/validate.rs](../../src/mir/validate.rs) | 実行前の構造・型・初期化・添字検査の先行を検証 |
 
 読取り・一時保存のRust上のcloneは、動的領域の論理的なretainや独立コピーではありません。MIRに記録された確保・コピーのループ・retain／release／freeだけが言語上の所有を変えます。ABIや実行中のOSから処理を切り替えません。

@@ -40,6 +40,19 @@ static void probe_free(void *p) {
     }
     abort();
 }
+static void *probe_realloc(void *p, size_t size) {
+    for (size_t i = 0; i < 16; ++i) {
+        if (probe_pointers[i] == p) {
+            void *next = realloc(p, size);
+            if (!next) return NULL;
+            probe_live -= probe_sizes[i] - size;
+            probe_sizes[i] = size;
+            probe_pointers[i] = next;
+            return next;
+        }
+    }
+    abort();
+}
 /* GENERATED_RUNTIME */
 
 static void probe_snapshot(const char *phase, int cycle) {
@@ -83,7 +96,7 @@ int main(void) {
             assert(memcmp(values[i].data, "x\n", 2) == 0);
         }
         assert(cerune_string_live_bytes == 16);
-        assert(probe_live == 8 * ((size_t)limit + sizeof(cerune_string_owner)));
+        assert(probe_live == 8 * (2 + sizeof(cerune_string_owner)));
         probe_snapshot("retained", cycle);
         for (size_t i = 0; i < 8; ++i) cerune_string_release(values[i]);
         assert(cerune_string_live_bytes == 0);

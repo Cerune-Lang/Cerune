@@ -104,9 +104,28 @@ fn compiled_routes_retained_input_capacity() {
     let dir = directory("input-memory-routes");
     let probe = dir.join("probe.c");
     fs::write(&probe, include_str!("input_memory_probe.c")).unwrap();
-    let input = b"x\n".repeat(24);
-    for limit in [2, 1_048_576] {
-        let hir = workload(limit);
+    for (limit, length) in [
+        (2, 2),
+        (4097, 2),
+        (4098, 2),
+        (8192, 4096),
+        (8193, 4097),
+        (1_048_576, 2),
+    ] {
+        let mut line = vec![b'x'; length];
+        if length > 16 {
+            line[..8].copy_from_slice("日本\0\r".as_bytes());
+        }
+        line[length - 1] = b'\n';
+        let input: Vec<u8> = (0..24)
+            .flat_map(|index| {
+                let mut distinct = line.clone();
+                distinct[length - 2] = b'a' + (index % 8) as u8;
+                distinct
+            })
+            .collect();
+        let mut hir = workload(limit);
+        hir.string_heap_limit = limit as u64 + (length * 8) as u64;
         let expected = expected(&hir, &input);
         let mut artifacts = Vec::new();
         let stem = format!("c-{limit}");
@@ -163,24 +182,50 @@ fn compiled_routes_retained_input_capacity() {
         for (stem, plain, artifact, tool) in artifacts {
             compare(file_run(&mut Command::new(plain), &dir, &input), &expected);
             let exe = instrument(&dir, &stem, &artifact, &tool, &objcopy, &probe);
-            let out = file_run(&mut Command::new(exe), &dir, &input);
-            assert!(
-                out.status.success(),
-                "{stem}: {}",
-                String::from_utf8_lossy(&out.stderr)
-            );
-            assert_eq!(out.stdout, expected.0, "{stem}");
-            let report = String::from_utf8(out.stderr).unwrap();
-            assert_eq!(
-                report.lines().last().unwrap(),
-                format!(
-                    "probe allocations=24 releases=24 live=0 peak={} owners=0 peak_owners=8",
+            for mode in ["normal", "fail", "move"] {
+                let out = file_run(
+                    Command::new(&exe).env("CERUNE_TEST_SHRINK", mode),
+                    &dir,
+                    &input,
+                );
+                assert!(
+                    out.status.success(),
+                    "{stem}/{mode}: {}",
+                    String::from_utf8_lossy(&out.stderr)
+                );
+                assert_eq!(out.stdout, expected.0, "{stem}/{mode}");
+                let report = String::from_utf8(out.stderr).unwrap();
+                let eligible = length <= limit / 2 && limit - length >= 4096;
+                let compact = eligible && mode != "fail";
+                let peak = if compact {
+                    limit + 24 + 7 * (length + 24)
+                } else {
                     8 * (limit + 24)
-                ),
-                "{stem}: {report}"
-            );
-            fs::write(dir.join(format!("{stem}-metrics.txt")), &report).unwrap();
-            println!("{stem}\n{report}");
+                };
+                assert_eq!(
+                    report.lines().last().unwrap(),
+                    format!(
+                        "probe allocations=24 releases=24 live=0 peak={peak} owners=0 peak_owners=8"
+                    ),
+                    "{stem}/{mode}: {report}"
+                );
+                if eligible {
+                    let successes = if compact { 24 } else { 0 };
+                    assert!(
+                        report.contains(&format!("shrink calls=24 successes={successes} ")),
+                        "{stem}/{mode}: {report}"
+                    );
+                    if mode == "move" {
+                        assert!(
+                            report.contains(&format!("moved_copy_peak={}", peak + length + 24))
+                        );
+                    }
+                } else {
+                    assert!(!report.contains("shrink calls="));
+                }
+                fs::write(dir.join(format!("{stem}-{mode}-metrics.txt")), &report).unwrap();
+                println!("{stem}/{mode}\n{report}");
+            }
         }
     }
 }
@@ -238,89 +283,5 @@ fn wat_retained_input_capacity_and_free_storage() {
         // host側で全記録・最後の解放・memory再利用を検証し、結果だけを保存します。
         assert!(report.is_file());
         println!("WAT limit={limit} {}", fs::read_to_string(report).unwrap());
-    }
-}
-
-#[test]
-#[cfg(all(target_arch = "x86_64", any(windows, target_os = "linux")))]
-fn optional_input_shrink_prototype_preserves_results_on_failure_and_move() {
-    let configured = std::env::var_os("CERUNE_TEST_OBJCOPY");
-    let objcopy = configured.clone().unwrap_or_else(|| {
-        if cfg!(windows) {
-            "llvm-objcopy"
-        } else {
-            "objcopy"
-        }
-        .into()
-    });
-    if !Command::new(&objcopy)
-        .arg("--version")
-        .output()
-        .is_ok_and(|o| o.status.success())
-    {
-        assert!(configured.is_none(), "configured objcopy unavailable");
-        eprintln!("shrink prototype skipped: objcopy unavailable");
-        return;
-    }
-    let Some(cc) = compiler(false) else { return };
-    let dir = directory("input-memory-shrink");
-    let probe = dir.join("probe.c");
-    fs::write(&probe, include_str!("input_memory_probe.c")).unwrap();
-    let hir = workload(1_048_576);
-    let mut text = c::emit_c(&hir).unwrap();
-    let hook = "    p->next = cerune_string_owners;\n    p->references = 1;\n    p->length = length;\n    cerune_string_owners = p;\n    cerune_string_live_bytes -= (uint64_t)limit - length;";
-    assert_eq!(text.matches(hook).count(), 1);
-    text=text.replace(hook,&format!("    if (length < (size_t)limit) {{\n        void *smaller = realloc(p, sizeof(cerune_string_owner) + length);\n        if (smaller) p = smaller;\n    }}\n{hook}"));
-    let Some(_) = compile_c(&dir, "prototype", &text, "-O0") else {
-        return;
-    };
-    let exe = instrument(
-        &dir,
-        "prototype",
-        &dir.join("prototype.c"),
-        &cc,
-        &objcopy,
-        &probe,
-    );
-    // 異なる本文を使い、移動時のコピー漏れ・順序の変更も検出します。
-    let input = b"a\nb\nc\nd\ne\nf\ng\nh\n".repeat(3);
-    let expected = expected(&hir, &input);
-    for mode in ["normal", "fail", "move"] {
-        let out = file_run(
-            Command::new(&exe).env("CERUNE_TEST_SHRINK", mode),
-            &dir,
-            &input,
-        );
-        assert!(
-            out.status.success(),
-            "{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        assert_eq!(out.stdout, expected.0);
-        let report = String::from_utf8(out.stderr).unwrap();
-        let success = if mode == "fail" { 0 } else { 24 };
-        assert!(
-            report.contains(&format!("shrink calls=24 successes={success} ")),
-            "{report}"
-        );
-        let peak = if mode == "fail" {
-            8 * (1_048_576 + 24)
-        } else {
-            1_048_576 + 24 + 7 * 26
-        };
-        assert!(
-            report.contains(&format!(
-                "probe allocations=24 releases=24 live=0 peak={peak} owners=0 peak_owners=8"
-            )),
-            "{report}"
-        );
-        if mode == "move" {
-            assert!(
-                report.contains(&format!("moved_copy_peak={}", peak + 26)),
-                "{report}"
-            );
-        }
-        fs::write(dir.join(format!("{mode}-metrics.txt")), &report).unwrap();
-        println!("shrink {mode}\n{report}");
     }
 }

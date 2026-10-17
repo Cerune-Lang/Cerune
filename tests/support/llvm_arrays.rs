@@ -117,7 +117,7 @@ pub fn target() -> codegen::llvm::Target {
 }
 pub fn compare(program: &ir::Program, direct: &Result<String, ir_executor::ExecutionError>) {
     let text = codegen::llvm::emit_llvm_with_target(program, Some(target())).unwrap();
-    // 本来のmainの後で、論理予算の残存を別の終了コードとして検出します。
+    // 本来のmainの後で、解放後も使用バイト数が残っていることを別の終了コードとして検出します。
     let text = text.replace("define i32 @main()", "define i32 @cerune.sample.main()");
     let text = format!(
         "{text}\ndefine i32 @main() {{\nentry:\n  %result = call i32 @cerune.sample.main()\n  %live = load i64, ptr @cerune.array.live\n  %leaked = icmp ne i64 %live, 0\n  %status = select i1 %leaked, i32 99, i32 %result\n  ret i32 %status\n}}\n"

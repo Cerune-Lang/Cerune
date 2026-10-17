@@ -25,7 +25,7 @@ See [POSIX read](https://pubs.opengroup.org/onlinepubs/9799919799/functions/read
 
 Check limits, connection, known EOF, budget/allocation, reads, then UTF-8 in that order. unsupported-connection consumes zero and retains NodeId/Span. Input origins point into virtual std:io; callers remain traceable in IR. Reads never implicitly flush. Write interactive code as print → flush → read_line.
 
-Generated C/LLVM/QBE/Native allocates the limit-sized storage and ownership metadata together. Failure/empty EOF frees it; success transfers the same allocation into the existing owner list and charges actual length. io-v1 diagnostics exclude input and OS-error text and stop subsequent execution. A shared API observing successful generated operations is not added yet.
+Generated C/LLVM/QBE/Native allocates the limit-sized storage and ownership metadata together. Failure/empty EOF frees it; success transfers the compacted or original allocation into the existing owner list and counts actual length (see [compaction](input-compaction.en.md)). io-v1 diagnostics exclude input and OS-error text and stop subsequent execution. A shared API observing successful generated operations is not added yet.
 
 LLVM lowers the common IR ReadLine to a dedicated instruction, emitting `cerune.input.read_line`, the OS connection, UTF-8 validation, budget/ownership, and diagnostics as visible LLVM. Input sites pass immutable NodeId/Span data. `--annotate-origins` only adds comments; plain artifacts retain identical instructions and diagnostics.
 

@@ -373,13 +373,29 @@ function l $cerune_input_read_line(l %limit, l %origin) {
 @empty
   ret $cerune_string_empty
 @adopt
+  %half =l div %limit, 2
+  %short =w culel %total, %half
+  %saved =l sub %limit, %total
+  %worth =w cugel %saved, 4096
+  %compact =w and %short, %worth
+  jnz %compact, @shrink, @publish
+@shrink
+  %small_size =l add %total, 24
+  %small =l call $realloc(l %owner, l %small_size)
+  jnz %small, @moved, @kept
+@moved
+  jmp @publish
+@kept
+  jmp @publish
+@publish
+  %final_owner =l phi @adopt %owner, @moved %small, @kept %owner
   %head =l loadl $cerune_string_owners
-  storel %head, %owner
-  %ref =l add %owner, 8
+  storel %head, %final_owner
+  %ref =l add %final_owner, 8
   storel 1, %ref
-  %string =l add %owner, 16
+  %string =l add %final_owner, 16
   storel %total, %string
-  storel %owner, $cerune_string_owners
+  storel %final_owner, $cerune_string_owners
   %charged =l add %live, %total
   storel %charged, $cerune_string_live
   ret %string

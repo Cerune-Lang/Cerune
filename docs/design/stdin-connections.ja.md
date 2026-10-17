@@ -25,7 +25,7 @@ Windowsのconsole判定とhandle情報は一度だけ取得します。pipe切�
 
 検査順は上限→接続→既知EOF→予算・確保→読取り→UTF-8です。unsupported-connectionも消費0でNodeId/Spanを保持します。入力命令の出自は仮想std:io本体を指し、呼出し元はIRから辿れます。入力は暗黙にflushしません。質問を出す場合はprint→flush→read_lineと書きます。
 
-生成C・LLVM・QBE・Nativeでは上限分の領域と所有情報を一度に確保します。失敗・空EOFでは解放し、成功時は同じ領域を既存の文字列所有リストへ渡して実長を使用量に計上します。終了診断はio-v1で、入力本文やOSエラー本文を含めず、後続処理を実行しません。生成経路の成功操作を読む共通APIはまだ追加していません。
+生成C・LLVM・QBE・Nativeでは上限分の領域と所有情報を一度に確保します。失敗・空EOFでは解放し、成功時は[任意縮小](input-compaction.ja.md)後または元の領域を既存の文字列所有リストへ渡して実長を使用量に計上します。終了診断はio-v1で、入力本文やOSエラー本文を含めず、後続処理を実行しません。生成経路の成功操作を読む共通APIはまだ追加していません。
 
 LLVMは共通IRのReadLineを専用命令へloweringし、`cerune.input.read_line`、OS接続、UTF-8検査、予算・所有、診断を生成LLVMに展開します。入力地点には不変のNodeId/Spanを渡します。`--annotate-origins`はコメントだけを追加し、注釈なしでも同じ命令・診断を保ちます。
 

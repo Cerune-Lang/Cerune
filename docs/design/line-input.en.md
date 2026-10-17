@@ -42,9 +42,9 @@ Create a connection per execution. A failed connection returns its original fail
 
 Framing precedes UTF-8 validation: an oversized invalid line reports limit-exceeded, and a read failure during an incomplete line reports read-failed. Failure while checking EOF after the last byte does not return a successful partial line.
 
-Transfer the buffer rather than allocating another full-sized copy. Logical bytes differ from physical capacity and allocator metadata. The completed string retains the reserved capacity, so this budget does not guarantee a physical memory limit. A large requested limit can exhaust the budget even for a short actual line. Unknown EOF still requires reservation; known EOF does not.
+Attempt [optional compaction](input-compaction.en.md) after completion; keep the original buffer on failure. Rust temporarily copies the actual line length when shrinking. Accounted string lengths differ from physical capacity and allocator metadata. Lines outside the compaction conditions, failed compaction, and WAT retain the reserved capacity, so this budget does not guarantee a physical memory limit. A large requested limit can exhaust the budget even for a short actual line. Unknown EOF still requires reservation; known EOF does not.
 
-The Rust component's read_line checks the caller-supplied available_bytes budget. The four executors use StringHeap's remaining budget, reserving the full limit and ownership metadata before reading. Success transfers the original buffer and charges its length; EOF/failure releases the reservation. Exclusive heap borrowing prevents intervening string allocations. Existing retain/release operations manage copied values and final release.
+The Rust component's read_line checks the caller-supplied available_bytes budget. The four executors use StringHeap's remaining budget, reserving the full limit and ownership metadata before reading. Success transfers the compacted or original buffer and counts its length toward the memory limit; EOF/failure releases the reservation. Exclusive heap borrowing prevents intervening string allocations. Existing retain/release operations manage copied values and final release.
 
 Failures have distinct codes. Budget exhaustion is not reported as an OS read failure.
 
