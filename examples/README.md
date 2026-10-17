@@ -198,6 +198,7 @@ cargo run --quiet -- emit-c examples/linear_regression.ceru
 
 | サンプル | 内容 |
 | --- | --- |
+| [float_rounding.ceru](float_rounding.ceru) | f32/f64の演算ごとの丸め、FMAとの差、負のゼロと非有限値 |
 | [measurement_statistics.ceru](measurement_statistics.ceru) | 整数の測定値から小数の平均・分散を求め、値を変えずに`f32`へ保存する |
 | [normalized_histogram.ceru](normalized_histogram.ceru) | 整数の回数を小数の割合へ変換し、保存した割合から元の回数を復元する |
 | [square_root.ceru](square_root.ceru) | 手順を展開した平方根の近似 |
