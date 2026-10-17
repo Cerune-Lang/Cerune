@@ -4,6 +4,9 @@
 #include <io.h>
 #include <fcntl.h>
 #endif
+#if defined(__clang__)
+#pragma clang fp contract(off)
+#endif
 
 
 #include <stddef.h>

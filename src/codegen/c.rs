@@ -62,6 +62,15 @@ mod tests {
     }
 
     #[test]
+    fn generated_c_disables_clang_floating_point_contraction() {
+        let program = compile_to_ir("x: f64 = 0.1 * 2.0 + 0.3; print(x);").unwrap();
+        let c = emit_c(&program).unwrap();
+        let directive = "#if defined(__clang__)\n#pragma clang fp contract(off)\n#endif\n";
+        let start = c.find(directive).expect("Clang FP contraction directive");
+        assert!(start < c.find("int main(void)").unwrap());
+    }
+
+    #[test]
     fn emits_contextual_f64_literals() {
         let program = compile_to_ir(
             "x: f64 = 0.1 + 0.2;

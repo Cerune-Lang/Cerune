@@ -24,50 +24,133 @@ jobs:
       - name: Documentation links and translation pairs
         run: |
           node scripts/check-docs.cjs
+          node scripts/check-ci-windows-coverage.cjs
+          node scripts/check-ci-linux-coverage.cjs
           node --test scripts/check-docs.test.cjs
-      - name: Install execution validation tools
-        run: |
-          mkdir -p target
-          curl --fail --location https://c9x.me/compile/release/qbe-1.3.tar.xz -o target/qbe-1.3.tar.xz
-          echo 'd587905d620dc5e1d2bfa7c2cc642b9b837aa89a3188c6e37b53d756cf66e320  target/qbe-1.3.tar.xz' | sha256sum --check
-          tar -xf target/qbe-1.3.tar.xz -C target
-          make -C target/qbe-1.3
-          npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
       - name: Format
         run: cargo fmt --check
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
-      - name: Test
+
+  # #152: Linux follows the same route grouping as Windows. All integration
+  # targets except Lean (verified separately) must have exactly one owner.
+  # Sanitizer deliberately reruns C/dynamic-array targets with instrumentation.
+  linux-backends:
+    name: Linux / ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core
+            timeout: 25
+            tests: >-
+              --lib --bins --examples --test modules --test product_updates --test constants --test sums
+              --test array_length --test array_iteration --test constant_array_lengths --test generic_functions
+              --test truncating_conversions --test rounding_conversions --test aggregate_values
+              --test string_concat --test ir_executor --test mir_executor --test ssa_executor --test ssa_cli
+              --test observation_bundle --test execution_output_cli --test line_input --test standard_input
+              --test diagnostics_cli --test examples --test fixed_width_integers --test float_output
+              --test integer_bit_operations --test integer_conversions --test integer_types --test main_entry
+              --test mir --test mir_ssa --test numeric_conversions --test observation_cli --test short_circuit
+              --test small_integers --test ssa_construction --test string_lexing --test string_values
+              --test u64_values
+          - suite: c-llvm
+            timeout: 25
+            tests: >-
+              --test c_strings --test llvm_strings --test c_output --test llvm_output --test llvm_origins
+          - suite: native
+            timeout: 25
+            tests: >-
+              --test native_output --test native_assembly --test native_mir --test ssa_native
+              --test lir_observation
+          - suite: wat
+            timeout: 25
+            tests: >-
+              --test wat_output
+          - suite: qbe
+            timeout: 25
+            tests: >-
+              --test qbe_output --test qbe_windows
+          - suite: cross-io
+            timeout: 25
+            tests: >-
+              --test stdin_routes --test explicit_flush --test execution_output --test io_protocol
+          - suite: cross-runtime
+            timeout: 25
+            tests: >-
+              --test source_files --test string_routes --test runtime_routes --test string_heap_routes
+              --test dynamic_arrays
+          - suite: sanitizer
+            timeout: 25
+            tests: >-
+              --test c_strings --test dynamic_arrays
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.2"
+      - name: Prepare observations and require toolchain
+        shell: bash
         run: |
-          # 意図したtrapをOSのクラッシュ収集へ送らず、終了状態と診断を検証します。
-          # pipe型のcore_patternではulimitだけでは収集を止められません。
-          sysctl kernel.core_pattern
+          mkdir -p target
+          node --version
+          if [[ "${{ matrix.suite }}" != "core" && "${{ matrix.suite }}" != "wat" ]]; then
+            clang --version
+          fi
+          if [[ "${{ matrix.suite }}" == "native" || "${{ matrix.suite }}" == cross-* ]]; then
+            objdump --version
+          fi
+      - name: Build pinned QBE 1.3
+        if: ${{ matrix.suite == 'qbe' || matrix.suite == 'sanitizer' || startsWith(matrix.suite, 'cross-') }}
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 https://c9x.me/compile/release/qbe-1.3.tar.xz -o target/qbe-1.3.tar.xz
+          echo 'd587905d620dc5e1d2bfa7c2cc642b9b837aa89a3188c6e37b53d756cf66e320  target/qbe-1.3.tar.xz' | sha256sum --check
+          tar -xf target/qbe-1.3.tar.xz -C target
+          make -C target/qbe-1.3
+          target/qbe-1.3/qbe -h
+          echo "CERUNE_TEST_QBE=$GITHUB_WORKSPACE/target/qbe-1.3/qbe" >> "$GITHUB_ENV"
+      - name: Install and validate WAT execution tool
+        if: ${{ matrix.suite == 'wat' || matrix.suite == 'sanitizer' || startsWith(matrix.suite, 'cross-') }}
+        shell: bash
+        run: |
+          npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
+          wabt="$GITHUB_WORKSPACE/target/wasm-tools/node_modules/wabt/bin/wat2wasm"
+          test -f "$wabt"
+          printf '(module (func (export "main")))\n' > target/wabt-smoke.wat
+          node "$wabt" target/wabt-smoke.wat -o target/wabt-smoke.wasm
+          test -s target/wabt-smoke.wasm
+          echo "CERUNE_TEST_WAT2WASM_JS=$wabt" >> "$GITHUB_ENV"
+      - name: Enable C sanitizers
+        if: ${{ matrix.suite == 'sanitizer' }}
+        run: echo "CERUNE_TEST_SANITIZE=1" >> "$GITHUB_ENV"
+      - name: Test ${{ matrix.suite }} routes
+        shell: bash
+        run: |
+          # Trap tests must not be sent to the host's crash collector.
           sudo sysctl -w kernel.core_pattern=core
           ulimit -c 0
-          timeout --kill-after=10s 8m bash -o pipefail -c 'cargo test --all-targets 2>&1 | tee target/ci-tests.log'
+          set -o pipefail
+          timeout --kill-after=10s 20m cargo test ${{ matrix.tests }} 2>&1 | tee "target/linux-${{ matrix.suite }}.log"
         env:
           CERUNE_TEST_TRACE: "1"
           CERUNE_TEST_CC: clang
           CERUNE_TEST_ASM_CLANG: clang
           CERUNE_TEST_LLVM_CLANG: clang
-          CERUNE_TEST_QBE: ${{ github.workspace }}/target/qbe-1.3/qbe
           CERUNE_TEST_NODE: node
           CERUNE_TEST_OBJDUMP: objdump
-          CERUNE_TEST_WAT2WASM_JS: ${{ github.workspace }}/target/wasm-tools/node_modules/wabt/bin/wat2wasm
-      - name: Preserve test log
+      - name: Preserve Linux route diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: linux-test-log
-          path: target/ci-tests.log
+          name: linux-${{ matrix.suite }}-observations
+          path: |
+            target/linux-${{ matrix.suite }}.log
+            target/stdin-*
           if-no-files-found: ignore
-      - name: C strings, u64, and dynamic array sanitizer checks
-        run: |
-          ulimit -c 0
-          cargo test --test c_strings --test dynamic_arrays
-        env:
-          CERUNE_TEST_CC: clang
-          CERUNE_TEST_SANITIZE: "1"
 
   lean-verification:
     runs-on: ubuntu-latest
@@ -98,17 +181,83 @@ jobs:
           path: target/lean-verification-test
           if-no-files-found: ignore
 
-  windows-qbe:
+  # #152: core/backend/cross-route suites plus QBE share the same matrix.
+  # QBE intentionally reuses cross-route tests; inventory verified by check-ci-windows-coverage.cjs.
+  windows-backends:
+    name: Windows / ${{ matrix.suite }}
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core
+            timeout: 15
+            tests: >-
+              --lib --test modules --test product_updates --test constants --test sums
+              --test array_length --test array_iteration --test constant_array_lengths
+              --test generic_functions --test truncating_conversions --test rounding_conversions
+              --test aggregate_values --test string_concat --test ir_executor --test mir_executor
+              --test ssa_executor --test ssa_cli --test observation_bundle --test execution_output_cli
+              --test line_input --test standard_input
+          - suite: c-llvm
+            timeout: 15
+            tests: >-
+              --test c_strings --test llvm_strings --test c_output --test llvm_output
+          - suite: native
+            timeout: 25
+            tests: >-
+              --test native_output --test native_assembly --test native_mir --test ssa_native
+          - suite: wat
+            timeout: 15
+            tests: >-
+              --test wat_output
+          - suite: cross-io
+            timeout: 25
+            tests: >-
+              --test stdin_routes --test explicit_flush --test execution_output
+          - suite: cross-runtime
+            timeout: 25
+            tests: >-
+              --test source_files --test string_routes --test runtime_routes --test string_heap_routes
+              --test dynamic_arrays
+          - suite: qbe
+            timeout: 25
+            tests: >-
+              --test qbe_windows --test qbe_output --test dynamic_arrays --test explicit_flush
+              --test stdin_routes
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.2"
       - uses: msys2/setup-msys2@v2
+        if: ${{ matrix.suite == 'qbe' }}
         with:
           msystem: UCRT64
           install: mingw-w64-ucrt-x86_64-gcc make
-      - name: Build pinned QBE 1.3 for the Windows host
+      - name: Prepare test-log directory
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path target | Out-Null
+      - name: Require Windows execution tools
+        shell: pwsh
+        run: |
+          $suite = '${{ matrix.suite }}'
+          $tools = @('node')
+          if ($suite -in @('c-llvm', 'native', 'cross-io', 'cross-runtime', 'qbe')) {
+            $tools += 'clang'
+          }
+          if ($suite -in @('native', 'cross-runtime')) {
+            $tools += 'llvm-objdump'
+          }
+          foreach ($tool in $tools) {
+            $binary = (Get-Command $tool -ErrorAction Stop).Source
+            & $binary --version
+            if ($LASTEXITCODE -ne 0) { throw "$tool is not usable" }
+          }
+      - name: Build pinned QBE 1.3 for Windows
+        if: ${{ matrix.suite == 'qbe' }}
         shell: msys2 {0}
         run: |
           mkdir -p target
@@ -117,43 +266,140 @@ jobs:
           tar -xf target/qbe-1.3.tar.xz -C target
           make -C target/qbe-1.3 CC=gcc CFLAGS='-std=c99 -O2' LDFLAGS=-static -j2
           target/qbe-1.3/qbe.exe -h
-      - name: Compare Windows QBE execution with IR and VM
+      - name: Require QBE and MSVC Clang
+        if: ${{ matrix.suite == 'qbe' }}
         shell: pwsh
         run: |
-          $env:CERUNE_TEST_QBE_CLANG = (Get-Command clang).Source
-          cargo test --test qbe_windows --test qbe_output --test dynamic_arrays --test explicit_flush --test stdin_routes -- --include-ignored 2>&1 | Tee-Object target/qbe-windows-test.log
+          $qbe = Join-Path $env:GITHUB_WORKSPACE 'target/qbe-1.3/qbe.exe'
+          if (-not (Test-Path -PathType Leaf $qbe)) { throw "QBE missing: $qbe" }
+          & $qbe -h
+          if ($LASTEXITCODE -ne 0) { throw 'QBE smoke test failed' }
+          $clang = (Get-Command clang -ErrorAction Stop).Source
+          "CERUNE_TEST_QBE=$qbe" >> $env:GITHUB_ENV
+          "CERUNE_TEST_QBE_CLANG=$clang" >> $env:GITHUB_ENV
+      - name: Install and validate WAT execution tool
+        if: ${{ matrix.suite == 'wat' || matrix.suite == 'qbe' || startsWith(matrix.suite, 'cross-') }}
+        shell: pwsh
+        run: |
+          npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $wabt = Join-Path $env:GITHUB_WORKSPACE 'target/wasm-tools/node_modules/wabt/bin/wat2wasm'
+          if (-not (Test-Path -PathType Leaf $wabt)) { throw "WABT missing: $wabt" }
+          Set-Content -Path target/wabt-smoke.wat -Value '(module (func (export "main")))' -Encoding ascii
+          & node $wabt target/wabt-smoke.wat -o target/wabt-smoke.wasm
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path target/wabt-smoke.wasm)) {
+            throw 'WAT smoke test failed'
+          }
+          "CERUNE_TEST_WAT2WASM_JS=$wabt" >> $env:GITHUB_ENV
+      - name: Run ${{ matrix.suite }} tests
+        shell: pwsh
+        run: |
+          $testArgs = '${{ matrix.tests }}' -split '\s+'
+          if ('${{ matrix.suite }}' -eq 'qbe') {
+            $testArgs += @('--', '--include-ignored')
+          }
+          cargo test @testArgs 2>&1 | Tee-Object "target/windows-${{ matrix.suite }}.log"
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_TRACE: "1"
-          CERUNE_TEST_QBE: ${{ github.workspace }}/target/qbe-1.3/qbe.exe
-      - name: Preserve generation stages and execution results
+          CERUNE_TEST_CC: clang
+          CERUNE_TEST_LLVM_CLANG: clang
+          CERUNE_TEST_ASM_CLANG: clang
+          CERUNE_TEST_OBJDUMP: llvm-objdump
+          CERUNE_TEST_NODE: node
+      - name: Preserve Windows test observations
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: qbe-windows-observations
+          name: windows-${{ matrix.suite }}-observations
           path: |
+            target/windows-${{ matrix.suite }}.log
             target/qbe-windows-observations
-            target/qbe-windows-test.log
             target/stdin-*
           if-no-files-found: ignore
 
-  windows-strings:
-    runs-on: windows-latest
-    timeout-minutes: 15
+  # macOS host validation is intentionally scoped: Darwin code generation for
+  # LLVM/QBE/Native is not yet supported. Keep both CPU architectures covered.
+  macos-backends:
+    name: macOS / ${{ matrix.runner }} / ${{ matrix.suite }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15-intel, macos-15]
+        suite: [core, c, wat]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.0
       - uses: actions/setup-node@v4
         with:
           node-version: "20.20.2"
-      - name: Install WAT validation tool
-        run: npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
-      - name: Compare strings, u64, assembly, and machine artifacts on Windows
-        run: cargo test --lib --test wat_output --test native_output --test llvm_strings --test c_strings --test string_routes --test native_assembly --test runtime_routes --test source_files --test modules --test product_updates --test constants --test sums --test array_length --test array_iteration --test constant_array_lengths --test generic_functions --test truncating_conversions --test rounding_conversions --test aggregate_values --test string_concat --test string_heap_routes --test ir_executor --test mir_executor --test ssa_executor --test ssa_cli --test ssa_native --test observation_bundle --test native_mir --test dynamic_arrays --test explicit_flush --test execution_output --test execution_output_cli --test line_input --test standard_input --test stdin_routes --test c_output --test llvm_output
+      - name: Assert host architecture and create test directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.runner }}" in
+            macos-15-intel) test "$(uname -m)" = x86_64 ;;
+            macos-15) test "$(uname -m)" = arm64 ;;
+            *) echo "Unknown macOS runner label"; exit 1 ;;
+          esac
+          mkdir -p target
+          rustc -Vv
+      - name: Verify native C compiler
+        if: ${{ matrix.suite == 'c' }}
+        run: clang --version
+      - name: Install and verify WABT
+        if: ${{ matrix.suite == 'wat' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
+          wabt="$GITHUB_WORKSPACE/target/wasm-tools/node_modules/wabt/bin/wat2wasm"
+          test -f "$wabt"
+          printf '(module (func (export "main")))\n' > target/wabt-smoke.wat
+          node "$wabt" target/wabt-smoke.wat -o target/wabt-smoke.wasm
+          test -s target/wabt-smoke.wasm
+          echo "CERUNE_TEST_WAT2WASM_JS=$wabt" >> "$GITHUB_ENV"
+      - name: Verify macOS / ${{ matrix.suite }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ulimit -c 0
+          {
+            case "${{ matrix.suite }}" in
+              core)
+                cargo test --lib --bins --test aggregate_values --test array_iteration \
+                --test array_length --test constant_array_lengths --test constants \
+                --test diagnostics_cli --test examples --test fixed_width_integers --test float_output \
+                --test generic_functions --test integer_bit_operations --test integer_conversions \
+                --test integer_types --test ir_executor --test line_input --test main_entry --test mir \
+                --test mir_executor --test mir_ssa --test modules --test numeric_conversions \
+                --test product_updates --test rounding_conversions --test short_circuit \
+                --test small_integers --test ssa_cli --test ssa_construction --test ssa_executor \
+                --test standard_input --test string_concat --test string_lexing --test string_values \
+                --test sums --test truncating_conversions --test u64_values
+                printf 'print(7);\n' > target/macos-smoke.ceru
+                test "$(cargo run --quiet -- run-ir target/macos-smoke.ceru)" = 7
+                test "$(cargo run --quiet -- run-vm target/macos-smoke.ceru)" = 7
+                ;;
+              c)
+                cargo test --test c_strings --test c_output
+                ;;
+              wat)
+                cargo test --test wat_output
+                ;;
+              *) echo "Unsupported macOS test suite"; exit 1 ;;
+            esac
+          } 2>&1 | tee "target/macos-${{ matrix.suite }}.log"
         env:
+          CERUNE_TEST_TRACE: "1"
           CERUNE_TEST_CC: clang
-          CERUNE_TEST_LLVM_CLANG: clang
-          CERUNE_TEST_ASM_CLANG: clang
-          CERUNE_TEST_OBJDUMP: llvm-objdump
           CERUNE_TEST_NODE: node
-          CERUNE_TEST_WAT2WASM_JS: ${{ github.workspace }}/target/wasm-tools/node_modules/wabt/bin/wat2wasm
+      - name: Preserve macOS test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.runner }}-${{ matrix.suite }}-observations
+          path: target/macos-${{ matrix.suite }}.log
+          if-no-files-found: ignore

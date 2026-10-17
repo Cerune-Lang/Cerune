@@ -277,7 +277,8 @@ const DISPATCH: &str = r#"
   jmp .Loutput_end
 "#;
 
-#[cfg(test)]
+// Generated native objects are ELF/COFF; Darwin Mach-O support is separate.
+#[cfg(all(test, any(target_os = "linux", target_os = "windows")))]
 mod native_object_output {
     use super::super::test_process as process;
     use crate as cerune_lang;
