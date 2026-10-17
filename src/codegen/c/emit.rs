@@ -55,7 +55,7 @@ pub fn emit(module: &Module) -> String {
     // Cerune evaluates floating-point operations separately. On targets with
     // FMA (notably Apple Silicon), Clang may otherwise contract a*b+c and
     // produce different final bytes from the interpreter.
-    output.push_str("#if defined(__clang__)\\n#pragma clang fp contract(off)\\n#endif\\n");
+    output.push_str("#if defined(__clang__)\n#pragma clang fp contract(off)\n#endif\n");
     output.push('\n');
 
     if module.string_heap_limit.is_some() || !module.array_types.is_empty() || support.any_numeric()
