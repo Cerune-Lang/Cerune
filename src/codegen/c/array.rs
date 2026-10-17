@@ -2,7 +2,7 @@
 pub(super) fn support(limit: u64) -> String {
     SOURCE.replace("@LIMIT@", &limit.to_string())
 }
-// 論理予算とCの物理配置は別々に検査し、切り詰めてから乗算しません。
+// 配列のメモリ上限とCの物理配置は別々に検査し、切り詰めてから乗算しません。
 const SOURCE: &str = r#"
 typedef struct cerune_array_owner {
     void *data;

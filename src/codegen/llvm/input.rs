@@ -293,6 +293,8 @@ invalid:
 
 const READ_LINE: &str = r#"
 @cerune.input.eof = internal global i1 false
+declare ptr @realloc(ptr, i64)
+
 define internal %cerune.string @cerune.input.read_line(i64 %limit, ptr %origin) {
 entry:
   %byte = alloca i8
@@ -376,16 +378,31 @@ release.empty:
 empty:
   ret %cerune.string { ptr @cerune.string.empty, i64 0 }
 adopt:
+  %half = udiv i64 %limit, 2
+  %short = icmp ule i64 %total, %half
+  %saved = sub i64 %limit, %total
+  %worth = icmp uge i64 %saved, 4096
+  %compact = and i1 %short, %worth
+  br i1 %compact, label %shrink, label %publish
+shrink:
+  %small.size = add i64 %total, 24
+  %small = call ptr @realloc(ptr %owner, i64 %small.size)
+  %moved = icmp ne ptr %small, null
+  %kept = select i1 %moved, ptr %small, ptr %owner
+  br label %publish
+publish:
+  %final.owner = phi ptr [ %owner, %adopt ], [ %kept, %shrink ]
+  %final.data = getelementptr i8, ptr %final.owner, i64 24
   %head = load ptr, ptr @cerune.string.owners
-  store ptr %head, ptr %owner
-  %ref = getelementptr i8, ptr %owner, i64 8
+  store ptr %head, ptr %final.owner
+  %ref = getelementptr i8, ptr %final.owner, i64 8
   store i64 1, ptr %ref
-  %lenptr = getelementptr i8, ptr %owner, i64 16
+  %lenptr = getelementptr i8, ptr %final.owner, i64 16
   store i64 %total, ptr %lenptr
-  store ptr %owner, ptr @cerune.string.owners
+  store ptr %final.owner, ptr @cerune.string.owners
   %charged = add i64 %live, %total
   store i64 %charged, ptr @cerune.string.live
-  %result.data = insertvalue %cerune.string poison, ptr %data, 0
+  %result.data = insertvalue %cerune.string poison, ptr %final.data, 0
   %result = insertvalue %cerune.string %result.data, i64 %total, 1
   ret %cerune.string %result
 read.failed:

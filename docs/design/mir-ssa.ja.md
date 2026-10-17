@@ -114,7 +114,7 @@ loopの`jump head(right, left)`を逐次代入すると、入替え前の値を�
 | 未到達block | 元のblock番号・命令・参照をそのまま復元。実行可能なSSA blockも元block番号の位置へ配置 |
 | Native | `Lowered.program`を既存MIR→LIR→ASM／Objectへ渡す |
 
-引数なしの辺には補助blockを作りません。引数付きの辺はjumpでもbranchでも同じ並列copy規則を使い、同じ行き先のthen／elseも別blockです。局所領域の再利用やcopy削除はせず、stack使用量・命令数が基準経路より増える場合があります。文字列・配列の論理heap予算と所有操作は変わりません。
+引数なしの辺には補助blockを作りません。引数付きの辺はjumpでもbranchでも同じ並列copy規則を使い、同じ行き先のthen／elseも別blockです。局所領域の再利用やcopy削除はせず、stack使用量・命令数が基準経路より増える場合があります。文字列・配列のメモリ上限と所有操作は変わりません。
 
 対応テキストは`Cerune SSA lowering mapping v0.1`、変換名は`ssa-lower-v1`です。SSA値からMIR局所値、SSA blockから元番号を保持したMIR block、辺から補助block・read/write命令、引数から入口copyを辿れます。その先は既存のMIR→LIR注釈とObjectシンボルに接続します。
 

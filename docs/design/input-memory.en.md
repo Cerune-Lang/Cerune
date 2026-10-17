@@ -2,7 +2,7 @@
 
 [日本語](input-memory.ja.md)
 
-Measurements and shrinking prototype for #154 / #133 on 2026-10-18, against the implementation merged in PR #164 (`12ddad3`). Input behavior, budgets, and failure semantics are unchanged.
+Measurements and shrinking prototype for #154 / #133 on 2026-10-18, against the implementation merged in PR #164 (`12ddad3`). The tables below record the pre-compaction baseline. See [input compaction](input-compaction.en.md) for the current implementation.
 
 ## What the memory budget counts
 
@@ -36,7 +36,7 @@ The generated-C probe records startup, retention, and release after compilation.
 
 Measurements use x86-64. Windows: 10.0.26100, Clang 22.1.8. Linux: WSL `4.4.0-26100-Microsoft`, GCC 9.4.0. Rust: 1.98.0. C allocation, accounting, and release checks also passed at `-O0`.
 
-Windows private commit is PrivateUsage in [PROCESS_MEMORY_COUNTERS_EX](https://learn.microsoft.com/windows/win32/api/psapi/ns-psapi-process_memory_counters_ex). It is not interchangeable with [Linux /proc metrics](https://www.kernel.org/doc/html/v6.1/filesystems/proc.html). This WSL environment returned zero VmHWM/VmData; those are not reported as measured peak RSS or commit. Additional measurements on native Linux remain. An 8 MiB capacity increase does not imply 8 MiB of additional physical RAM.
+Windows private commit is PrivateUsage in [PROCESS_MEMORY_COUNTERS_EX](https://learn.microsoft.com/windows/win32/api/psapi/ns-psapi-process_memory_counters_ex). It is not interchangeable with [Linux /proc metrics](https://www.kernel.org/doc/html/v6.1/filesystems/proc.html). This WSL environment returned zero VmHWM/VmData; those are not reported as measured peak RSS or commit. Additional native-Linux CI measurements are recorded below. An 8 MiB capacity increase does not imply 8 MiB of additional physical RAM.
 
 ## Coverage by route
 
@@ -47,7 +47,7 @@ Windows private commit is PrivateUsage in [PROCESS_MEMORY_COUNTERS_EX](https://l
 | LLVM / QBE / ASM / self-encoded Object | Malloc/free references in objects generated from the same source instrumented; ASM and Object output/allocation/release measured separately |
 | WAT | Live/free capacity and pages measured; full release and reuse across three cycles verified |
 
-[retained_lines.ceru](../../examples/stdin/retained_lines.ceru) reads two lines before displaying both. Tests compare 64-byte and 1 MiB limits with a heap budget of “limit + the first line's two bytes,” allowing the second read. This also detects an unintended switch to capacity-based charging.
+[retained_lines.ceru](../../examples/stdin/retained_lines.ceru) reads two lines before displaying both. Tests compare 64-byte and 1 MiB limits with a heap budget of “limit + the first line's two bytes,” allowing the second read. This also detects an unintended switch to counting allocation capacity toward the limit.
 
 The C probe main does not measure standard-module resolution or enum lowering; the source-level route comparison covers those. Probe code stays in tests, without a product observation API or internal-memory export.
 
@@ -70,7 +70,7 @@ Instrumented WAT scans its ownership list and passes usage, live/free capacity, 
 
 ## Optional-shrinking prototype
 
-Only a test copy of generated C adds shrinking after UTF-8 validation and before owner-list registration. Failed realloc keeps the original allocation. Product emitters and runtimes remain unchanged.
+Only a test copy of generated C adds shrinking after UTF-8 validation and before owner-list registration. Failed realloc keeps the original allocation. At that stage, product emitters and runtimes were unchanged.
 
 | Mode | Shrinks across 24 lines | Peak requested storage | Output / release |
 | --- | --- | ---: | --- |
@@ -80,7 +80,7 @@ Only a test copy of generated C adds shrinking after UTF-8 validation and before
 
 These checks passed on Windows/Linux. Approximately 1 MiB remains at peak because the next read still reserves its full limit before consuming input. Internal temporary allocations made by normal realloc are unmeasured.
 
-The prototype demonstrates that C can tolerate shrinking failure without a new input failure. Product adoption still requires a size-gap policy, fallible Rust allocation, LLVM/QBE/Native calls and relocation, WAT free-block splitting, and comparisons covering contents, EOF, and input failures.
+The prototype showed that C can tolerate shrinking failure without a new input failure. The current input-compaction design records the adopted conditions, implementation by route, and failure tests.
 
 ## Alternatives and decision
 
@@ -92,11 +92,11 @@ The prototype demonstrates that C can tolerate shrinking failure without a new i
 | Count allocation capacity toward the memory limit | Account for retained capacity | Changes where the same source exceeds its budget; allocator-dependent sizes would break route consistency |
 | Separate host memory limit | Can cover metadata, output, compiler memory, and more | OS/host specific; needs separate configuration, termination, and diagnostic design rather than treating it as an ordinary io-v1 failure |
 
-**Keep memory limits and pre-read reservations for now. Optional shrinking on completion is the next candidate to evaluate.** A C test-only prototype is verified; product adoption and implementation remain. Review the current promise of no additional allocation on success, and verify that injected shrinking failures preserve results, consumption, and subsequent output before deciding.
+**Rust/C/LLVM/QBE/Native now compact completed input while retaining pre-read reservations.** See the [current design](input-compaction.en.md) for conditions, failure handling, and why WAT does not split blocks.
 
-#154 remains open: native-Linux CI metrics, a product shrinking design, and cross-route failure/ownership comparisons remain. This study excludes #133 array/output copies/compiler peaks and the cost of one-byte read calls.
+#154 remains open: the decision on WAT free-block splitting and coalescing remains. This study excludes #133 array/output copies/compiler peaks and the cost of one-byte read calls.
 
-## Reproduce
+## Reproduce with the current implementation
 
 ~~~sh
 cargo test --lib retained_input_capacity -- --nocapture
@@ -107,6 +107,10 @@ cargo test --test stdin_routes input_memory_routes -- --nocapture
 
 Set `CERUNE_TEST_CC` explicitly for C measurement (Windows: clang; Linux: cc). Route comparisons also require valid `CERUNE_TEST_LLVM_CLANG`, `CERUNE_TEST_ASM_CLANG`, `CERUNE_TEST_QBE`, `CERUNE_TEST_NODE`, and `CERUNE_TEST_WAT2WASM_JS`. Existing helpers skip unavailable unconfigured tools; an explicitly configured missing tool fails.
 
-Generated probe C and executables are in `target/stdin-input-memory-<pid>`. Each run is finite: three cycles, eight lines, at most 1 MiB per line, and 48 bytes read. Live-allocation assertions record today's implementation baseline and should be intentionally updated when shrinking is implemented. Preserve the separate [input contract](line-input.en.md).
+Generated probe C and executables are in `target/stdin-input-memory-<pid>`. The isolated C probe runs three cycles of eight lines, at most 1 MiB reserved per line and 48 bytes read. Route comparisons also exercise both sides of the compaction conditions, reading 24 lines of at most 4097 bytes. Expected live allocations now reflect compaction and differ from the historical tables above. Preserve the separate [input contract](line-input.en.md).
 
-Additional probes require `CERUNE_TEST_OBJCOPY` (Windows: llvm-objcopy; Linux: objcopy), also required in CI. Reports are saved to `target/stdin-input-memory-routes-<pid>/*-metrics.txt`, WAT to `target/stdin-input-memory-wat-<pid>/*-metrics.json`, and shrinking to `target/stdin-input-memory-shrink-<pid>/*-metrics.txt`.
+Additional probes require `CERUNE_TEST_OBJCOPY` (Windows: llvm-objcopy; Linux: objcopy), also required in CI. Reports are saved to `target/stdin-input-memory-routes-<pid>/*-metrics.txt`, WAT to `target/stdin-input-memory-wat-<pid>/*-metrics.json`. Normal, failed, and moving compaction produce `*-normal-metrics.txt`, `*-fail-metrics.txt`, and `*-move-metrics.txt`. The former C prototype reports remain in the PR #166 CI artifact.
+
+## Native-Linux CI measurements
+
+The linux-cross-io-observations artifact from [CI run 39075433193](https://github.com/Cerune-Lang/Cerune/actions/runs/39075433193) was inspected. Baseline LLVM with eight 1 MiB reservations reported VmSize 11,872 kB, VmRSS 2,000 kB, and 8,388,800 bytes of live malloc requests. The normal C shrinking prototype reported VmSize 4,704 kB, VmRSS 2,000 kB, and peak requests of 1,048,782 bytes. These are informational values from separate processes; capacity and RSS measure different quantities. Allocation/release/output checks passed.

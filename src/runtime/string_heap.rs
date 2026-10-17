@@ -455,7 +455,7 @@ mod input_tests {
     }
 
     #[test]
-    fn retained_input_capacity_is_distinct_from_logical_budget() {
+    fn retained_input_capacity_is_distinct_from_memory_limit() {
         const COUNT: usize = 8;
         for limit in [2, 1_048_576] {
             let mut heap = StringHeap::new(limit as u64 + (COUNT * 2) as u64);
@@ -469,7 +469,7 @@ mod input_tests {
                 let capacity: usize = values.iter().map(|v| v.bytes.borrow().capacity()).sum();
                 assert_eq!(heap.live, (COUNT * 2) as u64);
                 assert_eq!(heap.allocations.len(), COUNT);
-                assert!(capacity >= COUNT * limit as usize);
+                assert_eq!(capacity, COUNT * 2);
                 println!(
                     "Rust limit={limit} cycle={cycle} logical={} owners={} capacity={capacity}",
                     heap.live,
