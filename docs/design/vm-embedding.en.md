@@ -2,6 +2,8 @@
 
 [日本語](vm-embedding.ja.md)
 
+The Rust API for f64 arguments and f64/void results is implemented. [Typed host calls](typed-host-calls.en.md) covers JS/TS exposure and comparisons with generated WAT.
+
 ## Purpose
 
 Define the boundary for invoking functions in already generated Cerune bytecode from a host application such as a Rust program.

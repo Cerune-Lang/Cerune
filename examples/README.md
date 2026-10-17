@@ -7,6 +7,7 @@
 | 場所 | 内容 |
 | --- | --- |
 | このディレクトリ | 一括実行できるプログラム |
+| [host_calls](host_calls/README.md) | 外部ホスト呼出しの比較にも使う小さな数値関数と、通常のCerune実行例 |
 | [dynamic_arrays](dynamic_arrays/README.md) | 動的配列の作成・範囲コピー・入れ子。IR・MIR・VM・C・LLVM・QBE・WAT・ASM・自前Objectで実行 |
 | [stdin](stdin/README.md) | 実stdinの行・空行・EOF、promptのflush、UTF-8バイト数。全経路で比較 |
 | [io_protocol](io_protocol/README.md) | 出力と評価順、明示flush、入力値での操作分岐。EOF・空行・失敗を区別（標準入力は未使用） |

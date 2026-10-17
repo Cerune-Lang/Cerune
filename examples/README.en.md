@@ -7,6 +7,7 @@ Normal examples are the `.ceru` files in this directory.
 | Location | Purpose |
 | --- | --- |
 | This directory | Standalone programs; included in the batch runner |
+| [host_calls](host_calls/README.en.md) | Small numeric functions also used for host-call comparisons, with an ordinary Cerune execution example |
 | [dynamic_arrays](dynamic_arrays/README.en.md) | Dynamic array copies, ranges, nesting; IR/MIR/VM/C/LLVM/QBE/WAT/ASM/native-object execution |
 | [stdin](stdin/README.en.md) | Actual stdin lines/blank lines/EOF, prompt flush, UTF-8 byte counts; compared across routes |
 | [io_protocol](io_protocol/README.en.md) | Output/evaluation order, explicit flush, and scripted input; distinguish EOF, empty lines, and failure (no stdin) |

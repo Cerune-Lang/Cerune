@@ -7,6 +7,7 @@
 | 実験 | 内容 |
 | --- | --- |
 | [lean](lean/README.md) | 有限例のHIR／MIR／SSAとLeanモデルの対応、プログラムの性質、実行比較 |
+| [host_calls](host_calls/README.md) | 同じ関数をVM埋め込みと生成WATから呼び、値・停止・型変換・サイズを比較 |
 | [ssa](ssa/README.md) | SSA構築・観測・直接実行のRust API例。公開CLIの代わりに別の言語仕様を作るものではない |
 
 LIR直接実行の実験はありません。[全体の現状](../docs/design/development-status.ja.md)で実装・観測・証明範囲を区別します。
