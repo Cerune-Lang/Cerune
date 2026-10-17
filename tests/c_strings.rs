@@ -58,15 +58,31 @@ impl NativeC {
     }
 
     fn run(&self, source: &str, optimization: &str) -> Output {
+        self.run_c(
+            &compile_to_c(source).unwrap(),
+            optimization,
+            Some("-std=c11"),
+            &[],
+        )
+    }
+
+    fn run_c(
+        &self,
+        text: &str,
+        optimization: &str,
+        standard: Option<&str>,
+        flags: &[&str],
+    ) -> Output {
         let c = self.directory.join("program.c");
         let exe = self.directory.join(if cfg!(windows) {
             "program.exe"
         } else {
             "program"
         });
-        fs::write(&c, compile_to_c(source).unwrap()).unwrap();
+        fs::write(&c, text).unwrap();
         let mut command = Command::new(&self.compiler);
-        command.args(["-std=c11", "-pedantic-errors", optimization]);
+        command.args(["-pedantic-errors", optimization]);
+        command.args(standard).args(flags);
         if std::env::var_os("CERUNE_TEST_SANITIZE").is_some() {
             command.args(["-fsanitize=address,undefined", "-fno-omit-frame-pointer"]);
         }
@@ -77,7 +93,7 @@ impl NativeC {
         let built = command.output().expect("start C compiler");
         assert!(
             built.status.success(),
-            "C compile failed:\n{}\n{source}",
+            "C compile failed:\n{}\n{text}",
             String::from_utf8_lossy(&built.stderr)
         );
         Command::new(exe)
@@ -422,5 +438,65 @@ fn dynamic_strings_match_optimized_c() {
     for &(source, expected) in concat_cases::CASES {
         assert_eq!(run_vm(source).unwrap(), expected);
         native.matches_vm(source);
+    }
+}
+
+#[test]
+fn floating_point_contraction_preserves_generated_function_result_bits() {
+    let Some(c) = NativeC::new() else { return };
+    let source = "fn step32(a:f32,b:f32,c:f32)->f32{return a*b+c;}
+                  fn step64(a:f64,b:f64,c:f64)->f64{return a*b+c;}";
+    let generated = compile_to_c(source)
+        .unwrap()
+        .replace("int main(void)", "int cerune_sample_main(void)");
+    // Volatile inputs prevent folding the calls; memcpy observes object bits
+    // without aliasing UB or relying on decimal output formatting.
+    let driver = r#"
+#include <string.h>
+int main(void) {
+    volatile float a=0x1.000002p0f, b=0x1.fffffcp-1f, c=-1.0f;
+    volatile double x=0x1.0000000000001p0, y=0x1.ffffffffffffep-1, z=-1.0;
+    float f=cerune_fn_step32_0(a,b,c);
+    double d=cerune_fn_step64_1(x,y,z);
+    uint32_t u; uint64_t v;
+    memcpy(&u,&f,sizeof u); memcpy(&v,&d,sizeof v);
+    printf("%08x %016llx\n",(unsigned)u,(unsigned long long)v);
+    return 0;
+}
+"#;
+    let flags: &[&str] = &[];
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    let flags: &[&str] = if std::is_x86_feature_detected!("fma") {
+        &["-mfma"]
+    } else {
+        flags
+    };
+    for optimization in ["-O0", "-O2"] {
+        // Exercise both strict C11 and the compiler's default language mode:
+        // GCC's default GNU mode can contract even without fast-math.
+        for standard in [Some("-std=c11"), None] {
+            let actual = c.run_c(
+                &format!("{generated}{driver}"),
+                optimization,
+                standard,
+                flags,
+            );
+            assert!(actual.status.success(), "{actual:?}");
+            assert!(actual.stderr.is_empty(), "{actual:?}");
+            assert_eq!(
+                String::from_utf8(actual.stdout).unwrap().trim(),
+                "00000000 0000000000000000",
+                "{optimization} {standard:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn rounding_example_matches_known_values_and_vm() {
+    let source = include_str!("../examples/float_rounding.ceru");
+    assert_eq!(run_vm(source).unwrap(), "0\n0\n0\n0\n-0\n-0\ntrue\ntrue\n");
+    if let Some(c) = NativeC::new() {
+        c.matches_vm(source);
     }
 }

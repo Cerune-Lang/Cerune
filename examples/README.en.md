@@ -198,6 +198,7 @@ Argument counts and types must match the declaration; there is no fixed count li
 
 | Example | Demonstrates |
 | --- | --- |
+| [float_rounding.ceru](float_rounding.ceru) | Per-operation f32/f64 rounding, differences from FMA, negative zero and nonfinite values |
 | [measurement_statistics.ceru](measurement_statistics.ceru) | computing a fractional mean and variance from integer samples, then storing them exactly as `f32` |
 | [normalized_histogram.ceru](normalized_histogram.ceru) | converting integer counts to probabilities and recovering the original counts |
 | [square_root.ceru](square_root.ceru) | unrolled square-root approximation steps |

@@ -9,6 +9,8 @@
 #endif
 #if defined(__clang__)
 #pragma clang fp contract(off)
+#elif defined(__GNUC__)
+#pragma GCC optimize ("fp-contract=off")
 #endif
 
 typedef struct cerune_string {

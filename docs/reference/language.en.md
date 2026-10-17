@@ -812,6 +812,8 @@ f32 op f32 -> f32
 f64 op f64 -> f64
 ```
 
+Each floating-point operation rounds to its type using round-to-nearest, ties-to-even. Multiplication and addition must not contract into FMA when this changes the result. Signed zeros are preserved; NaN payloads need not match across routes. See the [rounding contract, external compiler conditions, and examples](../design/float-rounding.en.md).
+
 Integer `+`, `-`, `*`, and signed integer unary `-` stop execution when their result is outside that integer type's range. They do not silently wrap from one end of the range to the other. Integer division by zero and division of the minimum signed integer value by `-1` also stop execution. Unary minus is rejected for unsigned `u8`, `u16`, and `u32`, including `-0u8` and `-0u32`. Integer division rounds toward zero.
 
 The Cerune VM diagnoses the failing operation kind, type, bytecode instruction index, and source location. Generated C, LLVM IR, QBE IR, WebAssembly Text, and Windows x86-64 assembly retain corresponding checks or traps, making the enforcement point observable.

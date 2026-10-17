@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #if defined(__clang__)
 #pragma clang fp contract(off)
+#elif defined(__GNUC__)
+#pragma GCC optimize ("fp-contract=off")
 #endif
 
 static void cerune_runtime_fail(const char *code, const char *origin) {

@@ -1040,3 +1040,11 @@ fn repeat_generation_exposes_allocation_copy_loop_and_release() {
         cerune_lang::codegen::x86_64::lir::validate(&lir).unwrap();
     }
 }
+
+#[test]
+fn floating_point_rounding_survives_owned_array_storage_across_routes() {
+    success(
+        include_str!("../examples/float_rounding.ceru"),
+        "0\n0\n0\n0\n-0\n-0\ntrue\ntrue\n",
+    );
+}

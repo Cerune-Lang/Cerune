@@ -70,3 +70,48 @@ fn run_both(source: &str) -> Result<String, cerune_lang::RunError> {
     assert_eq!(cerune_lang::run_ir(source).unwrap(), output);
     Ok(output)
 }
+
+#[test]
+fn separate_rounding_and_signed_zero_match_known_bits_in_all_executors() {
+    let source = include_str!("../examples/float_rounding.ceru");
+    let hir = cerune_lang::compile_to_ir(source).unwrap();
+    let mir = cerune_lang::mir::lower(&hir).unwrap();
+    let ssa = cerune_lang::mir::ssa::construct(&mir).unwrap();
+    let lowered = cerune_lang::mir::ssa::lower(&ssa).unwrap();
+    for output in [
+        cerune_lang::ir_executor::run(&hir).unwrap(),
+        cerune_lang::mir_executor::run(&mir).unwrap(),
+        cerune_lang::ssa_executor::run(&ssa).unwrap(),
+        cerune_lang::mir_executor::run(&lowered.program).unwrap(),
+        cerune_lang::run_vm(source).unwrap(),
+    ] {
+        assert_eq!(output, "0\n0\n0\n0\n-0\n-0\ntrue\ntrue\n");
+        let lines: Vec<_> = output.lines().collect();
+        for index in [0, 2, 4] {
+            assert_eq!(
+                lines[index].parse::<f32>().unwrap().to_bits(),
+                if index == 4 { 0x8000_0000 } else { 0 }
+            );
+        }
+        for index in [1, 3, 5] {
+            assert_eq!(
+                lines[index].parse::<f64>().unwrap().to_bits(),
+                if index == 5 { 0x8000_0000_0000_0000 } else { 0 }
+            );
+        }
+    }
+    // Independently known fused answers demonstrate that this fixture detects
+    // replacing two rounded operations with a single rounded operation.
+    assert_eq!(
+        (1.0f32 + 2.0f32.powi(-23))
+            .mul_add(1.0 - 2.0f32.powi(-23), -1.0)
+            .to_bits(),
+        0xa880_0000
+    );
+    assert_eq!(
+        (1.0f64 + 2.0f64.powi(-52))
+            .mul_add(1.0 - 2.0f64.powi(-52), -1.0)
+            .to_bits(),
+        0xb970_0000_0000_0000
+    );
+}
