@@ -94,7 +94,7 @@ The prototype showed that C can tolerate shrinking failure without a new input f
 
 **Rust/C/LLVM/QBE/Native now compact completed input while retaining pre-read reservations.** See the [current design](input-compaction.en.md) for conditions, failure handling, and why WAT does not split blocks.
 
-#154 remains open: the decision on WAT free-block splitting and coalescing remains. This study excludes #133 array/output copies/compiler peaks and the cost of one-byte read calls.
+The #154 WAT decision is to keep existing reuse, based on the [policy comparison](wat-input-storage.en.md). This study excludes #133 array/output copies/compiler peaks and the cost of one-byte read calls.
 
 ## Reproduce with the current implementation
 

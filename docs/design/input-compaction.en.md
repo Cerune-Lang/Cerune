@@ -27,7 +27,7 @@ Rust uses fallible try_reserve_exact for length-sized storage and copies the con
 
 C/LLVM/QBE/Native attempt realloc including ownership metadata. Success initializes and registers ownership at the new address; failure uses the original address. No other value holds the unpublished owner's old pointer. Generated C/LLVM/QBE/ASM expose the conditions, realloc, and selection; self-encoded Object uses the same operations.
 
-**WAT keeps its existing free-storage reuse without splitting in this change.** Splitting alone can leave fragments too small for the next full-limit reservation and grow pages on repeated execution. WAT compaction needs a coalescing design and tests as well. String semantics, accounted bytes, input, output, and diagnostics remain identical across routes; retained capacity is not a shared language value.
+**WAT keeps its existing free-storage reuse.** [Splitting/coalescing comparisons](wat-input-storage.en.md) showed growth with splitting alone and no page reduction below the baseline after adding coalescing. The prototypes are not adopted in the product. String semantics, accounted bytes, input, output, and diagnostics remain identical across routes; retained capacity is not a shared language value.
 
 ## Guarantees
 
