@@ -291,6 +291,7 @@ cerune_array_free:
 @TRAP@
 "#;
 
-#[cfg(test)]
+// Runtime linking below exercises ELF/COFF, not Darwin Mach-O.
+#[cfg(all(test, any(target_os = "linux", target_os = "windows")))]
 #[path = "array_tests.rs"]
 mod tests;
