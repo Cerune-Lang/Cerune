@@ -69,3 +69,8 @@ The [module examples](../../examples/modules/README.en.md) contain modular and s
 Package distribution, version resolution, re-exports, separate compilation, dynamic loading, and mutable module globals are outside this increment. The parameter-count limit has been lifted, and product updates and sum types are available. Next, evaluate reusable processing through examples of array-length queries and iteration.
 
 Array type lengths accept public integer constants through `alias::COUNT`. A local private constant may also determine a public type length: the public type carries a resolved number without exposing the private name. See [constant array lengths](constant-array-lengths.en.md).
+
+
+## Compiler input limits
+
+Syntax/expression depth and per-file, total-byte, and file-count budgets are checked. Excess stops compilation with a diagnostic and preserves existing artifacts. See [compiler input limits](frontend-limits.en.md) for defaults and Rust API configuration.

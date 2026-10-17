@@ -903,3 +903,6 @@ fn array_repeat_resolves_imported_types_and_generic_element_lengths() {
         assert_eq!(result.stdout, b"[{n: 4}, {n: 4}]\n[[1, 2], [1, 2]]\n");
     }
 }
+
+#[path = "frontend_limits/mod.rs"]
+mod frontend_limits;
