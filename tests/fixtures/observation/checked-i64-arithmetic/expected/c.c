@@ -5,6 +5,9 @@
 #include <fcntl.h>
 #endif
 #include <stdlib.h>
+#if defined(__clang__)
+#pragma clang fp contract(off)
+#endif
 
 static void cerune_runtime_fail(const char *code, const char *origin) {
     fflush(stdout);
