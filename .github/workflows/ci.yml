@@ -14,11 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.98.0
         with:
           components: rustfmt, clippy
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20.20.2"
       - name: Documentation links and translation pairs
@@ -87,9 +87,9 @@ jobs:
             tests: >-
               --test c_strings --test dynamic_arrays
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.98.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20.20.2"
       - name: Prepare observations and require toolchain
@@ -144,7 +144,7 @@ jobs:
           CERUNE_TEST_OBJDUMP: objdump
       - name: Preserve Linux route diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-${{ matrix.suite }}-observations
           path: |
@@ -160,7 +160,7 @@ jobs:
       matrix:
         suite: [lean_verification, lean_ssa]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.98.0
       - name: Install pinned Lean
         run: |
@@ -175,7 +175,7 @@ jobs:
           CERUNE_TEST_LEAN: ${{ github.workspace }}/target/lean-4.34.1-linux/bin/lean
       - name: Preserve Lean observations
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lean-verification-${{ matrix.suite }}
           path: target/lean-verification-test
@@ -227,9 +227,9 @@ jobs:
               --test qbe_windows --test qbe_output --test dynamic_arrays --test explicit_flush
               --test stdin_routes
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.98.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20.20.2"
       - uses: msys2/setup-msys2@v2
@@ -309,7 +309,7 @@ jobs:
           CERUNE_TEST_NODE: node
       - name: Preserve Windows test observations
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-${{ matrix.suite }}-observations
           path: |
@@ -330,9 +330,9 @@ jobs:
         runner: [macos-15-intel, macos-15]
         suite: [core, c, wat]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.98.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20.20.2"
       - name: Assert host architecture and create test directory
@@ -398,7 +398,7 @@ jobs:
           CERUNE_TEST_NODE: node
       - name: Preserve macOS test log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-${{ matrix.runner }}-${{ matrix.suite }}-observations
           path: target/macos-${{ matrix.suite }}.log
