@@ -3,6 +3,14 @@ use std::fmt::Write;
 use super::ir::{Function, Instruction, LoopKind, Module, Origin, Type};
 
 pub fn emit(module: &Module) -> String {
+    emit_module(module, None)
+}
+
+pub(super) fn emit_library(module: &Module, exports: &[super::library::Export]) -> String {
+    emit_module(module, Some(exports))
+}
+
+fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> String {
     let mut output = String::new();
     let mut helpers = std::collections::BTreeMap::new();
     let mut uses_failures = module.uses_flush || module.uses_write;
@@ -71,42 +79,99 @@ pub fn emit(module: &Module) -> String {
         writeln!(output).unwrap();
     }
 
-    writeln!(output, "  (func $main").unwrap();
+    if let Some(exports) = exports {
+        emit_exports(module, exports, &mut output);
+    } else {
+        writeln!(output, "  (func $main").unwrap();
 
-    for local in &module.locals {
-        writeln!(
-            output,
-            "    (local $cerune_{} {})",
-            local.name,
-            wat_type(local.ty),
-        )
-        .unwrap();
+        for local in &module.locals {
+            writeln!(
+                output,
+                "    (local $cerune_{} {})",
+                local.name,
+                wat_type(local.ty),
+            )
+            .unwrap();
+        }
+
+        if !module.locals.is_empty() {
+            writeln!(output).unwrap();
+        }
+
+        for instruction in &module.instructions {
+            emit_instruction(instruction, 2, module, &mut output);
+        }
+
+        if let Some(function_id) = module.explicit_main {
+            writeln!(
+                output,
+                "    call ${}",
+                function_name(&module.functions[function_id])
+            )
+            .unwrap();
+        }
+
+        writeln!(output, "  )").unwrap();
+
+        writeln!(output, "  (export \"main\" (func $main))").unwrap();
     }
-
-    if !module.locals.is_empty() {
-        writeln!(output).unwrap();
-    }
-
-    for instruction in &module.instructions {
-        emit_instruction(instruction, 2, module, &mut output);
-    }
-
-    if let Some(function_id) = module.explicit_main {
-        writeln!(
-            output,
-            "    call ${}",
-            function_name(&module.functions[function_id])
-        )
-        .unwrap();
-    }
-
-    writeln!(output, "  )").unwrap();
-
-    writeln!(output, "  (export \"main\" (func $main))").unwrap();
 
     writeln!(output, ")").unwrap();
 
     output
+}
+
+fn emit_exports(module: &Module, exports: &[super::library::Export], output: &mut String) {
+    use super::library::ScalarType;
+    for (index, export) in exports.iter().enumerate() {
+        let function = module
+            .functions
+            .iter()
+            .find(|f| f.id == export.function_id().0)
+            .expect("checked export");
+        let span = export.span();
+        writeln!(
+            output,
+            "  ;; export {}: function={} file={} bytes={}..{}",
+            export.name(),
+            export.function_id().0,
+            span.source_id().index(),
+            span.start(),
+            span.end()
+        )
+        .unwrap();
+        write!(output, "  (func $cerune_export_{index}").unwrap();
+        for ty in export.parameters() {
+            write!(output, " (param {})", ty.name()).unwrap();
+        }
+        writeln!(output, " (result {})", export.result().name()).unwrap();
+        for (i, ty) in export.parameters().iter().enumerate() {
+            writeln!(output, "    local.get {i}").unwrap();
+            if *ty == ScalarType::I32 {
+                writeln!(output, "    i64.extend_i32_s").unwrap();
+            }
+        }
+        writeln!(output, "    call ${}", function_name(function)).unwrap();
+        if export.result() == ScalarType::I32 {
+            writeln!(output, "    i32.wrap_i64").unwrap();
+        }
+        writeln!(output, "  )").unwrap();
+        // Keep names readable; escape bytes that need WAT string encoding.
+        let name = export
+            .name()
+            .as_bytes()
+            .iter()
+            .map(|b| match b {
+                b' '..=b'~' if *b != b'"' && *b != b'\\' => char::from(*b).to_string(),
+                _ => format!("\\{b:02x}"),
+            })
+            .collect::<String>();
+        writeln!(
+            output,
+            "  (export \"{name}\" (func $cerune_export_{index}))"
+        )
+        .unwrap();
+    }
 }
 
 fn collect_helpers<'a>(

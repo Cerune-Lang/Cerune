@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-This fixed-function experiment supports the [#161 design](../../docs/design/typed-host-calls.en.md). **It is not a production public API.** Cerune programs live in [examples/host_calls](../../examples/host_calls/README.en.md); supporting code lives here.
+This fixed-function experiment supports the [#161 design](../../docs/design/typed-host-calls.en.md). **The fixed-function comparison itself is not a production public API.** The final section also contains a usage example for the separately implemented production Rust API. Cerune programs live in [examples/host_calls](../../examples/host_calls/README.en.md); supporting code lives here.
 
 ## Reproduction
 
@@ -46,3 +46,17 @@ Records size, Wasm compile, instantiate, VM source preparation and 10,000 calls 
 - Closing the JS handle after a language stop does not change the existing Rust VM API's independent subsequent invocations.
 
 The [design](../../docs/design/typed-host-calls.en.md) records measurements and the rationale for starting with WAT exports. JS/TS helpers are excluded from GitHub Languages statistics without hiding their diffs.
+
+## Using the production WAT library API
+
+[library.rs](library.rs) uses the [production Rust API](../../docs/design/wat-library.en.md), separately from the fixed-wrapper experiment above. This is not a dedicated Cerune CLI command.
+
+```sh
+cargo run --quiet --example wat_library -- examples/host_calls/library.ceru target/wat-library step sum_to checked
+node target/host-call-tools/node_modules/wabt/bin/wat2wasm target/wat-library/library.wat -o target/wat-library/library.wasm
+cargo test --test wat_output library_exports
+```
+
+library.wat and exports.json record selected names, conversions and origins. source.ceir, source.cebc, plain.wat and sources.json retain ordinary representations for comparison; sources.json explicitly includes source text. Validation finishes before any output files are written.
+
+Artifacts expose a raw Wasm ABI. JS/TS argument checks and stopped-handle management are not generated yet. Tests pass correctly typed arguments repeatedly and discard failed instances.

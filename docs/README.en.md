@@ -22,6 +22,7 @@ Each document links to its Japanese counterpart.
 - [IR Executor](design/ir-executor.en.md)
 - [VM embedding](design/vm-embedding.en.md)
 - [Typed function calls from JS/TS](design/typed-host-calls.en.md)
+- [WAT library function exports](design/wat-library.en.md)
 - [Standard I/O: execution, control, and observation (design)](design/standard-io.en.md)
 - [Actual stdin in CLI and generated C/LLVM/QBE](design/stdin-connections.en.md)
 - [Virtual standard modules and origins](design/standard-modules.en.md)

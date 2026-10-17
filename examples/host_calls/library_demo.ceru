@@ -1,0 +1,5 @@
+// 同じライブラリを通常のCeruneプログラムから呼びます。
+import "library.ceru" as library;
+print(library::step(10.0, 2.0, 0.5));
+print(library::sum_to(4));
+print(library::checked(42.0));

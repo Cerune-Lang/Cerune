@@ -11,6 +11,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod declarations;
+pub use declarations::FunctionDeclaration;
 mod limits;
 mod resolve;
 pub use limits::LoadLimits;
@@ -21,10 +23,15 @@ pub struct Compilation {
     pub sources: SourceMap,
     pub program: Program,
     entry: SourceId,
+    declarations: Vec<FunctionDeclaration>,
     pub modular: bool,
 }
 
 impl Compilation {
+    pub fn function_declarations(&self) -> &[FunctionDeclaration] {
+        &self.declarations
+    }
+
     pub fn to_ir(&self) -> Result<crate::ir::Program, Diagnostic> {
         crate::ir::builder::build(&self.program)
     }
@@ -152,7 +159,8 @@ pub fn load_with_limits(entry: &Path, limits: LoadLimits) -> Result<Compilation,
         }
         let module = parser::parse_module(tokens)?;
         if !modular {
-            return Ok((module.program, false));
+            let declarations = declarations::private_functions(&module.program);
+            return Ok((module.program, declarations, false));
         }
         let mut units = vec![Unit {
             id,
@@ -171,10 +179,12 @@ pub fn load_with_limits(entry: &Path, limits: LoadLimits) -> Result<Compilation,
             true,
             &mut budget,
         )?;
-        Ok((resolve::resolve(&units)?, true))
+        let (program, declarations) = resolve::resolve(&units)?;
+        Ok((program, declarations, true))
     })();
     match result {
-        Ok((program, modular)) => Ok(Compilation {
+        Ok((program, declarations, modular)) => Ok(Compilation {
+            declarations,
             sources,
             program,
             entry: entry_id.unwrap(),
@@ -341,7 +351,7 @@ fn visit(
     Ok(())
 }
 
-fn json(text: &str) -> String {
+pub(crate) fn json(text: &str) -> String {
     use std::fmt::Write;
     let mut result = String::from("\"");
     for c in text.chars() {
@@ -372,7 +382,8 @@ pub fn from_source(text: &str) -> Result<Compilation, LoadError> {
         }
         let module = parser::parse_module(tokens)?;
         if !modular {
-            return Ok((module.program, false));
+            let declarations = declarations::private_functions(&module.program);
+            return Ok((module.program, declarations, false));
         }
         let mut units = vec![Unit {
             id,
@@ -390,10 +401,12 @@ pub fn from_source(text: &str) -> Result<Compilation, LoadError> {
             false,
             &mut SourceBudget::new(LoadLimits::default()),
         )?;
-        Ok((resolve::resolve(&units)?, true))
+        let (program, declarations) = resolve::resolve(&units)?;
+        Ok((program, declarations, true))
     })();
     match result {
-        Ok((program, modular)) => Ok(Compilation {
+        Ok((program, declarations, modular)) => Ok(Compilation {
+            declarations,
             sources,
             program,
             entry: id,

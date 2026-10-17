@@ -1,0 +1,20 @@
+// 公開する関数はホスト側でも明示的に選びます。
+import "math.ceru" as math;
+
+pub fn step(position: f64, velocity: f64, delta: f64) -> f64 {
+    return math::step(position, velocity, delta);
+}
+
+pub fn sum_to(end: i32) -> i32 {
+    mut result: i32 = 0;
+    mut i: i32 = 1;
+    while i <= end {
+        result = result + i;
+        i = i + 1;
+    }
+    return result;
+}
+
+pub fn checked(value: f64) -> f64 {
+    return math::checked(value);
+}
