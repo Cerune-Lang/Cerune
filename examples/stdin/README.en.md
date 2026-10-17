@@ -39,3 +39,5 @@ target/lines < input.txt
 For Windows use target `x86_64-pc-windows-msvc`, object path `target/lines.obj`, and link with `clang target/lines.obj -o target/lines.exe`. Run using the same cmd input redirection.
 
 See the [connection/diagnostic contract](../../docs/design/stdin-connections.en.md) and [WAT host instructions](../../docs/design/wat-input-host.en.md). Tests compare identical inputs across executors, C, LLVM, QBE, WAT, and Native. Limit overflow and invalid UTF-8 stop without including input contents in diagnostics.
+
+[retained_lines.ceru](retained_lines.ceru) reads two lines before displaying them. Input `x + LF`, then `y + LF`, displays `["x\n"]`, then `["y\n"]`, retaining the first line during the second read. Each limit is 64 bytes; EOF displays `end`. Substitute this filename in the commands above.
