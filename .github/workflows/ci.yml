@@ -24,6 +24,7 @@ jobs:
       - name: Documentation links and translation pairs
         run: |
           node scripts/check-docs.cjs
+          node scripts/check-ci-windows-coverage.cjs
           node --test scripts/check-docs.test.cjs
       - name: Install execution validation tools
         run: |
@@ -126,6 +127,9 @@ jobs:
         env:
           CERUNE_TEST_TRACE: "1"
           CERUNE_TEST_QBE: ${{ github.workspace }}/target/qbe-1.3/qbe.exe
+          CERUNE_TEST_CC: clang
+          CERUNE_TEST_LLVM_CLANG: clang
+          CERUNE_TEST_ASM_CLANG: clang
       - name: Preserve generation stages and execution results
         if: always()
         uses: actions/upload-artifact@v4
@@ -137,23 +141,100 @@ jobs:
             target/stdin-*
           if-no-files-found: ignore
 
-  windows-strings:
+  # #152: each original windows-strings target belongs to one suite (QBE adds
+  # intentional cross-backend repetitions); checked by check-ci-windows-coverage.cjs.
+  windows-backends:
+    name: Windows / ${{ matrix.suite }}
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core
+            timeout: 15
+            tests: >-
+              --lib --test modules --test product_updates --test constants --test sums
+              --test array_length --test array_iteration --test constant_array_lengths
+              --test generic_functions --test truncating_conversions --test rounding_conversions
+              --test aggregate_values --test string_concat --test ir_executor --test mir_executor
+              --test ssa_executor --test ssa_cli --test observation_bundle --test execution_output_cli
+              --test line_input --test standard_input
+          - suite: c-llvm
+            timeout: 15
+            tests: >-
+              --test c_strings --test llvm_strings --test c_output --test llvm_output
+          - suite: native
+            timeout: 25
+            tests: >-
+              --test native_output --test native_assembly --test native_mir --test ssa_native
+          - suite: wat
+            timeout: 15
+            tests: >-
+              --test wat_output
+          - suite: cross-io
+            timeout: 25
+            tests: >-
+              --test stdin_routes --test explicit_flush --test execution_output
+          - suite: cross-runtime
+            timeout: 25
+            tests: >-
+              --test source_files --test string_routes --test runtime_routes --test string_heap_routes
+              --test dynamic_arrays
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.0
       - uses: actions/setup-node@v4
         with:
           node-version: "20.20.2"
-      - name: Install WAT validation tool
-        run: npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
-      - name: Compare strings, u64, assembly, and machine artifacts on Windows
-        run: cargo test --lib --test wat_output --test native_output --test llvm_strings --test c_strings --test string_routes --test native_assembly --test runtime_routes --test source_files --test modules --test product_updates --test constants --test sums --test array_length --test array_iteration --test constant_array_lengths --test generic_functions --test truncating_conversions --test rounding_conversions --test aggregate_values --test string_concat --test string_heap_routes --test ir_executor --test mir_executor --test ssa_executor --test ssa_cli --test ssa_native --test observation_bundle --test native_mir --test dynamic_arrays --test explicit_flush --test execution_output --test execution_output_cli --test line_input --test standard_input --test stdin_routes --test c_output --test llvm_output
+      - name: Require Windows execution tools
+        shell: pwsh
+        run: |
+          $suite = '${{ matrix.suite }}'
+          $tools = @('node')
+          if ($suite -in @('c-llvm', 'native', 'cross-io', 'cross-runtime')) {
+            $tools += 'clang'
+          }
+          if ($suite -in @('native', 'cross-runtime')) {
+            $tools += 'llvm-objdump'
+          }
+          foreach ($tool in $tools) {
+            $binary = (Get-Command $tool -ErrorAction Stop).Source
+            & $binary --version
+            if ($LASTEXITCODE -ne 0) { throw "$tool is not usable" }
+          }
+      - name: Install and validate WAT execution tool
+        if: ${{ matrix.suite == 'wat' || startsWith(matrix.suite, 'cross-') }}
+        shell: pwsh
+        run: |
+          npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $wabt = Join-Path $env:GITHUB_WORKSPACE 'target/wasm-tools/node_modules/wabt/bin/wat2wasm'
+          if (-not (Test-Path -PathType Leaf $wabt)) { throw "WABT missing: $wabt" }
+          Set-Content -Path target/wabt-smoke.wat -Value '(module (func (export "main")))' -Encoding ascii
+          & node $wabt target/wabt-smoke.wat -o target/wabt-smoke.wasm
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path target/wabt-smoke.wasm)) {
+            throw 'WAT smoke test failed'
+          }
+          "CERUNE_TEST_WAT2WASM_JS=$wabt" >> $env:GITHUB_ENV
+      - name: Run ${{ matrix.suite }} tests
+        shell: pwsh
+        run: |
+          cargo test ${{ matrix.tests }} 2>&1 | Tee-Object "target/windows-${{ matrix.suite }}.log"
+          exit $LASTEXITCODE
         env:
+          CERUNE_TEST_TRACE: "1"
           CERUNE_TEST_CC: clang
           CERUNE_TEST_LLVM_CLANG: clang
           CERUNE_TEST_ASM_CLANG: clang
           CERUNE_TEST_OBJDUMP: llvm-objdump
           CERUNE_TEST_NODE: node
-          CERUNE_TEST_WAT2WASM_JS: ${{ github.workspace }}/target/wasm-tools/node_modules/wabt/bin/wat2wasm
+      - name: Preserve Windows test observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.suite }}-observations
+          path: |
+            target/windows-${{ matrix.suite }}.log
+            target/stdin-*
+          if-no-files-found: ignore
