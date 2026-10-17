@@ -51,11 +51,13 @@ assert.ok(windows, 'windows-backends job is missing');
 const entries = [...windows.matchAll(
   /^          - suite: ([\w-]+)\r?\n            timeout: (\d+)\r?\n            tests: >-\r?\n((?:              [^\r\n]+\r?\n)+)/gm
 )];
-const suites = ['core', 'c-llvm', 'native', 'wat', 'cross-io', 'cross-runtime'];
+const suites = ['core', 'c-llvm', 'native', 'wat', 'cross-io', 'cross-runtime', 'qbe'];
 assert.deepEqual(entries.map((entry) => entry[1]).sort(), suites.sort(), 'unexpected Windows suites');
 
 const assigned = [];
 let libCount = 0;
+const qbeExpected = ['qbe_windows', 'qbe_output', 'dynamic_arrays', 'explicit_flush', 'stdin_routes'];
+let qbeTests = [];
 for (const entry of entries) {
   const [_, suite, timeout, body] = entry;
   assert.ok(Number(timeout) > 0, `missing timeout: ${suite}`);
@@ -70,10 +72,14 @@ for (const entry of entries) {
     const target = tokens[++i];
     assert.ok(fs.existsSync(path.join(repository, 'tests', `${target}.rs`)),
       `test target ${target} no longer exists`);
-    assigned.push(target);
+    if (suite === 'qbe') qbeTests.push(target);
+    else assigned.push(target);
   }
 }
 assert.equal(libCount, 1, '--lib must be assigned exactly once');
+assert.deepEqual(qbeTests.sort(), qbeExpected.sort(), 'QBE suite coverage changed');
+assert.ok(!/^  windows-qbe:/m.test(workflow), 'QBE must be part of windows-backends');
+assert.match(workflow, /matrix\.suite == 'qbe'/, 'QBE tool setup is missing');
 assert.equal(new Set(assigned).size, assigned.length, 'a Windows test is assigned twice');
 assert.deepEqual(assigned.sort(), expected.sort(), 'Windows CI test coverage changed');
-console.log(`Windows CI coverage: ${assigned.length} integration targets + --lib across ${entries.length} suites`);
+console.log(`Windows CI coverage: ${assigned.length} original integration targets + --lib and ${qbeTests.length} QBE checks across ${entries.length} suites`);
