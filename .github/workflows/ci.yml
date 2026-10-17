@@ -196,7 +196,7 @@ jobs:
           "CERUNE_TEST_QBE=$qbe" >> $env:GITHUB_ENV
           "CERUNE_TEST_QBE_CLANG=$clang" >> $env:GITHUB_ENV
       - name: Install and validate WAT execution tool
-        if: ${{ matrix.suite == 'wat' || startsWith(matrix.suite, 'cross-') }}
+        if: ${{ matrix.suite == 'wat' || matrix.suite == 'qbe' || startsWith(matrix.suite, 'cross-') }}
         shell: pwsh
         run: |
           npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
