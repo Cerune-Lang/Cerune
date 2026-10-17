@@ -8,13 +8,36 @@ Ceruneは、静的型付け・IR直接実行・VM実行・複数形式へのコ�
 
 ## まず試す
 
-Rust（rustup・Cargo）が必要です。
+Cerune v0.1.0は、Windows・Linux・macOS向けのビルド済みバイナリを[GitHub Releases](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.1.0)からインストールできます。
+
+### リリース版をインストール
+
+**Windows（PowerShell）**
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.ps1 | iex"
+```
+
+**Linux / macOS（Shell）**
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.sh | sh
+```
+
+### 最新のmasterブランチを試す
+
+Rust/Cargoがあれば、`master`ブランチの最新の実装をソースからビルドして試せます。
 
 ```sh
 git clone https://github.com/Cerune-Lang/Cerune.git
 cd Cerune
+cargo run --quiet -- run examples/floating_point.ceru
+```
+
+ソースからインストールする場合：
+
+```sh
 cargo install --path .
-cerune run examples/floating_point.ceru
 ```
 
 同じ足し算でも、型によって結果が変わります。コメントは実行結果です。
