@@ -1,3 +1,6 @@
+mod limits;
+pub use limits::{MAX_EXPRESSION_DEPTH, MAX_SYNTAX_NESTING};
+
 use crate::ast::{
     AssignmentProjection, AssignmentTarget, BinaryOp, Expr, ExprKind, FieldDefinition, FieldValue,
     FunctionDefinition, Item, IterationBinding, Parameter, Program, ReturnTypeRef, Stmt, StmtKind,
@@ -56,10 +59,13 @@ pub fn parse_module(tokens: Vec<Token>) -> Result<Module, Diagnostic> {
             token.span,
         ));
     }
+    limits::delimiters(&tokens)?;
     Parser {
         source_id,
         tokens,
         current: 0,
+        expression_nesting: 0,
+        block_nesting: 0,
         allow_construct: true,
     }
     .parse_program()
@@ -69,6 +75,8 @@ struct Parser {
     source_id: SourceId,
     tokens: Vec<Token>,
     current: usize,
+    expression_nesting: usize,
+    block_nesting: usize,
     allow_construct: bool,
 }
 
@@ -751,7 +759,15 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> ParseResult<Expr> {
-        self.parse_logical_or()
+        if self.expression_nesting + self.block_nesting == MAX_SYNTAX_NESTING {
+            return Err(self.error(format!("expression nesting exceeds {MAX_SYNTAX_NESTING}")));
+        }
+        self.expression_nesting += 1;
+        let result = self.parse_logical_or();
+        self.expression_nesting -= 1;
+        let expr = result?;
+        limits::expression(&expr, self.block_nesting)?;
+        Ok(expr)
     }
 
     fn parse_logical_or(&mut self) -> ParseResult<Expr> {
@@ -768,6 +784,7 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
         Ok(expr)
     }
@@ -786,6 +803,7 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
         Ok(expr)
     }
@@ -956,6 +974,13 @@ impl Parser {
     }
 
     fn parse_block(&mut self) -> ParseResult<(Vec<Stmt>, usize)> {
+        self.block_nesting += 1;
+        let result = self.parse_block_inner();
+        self.block_nesting -= 1;
+        result
+    }
+
+    fn parse_block_inner(&mut self) -> ParseResult<(Vec<Stmt>, usize)> {
         self.expect_simple(TokenKind::LeftBrace)?;
         let mut statements = Vec::new();
 
@@ -982,6 +1007,7 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
         Ok(expr)
     }
@@ -1001,6 +1027,7 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
         Ok(expr)
     }
@@ -1020,6 +1047,7 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
         Ok(expr)
     }
@@ -1043,6 +1071,7 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
         Ok(expr)
     }
@@ -1070,6 +1099,7 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
 
         Ok(expr)
@@ -1100,6 +1130,7 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
 
         Ok(expr)
@@ -1129,6 +1160,7 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
 
         Ok(expr)
@@ -1158,34 +1190,41 @@ impl Parser {
                 },
                 span,
             };
+            limits::expression(&expr, self.block_nesting)?;
         }
 
         Ok(expr)
     }
 
     fn parse_unary(&mut self) -> ParseResult<Expr> {
-        let op = match &self.peek().kind {
-            TokenKind::Minus => Some(UnaryOp::Negate),
-            TokenKind::Bang => Some(UnaryOp::Not),
-            TokenKind::Tilde => Some(UnaryOp::BitNot),
-            _ => None,
-        };
-
-        if let Some(op) = op {
-            let operator_span = self.advance().span;
-            let value = self.parse_unary()?;
-            let span = self.span(operator_span.start(), value.span.end());
-
-            return Ok(Expr {
+        let mut operators = Vec::new();
+        loop {
+            let op = match self.peek().kind {
+                TokenKind::Minus => UnaryOp::Negate,
+                TokenKind::Bang => UnaryOp::Not,
+                TokenKind::Tilde => UnaryOp::BitNot,
+                _ => break,
+            };
+            if operators.len() == MAX_EXPRESSION_DEPTH - 1 {
+                return Err(self.error(format!(
+                    "expression tree depth exceeds {MAX_EXPRESSION_DEPTH} nodes"
+                )));
+            }
+            operators.push((op, self.advance().span));
+        }
+        let mut expr = self.parse_postfix()?;
+        for (op, operator_span) in operators.into_iter().rev() {
+            let span = self.span(operator_span.start(), expr.span.end());
+            expr = Expr {
                 kind: ExprKind::Unary {
                     op,
-                    value: Box::new(value),
+                    value: Box::new(expr),
                 },
                 span,
-            });
+            };
+            limits::expression(&expr, self.block_nesting)?;
         }
-
-        self.parse_postfix()
+        Ok(expr)
     }
 
     fn parse_postfix(&mut self) -> ParseResult<Expr> {
@@ -1204,6 +1243,7 @@ impl Parser {
                     },
                     span,
                 };
+                limits::expression(&expr, self.block_nesting)?;
             } else if matches!(&self.peek().kind, TokenKind::LeftBracket) {
                 self.advance();
                 let index = self.parse_expression()?;
@@ -1216,6 +1256,7 @@ impl Parser {
                     },
                     span,
                 };
+                limits::expression(&expr, self.block_nesting)?;
             } else {
                 break;
             }

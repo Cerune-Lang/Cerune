@@ -11,7 +11,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod limits;
 mod resolve;
+pub use limits::LoadLimits;
+use limits::SourceBudget;
 
 #[derive(Debug)]
 pub struct Compilation {
@@ -119,13 +122,19 @@ struct Unit {
 
 /// 相対importは宣言元のディレクトリを基準にします。CWDや検索パスへフォールバックしません。
 pub fn load(entry: &Path) -> Result<Compilation, LoadError> {
+    load_with_limits(entry, LoadLimits::default())
+}
+
+/// Load with explicit filesystem-source budgets; path resolution is unchanged.
+pub fn load_with_limits(entry: &Path, limits: LoadLimits) -> Result<Compilation, LoadError> {
+    let mut budget = SourceBudget::new(limits);
     let mut sources = SourceMap::new();
     let mut entry_id = None;
     let result = (|| {
         let path = fs::canonicalize(entry).map_err(|e| {
             Diagnostic::without_span(format!("failed to read {}: {e}", entry.display()))
         })?;
-        let text = fs::read_to_string(&path).map_err(|e| {
+        let text = budget.read(&path).map_err(|e| {
             Diagnostic::without_span(format!("failed to read {}: {e}", entry.display()))
         })?;
         let id = sources.add(entry.to_string_lossy(), text);
@@ -153,7 +162,15 @@ pub fn load(entry: &Path) -> Result<Compilation, LoadError> {
             complete: false,
         }];
         let mut paths = HashMap::from([(units[0].path.clone(), 0)]);
-        visit(0, &mut units, &mut paths, &mut sources, 0, true)?;
+        visit(
+            0,
+            &mut units,
+            &mut paths,
+            &mut sources,
+            0,
+            true,
+            &mut budget,
+        )?;
         Ok((resolve::resolve(&units)?, true))
     })();
     match result {
@@ -178,8 +195,18 @@ fn visit(
     sources: &mut SourceMap,
     depth: usize,
     allow_files: bool,
+    budget: &mut SourceBudget,
 ) -> Result<(), Diagnostic> {
-    for import in units[index].module.imports.clone() {
+    // Keep the existing depth-first registration order without nesting parser
+    // calls underneath every ancestor import's Rust stack frame.
+    let mut pending = vec![(index, 0usize, depth)];
+    while let Some(&(index, next, depth)) = pending.last() {
+        let Some(import) = units[index].module.imports.get(next).cloned() else {
+            units[index].complete = true;
+            pending.pop();
+            continue;
+        };
+        pending.last_mut().unwrap().1 += 1;
         if depth >= 128 {
             return Err(Diagnostic::new(
                 "import nesting exceeds 128 files",
@@ -265,6 +292,7 @@ fn visit(
         let path = fs::canonicalize(&requested).map_err(|e| {
             Diagnostic::new(format!("cannot import `{}`: {e}", import.path), import.span)
         })?;
+        let mut descend = None;
         let target = if let Some(&target) = paths.get(&path) {
             if !units[target].complete {
                 return Err(Diagnostic::new(
@@ -274,7 +302,7 @@ fn visit(
             }
             target
         } else {
-            let text = fs::read_to_string(&path).map_err(|e| {
+            let text = budget.read(&path).map_err(|e| {
                 Diagnostic::new(format!("cannot import `{}`: {e}", import.path), import.span)
             })?;
             // リンク名側の親へ結び付けず、診断も実際に読んだファイルを指します。
@@ -302,12 +330,14 @@ fn visit(
                 imports: HashMap::new(),
                 complete: false,
             });
-            visit(target, units, paths, sources, depth + 1, allow_files)?;
+            descend = Some(target);
             target
         };
         units[index].imports.insert(import.alias, target);
+        if let Some(target) = descend {
+            pending.push((target, 0, depth + 1));
+        }
     }
-    units[index].complete = true;
     Ok(())
 }
 
@@ -351,7 +381,15 @@ pub fn from_source(text: &str) -> Result<Compilation, LoadError> {
             imports: HashMap::new(),
             complete: false,
         }];
-        visit(0, &mut units, &mut HashMap::new(), &mut sources, 0, false)?;
+        visit(
+            0,
+            &mut units,
+            &mut HashMap::new(),
+            &mut sources,
+            0,
+            false,
+            &mut SourceBudget::new(LoadLimits::default()),
+        )?;
         Ok((resolve::resolve(&units)?, true))
     })();
     match result {

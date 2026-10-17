@@ -1000,3 +1000,8 @@ print(x);
 may visibly produce the floating-point approximation rather than a shortened decimal representation.
 
 Backends are responsible for preserving the observable print behavior while implementing it according to their own target conventions.
+
+
+## Compiler input limits
+
+Syntax/expression depth and per-file, total-byte, and file-count budgets are checked. Excess stops compilation with a diagnostic and preserves existing artifacts. See [compiler input limits](../design/frontend-limits.en.md) for defaults and Rust API configuration.
