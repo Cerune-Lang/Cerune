@@ -1,0 +1,8 @@
+import "math.ceru" as math;
+
+print(math::step(10.0, 2.0, 0.5));
+print(math::step(-1.0, 4.0, 0.25));
+print(math::checked(42.0));
+print(math::increment(41));
+print(math::echo_u64(18446744073709551615));
+print(math::echo_f32(1.25));

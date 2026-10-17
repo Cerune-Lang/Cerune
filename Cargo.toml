@@ -22,6 +22,10 @@ path = "experiments/lean/main.rs"
 name = "ssa_model"
 path = "experiments/ssa/main.rs"
 
+[[example]]
+name = "host_calls"
+path = "experiments/host_calls/main.rs"
+
 [dependencies]
 
 # The profile that 'dist' will build with

@@ -405,3 +405,37 @@ jobs:
           name: macos-${{ matrix.runner }}-${{ matrix.suite }}-observations
           path: target/macos-${{ matrix.suite }}.log
           if-no-files-found: ignore
+
+  host-call-probe:
+    name: Typed host call comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.98.0
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20.20.2"
+      - name: Prepare comparison tools
+        run: npm install --prefix target/host-call-tools --no-audit --no-fund wabt@1.0.39 typescript@5.9.3
+      - name: Check and build VM adapter
+        run: |
+          cargo fmt --manifest-path experiments/host_calls/vm/Cargo.toml --check
+          cargo clippy --manifest-path experiments/host_calls/vm/Cargo.toml --locked --target wasm32-unknown-unknown --target-dir target/host-calls-vm -- -D warnings
+          cargo build --manifest-path experiments/host_calls/vm/Cargo.toml --locked --target wasm32-unknown-unknown --release --target-dir target/host-calls-vm
+      - name: Compare function results, failures, and artifacts
+        run: |
+          cargo run --locked --example host_calls -- target/host-calls
+          node target/host-call-tools/node_modules/wabt/bin/wat2wasm target/host-calls/exports.wat -o target/host-calls/exports.wasm
+          node experiments/host_calls/compare.cjs target/host-calls target/host-calls-vm/wasm32-unknown-unknown/release/cerune_host_call_probe.wasm
+          node target/host-call-tools/node_modules/typescript/bin/tsc --strict --noEmit --target ES2022 --module NodeNext experiments/host_calls/types.test.mts
+      - name: Save host-call observations
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: typed-host-call-observations
+          path: target/host-calls/
+          if-no-files-found: ignore

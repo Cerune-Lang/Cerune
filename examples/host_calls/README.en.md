@@ -1,0 +1,31 @@
+# Functions for host calls
+
+[日本語](README.md)
+
+These are ordinary Cerune examples. JS/TS and Rust comparison code lives in a [separate experiment](../../experiments/host_calls/README.en.md).
+
+| File | Purpose |
+| --- | --- |
+| [math.ceru](math.ceru) | Position updates, exact numeric conversion, i32/u64/f32 functions |
+| [demo.ceru](demo.ceru) | Imports math and calls the same functions from Cerune |
+
+Run from the repository root.
+
+```sh
+cargo run --quiet -- run examples/host_calls/demo.ceru
+cargo run --quiet -- run-vm examples/host_calls/demo.ceru
+cargo run --quiet -- emit-ir examples/host_calls/demo.ceru
+```
+
+Both execution routes produce the following output.
+
+```text
+11
+0
+42
+42
+18446744073709551615
+1.25
+```
+
+`checked(1.5)` stops instead of silently dropping the fraction. The experiment also compares that failure record between VM and WAT. `pub` controls visibility within Cerune; ordinary emit-wat does not automatically export these functions to JS.

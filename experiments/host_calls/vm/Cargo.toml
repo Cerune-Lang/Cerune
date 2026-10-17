@@ -1,0 +1,15 @@
+[package]
+name = "cerune-host-call-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+cerune-lang = { path = "../../.." }
+
+[profile.release]
+lto = true
+strip = "symbols"

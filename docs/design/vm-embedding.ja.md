@@ -2,6 +2,8 @@
 
 [English](vm-embedding.en.md)
 
+f64引数とf64/void戻り値のRust APIは実装済みです。JS/TS公開と生成WATとの比較は[型付きホスト呼出し](typed-host-calls.ja.md)で扱います。
+
 ## 目的
 
 Cerune VMで生成済みbytecode内の関数を、Rustなどのホストアプリケーションから実行できる境界を定義します。

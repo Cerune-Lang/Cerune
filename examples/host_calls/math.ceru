@@ -1,0 +1,10 @@
+// ホストから呼ぶ候補と、通常のCeruneからも使える純粋関数です。
+pub fn step(position: f64, velocity: f64, delta: f64) -> f64 {
+    return position + velocity * delta;
+}
+pub fn checked(value: f64) -> f64 {
+    return f64(convert<u8>(value));
+}
+pub fn increment(value: i32) -> i32 { return value + 1; }
+pub fn echo_u64(value: u64) -> u64 { return value; }
+pub fn echo_f32(value: f32) -> f32 { return value; }
