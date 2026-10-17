@@ -1047,3 +1047,6 @@ mod input_memory;
 
 #[path = "support/input_memory_routes.rs"]
 mod input_memory_routes;
+
+#[path = "support/wat_input_storage.rs"]
+mod wat_input_storage;

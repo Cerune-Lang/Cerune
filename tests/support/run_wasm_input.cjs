@@ -52,6 +52,12 @@ if (process.env.CERUNE_TEST_WAT_MEMORY_TRACE) {
     memoryEvents.push({phase,logical:Number(logical),capacity:Number(capacity),free:Number(free),owners,pages});
   }};
 }
+const storageEvents = [];
+if (process.env.CERUNE_TEST_WAT_STORAGE_TRACE) {
+  imports.probe = {...imports.probe, storage(...values) {
+    storageEvents.push(values.map(Number).join(','));
+  }};
+}
 for (const name of config.omit || []) delete imports.cerune[name];
 WebAssembly.instantiate(fs.readFileSync(process.argv[2]),imports).then(({instance})=>{
   if (Object.keys(instance.exports).join(',')!=='main') throw new Error('unexpected public export');
@@ -99,5 +105,6 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]),imports).then(({instanc
   if (!(error instanceof WebAssembly.RuntimeError) || error.message!=='unreachable' || !diagnostics.length) console.error(error.message);
   process.exitCode=1;
 }).finally(()=>{
+  if (process.env.CERUNE_TEST_WAT_STORAGE_TRACE) fs.writeFileSync(process.env.CERUNE_TEST_WAT_STORAGE_TRACE,storageEvents.join('\n')+'\n');
   if (process.env.CERUNE_TEST_WAT_INPUT_TRACE) fs.writeFileSync(process.env.CERUNE_TEST_WAT_INPUT_TRACE,JSON.stringify({consumed,reads,events}));
 });
