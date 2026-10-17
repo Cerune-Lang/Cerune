@@ -1044,3 +1044,6 @@ mod native_input;
 
 #[path = "support/input_memory.rs"]
 mod input_memory;
+
+#[path = "support/input_memory_routes.rs"]
+mod input_memory_routes;
