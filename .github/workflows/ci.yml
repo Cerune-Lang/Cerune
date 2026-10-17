@@ -317,3 +317,89 @@ jobs:
             target/qbe-windows-observations
             target/stdin-*
           if-no-files-found: ignore
+
+  # macOS host validation is intentionally scoped: Darwin code generation for
+  # LLVM/QBE/Native is not yet supported. Keep both CPU architectures covered.
+  macos-backends:
+    name: macOS / ${{ matrix.runner }} / ${{ matrix.suite }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15-intel, macos-15]
+        suite: [core, c, wat]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.2"
+      - name: Assert host architecture and create test directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.runner }}" in
+            macos-15-intel) test "$(uname -m)" = x86_64 ;;
+            macos-15) test "$(uname -m)" = arm64 ;;
+            *) echo "Unknown macOS runner label"; exit 1 ;;
+          esac
+          mkdir -p target
+          rustc -Vv
+      - name: Verify native C compiler
+        if: ${{ matrix.suite == 'c' }}
+        run: clang --version
+      - name: Install and verify WABT
+        if: ${{ matrix.suite == 'wat' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
+          wabt="$GITHUB_WORKSPACE/target/wasm-tools/node_modules/wabt/bin/wat2wasm"
+          test -f "$wabt"
+          printf '(module (func (export "main")))\n' > target/wabt-smoke.wat
+          node "$wabt" target/wabt-smoke.wat -o target/wabt-smoke.wasm
+          test -s target/wabt-smoke.wasm
+          echo "CERUNE_TEST_WAT2WASM_JS=$wabt" >> "$GITHUB_ENV"
+      - name: Verify macOS / ${{ matrix.suite }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ulimit -c 0
+          {
+            case "${{ matrix.suite }}" in
+              core)
+                cargo test --lib --bins --test aggregate_values --test array_iteration \
+                --test array_length --test constant_array_lengths --test constants \
+                --test diagnostics_cli --test examples --test fixed_width_integers --test float_output \
+                --test generic_functions --test integer_bit_operations --test integer_conversions \
+                --test integer_types --test ir_executor --test line_input --test main_entry --test mir \
+                --test mir_executor --test mir_ssa --test modules --test numeric_conversions \
+                --test product_updates --test rounding_conversions --test short_circuit \
+                --test small_integers --test ssa_cli --test ssa_construction --test ssa_executor \
+                --test standard_input --test string_concat --test string_lexing --test string_values \
+                --test sums --test truncating_conversions --test u64_values
+                printf 'print(7);\n' > target/macos-smoke.ceru
+                test "$(cargo run --quiet -- run-ir target/macos-smoke.ceru)" = 7
+                test "$(cargo run --quiet -- run-vm target/macos-smoke.ceru)" = 7
+                ;;
+              c)
+                cargo test --test c_strings --test c_output
+                ;;
+              wat)
+                cargo test --test wat_output
+                ;;
+              *) echo "Unsupported macOS test suite"; exit 1 ;;
+            esac
+          } 2>&1 | tee "target/macos-${{ matrix.suite }}.log"
+        env:
+          CERUNE_TEST_TRACE: "1"
+          CERUNE_TEST_CC: clang
+          CERUNE_TEST_NODE: node
+      - name: Preserve macOS test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.runner }}-${{ matrix.suite }}-observations
+          path: target/macos-${{ matrix.suite }}.log
+          if-no-files-found: ignore
