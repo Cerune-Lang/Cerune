@@ -8,13 +8,36 @@ Cerune is an experimental programming language with static typing, direct IR exe
 
 ## Try It
 
-Requires Rust (rustup and Cargo).
+Prebuilt Cerune v0.1.0 binaries for Windows, Linux, and macOS are available from [GitHub Releases](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.1.0).
+
+### Install the release
+
+**Windows (PowerShell)**
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.ps1 | iex"
+```
+
+**Linux / macOS (Shell)**
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.sh | sh
+```
+
+### Try the latest master branch
+
+With Rust and Cargo, you can build and try the latest implementation from the `master` branch.
 
 ```sh
 git clone https://github.com/Cerune-Lang/Cerune.git
 cd Cerune
+cargo run --quiet -- run examples/floating_point.ceru
+```
+
+To install from source:
+
+```sh
 cargo install --path .
-cerune run examples/floating_point.ceru
 ```
 
 The same addition produces different results depending on the type. Comments show the output.
