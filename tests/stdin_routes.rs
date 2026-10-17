@@ -1041,3 +1041,6 @@ fn native_commands(dir: &Path, stem: &str, hir: &cerune_lang::ir::Program) -> Ve
 
 #[path = "support/native_input.rs"]
 mod native_input;
+
+#[path = "support/input_memory.rs"]
+mod input_memory;

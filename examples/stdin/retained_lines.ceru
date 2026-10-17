@@ -1,0 +1,14 @@
+// 2行とも読み終えてから表示し、最初の文字列も保持します。
+import "std:io" as io;
+
+first: io::ReadLine = io::read_line(64);
+second: io::ReadLine = io::read_line(64);
+
+match first {
+    io::ReadLine::Line { text: text } => { print([text]); },
+    io::ReadLine::End {} => { print("end"); },
+}
+match second {
+    io::ReadLine::Line { text: text } => { print([text]); },
+    io::ReadLine::End {} => { print("end"); },
+}

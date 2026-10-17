@@ -105,3 +105,7 @@ After integration, give each route independent identical input and responses. Do
 | CLI / actual OS | Print then flush the prompt before input; failed flush means zero reads | Windows/Linux pipe/file implemented; Windows console unsupported |
 
 A [real stdin example](../../examples/stdin/README.en.md) is available. Do not describe the existing scripted input_flow example as actual stdin support. Keep observation separate from supplying input through execution connections.
+
+## Retained-capacity measurements
+
+See [measurements and improvement candidates](input-memory.en.md), separating logical charges, retained capacity, and OS memory metrics. Short lines with large limits retain excess capacity. The logical heap limit is not a physical-memory bound.

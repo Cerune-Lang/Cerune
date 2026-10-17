@@ -105,3 +105,7 @@ fileは匿名ソースでは省略します。bytesはソースのSpanであり�
 | CLI／実OS | 質問をprint→flushしてから入力。flush失敗なら読取り0回 | Windows/Linuxのpipe/fileで実装。Windows consoleは未対応 |
 
 [実stdinの対話example](../../examples/stdin/README.md)を追加しました。既存の固定データによるinput_flowを実stdin対応と表示しません。観測での記録取得と、実行接続による入力供給を分離したまま検証します。
+
+## 保持容量の測定
+
+論理課金・保持容量・OSのメモリ指標を分けた[測定結果と改善候補](input-memory.ja.md)を参照してください。短い行を大きな上限で読むと容量が残ります。論理ヒープ制限を実メモリの上限として使うことはできません。

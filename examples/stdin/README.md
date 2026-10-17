@@ -39,3 +39,5 @@ target/lines < input.txt
 Windowsではtargetを`x86_64-pc-windows-msvc`、Object名を`target/lines.obj`に変え、`clang target/lines.obj -o target/lines.exe`でリンクします。実行は同じcmdの入力リダイレクトを使います。
 
 [接続・診断の契約](../../docs/design/stdin-connections.ja.md)と[WAT hostでの実行](../../docs/design/wat-input-host.ja.md)も参照できます。テストは同じ入力で実行器・C・LLVM・QBE・WAT・Nativeを比較します。上限超過や不正UTF-8では入力本文を診断に含めず停止します。
+
+[retained_lines.ceru](retained_lines.ceru)は2行を読み終えてから表示します。例えば `x + LF`、`y + LF` を渡すと `["x\n"]`、`["y\n"]` を表示し、2回目の入力中も最初の行を保持します。各行の上限は64バイト、EOFは `end` と表示します。上の実行コマンドのファイル名を置き換えて試せます。

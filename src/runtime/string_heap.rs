@@ -453,4 +453,42 @@ mod input_tests {
         heap.manage(&value, false).unwrap();
         heap.assert_empty();
     }
+
+    #[test]
+    fn retained_input_capacity_is_distinct_from_logical_budget() {
+        const COUNT: usize = 8;
+        for limit in [2, 1_048_576] {
+            let mut heap = StringHeap::new(limit as u64 + (COUNT * 2) as u64);
+            let data = b"x\n".repeat(COUNT * 3);
+            let mut input = Input::with_trace_limit(data.as_slice(), COUNT * 3);
+            for cycle in 0..3 {
+                let mut values = Vec::new();
+                for _ in 0..COUNT {
+                    values.push(read(&mut input, &mut heap, limit).unwrap().unwrap());
+                }
+                let capacity: usize = values.iter().map(|v| v.bytes.borrow().capacity()).sum();
+                assert_eq!(heap.live, (COUNT * 2) as u64);
+                assert_eq!(heap.allocations.len(), COUNT);
+                assert!(capacity >= COUNT * limit as usize);
+                println!(
+                    "Rust limit={limit} cycle={cycle} logical={} owners={} capacity={capacity}",
+                    heap.live,
+                    heap.allocations.len()
+                );
+                // Rust側の一時ハンドルが残っていても最後の言語releaseで領域を返します。
+                for value in &values {
+                    assert_eq!(value.text(), "x\n");
+                    heap.manage(value, false).unwrap();
+                    assert_eq!(value.bytes.borrow().capacity(), 0);
+                }
+                heap.assert_empty();
+            }
+            assert!(
+                input
+                    .events()
+                    .iter()
+                    .all(|event| event.consumed == 2 && event.read_calls == 2)
+            );
+        }
+    }
 }

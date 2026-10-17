@@ -13,3 +13,6 @@
 !tests/fixtures/observation/**/expected/**
 # 動的配列の生成過程を比較するAssembly fixture
 !tests/fixtures/dynamic-arrays/*.s
+
+# Input allocation measurement harness
+!tests/support/input_memory.c
