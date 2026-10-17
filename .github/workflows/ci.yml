@@ -25,50 +25,132 @@ jobs:
         run: |
           node scripts/check-docs.cjs
           node scripts/check-ci-windows-coverage.cjs
+          node scripts/check-ci-linux-coverage.cjs
           node --test scripts/check-docs.test.cjs
-      - name: Install execution validation tools
-        run: |
-          mkdir -p target
-          curl --fail --location https://c9x.me/compile/release/qbe-1.3.tar.xz -o target/qbe-1.3.tar.xz
-          echo 'd587905d620dc5e1d2bfa7c2cc642b9b837aa89a3188c6e37b53d756cf66e320  target/qbe-1.3.tar.xz' | sha256sum --check
-          tar -xf target/qbe-1.3.tar.xz -C target
-          make -C target/qbe-1.3
-          npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
       - name: Format
         run: cargo fmt --check
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
-      - name: Test
+
+  # #152: Linux follows the same route grouping as Windows. All integration
+  # targets except Lean (verified separately) must have exactly one owner.
+  # Sanitizer deliberately reruns C/dynamic-array targets with instrumentation.
+  linux-backends:
+    name: Linux / ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core
+            timeout: 25
+            tests: >-
+              --lib --bins --examples --test modules --test product_updates --test constants --test sums
+              --test array_length --test array_iteration --test constant_array_lengths --test generic_functions
+              --test truncating_conversions --test rounding_conversions --test aggregate_values
+              --test string_concat --test ir_executor --test mir_executor --test ssa_executor --test ssa_cli
+              --test observation_bundle --test execution_output_cli --test line_input --test standard_input
+              --test diagnostics_cli --test examples --test fixed_width_integers --test float_output
+              --test integer_bit_operations --test integer_conversions --test integer_types --test main_entry
+              --test mir --test mir_ssa --test numeric_conversions --test observation_cli --test short_circuit
+              --test small_integers --test ssa_construction --test string_lexing --test string_values
+              --test u64_values
+          - suite: c-llvm
+            timeout: 25
+            tests: >-
+              --test c_strings --test llvm_strings --test c_output --test llvm_output --test llvm_origins
+          - suite: native
+            timeout: 25
+            tests: >-
+              --test native_output --test native_assembly --test native_mir --test ssa_native
+              --test lir_observation
+          - suite: wat
+            timeout: 25
+            tests: >-
+              --test wat_output
+          - suite: qbe
+            timeout: 25
+            tests: >-
+              --test qbe_output --test qbe_windows
+          - suite: cross-io
+            timeout: 25
+            tests: >-
+              --test stdin_routes --test explicit_flush --test execution_output --test io_protocol
+          - suite: cross-runtime
+            timeout: 25
+            tests: >-
+              --test source_files --test string_routes --test runtime_routes --test string_heap_routes
+              --test dynamic_arrays
+          - suite: sanitizer
+            timeout: 25
+            tests: >-
+              --test c_strings --test dynamic_arrays
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.2"
+      - name: Prepare observations and require toolchain
+        shell: bash
         run: |
-          # 意図したtrapをOSのクラッシュ収集へ送らず、終了状態と診断を検証します。
-          # pipe型のcore_patternではulimitだけでは収集を止められません。
-          sysctl kernel.core_pattern
+          mkdir -p target
+          node --version
+          if [[ "${{ matrix.suite }}" != "core" && "${{ matrix.suite }}" != "wat" ]]; then
+            clang --version
+          fi
+          if [[ "${{ matrix.suite }}" == "native" || "${{ matrix.suite }}" == cross-* ]]; then
+            objdump --version
+          fi
+      - name: Build pinned QBE 1.3
+        if: ${{ matrix.suite == 'qbe' || matrix.suite == 'sanitizer' || startsWith(matrix.suite, 'cross-') }}
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 https://c9x.me/compile/release/qbe-1.3.tar.xz -o target/qbe-1.3.tar.xz
+          echo 'd587905d620dc5e1d2bfa7c2cc642b9b837aa89a3188c6e37b53d756cf66e320  target/qbe-1.3.tar.xz' | sha256sum --check
+          tar -xf target/qbe-1.3.tar.xz -C target
+          make -C target/qbe-1.3
+          target/qbe-1.3/qbe -h
+          echo "CERUNE_TEST_QBE=$GITHUB_WORKSPACE/target/qbe-1.3/qbe" >> "$GITHUB_ENV"
+      - name: Install and validate WAT execution tool
+        if: ${{ matrix.suite == 'wat' || matrix.suite == 'sanitizer' || startsWith(matrix.suite, 'cross-') }}
+        shell: bash
+        run: |
+          npm install --prefix target/wasm-tools --no-audit --no-fund wabt@1.0.39
+          wabt="$GITHUB_WORKSPACE/target/wasm-tools/node_modules/wabt/bin/wat2wasm"
+          test -f "$wabt"
+          printf '(module (func (export "main")))\n' > target/wabt-smoke.wat
+          node "$wabt" target/wabt-smoke.wat -o target/wabt-smoke.wasm
+          test -s target/wabt-smoke.wasm
+          echo "CERUNE_TEST_WAT2WASM_JS=$wabt" >> "$GITHUB_ENV"
+      - name: Enable C sanitizers
+        if: ${{ matrix.suite == 'sanitizer' }}
+        run: echo "CERUNE_TEST_SANITIZE=1" >> "$GITHUB_ENV"
+      - name: Test ${{ matrix.suite }} routes
+        shell: bash
+        run: |
+          # Trap tests must not be sent to the host's crash collector.
           sudo sysctl -w kernel.core_pattern=core
           ulimit -c 0
-          timeout --kill-after=10s 8m bash -o pipefail -c 'cargo test --all-targets 2>&1 | tee target/ci-tests.log'
+          set -o pipefail
+          timeout --kill-after=10s 20m cargo test ${{ matrix.tests }} 2>&1 | tee "target/linux-${{ matrix.suite }}.log"
         env:
           CERUNE_TEST_TRACE: "1"
           CERUNE_TEST_CC: clang
           CERUNE_TEST_ASM_CLANG: clang
           CERUNE_TEST_LLVM_CLANG: clang
-          CERUNE_TEST_QBE: ${{ github.workspace }}/target/qbe-1.3/qbe
           CERUNE_TEST_NODE: node
           CERUNE_TEST_OBJDUMP: objdump
-          CERUNE_TEST_WAT2WASM_JS: ${{ github.workspace }}/target/wasm-tools/node_modules/wabt/bin/wat2wasm
-      - name: Preserve test log
+      - name: Preserve Linux route diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: linux-test-log
-          path: target/ci-tests.log
+          name: linux-${{ matrix.suite }}-observations
+          path: |
+            target/linux-${{ matrix.suite }}.log
+            target/stdin-*
           if-no-files-found: ignore
-      - name: C strings, u64, and dynamic array sanitizer checks
-        run: |
-          ulimit -c 0
-          cargo test --test c_strings --test dynamic_arrays
-        env:
-          CERUNE_TEST_CC: clang
-          CERUNE_TEST_SANITIZE: "1"
 
   lean-verification:
     runs-on: ubuntu-latest
