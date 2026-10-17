@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-[#161の設計](../../docs/design/typed-host-calls.ja.md)に使う固定関数の実験です。**製品の公開APIではありません。** Ceruneのプログラムは[examples/host_calls](../../examples/host_calls/README.md)、補助コードはこちらに分けています。
+[#161の設計](../../docs/design/typed-host-calls.ja.md)に使う固定関数の実験です。**固定関数の比較実験そのものは製品の公開APIではありません。** 末尾には、別途実装した製品Rust APIの利用例も置いています。 Ceruneのプログラムは[examples/host_calls](../../examples/host_calls/README.md)、補助コードはこちらに分けています。
 
 ## 再現
 
@@ -46,3 +46,17 @@ WindowsとLinux/WSLのNodeで比較済みです。CIの「Typed host call compar
 - 言語上の停止後にJSハンドルを閉じる方針は、既存のRust VM APIの独立した再呼出しを変更しません。
 
 計測結果と最初にWAT公開を進める理由は[設計書](../../docs/design/typed-host-calls.ja.md)に記録します。JS/TS補助コードはGitHub Languagesの集計対象から外し、diffは隠しません。
+
+## 製品のWATライブラリAPIを使う
+
+[library.rs](library.rs)は[製品のRust API](../../docs/design/wat-library.ja.md)を呼びます。上記の固定wrapper実験とは別の生成例です。専用のCerune CLIコマンドではありません。
+
+```sh
+cargo run --quiet --example wat_library -- examples/host_calls/library.ceru target/wat-library step sum_to checked
+node target/host-call-tools/node_modules/wabt/bin/wat2wasm target/wat-library/library.wat -o target/wat-library/library.wasm
+cargo test --test wat_output library_exports
+```
+
+library.watとexports.jsonに、選択した公開名・型変換・出自を保存します。source.ceir、source.cebc、plain.wat、sources.jsonも保存し、通常の表現と比較できます。sources.jsonは本文を含む明示的な保存です。検査に失敗した場合はファイルを作り始めません。
+
+生成物は生のWasm ABIです。JS/TS用の引数検査や停止後のハンドル管理はまだ生成しません。テストでは正しい型の引数を反復して渡し、失敗したinstanceを破棄します。

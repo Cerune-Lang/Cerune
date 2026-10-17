@@ -906,3 +906,57 @@ fn array_repeat_resolves_imported_types_and_generic_element_lengths() {
 
 #[path = "frontend_limits/mod.rs"]
 mod frontend_limits;
+
+#[test]
+fn function_declarations_keep_visibility_source_names_and_entry_identity() {
+    let w = Workspace::new();
+    w.put(
+        "a.ceru",
+        "pub fn same(x:i32)->i32{return x+1;} fn hidden()->i32{return 0;}",
+    );
+    w.put("b.ceru", "pub fn same(x:i32)->i32{return x+2;}");
+    let source = "import \"a.ceru\" as a; import \"b.ceru\" as b; pub fn same(x:i32)->i32{return a::same(b::same(x));}";
+    let entry = w.put("entry.ceru", source);
+    let c = modules::load(&entry).unwrap();
+    let d = c.function_declarations();
+    assert_eq!(d.len(), 4);
+    let names = d.iter().filter(|f| f.name() == "same").collect::<Vec<_>>();
+    assert_eq!(names.len(), 3);
+    assert_eq!(names.iter().filter(|f| f.is_entry()).count(), 1);
+    assert!(names.iter().all(|f| f.is_public()));
+    assert_ne!(names[0].resolved_name(), names[1].resolved_name());
+    assert_ne!(
+        names[1].name_span().source_id(),
+        names[2].name_span().source_id()
+    );
+    let l = cerune_lang::codegen::wat::emit_library(&c, &["same"]).unwrap();
+    assert_eq!(l.exports().len(), 1);
+    let private = d.iter().find(|f| f.name() == "hidden").unwrap();
+    assert!(!private.is_public());
+    assert!(!private.is_entry());
+    assert!(cerune_lang::codegen::wat::emit_library(&c, &["a::same"]).is_err());
+    assert!(cerune_lang::codegen::wat::emit_library(&c, &["hidden"]).is_err());
+    for decl in d {
+        let file = c.sources.get(decl.name_span().source_id()).unwrap();
+        let span = decl.name_span();
+        assert_eq!(&file.text()[span.start()..span.end()], decl.name());
+    }
+}
+
+#[test]
+fn nonmodular_declarations_keep_existing_anonymous_ir_and_private_visibility() {
+    let c = modules::from_source("fn f(x:f64)->f64{return x;}").unwrap();
+    let decl = &c.function_declarations()[0];
+    assert_eq!(decl.name(), "f");
+    assert_eq!(decl.resolved_name(), "f");
+    assert!(decl.is_entry());
+    assert!(!decl.is_public());
+    assert_eq!(
+        decl.name_span().source_id(),
+        cerune_lang::source::SourceId::ANONYMOUS
+    );
+    assert_eq!(
+        c.to_ir().unwrap(),
+        cerune_lang::compile_to_ir("fn f(x:f64)->f64{return x;}").unwrap()
+    );
+}

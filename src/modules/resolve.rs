@@ -22,7 +22,7 @@ struct Names {
     constants: HashMap<String, Symbol>,
 }
 
-pub(super) fn resolve(units: &[Unit]) -> Result<Program, Diagnostic> {
+pub(super) fn resolve(units: &[Unit]) -> Result<(Program, Vec<FunctionDeclaration>), Diagnostic> {
     let mut names = Vec::new();
     for (index, unit) in units.iter().enumerate() {
         let mut scope = Names::default();
@@ -97,6 +97,7 @@ pub(super) fn resolve(units: &[Unit]) -> Result<Program, Diagnostic> {
         names.push(scope);
     }
     let mut program = Program { items: Vec::new() };
+    let mut declarations = Vec::new();
     for (index, unit) in units.iter().enumerate() {
         let resolver = Resolver {
             units,
@@ -136,7 +137,14 @@ pub(super) fn resolve(units: &[Unit]) -> Result<Program, Diagnostic> {
                         generics: &generic_parameters,
                         ..resolver
                     };
-                    let public = names[index].functions[&d.name].public;
+                    let symbol = &names[index].functions[&d.name];
+                    let public = symbol.public;
+                    declarations.push(FunctionDeclaration::new(
+                        d,
+                        symbol.name.clone(),
+                        public,
+                        index == 0,
+                    ));
                     d.name = names[index].functions[&d.name].name.clone();
                     for parameter in &mut d.parameters {
                         resolver.binding(&parameter.name, parameter.name_span)?;
@@ -152,7 +160,7 @@ pub(super) fn resolve(units: &[Unit]) -> Result<Program, Diagnostic> {
             program.items.push(item);
         }
     }
-    Ok(program)
+    Ok((program, declarations))
 }
 
 struct Resolver<'a> {

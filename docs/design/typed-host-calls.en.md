@@ -2,9 +2,9 @@
 
 [日本語](typed-host-calls.ja.md)
 
-This is the comparison design for [#161](https://github.com/Cerune-Lang/Cerune/issues/161). **Generated WAT function exports are recommended for the first production implementation.** This change adds a fixed-function experiment; a general public API/CLI is not implemented. IR Executor remains the normal execution entry.
+This is the comparison design for [#161](https://github.com/Cerune-Lang/Cerune/issues/161). **Generated WAT function exports are recommended for the first production implementation.** Following the comparison, the [WAT library Rust API](wat-library.en.md) now retains declarations, selects exports, validates libraries and emits wrappers. Generated checked JS/TS, a dedicated CLI and HTML example remain unimplemented. IR Executor remains the normal execution entry.
 
-## Existing capabilities
+## Implementation at the comparison baseline (e0d7270)
 
 The audit covers Cerune at `e0d7270` and the [Tint* Wasm wrapper](https://github.com/Cerune-Lang/Tint-St/blob/ddb676a6d24c6a628203b9cabb877462b5fc01a4/experiments/wasm/src/lib.rs). Tint was not modified.
 
@@ -59,7 +59,7 @@ Start with WAT exports for ahead-of-time application logic used repeatedly: the 
 
 This restricts the **initial host API**, not ordinary Cerune programs or language support in other routes. Strings, arrays, products, enums and ownership need subsequent design. Scalar functions can still stop on conversions/overflow, and loops are not guaranteed to terminate.
 
-Current module resolution checks pub, but completed IR functions do not retain that visibility information. The next implementation must retain declarations during resolution and preserve their mapping to the resulting IR.
+The implementation retains declarations during module resolution and maps them to IR functions without adding pub to completed IR. Export selection remains separate from language semantics.
 
 ### Value transfer
 
@@ -85,7 +85,7 @@ The experiment saves original IR, bytecode, ordinary WAT, WAT with wrappers, and
 ## Sequence and remaining work
 
 1. **Completed here:** inventory, fixed-function A/B comparison, ordinary examples, TS type checks, bilingual design, CI comparisons of results/failures/artifacts.
-2. **Next:** retain public declarations and origins from the frontend; implement explicit selection, library validation and WAT wrappers as a production API.
+2. **Rust API implemented:** [declarations, selection, library validation and WAT wrappers](wat-library.en.md). Initially rejects all generic declarations, including unused ones; exported results are i32/f64. JS validation remains unimplemented.
 3. Generate checked JS and TS declarations; test invalid inputs, stops and reuse; add an HTML repeated-call example and verify it in a browser.
 4. Use real requirements to assess additional scalar types, IR/VM exposure to JS, aggregate values and ownership.
 

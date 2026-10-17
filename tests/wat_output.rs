@@ -304,3 +304,102 @@ fn float_host_matches_existing_rounding_and_extreme_values() {
     );
     assert_eq!(result.stdout, expected.0);
 }
+
+#[test]
+fn library_exports_execute_typed_functions_and_preserve_dependency_failure_origins() {
+    use cerune_lang::{
+        bytecode,
+        embedding::{self, HostValue},
+        modules,
+    };
+    use std::sync::Arc;
+    let Some((node, wabt)) = tools() else { return };
+    let dir = directory("library");
+    let c = modules::load(&root().join("examples/host_calls/library.ceru")).unwrap();
+    let library =
+        cerune_lang::codegen::wat::emit_library(&c, &["step", "sum_to", "checked"]).unwrap();
+    let canonical = c.to_ir().unwrap();
+    assert_eq!(library.program(), &canonical);
+    let program = Arc::new(bytecode::lower(&canonical).unwrap());
+    let resolve = |name: &str| {
+        let d = c
+            .function_declarations()
+            .iter()
+            .find(|d| d.is_entry() && d.name() == name)
+            .unwrap();
+        embedding::resolve_function(Arc::clone(&program), d.resolved_name()).unwrap()
+    };
+    let step = resolve("step");
+    for i in 0..100 {
+        let result = embedding::invoke_function(
+            &step,
+            &[
+                HostValue::F64(f64::from(i)),
+                HostValue::F64(2.0),
+                HostValue::F64(0.5),
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            result.return_value(),
+            Some(&HostValue::F64(f64::from(i) + 1.0))
+        );
+    }
+    let embedding::FunctionInvocationError::Execution(error) =
+        embedding::invoke_function(&resolve("checked"), &[HostValue::F64(1.5)]).unwrap_err()
+    else {
+        panic!()
+    };
+    fs::write(
+        dir.join("failure.txt"),
+        error.runtime_failure().unwrap().record(),
+    )
+    .unwrap();
+    fs::write(dir.join("library.wat"), library.wat()).unwrap();
+    fs::write(dir.join("exports.json"), library.export_manifest()).unwrap();
+    fs::write(dir.join("sources.json"), c.source_manifest()).unwrap();
+    fs::write(
+        dir.join("library.ceir"),
+        cerune_lang::ir::text::emit(library.program()),
+    )
+    .unwrap();
+    let wasm = dir.join("library.wasm");
+    let output = run(
+        Command::new(&node)
+            .arg(&wabt)
+            .arg(dir.join("library.wat"))
+            .arg("-o")
+            .arg(&wasm),
+        &dir,
+        "library-assemble",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = run(
+        Command::new(&node)
+            .arg(root().join("tests/support/wat_library_host.cjs"))
+            .arg(wasm)
+            .arg(dir.join("exports.json"))
+            .arg(dir.join("failure.txt")),
+        &dir,
+        "library-host",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let demo = modules::load(&root().join("examples/host_calls/library_demo.ceru"))
+        .unwrap()
+        .to_ir()
+        .unwrap();
+    let expected = "11\n10\n42\n";
+    assert_eq!(cerune_lang::ir_executor::run(&demo).unwrap(), expected);
+    assert_eq!(
+        cerune_lang::vm::run(&bytecode::lower(&demo).unwrap()).unwrap(),
+        expected
+    );
+}

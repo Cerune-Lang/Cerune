@@ -26,6 +26,10 @@ path = "experiments/ssa/main.rs"
 name = "host_calls"
 path = "experiments/host_calls/main.rs"
 
+[[example]]
+name = "wat_library"
+path = "experiments/host_calls/library.rs"
+
 [dependencies]
 
 # The profile that 'dist' will build with

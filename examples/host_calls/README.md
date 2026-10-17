@@ -29,3 +29,14 @@ cargo run --quiet -- emit-ir examples/host_calls/demo.ceru
 ```
 
 `checked(1.5)`は小数部分を黙って捨てず停止します。実験ではその停止記録もVMとWATで比較します。`pub`はCerune内の可視性であり、現在の通常のemit-watがこれらをJS向けに自動公開するわけではありません。
+
+## ライブラリの公開例
+
+[library.ceru](library.ceru)は依存先の関数を呼ぶ公開関数と、整数の合計を求める関数です。[library_demo.ceru](library_demo.ceru)をrun/run-vmで実行すると、11、10、42を出力します。
+
+```sh
+cargo run --quiet -- run examples/host_calls/library_demo.ceru
+cargo run --quiet -- run-vm examples/host_calls/library_demo.ceru
+```
+
+[WATライブラリAPI](../../docs/design/wat-library.ja.md)でstep・sum_to・checkedを選択公開できます。Rustの生成例は[実験フォルダ](../../experiments/host_calls/README.md)にあります。

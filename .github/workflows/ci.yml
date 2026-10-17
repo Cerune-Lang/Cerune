@@ -432,6 +432,8 @@ jobs:
           node target/host-call-tools/node_modules/wabt/bin/wat2wasm target/host-calls/exports.wat -o target/host-calls/exports.wasm
           node experiments/host_calls/compare.cjs target/host-calls target/host-calls-vm/wasm32-unknown-unknown/release/cerune_host_call_probe.wasm
           node target/host-call-tools/node_modules/typescript/bin/tsc --strict --noEmit --target ES2022 --module NodeNext experiments/host_calls/types.test.mts
+          cargo run --locked --example wat_library -- examples/host_calls/library.ceru target/host-calls/library step sum_to checked
+          node target/host-call-tools/node_modules/wabt/bin/wat2wasm target/host-calls/library/library.wat -o target/host-calls/library/library.wasm
       - name: Save host-call observations
         if: always()
         uses: actions/upload-artifact@v7
