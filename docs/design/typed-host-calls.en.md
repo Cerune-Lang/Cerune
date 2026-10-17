@@ -59,6 +59,8 @@ Start with WAT exports for ahead-of-time application logic used repeatedly: the 
 
 This restricts the **initial host API**, not ordinary Cerune programs or language support in other routes. Strings, arrays, products, enums and ownership need subsequent design. Scalar functions can still stop on conversions/overflow, and loops are not guaranteed to terminate.
 
+Current module resolution checks pub, but completed IR functions do not retain that visibility information. The next implementation must retain declarations during resolution and preserve their mapping to the resulting IR.
+
 ### Value transfer
 
 Internal WAT uses i64 for Cerune integers, including i32. Exposing those functions unchanged would require BigInt from JS. External wrappers map Cerune types to the Wasm ABI.
@@ -70,7 +72,7 @@ Internal WAT uses i64 for Cerune integers, including i32. Exposing those functio
 | u64 (later candidate, experiment only) | BigInt in 0 through 2^64−1 | i64 bit pattern; explicitly restore unsigned return interpretation |
 | f32 (later candidate, raw experiment only) | Undecided whether the API permits rounding or accepts only exactly representable Numbers | Tests f32 rounding separately from the f64 contract |
 
-Raw calls in the [WebAssembly JS API](https://webassembly.github.io/spec/js-api/) convert arguments. The experiment confirms fractional truncation, integer wrapping and NaN for omitted arguments. TS declarations do not validate runtime values; JS must check argument count, types and ranges. The existing [floating-point contract](rounding-conversions.en.md) for per-operation rounding remains unchanged.
+Raw calls in the [WebAssembly JS API](https://webassembly.github.io/spec/js-api/) convert arguments. The experiment confirms fractional truncation, integer wrapping and NaN for omitted arguments. TS declarations do not validate runtime values; JS must check argument count, types and ranges. The existing [floating-point contract](float-rounding.en.md) for per-operation rounding remains unchanged.
 
 ### Failure and observation
 
