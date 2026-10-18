@@ -18,7 +18,7 @@ node experiments/host_calls/compare.cjs target/host-calls target/host-calls-vm/w
 node target/host-call-tools/node_modules/typescript/bin/tsc --strict --noEmit --target ES2022 --module NodeNext experiments/host_calls/types.test.mts
 ```
 
-The comparison has run in Node on Windows and Linux/WSL. CI's “Typed host call comparison” builds both Wasm artifacts on Linux, runs them and uploads observations. Execution inside a browser has not yet been verified.
+The comparison has run in Node on Windows and Linux/WSL. CI's “Typed host call comparison” builds both Wasm artifacts on Linux, runs them and uploads observations. The fixed VM comparison has not been tested in a browser. The production WAT API has a separately tested [browser example](browser/README.en.md).
 
 ## Code and artifacts
 
@@ -42,7 +42,7 @@ Records size, Wasm compile, instantiate, VM source preparation and 10,000 calls 
 - JS runtime checks and TS static checks are separate. Raw Wasm coercions do not automatically become the public contract.
 - Call failures distinguish arguments/language/trap/host/closed. Compile/instantiate failures do not yet have a common error representation.
 - Rust VM Wasm exports memory, hidden by the experiment adapter. Generated WAT does not export memory. This does not prove isolation from a malicious host.
-- Fixed internal-name lookup, textual WAT additions and handwritten TS declarations are experimental only. General selection, retained pub declarations, purity validation, generated JS/TS and HTML examples remain future work.
+- Fixed internal-name lookup, textual WAT additions and handwritten TS declarations are experimental only. General selection, retained pub declarations, library validation, generated JS/TS and HTML examples are implemented by the production API below.
 - Closing the JS handle after a language stop does not change the existing Rust VM API's independent subsequent invocations.
 
 The [design](../../docs/design/typed-host-calls.en.md) records measurements and the rationale for starting with WAT exports. JS/TS helpers are excluded from GitHub Languages statistics without hiding their diffs.
@@ -59,4 +59,4 @@ cargo test --test wat_output library_exports
 
 library.wat and exports.json record selected names, conversions and origins. source.ceir, source.cebc, plain.wat and sources.json retain ordinary representations for comparison; sources.json explicitly includes source text. Validation finishes before any output files are written.
 
-Artifacts expose a raw Wasm ABI. JS/TS argument checks and stopped-handle management are not generated yet. Tests pass correctly typed arguments repeatedly and discard failed instances.
+The generator also saves library.mjs and library.d.mts for checked arguments, stopped-handle management and typed calls. The [browser example and instructions](browser/README.en.md) demonstrate repeated calls and inspectable generation.

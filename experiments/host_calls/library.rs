@@ -17,6 +17,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (name, contents) in [
         ("library.wat", library.wat().to_owned()),
         ("exports.json", library.export_manifest()),
+        ("library.mjs", library.javascript()),
+        ("library.d.mts", library.typescript()),
         ("sources.json", compilation.source_manifest()),
         ("source.ceir", ir::text::emit(library.program())),
         ("source.cebc", bytecode::format_program(&bytecode)),

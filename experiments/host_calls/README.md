@@ -18,7 +18,7 @@ node experiments/host_calls/compare.cjs target/host-calls target/host-calls-vm/w
 node target/host-call-tools/node_modules/typescript/bin/tsc --strict --noEmit --target ES2022 --module NodeNext experiments/host_calls/types.test.mts
 ```
 
-WindowsとLinux/WSLのNodeで比較済みです。CIの「Typed host call comparison」はLinuxで両Wasmをビルドして実行し、観測ファイルをartifactへ保存します。ブラウザー内の動作はまだ検証していません。
+WindowsとLinux/WSLのNodeで比較済みです。CIの「Typed host call comparison」はLinuxで両Wasmをビルドして実行し、観測ファイルをartifactへ保存します。固定VM比較のブラウザー検証は行っていません。製品WAT APIの[ブラウザー例](browser/README.md)は別途検証します。
 
 ## コードと生成物
 
@@ -42,7 +42,7 @@ WindowsとLinux/WSLのNodeで比較済みです。CIの「Typed host call compar
 - JSの実行時検査とTSの静的検査は別です。raw Wasmが受け付ける暗黙変換を、そのまま公開契約にしません。
 - 呼出し時の失敗はarguments/language/trap/host/closedを区別します。compile/instantiate失敗の共通エラー化は未実装です。
 - VMのRust Wasmにはmemory exportがありますが、実験アダプターからは隠します。生成WATのmemoryはexportしません。悪意のあるhostからの隔離を証明する実験ではありません。
-- 固定の内部名検索・WATへの文字列追記・手書きTS宣言は実験専用です。一般の公開対象選択、pub情報の保存、純粋性検査、生成JS/TS、HTML例は後続です。
+- 固定の内部名検索・WATへの文字列追記・手書きTS宣言は実験専用です。一般の公開対象選択、pub情報の保存、ライブラリ検査、生成JS/TS、HTML例は末尾の製品APIで実装しています。
 - 言語上の停止後にJSハンドルを閉じる方針は、既存のRust VM APIの独立した再呼出しを変更しません。
 
 計測結果と最初にWAT公開を進める理由は[設計書](../../docs/design/typed-host-calls.ja.md)に記録します。JS/TS補助コードはGitHub Languagesの集計対象から外し、diffは隠しません。
@@ -59,4 +59,4 @@ cargo test --test wat_output library_exports
 
 library.watとexports.jsonに、選択した公開名・型変換・出自を保存します。source.ceir、source.cebc、plain.wat、sources.jsonも保存し、通常の表現と比較できます。sources.jsonは本文を含む明示的な保存です。検査に失敗した場合はファイルを作り始めません。
 
-生成物は生のWasm ABIです。JS/TS用の引数検査や停止後のハンドル管理はまだ生成しません。テストでは正しい型の引数を反復して渡し、失敗したinstanceを破棄します。
+library.mjsとlibrary.d.mtsも生成し、引数検査・停止後のハンドル管理・型付き呼出しに使えます。[ブラウザー例と実行手順](browser/README.md)で反復呼出しと生成過程を確認できます。

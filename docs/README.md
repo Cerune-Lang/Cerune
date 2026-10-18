@@ -23,6 +23,7 @@
 - [VMの埋め込み実行](design/vm-embedding.ja.md)
 - [JS/TSからの型付き関数呼出し](design/typed-host-calls.ja.md)
 - [WATライブラリの関数公開](design/wat-library.ja.md)
+- [WATライブラリのJS/TS API](design/wat-js-bindings.ja.md)
 - [標準入出力：実行・制御・観測（設計）](design/standard-io.ja.md)
 - [CLI・生成C・LLVM・QBEの実stdin接続](design/stdin-connections.ja.md)
 - [仮想標準モジュールと出自](design/standard-modules.ja.md)

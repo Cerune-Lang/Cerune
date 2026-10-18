@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ceruneの関数をブラウザーから呼ぶ</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<a href="index.en.html">English</a>
+<h1>Ceruneの関数をブラウザーから呼ぶ</h1><p>同じライブラリへ繰り返し値を渡し、結果を受け取る例です。</p><p>引数が不正なら実行せず拒否します。実行中に停止したハンドルは再利用できません。新しいインスタンスで再開できます。</p>
+<p id="status" role="status" data-state="loading">読込み中</p>
+<fieldset id="controls" disabled><legend>関数を呼ぶ</legend>
+<p>現在の位置: <output id="position">10</output> <button id="step">位置を1段進める</button></p>
+<p><label for="limit">合計する上限</label><input id="limit" type="number" value="4" step="any"><button id="sum">1から上限までを合計</button></p>
+<div class="actions"><button id="bad-argument">文字列を渡す（実行前に拒否）</button><button id="fail">小数を厳密変換する（停止）</button><button id="reload">新しいインスタンスを作る</button></div>
+</fieldset>
+<section><h2>直前の結果</h2><output id="result">—</output>
+<h3>停止理由・ソース位置</h3><pre id="diagnostic" aria-live="polite"></pre>
+<details><summary>呼出し履歴</summary><pre id="log"></pre></details></section>
+<section><h2>生成過程を確認する</h2><p>IR・bytecode・通常WAT・公開用WAT・生成JS・型宣言・公開一覧・ソースは、それぞれ別に確認できます。</p>
+<nav><a href="/artifacts/source.ceir">source.ceir</a> · <a href="/artifacts/source.cebc">source.cebc</a> · <a href="/artifacts/plain.wat">plain.wat</a> · <a href="/artifacts/library.wat">library.wat</a> · <a href="/artifacts/library.mjs">library.mjs</a> · <a href="/artifacts/library.d.mts">library.d.mts</a> · <a href="/artifacts/exports.json">exports.json</a> · <a href="/artifacts/sources.json">sources.json</a></nav>
+<details><summary>公開一覧（読取りのみ）</summary><pre id="metadata"></pre></details></section>
+<script type="module" src="browser.mjs"></script>
+</body></html>

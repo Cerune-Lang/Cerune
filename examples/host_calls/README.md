@@ -40,3 +40,5 @@ cargo run --quiet -- run-vm examples/host_calls/library_demo.ceru
 ```
 
 [WATライブラリAPI](../../docs/design/wat-library.ja.md)でstep・sum_to・checkedを選択公開できます。Rustの生成例は[実験フォルダ](../../experiments/host_calls/README.md)にあります。
+
+[ブラウザーの例と実行手順](../../experiments/host_calls/browser/README.md)では、生成したJS/TS APIからこれらの関数を繰り返し呼び、停止位置と生成過程を確認できます。

@@ -2,7 +2,7 @@
 
 [日本語](wat-library.ja.md)
 
-This is the initial Rust API based on the [comparison design](typed-host-calls.en.md) for [#161](https://github.com/Cerune-Lang/Cerune/issues/161). Export selection, validation and WAT generation are implemented. Generated checked JS/TS, a dedicated CLI and an HTML example remain future work.
+This is the initial Rust API based on the [comparison design](typed-host-calls.en.md) for [#161](https://github.com/Cerune-Lang/Cerune/issues/161). Export selection, validation and WAT generation are implemented. [Generated checked JS/TS](wat-js-bindings.en.md) and an [HTML example](../../experiments/host_calls/browser/README.en.md) are also available. A dedicated CLI remains unimplemented.
 
 ## API and generation
 
@@ -51,7 +51,7 @@ To expose a dependency operation, write an ordinary entry function that calls it
 
 ## Runtime responsibilities
 
-**The artifact exposes a raw Wasm ABI. It does not yet generate JS argument count/type/range checks.** The checked JS layer proposed by the comparison design, including prevention of implicit Number-to-i32 coercion, comes next. Callers must currently provide inputs of the correct types and ranges.
+`Library::javascript()` and `Library::typescript()` generate [checked JS and declarations](wat-js-bindings.en.md). JS checks argument count/type/range before execution and closes handles after execution failures. Callers using raw Wasm directly must supply correct inputs.
 
 Imports `cerune.write_error_byte` only when needed. Language stops emit existing runtime-v1 records with NodeId/SourceId/Span and trap. Memory stays private; no DOM, network or general host calls are added. Callers must discard stopped instances: raw exports do not enforce closed-handle checks. Loops are not guaranteed to terminate.
 
