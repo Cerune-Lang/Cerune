@@ -2,7 +2,7 @@
 
 [English](wat-library.en.md)
 
-[#161](https://github.com/Cerune-Lang/Cerune/issues/161)の[比較設計](typed-host-calls.ja.md)に基づく、Rust APIの初版です。公開関数の選択・検査・WAT生成を実装しました。検査付きJS、TS宣言の自動生成、専用CLI、HTML例は後続です。
+[#161](https://github.com/Cerune-Lang/Cerune/issues/161)の[比較設計](typed-host-calls.ja.md)に基づく、Rust APIの初版です。公開関数の選択・検査・WAT生成を実装しました。[検査付きJS・TS宣言の生成](wat-js-bindings.ja.md)と[HTML例](../../experiments/host_calls/browser/README.md)も利用できます。専用CLIは未実装です。
 
 ## APIと生成過程
 
@@ -51,7 +51,7 @@ println!("{}", library.export_manifest());
 
 ## 実行時の責務
 
-**このAPIの生成物は生のWasm ABIです。JSからの引数数・型・範囲の検査はまだ生成しません。** i32に渡したNumberの暗黙変換などを防ぐ、比較設計の検査付きJS層は次に実装します。現段階では呼出し側が正しい型・範囲の入力を用意します。
+`Library::javascript()`と`Library::typescript()`は[検査付きJSと型宣言](wat-js-bindings.ja.md)を生成します。JSは引数の数・型・範囲を実行前に検査し、実行時停止後はハンドルを閉じます。生のWasmを直接呼ぶ場合は呼出し側が正しい入力を用意します。
 
 必要な場合だけ`cerune.write_error_byte`をimportし、言語上の停止は既存のruntime-v1とNodeId/SourceId/Spanを出力してtrapします。内部memoryは公開せず、DOM・ネットワーク・一般のhost呼出しも追加しません。停止後のインスタンスは呼出し側が破棄します。生のexport自体には「閉じたハンドル」の検査はありません。ループの終了も保証しません。
 

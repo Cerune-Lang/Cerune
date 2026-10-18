@@ -1,0 +1,8 @@
+body { font: 16px/1.6 system-ui,sans-serif; max-width: 840px; margin: 32px auto; padding: 0 20px; color: #183047; background: #f7faff; }
+h1 { font-size: 1.8rem; line-height: 1.3; } a { color: #155ba4; }
+fieldset, section { border: 1px solid #c8d8e7; border-radius: 8px; padding: 18px; margin: 18px 0; background: white; }
+button, input { font: inherit; padding: 6px 12px; margin: 5px; } button { cursor: pointer; }
+#status { font-weight: 600; } #status[data-state=stopped] { color: #a22a34; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.9rem; }
+output { font-size: 1.4rem; font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; } details { margin: 16px 0; }

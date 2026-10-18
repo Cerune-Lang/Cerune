@@ -2,7 +2,7 @@
 
 [日本語](typed-host-calls.ja.md)
 
-This is the comparison design for [#161](https://github.com/Cerune-Lang/Cerune/issues/161). **Generated WAT function exports are recommended for the first production implementation.** Following the comparison, the [WAT library Rust API](wat-library.en.md) now retains declarations, selects exports, validates libraries and emits wrappers. Generated checked JS/TS, a dedicated CLI and HTML example remain unimplemented. IR Executor remains the normal execution entry.
+This is the comparison design for [#161](https://github.com/Cerune-Lang/Cerune/issues/161). **Generated WAT function exports are recommended for the first production implementation.** Following the comparison, the [WAT library Rust API](wat-library.en.md) now retains declarations, selects exports, validates libraries and emits wrappers. [Generated checked JS/TS](wat-js-bindings.en.md) and an HTML example are also implemented. A dedicated CLI remains unimplemented. IR Executor remains the normal execution entry.
 
 ## Implementation at the comparison baseline (e0d7270)
 
@@ -85,8 +85,8 @@ The experiment saves original IR, bytecode, ordinary WAT, WAT with wrappers, and
 ## Sequence and remaining work
 
 1. **Completed here:** inventory, fixed-function A/B comparison, ordinary examples, TS type checks, bilingual design, CI comparisons of results/failures/artifacts.
-2. **Rust API implemented:** [declarations, selection, library validation and WAT wrappers](wat-library.en.md). Initially rejects all generic declarations, including unused ones; exported results are i32/f64. JS validation remains unimplemented.
-3. Generate checked JS and TS declarations; test invalid inputs, stops and reuse; add an HTML repeated-call example and verify it in a browser.
+2. **Rust API implemented:** [declarations, selection, library validation and WAT wrappers](wat-library.en.md). Initially rejects all generic declarations, including unused ones; exported results are i32/f64.
+3. **Implemented:** [checked JS and TS declarations](wat-js-bindings.en.md), invalid-input/stop/reuse regression tests, and a verified [HTML repeated-call example](../../experiments/host_calls/browser/README.en.md).
 4. Use real requirements to assess additional scalar types, IR/VM exposure to JS, aggregate values and ownership.
 
 Internal-name lookup, textual WAT additions and handwritten TS declarations are specific to this experiment, not a mechanism to generalize into a production API. General FFI, a JS backend, package management, a new sandbox and proof of the whole implementation are outside this change.

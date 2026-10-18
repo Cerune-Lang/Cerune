@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Call Cerune functions from a browser</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<a href="index.html">日本語</a>
+<h1>Call Cerune functions from a browser</h1><p>Pass values repeatedly to the same library and receive typed results.</p><p>Invalid arguments are rejected before execution. A handle stopped during execution cannot be reused. Create a fresh instance to resume.</p>
+<p id="status" role="status" data-state="loading">Loading</p>
+<fieldset id="controls" disabled><legend>Call functions</legend>
+<p>Current position: <output id="position">10</output> <button id="step">Advance position once</button></p>
+<p><label for="limit">Summation limit</label><input id="limit" type="number" value="4" step="any"><button id="sum">Sum from 1 to the limit</button></p>
+<div class="actions"><button id="bad-argument">Pass a string (reject before execution)</button><button id="fail">Convert a fraction exactly (stop)</button><button id="reload">Create a fresh instance</button></div>
+</fieldset>
+<section><h2>Last result</h2><output id="result">—</output>
+<h3>Failure reason and source origin</h3><pre id="diagnostic" aria-live="polite"></pre>
+<details><summary>Call history</summary><pre id="log"></pre></details></section>
+<section><h2>Inspect generation</h2><p>Inspect IR, bytecode, ordinary WAT, exported WAT, generated JS, type declarations, exports and sources separately.</p>
+<nav><a href="/artifacts/source.ceir">source.ceir</a> · <a href="/artifacts/source.cebc">source.cebc</a> · <a href="/artifacts/plain.wat">plain.wat</a> · <a href="/artifacts/library.wat">library.wat</a> · <a href="/artifacts/library.mjs">library.mjs</a> · <a href="/artifacts/library.d.mts">library.d.mts</a> · <a href="/artifacts/exports.json">exports.json</a> · <a href="/artifacts/sources.json">sources.json</a></nav>
+<details><summary>Export metadata (read only)</summary><pre id="metadata"></pre></details></section>
+<script type="module" src="browser.mjs"></script>
+</body></html>

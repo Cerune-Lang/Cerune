@@ -1,0 +1,10 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const {spawnSync} = require('node:child_process');
+const [artifacts, compiler] = process.argv.slice(2);
+if (!artifacts || !compiler) throw new Error('usage: check-types.cjs artifact-directory typescript/bin/tsc');
+const test = path.resolve(artifacts, 'types.test.mts');
+fs.copyFileSync(path.join(__dirname, 'types.test.mts'), test);
+const result = spawnSync(process.execPath, [path.resolve(compiler), '--strict', '--noEmit', '--target', 'ES2022', '--module', 'NodeNext', test], {stdio:'inherit', timeout:30000});
+if (result.error) throw result.error;
+process.exitCode = result.status ?? 1;

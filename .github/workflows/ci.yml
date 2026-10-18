@@ -420,7 +420,7 @@ jobs:
         with:
           node-version: "20.20.2"
       - name: Prepare comparison tools
-        run: npm install --prefix target/host-call-tools --no-audit --no-fund wabt@1.0.39 typescript@5.9.3
+        run: npm install --prefix target/host-call-tools --no-audit --no-fund wabt@1.0.39 typescript@5.9.3 playwright@1.64.1
       - name: Check and build VM adapter
         run: |
           cargo fmt --manifest-path experiments/host_calls/vm/Cargo.toml --check
@@ -434,6 +434,11 @@ jobs:
           node target/host-call-tools/node_modules/typescript/bin/tsc --strict --noEmit --target ES2022 --module NodeNext experiments/host_calls/types.test.mts
           cargo run --locked --example wat_library -- examples/host_calls/library.ceru target/host-calls/library step sum_to checked
           node target/host-call-tools/node_modules/wabt/bin/wat2wasm target/host-calls/library/library.wat -o target/host-calls/library/library.wasm
+      - name: Check generated types and browser example
+        run: |
+          node experiments/host_calls/browser/check-types.cjs target/host-calls/library target/host-call-tools/node_modules/typescript/bin/tsc
+          node target/host-call-tools/node_modules/playwright/cli.js install --with-deps chromium
+          node experiments/host_calls/browser/test.cjs target/host-calls/library target/host-call-tools/node_modules/playwright
       - name: Save host-call observations
         if: always()
         uses: actions/upload-artifact@v7

@@ -2,7 +2,7 @@
 
 [English](typed-host-calls.en.md)
 
-[#161](https://github.com/Cerune-Lang/Cerune/issues/161)の比較設計です。**最初の製品実装は生成WATの関数公開を推奨します。** 比較実験を経て、[WATライブラリのRust API](wat-library.ja.md)を実装しました。公開宣言の保持・明示選択・全体検査・wrapper生成まで利用可能です。検査付きJS/TS・専用CLI・HTML例は未実装です。通常の実行入口は引き続きIR Executorです。
+[#161](https://github.com/Cerune-Lang/Cerune/issues/161)の比較設計です。**最初の製品実装は生成WATの関数公開を推奨します。** 比較実験を経て、[WATライブラリのRust API](wat-library.ja.md)を実装しました。公開宣言の保持・明示選択・全体検査・wrapper生成まで利用可能です。[検査付きJS/TS生成](wat-js-bindings.ja.md)・HTML例も実装済みです。専用CLIは未実装です。通常の実行入口は引き続きIR Executorです。
 
 ## 比較開始時の実装（e0d7270）
 
@@ -85,8 +85,8 @@ VM埋め込みを新設する必要はありません。既存APIは呼出しご
 ## 実装順と未対応
 
 1. **今回完了**：現状調査、固定関数のA/B比較、通常例、TS型検査、日英設計、CIで結果・停止・生成物を比較。
-2. **Rust API実装済み**：[公開宣言・明示選択・ライブラリ検査・WAT wrapper](wat-library.ja.md)。初版は未使用も含めgeneric宣言を拒否。公開結果はi32/f64、JS側の検査は未実装。
-3. 検査付きJSとTS宣言の生成、誤った入力・停止・再利用の回帰テスト、HTMLから繰り返し呼ぶ例とブラウザーでの確認。
+2. **Rust API実装済み**：[公開宣言・明示選択・ライブラリ検査・WAT wrapper](wat-library.ja.md)。初版は未使用も含めgeneric宣言を拒否。公開結果はi32/f64。
+3. **実装済み**：[検査付きJSとTS宣言](wat-js-bindings.ja.md)、誤った入力・停止・再利用の回帰テスト、[HTML例](../../experiments/host_calls/browser/README.md)とブラウザー検証。
 4. 実用途を見て追加スカラー型、IR/VMのJS公開、複合値・所有の契約を検討。
 
 固定関数の内部名検索、WAT文字列への追記、手書きTS宣言は今回の実験専用です。製品APIでこれらを一般化して使うことはありません。汎用FFI、JS backend、一般パッケージ管理、新しいsandbox、全処理系の正しさの証明は今回の対象外です。

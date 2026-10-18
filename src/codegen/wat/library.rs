@@ -9,6 +9,7 @@ use crate::{
 };
 use std::collections::HashSet;
 
+mod bindings;
 mod validate;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,6 +92,16 @@ impl Library {
     }
     pub fn wat(&self) -> &str {
         &self.wat
+    }
+
+    /// Checked ES module for the accompanying Wasm artifact.
+    pub fn javascript(&self) -> String {
+        bindings::javascript(self)
+    }
+
+    /// TypeScript declarations for the generated ES module.
+    pub fn typescript(&self) -> String {
+        bindings::typescript(self)
     }
 
     /// Names, types, wrapper conversions and declaration origins; no source text.

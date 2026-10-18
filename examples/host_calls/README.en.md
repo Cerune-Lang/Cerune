@@ -40,3 +40,5 @@ cargo run --quiet -- run-vm examples/host_calls/library_demo.ceru
 ```
 
 The [WAT library API](../../docs/design/wat-library.en.md) explicitly exports step, sum_to and checked. The Rust generator example lives in the [experiment directory](../../experiments/host_calls/README.en.md).
+
+The [browser example and instructions](../../experiments/host_calls/browser/README.en.md) repeatedly call these functions through generated JS/TS and expose failure origins and generation artifacts.

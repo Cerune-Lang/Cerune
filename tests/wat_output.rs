@@ -356,6 +356,8 @@ fn library_exports_execute_typed_functions_and_preserve_dependency_failure_origi
     )
     .unwrap();
     fs::write(dir.join("library.wat"), library.wat()).unwrap();
+    fs::write(dir.join("library.mjs"), library.javascript()).unwrap();
+    fs::write(dir.join("library.d.mts"), library.typescript()).unwrap();
     fs::write(dir.join("exports.json"), library.export_manifest()).unwrap();
     fs::write(dir.join("sources.json"), c.source_manifest()).unwrap();
     fs::write(
@@ -378,6 +380,72 @@ fn library_exports_execute_typed_functions_and_preserve_dependency_failure_origi
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+
+    // Deliberately foreign modules exercise host-contract failures independently.
+    for (name, imports, checked, tail) in [
+        ("trap", "", "(param f64) (result f64) unreachable", ""),
+        (
+            "instantiate",
+            "",
+            "(param f64) (result f64) local.get 0",
+            "(func $bad unreachable) (start $bad)",
+        ),
+        (
+            "host",
+            "(import \"cerune\" \"write_error_byte\" (func $error (param i32)))",
+            "(param f64) (result f64) i32.const 255 call $error local.get 0",
+            "",
+        ),
+        ("result", "", "(param f64) (result i64) i64.const 1", ""),
+        (
+            "extra",
+            "",
+            "(param f64) (result f64) local.get 0",
+            "(memory (export \"memory\") 1)",
+        ),
+    ] {
+        let wat = format!(
+            "(module {imports} (func (export \"step\") (param f64 f64 f64) (result f64) local.get 0) (func (export \"sum_to\") (param i32) (result i32) local.get 0) (func (export \"checked\") {checked}) {tail})"
+        );
+        fs::write(dir.join(format!("{name}.wat")), wat).unwrap();
+        let output = run(
+            Command::new(&node)
+                .arg(&wabt)
+                .arg(dir.join(format!("{name}.wat")))
+                .arg("-o")
+                .arg(dir.join(format!("{name}.wasm"))),
+            &dir,
+            name,
+        );
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    let names=modules::from_source("pub fn __proto__()->i32{return 7;} pub fn constructor(x:f64)->f64{return x;} pub fn then()->f64{return 8.0;} pub fn identity(x:i32)->i32{return x;}").unwrap();
+    let names = cerune_lang::codegen::wat::emit_library(
+        &names,
+        &["__proto__", "constructor", "then", "identity"],
+    )
+    .unwrap();
+    fs::write(dir.join("names.mjs"), names.javascript()).unwrap();
+    fs::write(dir.join("names.wat"), names.wat()).unwrap();
+    let output = run(
+        Command::new(&node)
+            .arg(&wabt)
+            .arg(dir.join("names.wat"))
+            .arg("-o")
+            .arg(dir.join("names.wasm")),
+        &dir,
+        "names",
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
     let output = run(
         Command::new(&node)
             .arg(root().join("tests/support/wat_library_host.cjs"))

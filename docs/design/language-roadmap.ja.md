@@ -75,7 +75,7 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | 1：完了 | [浮動小数点の丸め](float-rounding.ja.md)（[#156](https://github.com/Cerune-Lang/Cerune/issues/156)） | PR #163で統合。最小例・ビット列・生成ASMでFMA差分を確認し、Clang/GCCの生成Cへ収縮禁止と回帰テストを追加 |
 | 2：初版実装 | [コンパイル入力の上限](frontend-limits.ja.md)（[#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135)） | 構文・式の深さ、個別／合計バイト数、ファイル数を診断。import探索は順序を保って反復化。#153の隔離・C・CI候補は残件 |
 | 3：初版の判断・実装済み | [入力容量の測定](input-memory.ja.md)。行入力の確保容量とメモリ上限（[#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133)） | 全経路で容量・使用バイト数・解放を測定し、同じexampleの出力を比較。[Rust/C/LLVM/QBE/Nativeの縮小](input-compaction.ja.md)を実装。[WATの比較](wat-input-storage.ja.md)で分割・再結合は導入せず、既存の再利用を維持と判断。広いメモリ調査は#133へ |
-| 4：Rust API実装済み | [JS/TSから型付き関数を呼ぶ](typed-host-calls.ja.md)（[#161](https://github.com/Cerune-Lang/Cerune/issues/161)） | [WATライブラリAPI](wat-library.ja.md)で宣言保持・明示選択・全体検査・i32/f64 wrapperを実装。元IRと型変換を観測可能。次は検査付きJS/TS生成とHTML例 |
+| 4：i32/f64公開実装済み | [JS/TSから型付き関数を呼ぶ](typed-host-calls.ja.md)（[#161](https://github.com/Cerune-Lang/Cerune/issues/161)） | [WATライブラリAPI](wat-library.ja.md)で宣言保持・明示選択・全体検査・i32/f64 wrapperを実装。元IRと型変換を観測可能。[検査付きJS/TS生成](wat-js-bindings.ja.md)とHTML例も実装済み |
 | 5 | 小さな標準ライブラリ。[仮想std:io](standard-modules.ja.md)の解決と行入力APIを実装済み | 実例に必要な文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntime操作を分ける。汎用Option/Resultやパッケージ管理を必須化しない |
 | 独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
 | build安定後 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
@@ -110,7 +110,7 @@ Native buildは新しい入力や標準ライブラリがなくても、現在�
 | Issue | 目的 | 進め方・残件 |
 | --- | --- | --- |
 | [#156](https://github.com/Cerune-Lang/Cerune/issues/156) | 浮動小数点の意味の一致 | PR #163で完了。Clang/GCCの収縮対策、example・回帰テスト・日英契約を追加。macOSを含むCI成功 |
-| [#161](https://github.com/Cerune-Lang/Cerune/issues/161) | JS/TSの型付き関数呼出し | 優先4。[WATライブラリのRust API](wat-library.ja.md)を実装。検査付きJS/TSの自動生成・HTML例は未実装 |
+| [#161](https://github.com/Cerune-Lang/Cerune/issues/161) | JS/TSの型付き関数呼出し | 優先4。[WATライブラリのRust API](wat-library.ja.md)を実装。[検査付きJS/TS生成](wat-js-bindings.ja.md)・HTML例も実装済み。追加型・IR/VMのJS公開は実用途を見て判断 |
 | [#130](https://github.com/Cerune-Lang/Cerune/issues/130) | 文書整合性 | PR #136で統合済み。旧URL・ライセンス・監査履歴・日英ペアを点検 |
 | [#134](https://github.com/Cerune-Lang/Cerune/issues/134) | 文字列所有の正しさ | PR #137で統合済み。内部APIの所属・所有数を変更前に検証。性能改善とは分ける |
 | [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | 標準入出力と副作用比較 | 出力接続は統合済み。明示flushを実装。C・LLVM・QBE・WAT・Nativeの書込み失敗も実装。仮想std:io・行入力・所有を4実行器へ接続。CLI/C/LLVM/QBE/Nativeの実stdin・対話テストを追加。WATの版付き入力hostも実装済み。Native入力も実装済み。次は実例で必要になった小さな標準ライブラリを選ぶ。生成経路の成功操作の共通記録は後続 |

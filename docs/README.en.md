@@ -23,6 +23,7 @@ Each document links to its Japanese counterpart.
 - [VM embedding](design/vm-embedding.en.md)
 - [Typed function calls from JS/TS](design/typed-host-calls.en.md)
 - [WAT library function exports](design/wat-library.en.md)
+- [WAT library JS/TS API](design/wat-js-bindings.en.md)
 - [Standard I/O: execution, control, and observation (design)](design/standard-io.en.md)
 - [Actual stdin in CLI and generated C/LLVM/QBE](design/stdin-connections.en.md)
 - [Virtual standard modules and origins](design/standard-modules.en.md)
