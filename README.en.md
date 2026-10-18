@@ -91,7 +91,11 @@ During development, replace `cerune` with `cargo run --quiet --`.
 
 **Arithmetic rules:** No implicit numeric conversions. Integer overflow, invalid integer division, out-of-bounds access, failed exact conversions, and out-of-range rounded results stop execution. Explicit saturation clamps to the type's endpoints. Floating-point arithmetic rounds.
 
-**Not implemented:** Recursion, string indexing, catching runtime stops.
+**Main limitations / not yet implemented:**
+
+- **Language:** Recursion, string indexing, character counting and numeric parsing, dynamic-array growth and borrowing, catching runtime stops, and generic `Option`/`Result`.
+- **I/O and modules:** Access to CLI arguments, file/network I/O APIs, module re-exports, and package management.
+- **Build and distribution:** Integrated `build`/`release` commands to link Cerune programs (ASM and object generation are supported).
 
 ## Execution and Output
 
