@@ -347,6 +347,26 @@ fn generated_c_arguments_and_stdin_preserve_order_and_bytes() {
             std::process::Stdio::from(fs::File::open(file).unwrap()),
         )
         .unwrap();
+        if !cfg!(any(windows, target_os = "linux")) {
+            let mut input = cerune_lang::runtime::input::Input::<std::io::Empty>::unconfigured();
+            let mut output = cerune_lang::runtime::output::Output::new(Vec::new());
+            cerune_lang::ir_executor::run_with_io_and_arguments(
+                &p,
+                &mut input,
+                &mut output,
+                &snapshot(&["arg"]),
+            )
+            .unwrap_err();
+            let mut failure = input.failure().unwrap();
+            failure.code = cerune_lang::runtime::input::Code::UnsupportedConnection;
+            assert_eq!(actual.status.code(), Some(1));
+            assert_eq!(actual.stdout, output.into_inner());
+            assert_eq!(
+                String::from_utf8_lossy(&actual.stderr).replace("\r\n", "\n"),
+                format!("cerune: {}\n", failure.record())
+            );
+            continue;
+        }
         assert!(actual.status.success(), "{actual:?}");
         assert!(actual.stderr.is_empty());
         assert_eq!(
