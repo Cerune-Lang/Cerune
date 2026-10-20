@@ -29,7 +29,7 @@ pub fn parse(
             );
         }
     }
-    if !executable && !matches!(command, "emit-llvm" | "emit-qbe") {
+    if !executable && !matches!(command, "emit-llvm" | "emit-qbe" | "emit-wat") {
         return Ok((compiler, Arguments::unconfigured(), Limits::default()));
     }
     let mut limits = Limits::default();

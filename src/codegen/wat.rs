@@ -1,3 +1,4 @@
+mod arguments;
 mod array;
 mod conversion;
 mod emit;
@@ -8,6 +9,7 @@ mod integer;
 pub mod ir;
 pub mod library;
 mod lower;
+mod utf8;
 pub use library::emit_library;
 mod output;
 mod rounding;
@@ -20,8 +22,22 @@ use lower::lower;
 use crate::{diagnostic::Diagnostic, ir as cerune_ir};
 
 pub fn emit_wat(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
-    crate::codegen::support::reject_arguments(program, "WAT")?;
-    let module = lower(program);
+    emit_wat_with_argument_limits(program, Default::default())
+}
+pub fn emit_wat_with_argument_limits(
+    program: &cerune_ir::Program,
+    limits: crate::runtime::arguments::Limits,
+) -> Result<String, Diagnostic> {
+    if let Some(span) = program.first_argument_span()
+        && limits.max_count > i64::MAX as u64
+    {
+        return Err(Diagnostic::new(
+            "WAT argument count limit must not exceed i64::MAX",
+            span,
+        ));
+    }
+    let mut module = lower(program);
+    module.argument_limits = limits;
 
     Ok(emit(&module))
 }

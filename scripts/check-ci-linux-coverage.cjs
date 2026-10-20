@@ -53,3 +53,5 @@ assert.match(body, /CERUNE_TEST_WAT2WASM_JS=\$wabt/, 'WAT must be explicitly con
 console.log(`Linux CI coverage: ${assigned.length} integration targets, package lib/bins/examples, two Lean suites and sanitizer`);
 
 assert.match(body, /cargo test --test standard_input program_arguments::qbe/, 'QBE arguments must run with the required QBE toolchain');
+
+assert.match(body, /cargo test --test standard_input program_arguments::wat/, 'WAT arguments must run with the required host tools');

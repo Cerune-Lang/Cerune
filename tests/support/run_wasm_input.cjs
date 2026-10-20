@@ -3,6 +3,9 @@ const fs = require('node:fs');
 const floatFormat = require('./wat_float_format.cjs');
 const config = JSON.parse(process.env.CERUNE_TEST_WAT_INPUT || '{}');
 const events = [], diagnostics = [];
+if (process.env.CERUNE_TEST_WAT_ARGUMENTS !== undefined && process.env.CERUNE_TEST_WAT_ARGUMENTS_FILE !== undefined) throw new Error('duplicate argument input');
+const argumentConfig = process.env.CERUNE_TEST_WAT_ARGUMENTS_FILE === undefined ? process.env.CERUNE_TEST_WAT_ARGUMENTS : fs.readFileSync(process.env.CERUNE_TEST_WAT_ARGUMENTS_FILE,'utf8');
+const argumentHost = argumentConfig === undefined ? null : require('./wat_arguments.cjs').createArguments(JSON.parse(argumentConfig));
 const connection = process.platform === 'win32' && require('node:tty').isatty(0) ? 2 : 0;
 let consumed = 0, reads = 0, interrupted = false, interruptedAfter = false, failed = false;
 const imports = { cerune: {
@@ -32,6 +35,7 @@ const imports = { cerune: {
     }
   },
   write_stdout_v1(bits,count) {
+    argumentHost?.execution();
     events.push({operation:'write',requested:count});
     const bytes=Buffer.alloc(8); bytes.writeBigInt64LE(bits);
     try { return fs.writeSync(1,bytes,0,count); }
@@ -46,6 +50,7 @@ const imports = { cerune: {
   },
 }};
 
+if (argumentHost) Object.assign(imports.cerune, argumentHost.imports);
 const memoryEvents = [];
 if (process.env.CERUNE_TEST_WAT_MEMORY_TRACE) {
   imports.probe = { memory(phase, logical, capacity, free, owners, pages) {
@@ -65,11 +70,19 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]),imports).then(({instanc
   catch(error) {
     if (config.retry_after_failure) {
       const previous=reads;
+      const previousArguments=argumentHost?.calls();
       try { instance.exports.main(); throw new Error('failed instance resumed'); }
       catch(second) { if (!(second instanceof WebAssembly.RuntimeError)) throw second; }
       if (reads!==previous) throw new Error('read after failed instance restart');
+      if (argumentHost?.calls()!==previousArguments) throw new Error('argument reread after failed restart');
     }
     throw error;
+  }
+  if (config.retry_after_success) {
+    const previous=argumentHost?.calls(), eventCount=events.length;
+    let trapped=false;
+    try { instance.exports.main(); } catch(error) { if (!(error instanceof WebAssembly.RuntimeError)) throw error; trapped=true; }
+    if (!trapped || argumentHost?.calls()!==previous || events.length!==eventCount) throw new Error('completed argument instance resumed');
   }
   if (diagnostics.length) throw new Error('diagnostic without a trap');
   if (process.env.CERUNE_TEST_WAT_MEMORY_TRACE) {

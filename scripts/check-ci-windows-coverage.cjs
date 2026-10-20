@@ -85,3 +85,5 @@ assert.deepEqual(assigned.sort(), expected.sort(), 'Windows CI test coverage cha
 console.log(`Windows CI coverage: ${assigned.length} original integration targets + --lib and ${qbeTests.length} QBE checks across ${entries.length} suites`);
 
 assert.match(windows, /cargo test --test standard_input program_arguments::qbe/, 'QBE arguments must run with the required QBE toolchain');
+
+assert.match(windows, /cargo test --test standard_input program_arguments::wat/, 'WAT arguments must run with the required host tools');

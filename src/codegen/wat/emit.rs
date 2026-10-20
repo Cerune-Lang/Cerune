@@ -24,6 +24,9 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
     }
 
     writeln!(output, "(module").unwrap();
+    if module.uses_arguments {
+        output.push_str(super::arguments::IMPORT);
+    }
     if module.uses_input {
         output.push_str(super::input::IMPORT);
     }
@@ -38,7 +41,7 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
             "  (import \"cerune\" \"write_error_byte\" (func $write_error_byte (param i32)))\n",
         );
     }
-    if module.uses_flush {
+    if module.uses_flush || module.uses_arguments {
         output.push_str(
             "  (import \"cerune\" \"flush_stdout_v1\" (func $flush_stdout_v1 (result i32)))\n",
         );
@@ -71,8 +74,14 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
     if module.uses_write {
         super::output::support(module, &mut output);
     }
+    if module.uses_input || module.uses_arguments {
+        output.push_str(super::utf8::SUPPORT);
+    }
     if module.uses_input {
         output.push_str(&super::input::support(module.string_heap_start));
+    }
+    if module.uses_arguments {
+        super::arguments::support(module, &mut output);
     }
     for function in &module.functions {
         emit_function(function, module, &mut output);
@@ -98,6 +107,9 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
             writeln!(output).unwrap();
         }
 
+        if module.uses_arguments {
+            output.push_str("    call $cerune_arguments_start\n");
+        }
         for instruction in &module.instructions {
             emit_instruction(instruction, 2, module, &mut output);
         }
@@ -236,6 +248,9 @@ fn emit_helper(instruction: &Instruction, origin: Origin, name: &str, output: &m
         Instruction::ArrayAllocate { .. }
         | Instruction::ArrayAddress
         | Instruction::ArrayRangeCheck => super::array::checked(instruction, origin, name, output),
+        Instruction::ArgumentCount | Instruction::ArgumentGet => {
+            super::arguments::located(instruction, origin, name, output)
+        }
         Instruction::ReadLine => super::input::located(origin, name, output),
         Instruction::StringConcat => super::heap::concat(origin, name, output),
         Instruction::ConvertNumeric { conversion } => {
@@ -372,6 +387,9 @@ fn emit_instruction(
             writeln!(output, "{prefix}call $cerune_array_release_owner").unwrap()
         }
         Instruction::ArrayFree => writeln!(output, "{prefix}call $cerune_array_free").unwrap(),
+        Instruction::ArgumentCount | Instruction::ArgumentGet => {
+            unreachable!("arguments carry source origin")
+        }
         Instruction::ReadLine => unreachable!("input carries its source origin"),
         Instruction::StringConcat => unreachable!("concat carries its source origin"),
         Instruction::StringManage { retain } => {

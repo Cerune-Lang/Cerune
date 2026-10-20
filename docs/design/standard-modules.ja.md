@@ -41,4 +41,4 @@ cargo run -- emit-ir tests/fixtures/line_input.ceru
 
 ## プログラム引数 std:env
 
-arg_count／arg／Argumentの宣言を同梱し、同じSourceMap・名前解決・enum展開を使います。HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBEを接続済みです。WAT・Nativeは未対応を診断します。[契約と残件](dogfooding-inputs.ja.md)・[実行例](../../examples/arguments/README.md)を参照してください。
+arg_count／arg／Argumentの宣言を同梱し、同じSourceMap・名前解決・enum展開を使います。HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WATを接続済みです。Nativeは未対応を診断します。[契約と残件](dogfooding-inputs.ja.md)・[実行例](../../examples/arguments/README.md)を参照してください。
