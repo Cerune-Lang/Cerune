@@ -55,3 +55,5 @@ console.log(`Linux CI coverage: ${assigned.length} integration targets, package 
 assert.match(body, /cargo test --test standard_input program_arguments::qbe/, 'QBE arguments must run with the required QBE toolchain');
 
 assert.match(body, /cargo test --test standard_input program_arguments::wat/, 'WAT arguments must run with the required host tools');
+
+assert.match(body, /cargo test --test standard_input program_arguments::native/, 'Native arguments must run with the required linker');

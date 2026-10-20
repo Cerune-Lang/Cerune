@@ -38,6 +38,25 @@ impl Reporter {
         ));
     }
 
+    pub fn argument(&mut self, get: bool, output: &mut String) {
+        let Origin::Source { node_id, span } = self.origin else {
+            panic!("arguments need source origin")
+        };
+        let label = format!(".Lcerune_arguments_origin_{}", self.count);
+        self.count += 1;
+        self.data.push_str(&format!(
+            "{label}:\n  .asciz \" node={}{} bytes={}..{}\\n\"\n",
+            node_id.0,
+            span.source_id().record_field(),
+            span.start(),
+            span.end()
+        ));
+        let operation = if get { "get" } else { "count" };
+        output.push_str(&format!(
+            "  leaq {label}(%rip), %r11\n  callq cerune_arguments_{operation}\n"
+        ));
+    }
+
     pub fn input(&mut self, output: &mut String) {
         let Origin::Source { node_id, span } = self.origin else {
             panic!("input needs source origin")

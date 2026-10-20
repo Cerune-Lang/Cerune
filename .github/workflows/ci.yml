@@ -160,6 +160,14 @@ jobs:
           timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::wat 2>&1 | tee target/linux-wat-arguments.log
         env:
           CERUNE_TEST_NODE: node
+      - name: Compare Native program arguments
+        if: ${{ matrix.suite == 'native' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::native 2>&1 | tee target/linux-native-arguments.log
+        env:
+          CERUNE_TEST_ASM_CLANG: clang
       - name: Preserve Linux route diagnostics
         if: always()
         uses: actions/upload-artifact@v7
@@ -167,6 +175,7 @@ jobs:
           name: linux-${{ matrix.suite }}-observations
           path: |
             target/linux-${{ matrix.suite }}.log
+            target/linux-native-arguments.log
             target/linux-qbe-arguments.log
             target/linux-wat-arguments.log
             target/stdin-*
@@ -344,6 +353,14 @@ jobs:
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_NODE: node
+      - name: Compare Native program arguments
+        if: ${{ matrix.suite == 'native' }}
+        shell: pwsh
+        run: |
+          cargo test --test standard_input program_arguments::native 2>&1 | Tee-Object target/windows-native-arguments.log
+          exit $LASTEXITCODE
+        env:
+          CERUNE_TEST_ASM_CLANG: clang
       - name: Preserve Windows test observations
         if: always()
         uses: actions/upload-artifact@v7
@@ -351,6 +368,7 @@ jobs:
           name: windows-${{ matrix.suite }}-observations
           path: |
             target/windows-${{ matrix.suite }}.log
+            target/windows-native-arguments.log
             target/windows-qbe-arguments.log
             target/windows-wat-arguments.log
             target/qbe-windows-observations

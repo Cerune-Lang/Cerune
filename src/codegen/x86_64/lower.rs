@@ -13,8 +13,26 @@ pub fn lower(
     program: &mir::Program,
     target: super::Target,
 ) -> Result<Module, crate::diagnostic::Diagnostic> {
+    lower_with_argument_limits(
+        program,
+        target,
+        crate::runtime::arguments::Limits::default(),
+    )
+}
+
+pub fn lower_with_argument_limits(
+    program: &mir::Program,
+    target: super::Target,
+    argument_limits: crate::runtime::arguments::Limits,
+) -> Result<Module, crate::diagnostic::Diagnostic> {
+    if argument_limits.max_count > i64::MAX as u64 {
+        return Err(crate::diagnostic::Diagnostic::without_span(
+            "argument count limit must not exceed i64::MAX",
+        ));
+    }
     mir::validate(program).map_err(|e| e.diagnostic())?;
     let mut module = Module {
+        argument_limits,
         target,
         strings: vec![],
         float_constants: vec![],
@@ -46,15 +64,7 @@ pub fn lower(
                         value: Op::ArgumentCount | Op::ArgumentGet(_),
                         ..
                     } => {
-                        return Err(match i.origin.source() {
-                            Some(origin) => crate::diagnostic::Diagnostic::new(
-                                "Native program arguments are not supported yet",
-                                origin.span,
-                            ),
-                            None => crate::diagnostic::Diagnostic::without_span(
-                                "Native program arguments are not supported yet",
-                            ),
-                        });
+                        module.string_heap_limit = Some(program.string_heap_limit);
                     }
                     Kind::Output { .. } => module.uses_write = true,
                     Kind::StringManage { .. }
@@ -519,8 +529,10 @@ impl Lowerer<'_> {
         let ty = self.ty(d).clone();
         let destination = self.slots[d.0];
         match op {
-            Op::ArgumentCount | Op::ArgumentGet(_) => {
-                unreachable!("argument operations rejected before lowering")
+            Op::ArgumentCount => self.push(Instruction::ArgumentCount),
+            Op::ArgumentGet(v) => {
+                self.load(*v);
+                self.push(Instruction::ArgumentGet);
             }
             Op::Copy(v) => {
                 self.copy_local(*v, destination);

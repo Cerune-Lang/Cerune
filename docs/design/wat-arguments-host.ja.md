@@ -35,7 +35,7 @@ snapshotと返却文字列は別の上限です。同じ非公開linear memory�
 
 起動中はarguments-v1 phase=captureで理由と該当添字を出し、本文や架空のソース位置を含めません。接続失敗はconnection-failed、契約外応答はinvalid-responseです。実行時はphase=executeで操作・理由・添字・NodeId/SourceId/Spanを保持し、既存のflush接続へ先行出力を渡してからunreachableで停止します。診断配送・host自体の例外は別のhost失敗です。
 
-元IRを変更せず、引数命令・出自・起動時検査・上限・コピー・所有操作を生成物で確認できます。成功した参照の時系列記録は未実装です。初版はmain実行のWATが対象で、純粋な公開関数を対象とするWAT libraryの制限は維持します。WASI・OS引数接続・安定した埋込みABIは追加しません。Nativeの引数接続と整数読取りは後続です。
+元IRを変更せず、引数命令・出自・起動時検査・上限・コピー・所有操作を生成物で確認できます。成功した参照の時系列記録は未実装です。初版はmain実行のWATが対象で、純粋な公開関数を対象とするWAT libraryの制限は維持します。WASI・OS引数接続・安定した埋込みABIは追加しません。Nativeの引数接続も実装済みで、整数読取りは後続です。
 
 ## 検証と実行例
 

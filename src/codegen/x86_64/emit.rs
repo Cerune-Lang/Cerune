@@ -43,6 +43,12 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
         output.push_str(&super::array::support(limit, module.target.is_linux()));
     }
 
+    if super::input::used(module) || super::arguments::used(module) {
+        output.push_str(super::utf8::SUPPORT);
+    }
+    if super::arguments::used(module) {
+        output.push_str(&super::arguments::support(module));
+    }
     if super::input::used(module) {
         output.push_str(&super::input::support(module.target.is_linux()));
     }
@@ -55,11 +61,18 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
     if annotate {
         output.push_str("# cerune-origin: synthetic\n");
     }
-    output.push_str(".globl main\n");
+    let entry = if super::arguments::used(module) {
+        "cerune_program"
+    } else {
+        "main"
+    };
+    if entry == "main" {
+        output.push_str(".globl main\n");
+    }
 
     output.push_str(".p2align 4\n");
 
-    output.push_str("main:\n");
+    output.push_str(&format!("{entry}:\n"));
 
     output.push_str("  pushq %rbp\n");
 
@@ -101,6 +114,9 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
 
     emit_epilogue(module.frame_size, true, &mut output);
 
+    if super::arguments::used(module) {
+        output.push_str(&super::arguments::entry(module.target.is_linux()));
+    }
     if !reporter.data.is_empty() {
         output.push_str(if module.target.is_linux() {
             "\n.section .rodata\n"
@@ -246,6 +262,8 @@ fn emit_instruction(
         return;
     }
     match instruction {
+        Instruction::ArgumentCount => reporter.argument(false, output),
+        Instruction::ArgumentGet => reporter.argument(true, output),
         Instruction::ReadLine => reporter.input(output),
         Instruction::Flush => reporter.flush(output),
         Instruction::ArrayAllocate { .. }

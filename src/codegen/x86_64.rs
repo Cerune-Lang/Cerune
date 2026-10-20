@@ -1,4 +1,5 @@
 mod abi;
+mod arguments;
 mod array;
 mod conversion;
 mod emit;
@@ -16,10 +17,11 @@ mod string;
 #[path = "../../tests/support/process.rs"]
 mod test_process;
 mod unsigned;
+mod utf8;
 
 pub use emit::emit;
 /// MIRから直接Native LIRを作ります。ターゲットは必須です。
-pub use lower::lower as lower_mir;
+pub use lower::{lower as lower_mir, lower_with_argument_limits as lower_mir_with_argument_limits};
 
 #[cfg(test)]
 fn lower(program: &crate::ir::Program) -> ir::Module {

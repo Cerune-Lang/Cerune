@@ -87,3 +87,5 @@ console.log(`Windows CI coverage: ${assigned.length} original integration target
 assert.match(windows, /cargo test --test standard_input program_arguments::qbe/, 'QBE arguments must run with the required QBE toolchain');
 
 assert.match(windows, /cargo test --test standard_input program_arguments::wat/, 'WAT arguments must run with the required host tools');
+
+assert.match(windows, /cargo test --test standard_input program_arguments::native/, 'Native arguments must run with the required linker');

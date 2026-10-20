@@ -35,7 +35,7 @@ Snapshot and returned-string limits are separate. They physically share private 
 
 Startup reports arguments-v1 phase=capture with a reason and applicable index, without contents or fabricated source positions. Connection failures use connection-failed; invalid responses use invalid-response. Execution reports phase=execute with operation, reason, index and NodeId/SourceId/Span, passes prior output to the existing flush connection and stops with unreachable. Diagnostic delivery errors and host exceptions remain host failures.
 
-Preserve original IR and expose argument operations, origins, startup validation, limits, copying and ownership in generated artifacts. Chronological success records remain unimplemented. This first scope covers WAT main execution; WAT library restrictions for pure exported functions remain in place. No WASI, OS argument connection or stable embedding ABI is added. Native arguments and integer parsing follow separately.
+Preserve original IR and expose argument operations, origins, startup validation, limits, copying and ownership in generated artifacts. Chronological success records remain unimplemented. This first scope covers WAT main execution; WAT library restrictions for pure exported functions remain in place. No WASI, OS argument connection or stable embedding ABI is added. Native arguments are also implemented; integer parsing follows separately.
 
 ## Validation and example
 

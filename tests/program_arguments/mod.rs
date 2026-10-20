@@ -1,5 +1,6 @@
 mod c;
 mod llvm;
+mod native;
 mod qbe;
 mod wat;
 use cerune_lang::{
@@ -216,22 +217,6 @@ fn virtual_module_shares_types_and_rejects_private_intrinsic_spelling() {
         "import \"std:env\" as env; print(env::arg(true));",
     ] {
         assert!(cerune_lang::compile_to_ir(source).is_err(), "{source}");
-    }
-}
-
-#[test]
-fn unconnected_codegen_reports_unsupported_instead_of_empty_arguments() {
-    let p = hir(r#"import "std:env" as env; print(env::arg_count());"#);
-    for target in [
-        cerune_lang::codegen::x86_64::Target::X86_64UnknownLinuxGnu,
-        cerune_lang::codegen::x86_64::Target::X86_64PcWindowsMsvc,
-    ] {
-        let d =
-            cerune_lang::codegen::x86_64::lower_mir(&mir::lower(&p).unwrap(), target).unwrap_err();
-        assert!(
-            d.message()
-                .contains("program arguments are not supported yet")
-        );
     }
 }
 

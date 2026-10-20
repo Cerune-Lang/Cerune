@@ -5,6 +5,11 @@ use std::{collections::BTreeSet, fmt::Write};
 
 /// 内部snapshotの構造を検証します。値の初期化・pointerの生存期間・意味の同値性は対象外です。
 pub fn validate(module: &Module) -> Result<(), Diagnostic> {
+    if module.argument_limits.max_count > i64::MAX as u64 {
+        return Err(Diagnostic::without_span(
+            "LIR: argument count limit must not exceed i64::MAX",
+        ));
+    }
     let mut constants = BTreeSet::new();
     for c in &module.float_constants {
         let key = match c {
@@ -107,7 +112,11 @@ fn body(
         }
         if matches!(
             i,
-            Instruction::ReadLine | Instruction::Flush | Instruction::Output { .. }
+            Instruction::ArgumentCount
+                | Instruction::ArgumentGet
+                | Instruction::ReadLine
+                | Instruction::Flush
+                | Instruction::Output { .. }
         ) && !matches!(origins[index], Origin::Source { .. })
         {
             return Err(fail("I/O needs a source origin"));
@@ -337,6 +346,8 @@ fn body(
             | ArrayReleaseOwner
             | ArrayFree
             | StringManage { .. }
+            | ArgumentCount
+            | ArgumentGet
             | ReadLine
             | Flush
             | Output { .. }
@@ -390,8 +401,10 @@ fn body(
         {
             return Err(fail("string runtime is absent"));
         }
-        if matches!(i, ReadLine | StringConcat { .. } | StringManage { .. })
-            && m.string_heap_limit.is_none()
+        if matches!(
+            i,
+            ArgumentCount | ArgumentGet | ReadLine | StringConcat { .. } | StringManage { .. }
+        ) && m.string_heap_limit.is_none()
         {
             return Err(fail("string heap runtime is absent"));
         }
@@ -425,6 +438,14 @@ pub fn emit(module: &Module) -> Result<String, Diagnostic> {
         module.uses_strings,
         module.uses_write
     );
+    if super::arguments::used(module) {
+        writeln!(
+            out,
+            "argument-count-limit {}\nargument-byte-limit {}",
+            module.argument_limits.max_count, module.argument_limits.max_bytes
+        )
+        .unwrap();
+    }
     for (id, s) in module.strings.iter().enumerate() {
         writeln!(out, "string {id} bytes={} {s:?}", s.len()).unwrap();
     }
