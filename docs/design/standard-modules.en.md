@@ -41,4 +41,4 @@ cargo run -- emit-ir tests/fixtures/line_input.ceru
 
 ## Program arguments: std:env
 
-Bundled arg_count/arg/Argument declarations reuse the same SourceMap, name resolution and enum lowering. HIR/MIR/SSA/VM and CLI are connected; generated routes diagnose unsupported operations. See the [contract and remaining work](dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
+Bundled arg_count/arg/Argument declarations reuse the same SourceMap, name resolution and enum lowering. HIR/MIR/SSA/VM, CLI and generated C are connected; LLVM/QBE/WAT/Native diagnose unsupported operations. See the [contract and remaining work](dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).

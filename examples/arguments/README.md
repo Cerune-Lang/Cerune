@@ -23,4 +23,14 @@ end
 
 引数なしでは `0` と `end`、空文字を1個渡すと `1`・`[""]`・`0`・`end` です。空文字の渡し方は利用するshellの規則に従います。
 
-HIR・MIR・SSA・VMとCLIで実行できます。C・LLVM・QBE・WAT・Nativeは未接続のため、引数操作を含む生成を明示的に拒否します。整数の読取りは未実装です。[契約・上限・未対応範囲](../../docs/design/dogfooding-inputs.ja.md)を参照してください。
+HIR・MIR・SSA・VM・CLI・生成Cで実行できます。LLVM・QBE・WAT・Nativeは未接続のため、引数操作を含む生成を明示的に拒否します。整数の読取りは未実装です。[契約・上限・未対応範囲](../../docs/design/dogfooding-inputs.ja.md)を参照してください。
+
+生成Cでも同じ出力を確認できます。Linux/macOSでは次のように実行します。
+
+```sh
+cargo run -- emit-c examples/arguments/list.ceru -o target/arguments.c
+clang -std=c11 target/arguments.c -o target/arguments
+./target/arguments hello --ssa
+```
+
+WindowsのMSVC対象Clangでは出力先を`target/arguments.exe`とし、`./target/arguments.exe hello --ssa`で実行します。MinGW対象ならコンパイル時に`-municode`を追加します。生成した実行ファイルにはCerune CLI用の区切り`--`は不要です。

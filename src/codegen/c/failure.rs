@@ -3,9 +3,14 @@ use std::fmt::Write;
 
 // 呼び出しごとの不変の位置を渡し、正常経路で共有の「現在位置」を変更しません。
 pub(super) fn argument(origin: Origin, output: &mut String) {
+    output.push_str(", ");
+    literal(origin, output);
+}
+
+pub(super) fn literal(origin: Origin, output: &mut String) {
     write!(
         output,
-        ", \" node={}{} bytes={}..{}\\n\"",
+        "\" node={}{} bytes={}..{}\\n\"",
         origin.node_id.0,
         origin.span.source_id().record_field(),
         origin.span.start(),

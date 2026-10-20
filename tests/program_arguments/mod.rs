@@ -1,3 +1,4 @@
+mod c;
 use cerune_lang::{
     bytecode, ir, ir_executor, mir, mir_executor, modules,
     runtime::arguments::{Arguments, Code, Failure, Limits},
@@ -219,7 +220,6 @@ fn virtual_module_shares_types_and_rejects_private_intrinsic_spelling() {
 fn unconnected_codegen_reports_unsupported_instead_of_empty_arguments() {
     let p = hir(r#"import "std:env" as env; print(env::arg_count());"#);
     let diagnostics = [
-        cerune_lang::codegen::emit_c(&p).unwrap_err(),
         cerune_lang::codegen::emit_llvm(&p).unwrap_err(),
         cerune_lang::codegen::emit_qbe(&p).unwrap_err(),
         cerune_lang::codegen::emit_wat(&p).unwrap_err(),

@@ -121,6 +121,7 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
         ExprKind::ArrayAllocate { length: value, .. }
         | ExprKind::ArrayReleaseOwner { value }
         | ExprKind::ArrayLength { value, .. }
+        | ExprKind::ArgumentGet { index: value }
         | ExprKind::ReadLine { max_bytes: value }
         | ExprKind::StringByteLength { value }
         | ExprKind::ConvertNumeric { value, .. }
@@ -131,7 +132,8 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
             return;
         }
         ExprKind::Sequence { .. } => unreachable!("C sequencing runs once after lowering"),
-        ExprKind::Boolean(_)
+        ExprKind::ArgumentCount
+        | ExprKind::Boolean(_)
         | ExprKind::String(_)
         | ExprKind::Integer(_)
         | ExprKind::Float { .. }
@@ -182,6 +184,8 @@ fn observable(expr: &Expr) -> bool {
         ExprKind::ArrayAllocate { .. }
         | ExprKind::ArrayReleaseOwner { .. }
         | ExprKind::StringConcat { .. }
+        | ExprKind::ArgumentCount
+        | ExprKind::ArgumentGet { .. }
         | ExprKind::ReadLine { .. }
         | ExprKind::Call { .. }
         | ExprKind::Index { .. }
