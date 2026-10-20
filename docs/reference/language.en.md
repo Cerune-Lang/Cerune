@@ -481,15 +481,15 @@ Re-exports, wildcards, imported variables, and mutable module state are unsuppor
 
 Explicitly import the bundled module with `import "std:io" as io;` and call `io::read_line(max_bytes)`. The result is the ordinary enum `io::ReadLine::Line { text: string }` / `io::ReadLine::End {}`. Preserve LF/CRLF and distinguish blank lines from EOF. Limits range from 1 to 2147483647 bytes including line endings. Read, UTF-8, limit, budget, and other errors diagnose and stop execution.
 
-Currently available through HIR/MIR/SSA/VM Rust input connection APIs. [CLI and generated C/LLVM/LLVM/QBE/Native stdin](../design/stdin-connections.en.md) are also available. [Versioned WAT input hosts](../design/wat-input-host.en.md) are also implemented. **Windows console input remains unsupported.** Standard modules are not searched through files or environment variables; emit-sources exposes their text, types can be inspected in IR, and source origins remain observable. See [resolution and execution examples](../design/standard-modules.en.md) and the [consumption/failure contract](../design/line-input.en.md).
+Currently available through HIR/MIR/SSA/VM Rust input connection APIs. [CLI and generated C/LLVM/QBE/Native stdin](../design/stdin-connections.en.md) are also available. [Versioned WAT input hosts](../design/wat-input-host.en.md) are also implemented. **Windows console input remains unsupported.** Standard modules are not searched through files or environment variables; emit-sources exposes their text, types can be inspected in IR, and source origins remain observable. See [resolution and execution examples](../design/standard-modules.en.md) and the [consumption/failure contract](../design/line-input.en.md).
 
 ### Program arguments
 
 Import `std:env` explicitly to use `env::arg_count() -> i64` and `env::arg(index: i64) -> env::Argument`. Results are `Value { text: string }` / `Missing {}`. Empty text is Value, nonnegative out-of-range indices are Missing, and negative indices stop with source diagnostics. Contents are neither normalized nor split again.
 
-HIR/MIR/SSA/VM, CLI and generated C/LLVM are supported. Values after the first CLI `--` are program arguments, excluding executable/source names. Defaults are 4096 entries and 1048576 total UTF-8 bytes; override with `--argument-count-limit` / `--argument-byte-limit` before the delimiter. Invalid Unicode, NUL and limit excess stop startup preparation. Returned strings separately obey the string-heap limit.
+HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE are supported. Values after the first CLI `--` are program arguments, excluding executable/source names. Defaults are 4096 entries and 1048576 total UTF-8 bytes; override with `--argument-count-limit` / `--argument-byte-limit` before the delimiter. Invalid Unicode, NUL and limit excess stop startup preparation. Returned strings separately obey the string-heap limit.
 
-Existing embedding APIs never read OS arguments implicitly and report unconfigured access. Inject arguments using `run_with_arguments` or related APIs. **QBE/WAT/Native connections and integer parsing remain unimplemented.** See the [contract](../design/dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
+Existing embedding APIs never read OS arguments implicitly and report unconfigured access. Inject arguments using `run_with_arguments` or related APIs. **WAT/Native connections and integer parsing remain unimplemented.** See the [contract](../design/dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
 
 ## Functions and entrypoint
 
@@ -519,7 +519,7 @@ Function names are resolved across the whole file, so a call may precede its def
 
 Top-level executable statements receive a compiler-generated entrypoint. A program may instead define `fn main() -> void`, but an explicit `main` cannot be combined with top-level executable statements. `main` takes no parameters.
 
-Function parameters and results may use `bool`, `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64`, `f32`, `f64`, `string`, named product types, and fixed arrays. Products and arrays are passed as values, so the received value and the caller's value do not share a mutable location. There is no fixed language-level parameter-count limit. Recursion and command-line arguments are not yet supported. Unsupported forms produce diagnostics instead of silently changing meaning.
+Function parameters and results may use `bool`, `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64`, `f32`, `f64`, `string`, named product types, and fixed arrays. Products and arrays are passed as values, so the received value and the caller's value do not share a mutable location. There is no fixed language-level parameter-count limit. Recursion is not yet supported. Unsupported forms produce diagnostics instead of silently changing meaning.
 
 Cerune IR and bytecode expose function IDs, parameter binding IDs, calls, and returns. Backend artifacts expose how those entities become function symbols, arguments, local storage, and ABI registers or memory. See [Function design](../design/functions.en.md) for details.
 

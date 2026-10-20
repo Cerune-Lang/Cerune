@@ -487,9 +487,9 @@ print(item.amount);
 
 `import "std:env" as env;`で`env::arg_count() -> i64`と`env::arg(index: i64) -> env::Argument`を使えます。結果は`Value { text: string }`／`Missing {}`です。空文字はValue、0以上の範囲外はMissing、負添字は位置付き診断で停止します。文字列の内容を正規化・再分割しません。
 
-HIR・MIR・SSA・VM・CLI・生成C・LLVMに対応しています。CLIの最初の`--`以後をプログラム引数とし、実行ファイル名やソース名を含めません。既定上限は4096件・UTF-8合計1048576バイトで、区切り前の`--argument-count-limit`／`--argument-byte-limit`で変更できます。不正Unicode・NUL・上限超過は起動準備で停止します。取得文字列には別途文字列ヒープ上限を適用します。
+HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBEに対応しています。CLIの最初の`--`以後をプログラム引数とし、実行ファイル名やソース名を含めません。既定上限は4096件・UTF-8合計1048576バイトで、区切り前の`--argument-count-limit`／`--argument-byte-limit`で変更できます。不正Unicode・NUL・上限超過は起動準備で停止します。取得文字列には別途文字列ヒープ上限を適用します。
 
-既存の埋込みAPIは暗黙にOS引数を読まず、引数取得時に未設定を診断します。`run_with_arguments`等で明示注入してください。**QBE・WAT・Native接続と整数読取りは未実装**です。[契約](../design/dogfooding-inputs.ja.md)・[実行例](../../examples/arguments/README.md)を参照してください。
+既存の埋込みAPIは暗黙にOS引数を読まず、引数取得時に未設定を診断します。`run_with_arguments`等で明示注入してください。**WAT・Native接続と整数読取りは未実装**です。[契約](../design/dogfooding-inputs.ja.md)・[実行例](../../examples/arguments/README.md)を参照してください。
 
 ## 関数とentry point
 
@@ -519,7 +519,7 @@ show(answer);
 
 トップレベルに実行文がある場合、compilerがentry pointを生成します。代わりに`fn main() -> void`を明示できますが、明示的な`main`とトップレベル実行文は同時に書けません。`main`はparameterを受け取れません。
 
-関数のparameterと戻り値には`bool`、`i8`、`u8`、`i16`、`u16`、`i32`、`u32`、`i64`、`u64`、`f32`、`f64`、`string`、名前付きproduct type、固定長配列を使えます。product typeと配列は値として渡されるため、関数が受け取った値と呼び出し側の値は同じ変更可能な場所を共有しません。引数の個数に言語としての固定上限は設けません。再帰とcommand-line argumentはまだサポートしません。未対応の書き方は黙って別の意味にせず、診断します。
+関数のparameterと戻り値には`bool`、`i8`、`u8`、`i16`、`u16`、`i32`、`u32`、`i64`、`u64`、`f32`、`f64`、`string`、名前付きproduct type、固定長配列を使えます。product typeと配列は値として渡されるため、関数が受け取った値と呼び出し側の値は同じ変更可能な場所を共有しません。引数の個数に言語としての固定上限は設けません。再帰はまだサポートしません。未対応の書き方は黙って別の意味にせず、診断します。
 
 Cerune IRとbytecodeでは、関数ID、parameterの束縛ID、呼び出し、戻り値を観測できます。各backendの成果物では、これらが関数シンボル、引数、ローカル領域、ABI上のレジスタやメモリへ変わった結果を観測できます。詳細は[関数の設計](../design/functions.ja.md)を参照してください。
 

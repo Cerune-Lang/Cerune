@@ -50,7 +50,7 @@ fn explicit_targets_keep_input_and_origins_visible() {
         );
         assert!(text.contains("$cerune_input_origin_"));
         assert!(text.contains("call $cerune_input_read_line(l "));
-        assert!(text.contains("function w $cerune_input_utf8("));
+        assert!(text.contains("function w $cerune_utf8("));
     }
 }
 #[test]

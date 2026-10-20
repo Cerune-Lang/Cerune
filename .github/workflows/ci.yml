@@ -143,6 +143,15 @@ jobs:
           CERUNE_TEST_NODE: node
           CERUNE_TEST_OBJDUMP: objdump
           CERUNE_TEST_OBJCOPY: objcopy
+      - name: Compare QBE program arguments
+        if: ${{ matrix.suite == 'qbe' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::qbe 2>&1 | tee target/linux-qbe-arguments.log
+        env:
+          CERUNE_TEST_QBE_CLANG: clang
+          CERUNE_TEST_CC: clang
       - name: Preserve Linux route diagnostics
         if: always()
         uses: actions/upload-artifact@v7
@@ -150,6 +159,7 @@ jobs:
           name: linux-${{ matrix.suite }}-observations
           path: |
             target/linux-${{ matrix.suite }}.log
+            target/linux-qbe-arguments.log
             target/stdin-*
           if-no-files-found: ignore
 
@@ -309,6 +319,14 @@ jobs:
           CERUNE_TEST_OBJDUMP: llvm-objdump
           CERUNE_TEST_OBJCOPY: llvm-objcopy
           CERUNE_TEST_NODE: node
+      - name: Compare QBE program arguments
+        if: ${{ matrix.suite == 'qbe' }}
+        shell: pwsh
+        run: |
+          cargo test --test standard_input program_arguments::qbe 2>&1 | Tee-Object target/windows-qbe-arguments.log
+          exit $LASTEXITCODE
+        env:
+          CERUNE_TEST_CC: clang
       - name: Preserve Windows test observations
         if: always()
         uses: actions/upload-artifact@v7
@@ -316,6 +334,7 @@ jobs:
           name: windows-${{ matrix.suite }}-observations
           path: |
             target/windows-${{ matrix.suite }}.log
+            target/windows-qbe-arguments.log
             target/qbe-windows-observations
             target/stdin-*
           if-no-files-found: ignore

@@ -12,7 +12,7 @@
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
-| 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) → [整数読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 空・欠落・書式・範囲外を区別し、引数でseedを指定するexampleを全経路で比較 | 引数取得は4実行器・CLI・生成C・LLVMに対応。QBE/WAT/Native・整数読取りは未実装 |
+| 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) → [整数読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 空・欠落・書式・範囲外を区別し、引数でseedを指定するexampleを全経路で比較 | 引数取得は4実行器・CLI・生成C・LLVM・QBEに対応。WAT/Native・整数読取りは未実装 |
 | 2 | [optional let＋fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | letの保持・表示・非表示、コメント保持、整形の冪等性と意味の一致。[infer省略等](https://github.com/Cerune-Lang/Cerune/issues/105)との整合を確認 | 同時に設計・実装する。未実装 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | 責務整理済み・未実装 |
 | 4 | [再帰](functions.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | 設計・実装はこれから |
@@ -24,7 +24,7 @@
 
 3はCeruneで書いたプログラムの配布です。処理系自体のバイナリ更新はこの順序と別に行えます。Nativeの配布初版はIR/VM Imageの完成を待たず、IR/VM向け配布は形式・検証器・loaderを別途実装します。releaseは暗黙の最適化ではありません。
 
-[固定seedの基準例](../../examples/deterministic_seed.ceru)はPR #176に追加しています。引数取得の[表示例](../../examples/arguments/README.md)は4実行器・CLI・生成C・LLVMで実行できます。QBE/WAT/Nativeと整数読取りは未実装です。Parallaxのseed指定は検証用途の一つとし、Ceruneの一般的な機能として実装します。Parallaxの独立したPython期待値計算は維持します。
+[固定seedの基準例](../../examples/deterministic_seed.ceru)はPR #176に追加しています。引数取得の[表示例](../../examples/arguments/README.md)は4実行器・CLI・生成C・LLVM・QBEで実行できます。WAT/Nativeと整数読取りは未実装です。Parallaxのseed指定は検証用途の一つとし、Ceruneの一般的な機能として実装します。Parallaxの独立したPython期待値計算は維持します。
 
 各段階で、元の非最適化表現、生成過程、入力・出力・停止理由・出自を観測できることを保ち、同じ入力を既存経路で比較します。観測APIから実行状態を変更する機能は追加しません。
 
@@ -122,7 +122,7 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | --- | --- | --- |
 | 標準出力 | `print`で値を表示できる。`run`／`run-mir`／`run-vm`は実行中に接続先へ出力し、最後にflush。収集型のRust APIも維持 | `flush();`は実装済み。C・LLVM・QBE・WAT・Nativeの書込み失敗も実装済み。質問を表示してから入力を待つ対話テストも実装済み |
 | 標準エラー | 処理系の診断に使用。プログラム用の一般的な書込みAPIはない | プログラムの出力と処理系の停止診断を区別し、書込み失敗も定義する |
-| 標準入力・引数 | io::read_lineと行／EOFのenumを4実行器・CLI・生成C・LLVM・QBE・Native、WATの版付きhostで利用可能 | Windows console対応が残る。引数は4実行器・CLI・生成C・LLVMに接続済み、他の生成経路は後続。ファイル・FFI・ネットワークは後続 |
+| 標準入力・引数 | io::read_lineと行／EOFのenumを4実行器・CLI・生成C・LLVM・QBE・Native、WATの版付きhostで利用可能 | Windows console対応が残る。引数は4実行器・CLI・生成C・LLVM・QBEに接続済み、他の生成経路は後続。ファイル・FFI・ネットワークは後続 |
 | 標準ライブラリ | std:ioとstd:envは同梱仮想ソース。型・本文・出自を観測でき、ファイル探索しない | 言語の組込み、runtimeの外部接続、Ceruneで書くライブラリを区別する |
 
 [標準入出力の設計](standard-io.ja.md)に責務と実装順を整理しました。[入力値の分岐例](../../examples/io_protocol/README.md)は実行できますが、標準入力は使いません。[行入力の契約と共通Rust接続](line-input.ja.md)を追加しました。初版は行／EOFを返し、異常時停止とします。既存enumで表現でき、汎用Resultは不要です。仮想std:ioのread_line／ReadLineを4実行器へ接続済みです。CLI/C/LLVM/QBE/Nativeの実stdin接続は[初版の範囲](stdin-connections.ja.md)で実装済み、WATの版付き入力hostは実装済み。Native入力も実装済みです。比較テストには同じ入力と制御できる出力先を使い、実環境での接続確認を分けます。record/replayや汎用effect systemの一括実装は前提にしません。

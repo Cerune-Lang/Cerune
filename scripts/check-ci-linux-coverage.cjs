@@ -51,3 +51,5 @@ assert.match(body, /matrix\.suite == 'sanitizer'/, 'sanitizer setup missing');
 assert.match(body, /CERUNE_TEST_QBE=\$GITHUB_WORKSPACE/, 'QBE must be explicitly configured');
 assert.match(body, /CERUNE_TEST_WAT2WASM_JS=\$wabt/, 'WAT must be explicitly configured');
 console.log(`Linux CI coverage: ${assigned.length} integration targets, package lib/bins/examples, two Lean suites and sanitizer`);
+
+assert.match(body, /cargo test --test standard_input program_arguments::qbe/, 'QBE arguments must run with the required QBE toolchain');

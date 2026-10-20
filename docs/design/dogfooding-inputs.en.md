@@ -2,7 +2,7 @@
 
 [日本語](dogfooding-inputs.ja.md)
 
-2026-10-20. This is the next design proposal for [#173](https://github.com/Cerune-Lang/Cerune/issues/173) and [#89](https://github.com/Cerune-Lang/Cerune/issues/89). **Argument acquisition works in HIR/MIR/SSA/VM, CLI and generated C/LLVM; QBE/WAT/Native connections and integer parsing remain unimplemented.** Existing stdin and WAT function exports remain in place.
+2026-10-20. This is the next design proposal for [#173](https://github.com/Cerune-Lang/Cerune/issues/173) and [#89](https://github.com/Cerune-Lang/Cerune/issues/89). **Argument acquisition works in HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE; WAT/Native connections and integer parsing remain unimplemented.** Existing stdin and WAT function exports remain in place.
 
 ## Smallest use
 
@@ -77,13 +77,13 @@ General string indexing is currently unavailable. Compare the necessary pure IR 
 ## Implementation units and validation
 
 1. Implemented: public declarations, snapshot and common IR connected to HIR/MIR/SSA/VM and CLI, with an argument-display example and comparison tests.
-2. Generated C/LLVM are connected. Next connect QBE/WAT/Native and compare equal argument lists. Unconnected routes must not silently use an empty list or succeed.
+2. Generated C/LLVM/QBE are connected. Next connect WAT/Native and compare equal argument lists. Unconnected routes must not silently use an empty list or succeed.
 3. Add pure integer parsing across routes and complete the argument-driven seed example.
 4. After arguments and integer parsing, follow the [core roadmap](language-roadmap.en.md): optional let + fmt, Native build/initial distribution, then recursion. Subsequently design limited file I/O and shell-free subprocess operations separately.
 
 Retain original HIR, non-SSA MIR, SSA, generated artifacts and origins throughout. Optimization, Native build and package management are not prerequisites.
 
-C Windows startup, UTF-16 conversion and limits are settled below. QBE/Native startup and limits, plus the versioned WAT host ABI, remain to be settled. Do not export WAT memory for argument transfer. C/LLVM/QBE/Native must explicitly select target-specific acquisition rather than infer it from the emitter host OS.
+C Windows startup, UTF-16 conversion and limits are settled below. Native startup and limits, plus the versioned WAT host ABI, remain to be settled. Do not export WAT memory for argument transfer. C/LLVM/QBE/Native must explicitly select target-specific acquisition rather than infer it from the emitter host OS.
 
 Regression cases include zero arguments, empty strings, Unicode, CR/LF, order, option-like text after the delimiter, invalid Unicode, exact/exceeded limits and unconfigured connections. Parsing tests cover both i64 bounds and neighboring values, syntax/range precedence, stopping behavior, omitted input text in diagnostics and observation-independent results.
 
@@ -129,7 +129,7 @@ Argument failures use arguments-v1 even with `--diagnostic-format runtime-v1`. C
 
 The [example](../../examples/arguments/README.en.md) and [comparison tests](../../tests/program_arguments/mod.rs) verify expected output, short-circuiting, function/array transfers, independent copies, prior output, stop reason/origin, and unchanged original IR.
 
-QBE/WAT/Native connections remain unimplemented and reject generation containing argument operations with source locations. Unused functions are retained, so importing std:env alone is sufficient. emit-sources/emit-ir/emit-mir/emit-bytecode remain observable; observe bundles requiring Native generation are unsupported. A chronological event log of successful accesses remains unimplemented. Connect generated routes next, then proceed to integer parsing once route support is complete.
+WAT/Native connections remain unimplemented and reject generation containing argument operations with source locations. Unused functions are retained, so importing std:env alone is sufficient. emit-sources/emit-ir/emit-mir/emit-bytecode remain observable; observe bundles requiring Native generation are unsupported. A chronological event log of successful accesses remains unimplemented. Connect generated routes next, then proceed to integer parsing once route support is complete.
 
 ## Generated C argument connection
 
@@ -147,7 +147,7 @@ The same common IR operations generate C acquisition, diagnostics and ownership 
 
 [Generated C comparisons](../../tests/program_arguments/c.rs) run at `-O0` and `-O2`, covering the example, empty/Japanese/CR/LF/combining/supplementary-plane text, quotes, option-like values, evaluation order, short-circuiting, copying and release. They also check limits, mutation of original input, unconfigured snapshots, NUL, invalid UTF-8/UTF-16 and allocation failure. Input and arguments share the same emitted UTF-8 validator.
 
-QBE/WAT/Native startup connections and limits, plus the versioned WAT host contract, follow separately. Static C helpers are not a published stable embedding ABI.
+WAT/Native startup connections and limits, plus the versioned WAT host contract, follow separately. Static C helpers are not a published stable embedding ABI.
 
 ## LLVM argument connection
 
@@ -164,4 +164,20 @@ Lower the same snapshot, ownership and diagnostic contract directly to LLVM IR. 
 
 [LLVM comparisons](../../tests/program_arguments/llvm.rs) compile both targets into objects at `-O0`/`-O2`. On supported Windows/Linux hosts they compare the same example, normal/failing inputs and prior output against four executors. macOS validates both target objects without adding a macOS LLVM execution target. Generated C arguments also run on macOS; C stdin coexistence checks its existing unsupported-connection diagnostic there.
 
-`emit-llvm` does not accept execution arguments after `--`. Pass program arguments to the linked executable. Connect QBE/WAT/Native before proceeding to integer parsing.
+`emit-llvm` does not accept execution arguments after `--`. Pass program arguments to the linked executable. Connect WAT/Native before proceeding to integer parsing.
+
+## QBE argument connection
+
+Lower common IR argument operations through dedicated QBE instructions to internal helpers. Validation, copying and release remain visible in generated IL, without going through C or LLVM.
+
+| Area | Implemented contract |
+| --- | --- |
+| Target/startup | Explicit Linux main or Windows wmain. Validate UTF-8 on Linux; strictly convert UTF-16 to UTF-8 on Windows. Validate and copy every entry according to the common contract before execution |
+| Limits | emit-qbe --argument-count-limit / --argument-byte-limit produce IL constants; defaults are 4096 entries and 1048576 bytes. Rust uses emit_qbe_with_argument_limits; existing APIs retain defaults |
+| Internal values | Snapshot entries hold a data pointer and byte length. Retrieval copies into existing length-prefixed strings and owner storage. OS conversion writes into caller-provided storage without depending on an aggregate-return ABI |
+| Failures/origins | arguments-v1 distinguishes capture/execute. Execution retains operation, index and NodeId/SourceId/Span, flushes prior output, and exits 1. Omit contents |
+| Ownership/observation | Empty values allocate nothing; ordinary ownership lowering releases retrieved strings, and normal termination releases the snapshot. Preserve common IR and expose startup, validation order, limits and ownership in IL |
+
+[QBE comparisons](../../tests/program_arguments/qbe.rs) generate assembly with QBE 1.3 amd64_sysv and amd64_win. Native Windows/Linux execution is compared with four executors and generated C, covering the example, Japanese/empty/CR/LF/combining/supplementary-plane text, short-circuiting and evaluation order, independent copies, limits, invalid inputs, allocation failures, prior output and stdin coexistence. Older Linux Clang versions reject QBE's quoted COFF section syntax; Windows object assembly and execution are therefore required in Windows CI.
+
+emit-qbe does not accept execution arguments after the delimiter. Internal helpers are not a stable embedding ABI. WAT and Native argument connections precede integer parsing.

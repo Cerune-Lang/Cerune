@@ -17,6 +17,7 @@ pub fn emit(module: &Module) -> String {
     }
     super::output::emit(module, &mut output);
     super::input::emit(module, &mut output);
+    super::arguments::emit_support(module, &mut output);
     let i64_operations = i64_operations(module);
     super::failure::emit(module, &mut output);
     if module.uses_strings {
@@ -45,7 +46,11 @@ pub fn emit(module: &Module) -> String {
         output.push('\n');
     }
 
-    output.push_str("export function w $main() {\n");
+    output.push_str(if super::arguments::used(module) {
+        "function w $cerune_program() {\n"
+    } else {
+        "export function w $main() {\n"
+    });
     output.push_str("@start\n");
     if module.target == Some(super::Target::X86_64PcWindowsMsvc) {
         // CRTの改行変換を止め、文字列と診断のバイト列をそのまま渡します。
@@ -72,6 +77,7 @@ pub fn emit(module: &Module) -> String {
     output.push_str("  ret 0\n");
     output.push_str("}\n");
 
+    super::arguments::emit_entry(module, &mut output);
     crate::codegen::output::qbe(module, &mut output);
     output
 }
@@ -405,6 +411,29 @@ fn emit_instruction(
                 output,
                 "  call $cerune_array_{name}(l {})",
                 operand(value, slots)
+            )
+            .unwrap();
+        }
+        Instruction::ArgumentCount { dest, origin } => {
+            writeln!(
+                output,
+                "  {} =l call $cerune_arguments_count(l ${})",
+                temp(*dest),
+                super::arguments::origin_name(*origin)
+            )
+            .unwrap();
+        }
+        Instruction::ArgumentGet {
+            dest,
+            index,
+            origin,
+        } => {
+            writeln!(
+                output,
+                "  {} =l call $cerune_arguments_get(l {}, l ${})",
+                temp(*dest),
+                operand(index, slots),
+                super::arguments::origin_name(*origin)
             )
             .unwrap();
         }

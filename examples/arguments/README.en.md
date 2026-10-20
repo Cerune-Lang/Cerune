@@ -23,7 +23,7 @@ end
 
 No arguments print `0` and `end`. One empty argument prints `1`, `[""]`, `0`, and `end`. Follow your shell's rules for passing empty arguments.
 
-HIR/MIR/SSA/VM, CLI and generated C/LLVM execution are supported. QBE/WAT/Native connections remain unimplemented and explicitly reject generation containing argument operations. Integer parsing is unimplemented. See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
+HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE execution are supported. WAT/Native connections remain unimplemented and explicitly reject generation containing argument operations. Integer parsing is unimplemented. See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
 
 Compare the same output through generated C. On Linux/macOS:
 
@@ -44,3 +44,14 @@ clang target/arguments.ll -o target/arguments-llvm
 ```
 
 On Windows, select `x86_64-pc-windows-msvc` and output to `target/arguments-llvm.exe`. Override limits by passing options such as `--argument-count-limit 2 --argument-byte-limit 10` to `emit-llvm`. The displayed result is the same as above.
+
+QBE 1.3 produces the same output. Generate and link for Linux:
+
+```sh
+cargo run -- emit-qbe examples/arguments/list.ceru --target x86_64-unknown-linux-gnu -o target/arguments.ssa
+qbe -t amd64_sysv -o target/arguments.s target/arguments.ssa
+clang -target x86_64-unknown-linux-gnu target/arguments.s -o target/arguments
+./target/arguments hello --ssa
+```
+
+On Windows, use `x86_64-pc-windows-msvc` for Cerune and Clang, `-t amd64_win` for QBE, and `target/arguments.exe` for the executable. Set acquisition limits explicitly with options such as `emit-qbe --argument-count-limit 2 --argument-byte-limit 10`.
