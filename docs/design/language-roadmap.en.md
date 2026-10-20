@@ -2,9 +2,33 @@
 
 [日本語](language-roadmap.ja.md)
 
-This inventory records capabilities, execution routes, and next steps as of 2026-10-18. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+This inventory records capabilities, execution routes, and next steps as of 2026-10-20. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
 The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline. This page tracks current status.
+
+## Core development order
+
+**The next implementation is program argument acquisition ([#174](https://github.com/Cerune-Lang/Cerune/issues/174)).** Extend Cerune in this order so programs can use external values to select computations, then save and reuse results.
+
+| Order | Work | First usable outcome | Status |
+| --- | --- | --- | --- |
+| 1 | [Program arguments](https://github.com/Cerune-Lang/Cerune/issues/174) → [integer parsing](https://github.com/Cerune-Lang/Cerune/issues/175) | Distinguish empty/missing values, invalid syntax and range errors; compare a seed-argument example across routes | Proposed design; unimplemented |
+| 2 | [Optional let + fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | Preserve/show/hide let, retain comments, and verify formatting idempotence and semantics; align with [infer omission and related syntax](https://github.com/Cerune-Lang/Cerune/issues/105) | Design and implement together; unimplemented |
+| 3 | [Native build and initial distribution](https://github.com/Cerune-Lang/Cerune/issues/81) | Build an executable with explicit target/linker; distribute dependencies, execution requirements, and origins | Responsibilities outlined; unimplemented |
+| 4 | [Recursion](functions.en.md) | Align per-call storage, ownership/cleanup, limits, failure diagnostics, call stacks and origins across routes | Design and implementation pending |
+| 5 | Limited file I/O → subprocess operations ([#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)) | Save/reload first, then explicit shell-free execution and output/exit-status collection; define resources, capacity/time limits, and failures | Follow-up design; unimplemented |
+
+This implementation order was agreed on 2026-10-20. In step 1, complete argument acquisition across routes, then add pure integer parsing and the seed-argument example. Resolve public names, limits, and connection contracts in the [proposal](dogfooding-inputs.en.md); use small standard modules without requiring generic Option/Result or package management.
+
+Add optional let and fmt together in step 2. Preserve types, mutability, and evaluation order, and keep original and formatted sources observable with their respective source locations. Recursion need not wait for file I/O; start with independent call frames, including WAT temporary storage.
+
+Step 3 distributes programs written in Cerune. Compiler binary updates can proceed separately. Initial Native distribution does not wait for IR/VM Images; those routes require separate format, validator, and loader work. Release does not imply optimization.
+
+The [fixed-seed baseline example](../../examples/deterministic_seed.ceru) is added in PR #176. Argument acquisition and integer parsing are not implemented. Parallax seed selection is one validation use case for general Cerune features. Retain Parallax's independent Python oracle.
+
+At each step, preserve observation of original unoptimized forms, transformations, inputs, outputs, stop reasons, and origins; compare identical inputs across existing routes. Observation APIs must not mutate execution state.
+
+Organization repository responsibilities and progress have a [separate inventory](ecosystem.en.md). Finishing surrounding tools, websites, or experiments is not a prerequisite for these language additions.
 
 ## Properties Cerune should preserve
 
@@ -59,30 +83,36 @@ Language features are tracked separately from compiler stages, distribution, and
 | Distributed | Compiler binaries v0.1.0 | Published for Windows x64, Linux x64/arm64, and macOS x64/arm64. Separate from Cerune program build/release and a Darwin Native backend |
 | Planned, unimplemented | [IR/VM/Native build / release](owned-routes.en.md) | Follow [#81](https://github.com/Cerune-Lang/Cerune/issues/81), keeping completed artifacts and distribution separate from optimization |
 
-## Proposed priorities
+## Implementation order, technical dependencies, and later candidates
 
-Pause SSA expansion after construction, direct execution, Native lowering, and finite-fixture Lean verification. Retain the [constant-folding design](ssa-constant-folding.en.md) and baseline examples, but defer pass implementation. Keep baseline MIR, explicit SSA selection, existing observations, and comparison tests.
+The opening table sets development priorities. Technical prerequisites are listed below. Features outside that sequence, such as array growth, do not yet have an assigned implementation order.
 
-Prioritize the programs users can write and the artifacts they can use. This is a work priority, not a chain in which every item requires the previous one to finish.
-
-| Priority | Work and current status | Initial completion criteria |
+| Start condition | Work and status | Completion criteria and decisions |
 | --- | --- | --- |
-| Completed milestone | [LIR observation, validation, and executor decision](lir-observation.en.md) ([#123](https://github.com/Cerune-Lang/Cerune/issues/123)) | Baseline/SSA LIR display, saving, structural validation, and example comparisons implemented. Defer the executor and return to the next language feature |
-| Implemented feature | [Dynamic-array `array_repeat`](owned-arrays.en.md) ([#122](https://github.com/Cerune-Lang/Cerune/issues/122)) | Runtime counts, zero/negative counts, evaluation order, budget failures, and independent nested copies implemented; examples, observable lowering, and existing-route comparisons added |
-| Complete | Documentation/issue consistency ([#130](https://github.com/Cerune-Lang/Cerune/issues/130)) | Separate current status from historical audits; automate local-link and translation-pair checks |
-| Complete | String-heap owner validation ([#134](https://github.com/Cerune-Lang/Cerune/issues/134)) | Reject another heap’s value even with the same ID; failed retain/release must preserve ownership counts, live bytes, and contents. Reachability from ordinary source remains unconfirmed |
-| Initial scope complete | [Standard I/O](standard-io.en.md) ([#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104)) | Output, flush, and line input in four executors; CLI/C/LLVM/QBE/WAT/Native connections, failure and dialogue tests implemented. Windows console and shared generated-route success records remain follow-up work |
-| 1: complete | [Floating-point rounding](float-rounding.en.md) ([#156](https://github.com/Cerune-Lang/Cerune/issues/156)) | Merged in PR #163. Minimal cases, bits, and assembly isolate FMA; generated C controls Clang/GCC contraction with regression tests |
-| 2: initial scope implemented | [Compiler input limits](frontend-limits.en.md) ([#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135)) | Diagnose syntax/expression depth and per-file/total-byte/file-count excess. Iterative import traversal preserves order. Other #153 isolation/C/CI candidates remain |
-| 3: initial decision and implementation complete | [Input capacity measurements](input-memory.en.md). Line-input allocation capacity and memory limits ([#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133)) | Capacity, accounted bytes, and release measured across routes; the same example output compared. [Rust/C/LLVM/QBE/Native compaction](input-compaction.en.md) implemented; [WAT policy comparisons](wat-input-storage.en.md) support retaining existing reuse without adopting splitting/coalescing. Broader memory work remains in #133 |
-| 4: i32/f64 exports implemented | [Typed calls from JS/TS](typed-host-calls.en.md) ([#161](https://github.com/Cerune-Lang/Cerune/issues/161)) | [WAT library API](wat-library.en.md) retains declarations, selects and validates exports, and emits i32/f64 wrappers with observable IR/conversions. [Checked JS/TS generation](wat-js-bindings.en.md) and an HTML example are also implemented |
-| 5 | Small standard library. [Virtual std:io](standard-modules.en.md) resolution and line input are implemented | Select text/numeric parsing needed by examples. Separate Cerune functions from runtime operations; do not require generic Option/Result or package management first |
-| Independently actionable | [Native build](owned-routes.en.md). Responsibilities outlined; CLI/link management unimplemented | An executable is the proposed first artifact. Define explicit target, external linker, dependencies, failures, and observation records; build/link current examples and compare with IR/VM |
-| After stable build | IR/VM Images and release for three routes. Unimplemented | Validate versions, types, references, ownership, and budgets before loading; compare saved/reloaded execution. As each route's artifact stabilizes, verify distribution contents, compatibility, and failure origins |
-| Later | Recursion, array growth/borrowing, more string operations, module distribution | Design call storage/limits/cleanup, borrowing lifetimes/mutation, re-exports, dependency versions, and reproducibility around actual uses |
+| Priority 3; technically independent | [Native build](owned-routes.en.md). Responsibilities outlined; CLI/link management unimplemented | An executable is the proposed first artifact. Define explicit target, external linker, dependencies, failures, and observation records; build/link current examples and compare with IR/VM |
+| After each artifact stabilizes | IR/VM Images and per-route release; initial Native distribution is priority 3. Unimplemented | Validate versions, types, references, ownership, and budgets before loading; compare saved/reloaded execution. As each route's artifact stabilizes, verify distribution contents, compatibility, and failure origins |
+| Later; order undecided | Array growth/borrowing, more string operations, module distribution | Design borrowing lifetimes/mutation, re-exports, dependency versions, and reproducibility around actual uses |
 | Deferred/experimental | Optimization passes, broader proofs, added AST/LIR execution, GPU/FPGA | Resume for concrete needs; these do not gate language features, I/O, or build |
 
 Native build can serve current programs without new input or standard-library features. `array_repeat` is implemented. The new investigations do not all become prerequisites for I/O. Release is not another name for optimization. Do not treat observation text as a runnable artifact by bypassing IR/VM Image validation.
+
+Pause SSA expansion after construction, direct execution, Native lowering, and finite-fixture Lean verification. Retain the [constant-folding design](ssa-constant-folding.en.md) and baseline examples, but defer pass implementation. Keep baseline MIR, explicit SSA selection, existing observations, and comparison tests.
+
+## Completed milestones
+
+These items are not the next work queue. Completing an initial scope does not close the entire issue; remaining work is recorded below and in the issue inventory.
+
+| Status | Work | Completed scope and remaining work |
+| --- | --- | --- |
+| Complete | [LIR observation, validation, and executor decision](lir-observation.en.md) ([#123](https://github.com/Cerune-Lang/Cerune/issues/123)) | Baseline/SSA LIR display, saving, structural validation, and example comparisons implemented. Defer the executor and return to the next language feature |
+| Implemented | [Dynamic-array `array_repeat`](owned-arrays.en.md) ([#122](https://github.com/Cerune-Lang/Cerune/issues/122)) | Runtime counts, zero/negative counts, evaluation order, budget failures, and independent nested copies implemented; examples, observable lowering, and existing-route comparisons added |
+| Complete | Documentation/issue consistency ([#130](https://github.com/Cerune-Lang/Cerune/issues/130)) | Separate current status from historical audits; automate local-link and translation-pair checks |
+| Complete | String-heap owner validation ([#134](https://github.com/Cerune-Lang/Cerune/issues/134)) | Reject another heap’s value even with the same ID; failed retain/release must preserve ownership counts, live bytes, and contents. Reachability from ordinary source remains unconfirmed |
+| Initial scope complete | [Standard I/O](standard-io.en.md) ([#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104)) | Output, flush, and line input in four executors; CLI/C/LLVM/QBE/WAT/Native connections, failure and dialogue tests implemented. Windows console and shared generated-route success records remain follow-up work |
+| Complete | [Floating-point rounding](float-rounding.en.md) ([#156](https://github.com/Cerune-Lang/Cerune/issues/156)) | Merged in PR #163. Minimal cases, bits, and assembly isolate FMA; generated C controls Clang/GCC contraction with regression tests |
+| Initial scope implemented | [Compiler input limits](frontend-limits.en.md) ([#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135)) | Diagnose syntax/expression depth and per-file/total-byte/file-count excess. Iterative import traversal preserves order. Other #153 isolation/C/CI candidates remain |
+| Initial decision and implementation complete | [Input capacity measurements](input-memory.en.md). Line-input allocation capacity and memory limits ([#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133)) | Capacity, accounted bytes, and release measured across routes; the same example output compared. [Rust/C/LLVM/QBE/Native compaction](input-compaction.en.md) implemented; [WAT policy comparisons](wat-input-storage.en.md) support retaining existing reuse without adopting splitting/coalescing. Broader memory work remains in #133 |
+| i32/f64 exports implemented | [Typed calls from JS/TS](typed-host-calls.en.md) ([#161](https://github.com/Cerune-Lang/Cerune/issues/161)) | [WAT library API](wat-library.en.md) retains declarations, selects and validates exports, and emits i32/f64 wrappers with observable IR/conversions. [Checked JS/TS generation](wat-js-bindings.en.md) and an HTML example are also implemented |
 
 ### Standard I/O and standard-library status
 
@@ -103,25 +133,26 @@ Existing foundations are [common failure records](runtime-diagnostics.en.md), [f
 
 This is not a commitment to implement everything together. GPU experiments need not await every stage. Inheritance, implicit shared mutable references, automatic GPU dispatch, and general async facilities are not prioritized without evidence from current examples.
 
-### Current issue inventory
+## Issue inventory and remaining work
 
-On 2026-10-18, 19 open issues and recent merges were checked. The table records priorities and purposes; investigation issues are not confirmed defects.
+On 2026-10-20, 17 open issues, recent merges and Organization progress were checked; argument acquisition #174 and integer parsing #175 were split out (19 open issues afterward). This table records remaining core work and recent completions; use the opening table for implementation order. Investigation issues are not confirmed defects.
 
 | Issues | Purpose | Next work and limits |
 | --- | --- | --- |
 | [#156](https://github.com/Cerune-Lang/Cerune/issues/156) | Floating-point semantic consistency | Completed in PR #163: Clang/GCC controls, example, regression tests, and bilingual contract. CI including macOS passed |
-| [#161](https://github.com/Cerune-Lang/Cerune/issues/161) | Typed calls from JS/TS | Priority 4. [WAT library Rust API](wat-library.en.md) implemented; [generated checked JS/TS](wat-js-bindings.en.md) and an HTML example are also implemented; assess additional types and IR/VM exposure against real uses |
+| [#161](https://github.com/Cerune-Lang/Cerune/issues/161) | Typed calls from JS/TS | Initial scope implemented. [WAT library Rust API](wat-library.en.md) implemented; [generated checked JS/TS](wat-js-bindings.en.md) and an HTML example are also implemented; assess additional types and IR/VM exposure against real uses |
 | [#130](https://github.com/Cerune-Lang/Cerune/issues/130) | Documentation consistency | Merged in PR #136: old URLs, licensing, historical audits, and bilingual pairs |
 | [#134](https://github.com/Cerune-Lang/Cerune/issues/134) | String ownership correctness | Merged in PR #137: validate heap membership/owner counts before mutation, separately from performance |
-| [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | Standard I/O and effect comparisons | Output connections merged. Explicit flush implemented; C/LLVM/QBE/WAT/Native write failures also implemented; virtual std:io, line input, and ownership connected to four executors; CLI/C/LLVM/QBE/Native stdin and dialogue tests added; versioned WAT input hosts implemented; Native input implemented. Shared successful-operation records remain follow-up work |
+| [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | Standard I/O and effect comparisons | Output connections merged. Explicit flush implemented; C/LLVM/QBE/WAT/Native write failures also implemented; virtual std:io, line input, and ownership connected to four executors; CLI/C/LLVM/QBE/Native stdin and dialogue tests added; versioned WAT input hosts implemented; Native input implemented. Next are argument acquisition (#174) and integer parsing (#175). Shared successful-operation records remain follow-up work |
 | [#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135) | Parser and source-loading bounds | Initial scope implemented: common frontend diagnostics, bounded subprocess and CLI boundary checks. Import isolation, generated C, and CI candidates remain separate |
-| [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | Generated well-typed differential tests | Start with fixed seeds, finite execution, and known expectations; separate from parser and internal-API checks |
-| [#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | Input capacity and memory measurement | Priority 3. Distinguish memory limit, capacity, RSS, and WAT pages. Measure large limits with short input; do not claim unconfirmed leaks or regressions |
+| [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | Generated well-typed differential tests | [Parallax](ecosystem.en.md) implements fixed seeds, expressions, branches, loops, arrays and IR/MIR/VM comparisons against independent expectations. SSA, compiled routes and general origin comparison remain |
+| [#173](https://github.com/Cerune-Lang/Cerune/issues/173) / [#174](https://github.com/Cerune-Lang/Cerune/issues/174) / [#175](https://github.com/Cerune-Lang/Cerune/issues/175) | Select missing capabilities from real uses | [Responsibility inventory and argument design](dogfooding-inputs.en.md). Arguments/parsing are priority 1; fmt, Native distribution, and recursion precede file I/O/subprocesses at priority 5. Retain the independent Python oracle |
+| [#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | Input capacity and memory measurement | Initial measurements and policy decisions are complete. Distinguish memory limit, capacity, RSS, and WAT pages. Measure large limits with short input; do not claim unconfirmed leaks or regressions |
 | [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | Actions Node.js warning | Completed in PR #157. Distinguish action-runtime Node 24 from WAT-test Node 20.20.2 |
-| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release and route responsibilities | Native build can start independently; then Image validation/distribution. show/via/optional backends await use cases and detailed design |
+| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release and route responsibilities | Priority 3 covers Native build and initial distribution. IR/VM Image formats, validation, and loading follow separately. show/via/optional backends await use cases and detailed design |
 | [#60](https://github.com/Cerune-Lang/Cerune/issues/60) / [#94](https://github.com/Cerune-Lang/Cerune/issues/94) | Observation, transformations, proofs | Partly complete through SSA/LIR observation. More bundled artifacts, general proofs, and optimization remain; preserve unoptimized forms |
 | [#88](https://github.com/Cerune-Lang/Cerune/issues/88) | Integer arithmetic policies | Keep checked arithmetic; prioritize demonstrated wrapping uses. Define saturation, overflow reporting, widening, bit discard, and division separately |
-| [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | Longer-program syntax | Align optional let and omitted infer, then else if. Design conditional semantics, formatter, and for coverage separately |
+| [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | Longer-program syntax | Priority 2 adds optional let and fmt together; align with infer omission, then else if. Design conditional semantics and for coverage separately |
 | [#92](https://github.com/Cerune-Lang/Cerune/issues/92) | QBE Windows | Retain workaround; revalidate against official upstream changes. Preserve the research branch unmerged |
 | [#103](https://github.com/Cerune-Lang/Cerune/issues/103) / [#118](https://github.com/Cerune-Lang/Cerune/issues/118) | Code organization and observation artifacts | Refactor affected responsibilities; distinguish local records from public fixtures and review shared source/path/environment data |
 | [#93](https://github.com/Cerune-Lang/Cerune/issues/93) | FPGA | Investigate another realization of the same IR semantics; not a prerequisite for language features |

@@ -46,6 +46,12 @@ cargo run --quiet -- emit-bytecode examples/linear_regression.ceru
 cargo run --quiet -- emit-c examples/linear_regression.ceru
 ```
 
+## Reproduce a fixed seed
+
+[deterministic_seed.ceru](deterministic_seed.ceru) reproduces integer sequences using i64 arithmetic. Seed 1 begins with 48271, 182605794 and 1291394886. It also checks zero/maximum seeds and zero iterations.
+
+Run `cargo run --quiet -- run examples/deterministic_seed.ceru`. Seeds are source constants, not CLI arguments or OS randomness. This is the baseline for the [argument design](../docs/design/dogfooding-inputs.en.md).
+
 ## Find examples by type
 
 The tables cover numeric ranges and representative uses. `infer` requests type inference rather than naming a value type; `void` means a function returns no value. See [floating_point.ceru](floating_point.ceru) and [functions.ceru](functions.ceru).

@@ -485,3 +485,19 @@ fn xor_neural_network_example_runs() {
         )
     );
 }
+
+#[test]
+fn deterministic_seed_has_known_results_across_executors() {
+    use cerune_lang::{compile_to_ir, ir, ir_executor, mir, mir_executor, ssa_executor};
+    let source = include_str!("../examples/deterministic_seed.ceru");
+    let expected = "seed=0\n0\n0\n0\nseed=1\n48271\n182605794\n1291394886\nseed=1337\n64538327\n1478294467\n18110394\nseed=2147483646\n2147435376\n1964877853\n856088761\ncount=0\n";
+    assert_eq!(run_both(source).unwrap(), expected);
+    let hir = compile_to_ir(source).unwrap();
+    let before = ir::text::emit(&hir);
+    let mir = mir::lower(&hir).unwrap();
+    let ssa = mir::ssa::construct(&mir).unwrap();
+    assert_eq!(mir_executor::run(&mir).unwrap(), expected);
+    assert_eq!(ssa_executor::run(&ssa).unwrap(), expected);
+    assert_eq!(ir_executor::run(&hir).unwrap(), expected);
+    assert_eq!(ir::text::emit(&hir), before);
+}
