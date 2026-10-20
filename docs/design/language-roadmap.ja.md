@@ -6,6 +6,25 @@
 
 [以前の監査記録](development-status.ja.md)は2026-10-11時点の履歴です。現在の状態はこのページで管理します。
 
+## 本体の開発順
+
+**次に実装するのはプログラム引数の取得（[#174](https://github.com/Cerune-Lang/Cerune/issues/174)）です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
+
+| 順序 | 作業 | 最初に使えるようにすること | 状態 |
+| --- | --- | --- | --- |
+| 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) | 実行時に渡した文字列を取得。空文字・欠落・上限・出自を区別 | 設計案あり・未実装 |
+| 2 | [文字列から整数の読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 入力形式と範囲外を区別し、引数でseedを指定する実行例を完成 | 設計案あり・未実装 |
+| 3 | 限定的なファイル入出力（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 入力や生成結果を保存・再読込み。対象・上限・失敗を明示 | 後続設計・未実装 |
+| 4 | 子プロセス操作（#173） | 明示したプログラムを実行し、出力・終了状態を回収。時間上限と失敗を定義 | 後続設計・未実装 |
+
+これは着手順です。整数読取り自体は純粋な操作として設計し、引数取得と組み合わせたexampleを2の区切りにします。[引数と整数の読取りの設計案](dogfooding-inputs.ja.md)では小さな標準モジュールを検討し、汎用Option/Resultやパッケージ管理を前提にしません。API名・詳細な上限などの未決事項は実装前に確定します。
+
+[固定seedの基準例](../../examples/deterministic_seed.ceru)はPR #176に追加しています。引数取得・整数読取りはまだ実装していません。Parallaxのseed指定は検証用途の一つとし、Ceruneの一般的な機能として実装します。Parallaxの独立したPython期待値計算は維持します。
+
+各段階で、元の非最適化表現、生成過程、入力・出力・停止理由・出自を観測できることを保ち、同じ入力を既存経路で比較します。観測APIから実行状態を変更する機能は追加しません。
+
+Organization内の各リポジトリの責務・進捗は[別の一覧](ecosystem.ja.md)で管理します。周辺ツール・サイトの整備や実験の完了を、上記の機能追加の前提にはしません。
+
 ## Ceruneが持つべき性質
 
 Ceruneでは、書いた計算の意味と、それが実行される表現へ変わる過程を説明できることを優先します。機能を増やす際も、次を維持します。
@@ -59,30 +78,36 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 | 配布済み | コンパイラのバイナリ v0.1.0 | Windows x64、Linux x64/arm64、macOS x64/arm64向けに公開。Ceruneプログラムのbuild/releaseやDarwin Native backendの実装とは別 |
 | 計画・未実装 | [IR・VM・Nativeのbuild / release](owned-routes.ja.md) | [#81](https://github.com/Cerune-Lang/Cerune/issues/81)の責務整理を基準に、完成成果物・配布を最適化と分ける |
 
-## 次に持つべきもの：提案する順序
+## 独立して進められる作業と後続候補
 
-SSAは構築・直接実行・Nativeへの変換・有限例のLean検証までで一区切りにします。[定数畳み込み](ssa-constant-folding.ja.md)は設計と基準exampleを保存し、passの実装は当面の優先作業から外します。非最適化MIR、明示的なSSA選択、既存の観測と比較テストは維持します。
+本体の機能追加とは別に、完成成果物の構築を進められます。さらに先の言語機能は、具体的な用途と必要な契約を確認して順序を決めます。
 
-利用者が書ける処理を増やすことと、完成成果物を使えることを優先します。以下は作業の優先順であり、全項目が直前の完了を必要とするわけではありません。
-
-| 優先 | 作業・現在の状態 | 最初の完了条件 |
+| 着手条件 | 作業・現在の状態 | 完了条件・判断すること |
 | --- | --- | --- |
-| 完了した区切り | [LIR観測・構造検証と直接実行の採否](lir-observation.ja.md)（[#123](https://github.com/Cerune-Lang/Cerune/issues/123)） | 基準／SSA経由のLIR表示・保存・構造検証とexample比較を実装。直接実行器は保留し、次の言語機能へ戻る |
-| 実装した機能 | [動的配列の `array_repeat`](owned-arrays.ja.md)（[#122](https://github.com/Cerune-Lang/Cerune/issues/122)） | 実行時の個数、0個・負の個数、評価順、予算超過、入れ子の独立コピーを実装。example・生成過程・既存経路の比較テストを追加 |
-| 完了 | 文書とIssueの整合性（[#130](https://github.com/Cerune-Lang/Cerune/issues/130)） | 現行状態と監査履歴を分離し、リンク・日英ペアを自動確認する |
-| 完了 | 文字列ヒープの所有者検証（[#134](https://github.com/Cerune-Lang/Cerune/issues/134)） | 同じIDでも異なるヒープの値を拒否し、retain/release失敗で所有数・liveバイト数・内容を変えない。通常のソースからの再現は未確認 |
-| 完了した初版 | [標準入出力](standard-io.ja.md)（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104)） | 4実行器の出力・flush・行入力と、CLI/C/LLVM/QBE/WAT/Nativeの接続・失敗・対話試験を実装。Windows consoleや生成経路の成功操作の共通記録は後続 |
-| 1：完了 | [浮動小数点の丸め](float-rounding.ja.md)（[#156](https://github.com/Cerune-Lang/Cerune/issues/156)） | PR #163で統合。最小例・ビット列・生成ASMでFMA差分を確認し、Clang/GCCの生成Cへ収縮禁止と回帰テストを追加 |
-| 2：初版実装 | [コンパイル入力の上限](frontend-limits.ja.md)（[#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135)） | 構文・式の深さ、個別／合計バイト数、ファイル数を診断。import探索は順序を保って反復化。#153の隔離・C・CI候補は残件 |
-| 3：初版の判断・実装済み | [入力容量の測定](input-memory.ja.md)。行入力の確保容量とメモリ上限（[#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133)） | 全経路で容量・使用バイト数・解放を測定し、同じexampleの出力を比較。[Rust/C/LLVM/QBE/Nativeの縮小](input-compaction.ja.md)を実装。[WATの比較](wat-input-storage.ja.md)で分割・再結合は導入せず、既存の再利用を維持と判断。広いメモリ調査は#133へ |
-| 4：i32/f64公開実装済み | [JS/TSから型付き関数を呼ぶ](typed-host-calls.ja.md)（[#161](https://github.com/Cerune-Lang/Cerune/issues/161)） | [WATライブラリAPI](wat-library.ja.md)で宣言保持・明示選択・全体検査・i32/f64 wrapperを実装。元IRと型変換を観測可能。[検査付きJS/TS生成](wat-js-bindings.ja.md)とHTML例も実装済み |
-| 5：次の設計 | [引数と整数の読取り](dogfooding-inputs.ja.md)（[#173](https://github.com/Cerune-Lang/Cerune/issues/173) / #89） | Parallaxの固定seedを引数で指定する。固定seedの基準exampleは実装済み。引数取得・純粋な整数読取り・全経路比較は未実装。小さな標準モジュールとして設計し、汎用Option/Resultやパッケージ管理を前提にしない |
 | 独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
 | build安定後 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
 | 後続 | 再帰、配列の成長・借用、文字列操作の拡張、モジュール配布 | 再帰の呼出し領域・上限・終了処理、借用の寿命・更新規則、再export・依存の版・再現性を用途ごとに設計する |
 | 保留・実験 | 最適化pass、証明範囲の拡張、AST／LIR直接実行の追加、GPU／FPGA | 具体的な必要性から再開。言語機能・入出力・buildの着手条件にはしない |
 
 Native buildは新しい入力や標準ライブラリがなくても、現在のプログラムを対象に進められます。`array_repeat`は実装済みです。新しい調査課題をすべて入出力の前提にはしません。releaseは最適化の別名ではありません。IR/VMのImage検証を省略して、観測テキストを実行可能な完成品と扱うこともしません。
+
+SSAは構築・直接実行・Nativeへの変換・有限例のLean検証までで一区切りにします。[定数畳み込み](ssa-constant-folding.ja.md)は設計と基準exampleを保存し、passの実装は当面の優先作業から外します。非最適化MIR、明示的なSSA選択、既存の観測と比較テストは維持します。
+
+## 完了した区切り
+
+以下は次の着手順には数えません。「初版完了」はIssue全体の完了を意味せず、残件は各行とIssue一覧で管理します。
+
+| 状態 | 作業 | 到達点・残件 |
+| --- | --- | --- |
+| 完了 | [LIR観測・構造検証と直接実行の採否](lir-observation.ja.md)（[#123](https://github.com/Cerune-Lang/Cerune/issues/123)） | 基準／SSA経由のLIR表示・保存・構造検証とexample比較を実装。直接実行器は保留し、次の言語機能へ戻る |
+| 実装済み | [動的配列の `array_repeat`](owned-arrays.ja.md)（[#122](https://github.com/Cerune-Lang/Cerune/issues/122)） | 実行時の個数、0個・負の個数、評価順、予算超過、入れ子の独立コピーを実装。example・生成過程・既存経路の比較テストを追加 |
+| 完了 | 文書とIssueの整合性（[#130](https://github.com/Cerune-Lang/Cerune/issues/130)） | 現行状態と監査履歴を分離し、リンク・日英ペアを自動確認する |
+| 完了 | 文字列ヒープの所有者検証（[#134](https://github.com/Cerune-Lang/Cerune/issues/134)） | 同じIDでも異なるヒープの値を拒否し、retain/release失敗で所有数・liveバイト数・内容を変えない。通常のソースからの再現は未確認 |
+| 初版完了 | [標準入出力](standard-io.ja.md)（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104)） | 4実行器の出力・flush・行入力と、CLI/C/LLVM/QBE/WAT/Nativeの接続・失敗・対話試験を実装。Windows consoleや生成経路の成功操作の共通記録は後続 |
+| 完了 | [浮動小数点の丸め](float-rounding.ja.md)（[#156](https://github.com/Cerune-Lang/Cerune/issues/156)） | PR #163で統合。最小例・ビット列・生成ASMでFMA差分を確認し、Clang/GCCの生成Cへ収縮禁止と回帰テストを追加 |
+| 初版実装済み | [コンパイル入力の上限](frontend-limits.ja.md)（[#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135)） | 構文・式の深さ、個別／合計バイト数、ファイル数を診断。import探索は順序を保って反復化。#153の隔離・C・CI候補は残件 |
+| 初版の判断・実装済み | [入力容量の測定](input-memory.ja.md)。行入力の確保容量とメモリ上限（[#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133)） | 全経路で容量・使用バイト数・解放を測定し、同じexampleの出力を比較。[Rust/C/LLVM/QBE/Nativeの縮小](input-compaction.ja.md)を実装。[WATの比較](wat-input-storage.ja.md)で分割・再結合は導入せず、既存の再利用を維持と判断。広いメモリ調査は#133へ |
+| i32/f64公開実装済み | [JS/TSから型付き関数を呼ぶ](typed-host-calls.ja.md)（[#161](https://github.com/Cerune-Lang/Cerune/issues/161)） | [WATライブラリAPI](wat-library.ja.md)で宣言保持・明示選択・全体検査・i32/f64 wrapperを実装。元IRと型変換を観測可能。[検査付きJS/TS生成](wat-js-bindings.ja.md)とHTML例も実装済み |
 
 ### 標準入出力と標準ライブラリの現状
 
@@ -103,21 +128,21 @@ Native buildは新しい入力や標準ライブラリがなくても、現在�
 
 この表は一括実装の約束ではありません。GPU実験は上記すべての完了を前提にしません。継承、暗黙の共有可変参照、自動GPU振り分け、汎用非同期処理は、現在の例から必要性が確認できていないため先行させません。
 
-### 現在のIssue一覧
+## Issue一覧と残件
 
-2026-10-20にopenの17件と直近の統合、Organizationの進捗を確認し、引数取得#174・整数読取り#175を分割しました（分割後19件）。以下は優先度と目的の整理です。調査Issueを確認済みの不具合として扱いません。
+2026-10-20にopenの17件と直近の統合、Organizationの進捗を確認し、引数取得#174・整数読取り#175を分割しました（分割後19件）。以下は本体の残件と直近の完了履歴です。着手順は冒頭の表を基準にします。調査Issueを確認済みの不具合として扱いません。
 
 | Issue | 目的 | 進め方・残件 |
 | --- | --- | --- |
 | [#156](https://github.com/Cerune-Lang/Cerune/issues/156) | 浮動小数点の意味の一致 | PR #163で完了。Clang/GCCの収縮対策、example・回帰テスト・日英契約を追加。macOSを含むCI成功 |
-| [#161](https://github.com/Cerune-Lang/Cerune/issues/161) | JS/TSの型付き関数呼出し | 優先4。[WATライブラリのRust API](wat-library.ja.md)を実装。[検査付きJS/TS生成](wat-js-bindings.ja.md)・HTML例も実装済み。追加型・IR/VMのJS公開は実用途を見て判断 |
+| [#161](https://github.com/Cerune-Lang/Cerune/issues/161) | JS/TSの型付き関数呼出し | 初版実装済み。[WATライブラリのRust API](wat-library.ja.md)を実装。[検査付きJS/TS生成](wat-js-bindings.ja.md)・HTML例も実装済み。追加型・IR/VMのJS公開は実用途を見て判断 |
 | [#130](https://github.com/Cerune-Lang/Cerune/issues/130) | 文書整合性 | PR #136で統合済み。旧URL・ライセンス・監査履歴・日英ペアを点検 |
 | [#134](https://github.com/Cerune-Lang/Cerune/issues/134) | 文字列所有の正しさ | PR #137で統合済み。内部APIの所属・所有数を変更前に検証。性能改善とは分ける |
-| [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | 標準入出力と副作用比較 | 出力接続は統合済み。明示flushを実装。C・LLVM・QBE・WAT・Nativeの書込み失敗も実装。仮想std:io・行入力・所有を4実行器へ接続。CLI/C/LLVM/QBE/Nativeの実stdin・対話テストを追加。WATの版付き入力hostも実装済み。Native入力も実装済み。次は実例で必要になった小さな標準ライブラリを選ぶ。生成経路の成功操作の共通記録は後続 |
+| [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | 標準入出力と副作用比較 | 出力接続は統合済み。明示flushを実装。C・LLVM・QBE・WAT・Nativeの書込み失敗も実装。仮想std:io・行入力・所有を4実行器へ接続。CLI/C/LLVM/QBE/Nativeの実stdin・対話テストを追加。WATの版付き入力hostも実装済み。Native入力も実装済み。次は#174の引数取得、#175の整数読取りへ進む。生成経路の成功操作の共通記録は後続 |
 | [#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135) | Parserとソース読込みの上限 | 初版を実装。共通frontendで超過を診断し、子プロセスとCLIの境界を検証。import隔離・生成C・CIの他候補は別段階 |
 | [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | 型付きプログラムの差分検証 | [Parallax](ecosystem.ja.md)で固定seed・式・分岐・反復・配列、IR/MIR/VMと独立期待値の比較を実装。SSA・生成経路・一般の出自比較は残件 |
 | [#173](https://github.com/Cerune-Lang/Cerune/issues/173) / [#174](https://github.com/Cerune-Lang/Cerune/issues/174) / [#175](https://github.com/Cerune-Lang/Cerune/issues/175) | 利用例から不足機能を選ぶ | [担当処理の棚卸しと引数設計](dogfooding-inputs.ja.md)。引数→数値読取り→限定ファイルI/O→子プロセスの順。Pythonの独立期待値を維持 |
-| [#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | 入力容量とメモリ測定 | 優先3。メモリ上限と確保容量・RSS・WATページを区別。大きな上限と短い入力を測定し、未確認の漏えい・退行を断定しない |
+| [#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | 入力容量とメモリ測定 | 初版の測定・判断は完了。メモリ上限と確保容量・RSS・WATページを区別。大きな上限と短い入力を測定し、未確認の漏えい・退行を断定しない |
 | [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | ActionsのNode.js警告 | PR #157で完了。Actionの実行用Node 24とWATテスト用Node 20.20.2を区別 |
 | [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release・経路の責務 | Native buildは独立着手可。Image検証・配布へ進む。show／via／optional backendは用途と詳細設計待ち |
 | [#60](https://github.com/Cerune-Lang/Cerune/issues/60) / [#94](https://github.com/Cerune-Lang/Cerune/issues/94) | 観測・変換・証明 | SSA・LIR観測まで部分完了。未収録の成果物・一般の証明・最適化は残件。非最適化表現を維持 |
