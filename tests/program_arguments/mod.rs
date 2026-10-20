@@ -1,6 +1,7 @@
 mod c;
 mod llvm;
 mod qbe;
+mod wat;
 use cerune_lang::{
     bytecode, ir, ir_executor, mir, mir_executor, modules,
     runtime::arguments::{Arguments, Code, Failure, Limits},
@@ -221,14 +222,6 @@ fn virtual_module_shares_types_and_rejects_private_intrinsic_spelling() {
 #[test]
 fn unconnected_codegen_reports_unsupported_instead_of_empty_arguments() {
     let p = hir(r#"import "std:env" as env; print(env::arg_count());"#);
-    let diagnostics = [cerune_lang::codegen::emit_wat(&p).unwrap_err()];
-    for d in diagnostics {
-        assert!(
-            d.message()
-                .contains("program arguments are not supported yet"),
-            "{d:?}"
-        );
-    }
     for target in [
         cerune_lang::codegen::x86_64::Target::X86_64UnknownLinuxGnu,
         cerune_lang::codegen::x86_64::Target::X86_64PcWindowsMsvc,

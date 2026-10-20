@@ -2,7 +2,7 @@
 
 [English](dogfooding-inputs.en.md)
 
-2026-10-20。[#173](https://github.com/Cerune-Lang/Cerune/issues/173)と[#89](https://github.com/Cerune-Lang/Cerune/issues/89)の次の設計案です。**引数取得はHIR・MIR・SSA・VM・CLI・生成C・LLVM・QBEに対応済み。WAT/Nativeと整数読取りは未実装**です。実装済みの標準入力・WAT関数公開を作り直しません。
+2026-10-20。[#173](https://github.com/Cerune-Lang/Cerune/issues/173)と[#89](https://github.com/Cerune-Lang/Cerune/issues/89)の次の設計案です。**引数取得はHIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WATに対応済み。Nativeと整数読取りは未実装**です。実装済みの標準入力・WAT関数公開を作り直しません。
 
 ## 最小の用途
 
@@ -77,13 +77,13 @@ CLIは`env::args_os()`を厳密変換し、区切り以後を`parse_heap_limits`
 ## 実装単位と検証
 
 1. 実装済み：公開宣言・snapshot・共通IRをHIR/MIR/SSA/VMとCLIへ接続。引数を表示するexampleと比較テストを追加。
-2. 生成C・LLVM・QBEは接続済み。続いてWAT/Nativeへ接続し、同じ引数列で比較する。未接続の経路を空列や成功として扱わない。
+2. 生成C・LLVM・QBE・WATは接続済み。続いてNativeへ接続し、同じ引数列で比較する。未接続の経路を空列や成功として扱わない。
 3. 純粋な整数読取りを全経路へ追加し、seedを引数から受け取る例を完成する。
 4. 引数・整数読取りの完了後は、[本体ロードマップ](language-roadmap.ja.md)に従ってoptional let＋fmt、Native build・配布初版、再帰へ進む。その後、明示した作業範囲でのファイルI/Oとshellを経由しない子プロセス操作を個別設計する。
 
 各段階で元HIR・非SSA MIR・SSA・生成物・ソース対応を維持します。最適化・Native build・パッケージ管理は前提にしません。
 
-CのWindows起動・UTF-16変換・上限設定は下記で確定しました。Nativeの起動接続と上限設定、WATの版付きhost ABIは残件です。WATの内部memoryを引数転送のために公開しません。C/LLVM/QBE/Nativeでもターゲット固有の入力方法を明示し、生成実行中のOSから黙って選びません。
+CのWindows起動・UTF-16変換・上限設定は下記で確定しました。Nativeの起動接続と上限設定は残件です。WATの版付きhost契約は実装済みです。WATの内部memoryを引数転送のために公開しません。C/LLVM/QBE/Nativeでもターゲット固有の入力方法を明示し、生成実行中のOSから黙って選びません。
 
 回帰テストは引数0件・空文字・Unicode・CR/LF・順序・区切り以後のオプション風文字列・不正Unicode・上限ちょうど／超過・未設定接続を含めます。読取りではi64両端・その外側・書式と範囲の競合を確認し、失敗後の停止・本文非表示・観測有無での一致も比較します。
 
@@ -129,7 +129,7 @@ CのWindows起動・UTF-16変換・上限設定は下記で確定しました。
 
 [実行例](../../examples/arguments/README.md)と[比較テスト](../../tests/program_arguments/mod.rs)で正常出力、短絡評価、関数・配列への受渡し、コピー後の独立性、停止前の出力、停止理由・出自、元IRが変わらないことを確認します。
 
-WAT・Nativeは未接続で、引数操作を含む生成を位置付きで拒否します。未使用関数も保持するため、std:envのimportだけでも対象になります。emit-sources／emit-ir／emit-mir／emit-bytecodeは観測できますが、Native生成を含むobserve bundleは未対応です。成功した各取得の時系列イベント記録は未実装です。次は生成経路の接続を進め、全経路が揃ってから整数読取りへ進みます。
+Nativeは未接続で、引数操作を含む生成を位置付きで拒否します。未使用関数も保持するため、std:envのimportだけでも対象になります。emit-sources／emit-ir／emit-mir／emit-bytecodeは観測できますが、Native生成を含むobserve bundleは未対応です。成功した各取得の時系列イベント記録は未実装です。次は生成経路の接続を進め、全経路が揃ってから整数読取りへ進みます。
 
 ## 生成Cの引数接続
 
@@ -147,7 +147,7 @@ WAT・Nativeは未接続で、引数操作を含む生成を位置付きで拒�
 
 [生成Cの比較テスト](../../tests/program_arguments/c.rs)は`-O0`と`-O2`でexample、空・日本語・CR/LF・結合文字・補助平面文字・quote・オプション風文字列、評価順・短絡・コピー・解放を比較します。上限、元入力変更、未設定、NUL、不正UTF-8/UTF-16、確保失敗も検証します。入力と引数のUTF-8検査は同じ生成ヘルパーを使います。
 
-WAT・Nativeの起動接続と上限設定、WATの版付きhost契約は後続です。C内の静的補助関数は安定した埋込みABIとして公開するものではありません。
+Nativeの起動接続と上限設定は後続です。C内の静的補助関数は安定した埋込みABIとして公開するものではありません。
 
 ## LLVMの引数接続
 
@@ -164,7 +164,7 @@ WAT・Nativeの起動接続と上限設定、WATの版付きhost契約は後続�
 
 [LLVM比較テスト](../../tests/program_arguments/llvm.rs)は両ターゲットのIRを`-O0`／`-O2`でオブジェクトへコンパイルし、実行可能なWindows/Linuxでは4実行器と同じexample・正常値・異常値・停止前出力を比較します。macOSではLLVM実行ターゲットを追加せず、両ターゲットのオブジェクト生成を検証します。Cの引数はmacOSでも実行できますが、Cの標準入力併用は既存の未対応診断を検証します。
 
-`emit-llvm`は実行用の`-- [引数...]`を受け取りません。プログラム引数はリンク後の実行ファイルへ渡します。WAT・Nativeへの接続後に整数読取りへ進みます。
+`emit-llvm`は実行用の`-- [引数...]`を受け取りません。プログラム引数はリンク後の実行ファイルへ渡します。Nativeへの接続後に整数読取りへ進みます。
 
 ## QBEの引数接続
 
@@ -180,4 +180,8 @@ WAT・Nativeの起動接続と上限設定、WATの版付きhost契約は後続�
 
 [QBE比較テスト](../../tests/program_arguments/qbe.rs)はQBE 1.3のamd64_sysv／amd64_winでILからassemblyを生成します。WindowsとLinuxの実行をそれぞれ4実行器・生成Cと比較し、example、日本語・空文字・CR/LF・結合文字・補助平面文字、短絡・評価順、コピー後の独立性、上限・不正入力・確保失敗・停止前出力、標準入力との併用を検証します。古いLinux ClangにはQBEのCOFFセクション書式を受け付けないものがあるため、Windows向けassemblyのオブジェクト化・実行はWindows CIで必須検証します。
 
-emit-qbeは実行用の区切り以後の引数を受け取りません。内部ヘルパーは安定した埋込みABIではありません。次はWATとNativeの引数接続、その後に整数読取りへ進みます。
+emit-qbeは実行用の区切り以後の引数を受け取りません。内部ヘルパーは安定した埋込みABIではありません。次はNativeの引数接続、その後に整数読取りへ進みます。
+
+## WATの引数接続
+
+[版付きhost契約](wat-arguments-host.ja.md)を実装しました。起動時に固定入力を検査して非公開memoryへコピーし、実行中の取得でhostを再参照しません。取得文字列の所有・上限・出自・停止前出力を4実行器と比較します。引数を含むinstanceは一度だけ実行し、snapshotはinstance破棄時に回収します。新しい3つのimportが必要で、旧hostでの不足はinstantiate時に診断します。WAT libraryの制限は維持します。

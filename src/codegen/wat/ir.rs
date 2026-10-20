@@ -14,6 +14,8 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    pub uses_arguments: bool,
+    pub argument_limits: crate::runtime::arguments::Limits,
     pub string_heap_start: usize,
     pub string_heap_limit: Option<u64>,
     pub array_heap_limit: Option<u64>,
@@ -65,6 +67,8 @@ pub enum Instruction {
     ArrayRetain,
     ArrayReleaseOwner,
     ArrayFree,
+    ArgumentCount,
+    ArgumentGet,
     ReadLine,
     StringConcat,
     StringManage {

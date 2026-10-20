@@ -215,6 +215,8 @@ The artifact records the target and QBE `-t` option in a comment. Invoking QBE a
 
 WAT with ordinary output imports `cerune.write_stdout_v1(i64, i32) -> i32`, exchanging up to eight bytes by value and acceptance/failure responses without exposing memory. Hosts implement the [versioned output contract](../design/wat-output-host.en.md). `emit-wat` does not launch a host.
 
+WAT containing argument operations requires the [versioned argument host contract](../design/wat-arguments-host.en.md). Use `emit-wat --argument-count-limit <count> --argument-byte-limit <bytes>` to emit explicit startup limits; inject execution argument values separately through the host.
+
 Float display also requires `format_f32_v1` or `format_f64_v1`. WAT receives the complete length and bytes into private formatting storage, then uses the common write connection. Old hosts missing required imports fail instantiation.
 
 WAT with runtime checks or ordinary output also imports `cerune.write_error_byte(i32) -> void`. Hosts write these ASCII diagnostics to stderr and preserve previous stdout when `unreachable` traps. See the [runtime diagnostic contract](../design/runtime-diagnostics.en.md).

@@ -23,7 +23,7 @@ end
 
 No arguments print `0` and `end`. One empty argument prints `1`, `[""]`, `0`, and `end`. Follow your shell's rules for passing empty arguments.
 
-HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE execution are supported. WAT/Native connections remain unimplemented and explicitly reject generation containing argument operations. Integer parsing is unimplemented. See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
+HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT execution are supported. Native connections remain unimplemented and explicitly reject generation containing argument operations. Integer parsing is unimplemented. See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
 
 Compare the same output through generated C. On Linux/macOS:
 
@@ -55,3 +55,18 @@ clang -target x86_64-unknown-linux-gnu target/arguments.s -o target/arguments
 ```
 
 On Windows, use `x86_64-pc-windows-msvc` for Cerune and Clang, `-t amd64_win` for QBE, and `target/arguments.exe` for the executable. Set acquisition limits explicitly with options such as `emit-qbe --argument-count-limit 2 --argument-byte-limit 10`.
+
+For WAT, use WABT 1.0.39, Node.js 20 and the [test-host contract](../../docs/design/wat-arguments-host.en.md) to inject the same arguments explicitly.
+
+```sh
+cargo run -- emit-wat examples/arguments/list.ceru -o target/arguments.wat
+node target/wasm-tools/node_modules/wabt/bin/wat2wasm target/arguments.wat -o target/arguments.wasm
+CERUNE_TEST_WAT_ARGUMENTS='{"values":["hello","--ssa"]}' node tests/support/run_wasm_input.cjs target/arguments.wasm
+```
+
+In PowerShell, replace the last line with:
+
+```powershell
+$env:CERUNE_TEST_WAT_ARGUMENTS = '{"values":["hello","--ssa"]}'
+node tests/support/run_wasm_input.cjs target/arguments.wasm
+```

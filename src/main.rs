@@ -179,11 +179,10 @@ fn run() -> Result<(), String> {
             let source = read_source(&input)?;
 
             let wat = render_compilation_result(
-                cerune_lang::codegen::emit_wat(&ir_for(
-                    &source,
-                    string_heap_limit,
-                    array_heap_limit,
-                )?),
+                cerune_lang::codegen::wat::emit_wat_with_argument_limits(
+                    &ir_for(&source, string_heap_limit, array_heap_limit)?,
+                    argument_limits,
+                ),
                 &source,
             )?;
 
@@ -700,7 +699,7 @@ fn print_help() {
          run / run-ir: direct Cerune IR execution; run-mir: HIR -> MIR execution; run-vm: Bytecode -> VM.\n\
          run / run-ir / run-mir / run-vm / observe / emit-* (except emit-sources): --string-heap-limit <bytes> / --array-heap-limit <bytes>\n\
          --ssa: explicit scalar SSA construction for emit-mir / run-mir / emit-lir / emit-asm / emit-obj / observe; no optimization.\n\
-         run commands / emit-llvm / emit-qbe: --argument-count-limit <count> / --argument-byte-limit <bytes>; defaults: 4096 / 1048576.\n\
+         run commands / emit-llvm / emit-qbe / emit-wat: --argument-count-limit <count> / --argument-byte-limit <bytes>; defaults: 4096 / 1048576.\n\
          First -- separates all program arguments from Cerune options.\n\
          Default: 67108864 bytes per heap; compile-time string budget is independent.\n",
         env!("CARGO_PKG_VERSION")
