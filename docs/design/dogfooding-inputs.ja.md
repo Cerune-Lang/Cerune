@@ -79,7 +79,7 @@ master 200c1ecでは、`cerune run examples/deterministic_seed.ceru -- 1337`はu
 1. 引数の公開宣言・snapshot・共通IRを設計し、HIR/MIR/SSA/VMへ明示接続する。取得した文字列を表示する小さなexampleを追加する。
 2. C/LLVM/QBE/WAT/Nativeへ接続し、同じ引数列で比較する。未接続の経路を空列や成功として扱わない。
 3. 純粋な整数読取りを全経路へ追加し、seedを引数から受け取る例を完成する。
-4. 明示した作業範囲でのファイルI/O、その後にshellを経由しない子プロセス操作を個別設計する。
+4. 引数・整数読取りの完了後は、[本体ロードマップ](language-roadmap.ja.md)に従ってoptional let＋fmt、Native build・配布初版、再帰へ進む。その後、明示した作業範囲でのファイルI/Oとshellを経由しない子プロセス操作を個別設計する。
 
 各段階で元HIR・非SSA MIR・SSA・生成物・ソース対応を維持します。最適化・Native build・パッケージ管理は前提にしません。
 

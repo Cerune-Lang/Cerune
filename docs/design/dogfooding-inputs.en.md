@@ -79,7 +79,7 @@ General string indexing is currently unavailable. Compare the necessary pure IR 
 1. Design declarations, snapshot and common IR; explicitly connect HIR/MIR/SSA/VM. Add a small argument-display example.
 2. Connect C/LLVM/QBE/WAT/Native and compare equal argument lists. Unconnected routes must not silently use an empty list or succeed.
 3. Add pure integer parsing across routes and complete the argument-driven seed example.
-4. Separately design file I/O within an explicit working scope, then subprocesses without a shell.
+4. After arguments and integer parsing, follow the [core roadmap](language-roadmap.en.md): optional let + fmt, Native build/initial distribution, then recursion. Subsequently design limited file I/O and shell-free subprocess operations separately.
 
 Retain original HIR, non-SSA MIR, SSA, generated artifacts and origins throughout. Optimization, Native build and package management are not prerequisites.
 

@@ -12,12 +12,17 @@
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
-| 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) | 実行時に渡した文字列を取得。空文字・欠落・上限・出自を区別 | 設計案あり・未実装 |
-| 2 | [文字列から整数の読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 入力形式と範囲外を区別し、引数でseedを指定する実行例を完成 | 設計案あり・未実装 |
-| 3 | 限定的なファイル入出力（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 入力や生成結果を保存・再読込み。対象・上限・失敗を明示 | 後続設計・未実装 |
-| 4 | 子プロセス操作（#173） | 明示したプログラムを実行し、出力・終了状態を回収。時間上限と失敗を定義 | 後続設計・未実装 |
+| 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) → [整数読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 空・欠落・書式・範囲外を区別し、引数でseedを指定するexampleを全経路で比較 | 設計案あり・未実装 |
+| 2 | [optional let＋fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | letの保持・表示・非表示、コメント保持、整形の冪等性と意味の一致。[infer省略等](https://github.com/Cerune-Lang/Cerune/issues/105)との整合を確認 | 同時に設計・実装する。未実装 |
+| 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | 責務整理済み・未実装 |
+| 4 | [再帰](functions.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | 設計・実装はこれから |
+| 5 | 限定的なファイル入出力 → 子プロセス（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 後続設計・未実装 |
 
-これは着手順です。整数読取り自体は純粋な操作として設計し、引数取得と組み合わせたexampleを2の区切りにします。[引数と整数の読取りの設計案](dogfooding-inputs.ja.md)では小さな標準モジュールを検討し、汎用Option/Resultやパッケージ管理を前提にしません。API名・詳細な上限などの未決事項は実装前に確定します。
+2026-10-20に合意した着手順です。1では引数取得の全経路対応後に純粋な整数読取りを追加し、引数指定のexampleまで完成させます。[設計案](dogfooding-inputs.ja.md)の公開名・上限・接続契約を確定し、小さな標準モジュールとして実装します。汎用Option/Resultやパッケージ管理は前提にしません。
+
+2のoptional letとfmtは同じ段階で追加します。型・可変性・評価順を保ち、元ソースと整形後のソースをそれぞれ正しい位置情報で観測できるようにします。再帰はファイル入出力を待つ必要がなく、WATの一時領域を含む呼出しframeの独立性から設計します。
+
+3はCeruneで書いたプログラムの配布です。処理系自体のバイナリ更新はこの順序と別に行えます。Nativeの配布初版はIR/VM Imageの完成を待たず、IR/VM向け配布は形式・検証器・loaderを別途実装します。releaseは暗黙の最適化ではありません。
 
 [固定seedの基準例](../../examples/deterministic_seed.ceru)はPR #176に追加しています。引数取得・整数読取りはまだ実装していません。Parallaxのseed指定は検証用途の一つとし、Ceruneの一般的な機能として実装します。Parallaxの独立したPython期待値計算は維持します。
 
@@ -78,15 +83,15 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 | 配布済み | コンパイラのバイナリ v0.1.0 | Windows x64、Linux x64/arm64、macOS x64/arm64向けに公開。Ceruneプログラムのbuild/releaseやDarwin Native backendの実装とは別 |
 | 計画・未実装 | [IR・VM・Nativeのbuild / release](owned-routes.ja.md) | [#81](https://github.com/Cerune-Lang/Cerune/issues/81)の責務整理を基準に、完成成果物・配布を最適化と分ける |
 
-## 独立して進められる作業と後続候補
+## 着手順と技術的依存・後続候補
 
-本体の機能追加とは別に、完成成果物の構築を進められます。さらに先の言語機能は、具体的な用途と必要な契約を確認して順序を決めます。
+冒頭の順序は開発上の優先順です。各機能の技術的な前提は次のとおりです。配列成長など、表に含めていない機能の着手順はまだ決めていません。
 
 | 着手条件 | 作業・現在の状態 | 完了条件・判断すること |
 | --- | --- | --- |
-| 独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
-| build安定後 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
-| 後続 | 再帰、配列の成長・借用、文字列操作の拡張、モジュール配布 | 再帰の呼出し領域・上限・終了処理、借用の寿命・更新規則、再export・依存の版・再現性を用途ごとに設計する |
+| 優先3・技術的には独立 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
+| 各成果物の安定後 | IR/VMのImageと各経路のrelease。Native配布初版は優先3。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
+| 順序未定の後続 | 配列の成長・借用、文字列操作の拡張、モジュール配布 | 借用の寿命・更新規則、再export・依存の版・再現性を用途ごとに設計する |
 | 保留・実験 | 最適化pass、証明範囲の拡張、AST／LIR直接実行の追加、GPU／FPGA | 具体的な必要性から再開。言語機能・入出力・buildの着手条件にはしない |
 
 Native buildは新しい入力や標準ライブラリがなくても、現在のプログラムを対象に進められます。`array_repeat`は実装済みです。新しい調査課題をすべて入出力の前提にはしません。releaseは最適化の別名ではありません。IR/VMのImage検証を省略して、観測テキストを実行可能な完成品と扱うこともしません。
@@ -141,13 +146,13 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | 標準入出力と副作用比較 | 出力接続は統合済み。明示flushを実装。C・LLVM・QBE・WAT・Nativeの書込み失敗も実装。仮想std:io・行入力・所有を4実行器へ接続。CLI/C/LLVM/QBE/Nativeの実stdin・対話テストを追加。WATの版付き入力hostも実装済み。Native入力も実装済み。次は#174の引数取得、#175の整数読取りへ進む。生成経路の成功操作の共通記録は後続 |
 | [#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135) | Parserとソース読込みの上限 | 初版を実装。共通frontendで超過を診断し、子プロセスとCLIの境界を検証。import隔離・生成C・CIの他候補は別段階 |
 | [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | 型付きプログラムの差分検証 | [Parallax](ecosystem.ja.md)で固定seed・式・分岐・反復・配列、IR/MIR/VMと独立期待値の比較を実装。SSA・生成経路・一般の出自比較は残件 |
-| [#173](https://github.com/Cerune-Lang/Cerune/issues/173) / [#174](https://github.com/Cerune-Lang/Cerune/issues/174) / [#175](https://github.com/Cerune-Lang/Cerune/issues/175) | 利用例から不足機能を選ぶ | [担当処理の棚卸しと引数設計](dogfooding-inputs.ja.md)。引数→数値読取り→限定ファイルI/O→子プロセスの順。Pythonの独立期待値を維持 |
+| [#173](https://github.com/Cerune-Lang/Cerune/issues/173) / [#174](https://github.com/Cerune-Lang/Cerune/issues/174) / [#175](https://github.com/Cerune-Lang/Cerune/issues/175) | 利用例から不足機能を選ぶ | [担当処理の棚卸しと引数設計](dogfooding-inputs.ja.md)。引数・整数読取りは優先1。fmt・Native配布・再帰を挟み、ファイルI/O・子プロセスは優先5。Pythonの独立期待値を維持 |
 | [#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | 入力容量とメモリ測定 | 初版の測定・判断は完了。メモリ上限と確保容量・RSS・WATページを区別。大きな上限と短い入力を測定し、未確認の漏えい・退行を断定しない |
 | [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | ActionsのNode.js警告 | PR #157で完了。Actionの実行用Node 24とWATテスト用Node 20.20.2を区別 |
-| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release・経路の責務 | Native buildは独立着手可。Image検証・配布へ進む。show／via／optional backendは用途と詳細設計待ち |
+| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release・経路の責務 | 優先3でNative buildと配布初版。IR/VM Imageは形式・検証・loaderを別途実装。show／via／optional backendは用途と詳細設計待ち |
 | [#60](https://github.com/Cerune-Lang/Cerune/issues/60) / [#94](https://github.com/Cerune-Lang/Cerune/issues/94) | 観測・変換・証明 | SSA・LIR観測まで部分完了。未収録の成果物・一般の証明・最適化は残件。非最適化表現を維持 |
 | [#88](https://github.com/Cerune-Lang/Cerune/issues/88) | 整数演算の追加方針 | checkedを維持し、実用途のwrappingを先に検討。飽和・overflow報告・拡幅・ビット破棄・除算は別々に意味を決める |
-| [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | 長いコードの構文 | optional letとinfer省略→else ifを整合。条件式の意味、formatter、for適用は別途設計 |
+| [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | 長いコードの構文 | 優先2でoptional letとfmtを同時実装。infer省略→else ifの設計と整合。条件式の意味とfor適用は別途設計 |
 | [#92](https://github.com/Cerune-Lang/Cerune/issues/92) | QBE Windows | 現行回避処理を維持。正式な上流変更を基準に再検証。調査ブランチは未統合で保管 |
 | [#103](https://github.com/Cerune-Lang/Cerune/issues/103) / [#118](https://github.com/Cerune-Lang/Cerune/issues/118) | コード構成・観測成果物 | 変更する責務から整理。ローカル記録と公開fixtureを区別し、共有する本文・パス・環境情報を確認 |
 | [#93](https://github.com/Cerune-Lang/Cerune/issues/93) | FPGA | 同じIR意味の別の実現形態を調査。機能追加の必須前提にしない |
