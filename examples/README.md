@@ -46,6 +46,12 @@ cargo run --quiet -- emit-bytecode examples/linear_regression.ceru
 cargo run --quiet -- emit-c examples/linear_regression.ceru
 ```
 
+## 固定seedで再現する
+
+[deterministic_seed.ceru](deterministic_seed.ceru)はi64の整数演算で同じ数列を再現します。seed=1の最初の3値は48271、182605794、1291394886です。0・最大seed・0回も確認します。
+
+`cargo run --quiet -- run examples/deterministic_seed.ceru`で実行できます。seedはソース内の固定値で、CLI引数の取得やOS乱数は使いません。[引数対応の設計](../docs/design/dogfooding-inputs.ja.md)の基準例です。
+
 ## 型から探す
 
 数値範囲と用途を型ごとにまとめます。`infer`は値の型ではなく型推論の指定、`void`は値を返さない関数の戻り方です。[floating_point.ceru](floating_point.ceru)と[functions.ceru](functions.ceru)で確認できます。

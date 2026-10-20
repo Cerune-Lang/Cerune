@@ -1,0 +1,20 @@
+// 固定seedの再現例です。CLI引数やOSの乱数は読みません。
+// seedは0..2147483646。積の最大値は103661183076066でi64に収まります。
+fn generate(seed: i64, count: i64) -> void {
+    mut state: i64 = seed;
+    for (mut index: i64 = 0; index < count; index = index + 1) {
+        state = (state * 48271) % 2147483647;
+        print(state);
+    }
+}
+
+print("seed=0");
+generate(0, 3);
+print("seed=1");
+generate(1, 3);
+print("seed=1337");
+generate(1337, 3);
+print("seed=2147483646");
+generate(2147483646, 3);
+print("count=0");
+generate(1337, 0);

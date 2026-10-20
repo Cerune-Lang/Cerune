@@ -2,7 +2,7 @@
 
 [English](language-roadmap.en.md)
 
-2026-10-18時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
+2026-10-20時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
 
 [以前の監査記録](development-status.ja.md)は2026-10-11時点の履歴です。現在の状態はこのページで管理します。
 
@@ -76,7 +76,7 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | 2：初版実装 | [コンパイル入力の上限](frontend-limits.ja.md)（[#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135)） | 構文・式の深さ、個別／合計バイト数、ファイル数を診断。import探索は順序を保って反復化。#153の隔離・C・CI候補は残件 |
 | 3：初版の判断・実装済み | [入力容量の測定](input-memory.ja.md)。行入力の確保容量とメモリ上限（[#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133)） | 全経路で容量・使用バイト数・解放を測定し、同じexampleの出力を比較。[Rust/C/LLVM/QBE/Nativeの縮小](input-compaction.ja.md)を実装。[WATの比較](wat-input-storage.ja.md)で分割・再結合は導入せず、既存の再利用を維持と判断。広いメモリ調査は#133へ |
 | 4：i32/f64公開実装済み | [JS/TSから型付き関数を呼ぶ](typed-host-calls.ja.md)（[#161](https://github.com/Cerune-Lang/Cerune/issues/161)） | [WATライブラリAPI](wat-library.ja.md)で宣言保持・明示選択・全体検査・i32/f64 wrapperを実装。元IRと型変換を観測可能。[検査付きJS/TS生成](wat-js-bindings.ja.md)とHTML例も実装済み |
-| 5 | 小さな標準ライブラリ。[仮想std:io](standard-modules.ja.md)の解決と行入力APIを実装済み | 実例に必要な文字列・数値の読取り等を選ぶ。Ceruneで書ける関数とruntime操作を分ける。汎用Option/Resultやパッケージ管理を必須化しない |
+| 5：次の設計 | [引数と整数の読取り](dogfooding-inputs.ja.md)（[#173](https://github.com/Cerune-Lang/Cerune/issues/173) / #89） | Parallaxの固定seedを引数で指定する。固定seedの基準exampleは実装済み。引数取得・純粋な整数読取り・全経路比較は未実装。小さな標準モジュールとして設計し、汎用Option/Resultやパッケージ管理を前提にしない |
 | 独立して着手可能 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
 | build安定後 | IR/VMのImageと3経路のrelease。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
 | 後続 | 再帰、配列の成長・借用、文字列操作の拡張、モジュール配布 | 再帰の呼出し領域・上限・終了処理、借用の寿命・更新規則、再export・依存の版・再現性を用途ごとに設計する |
@@ -105,7 +105,7 @@ Native buildは新しい入力や標準ライブラリがなくても、現在�
 
 ### 現在のIssue一覧
 
-2026-10-18にopenの19件と直近の統合を確認しました。以下は優先度と目的の整理です。調査Issueを確認済みの不具合として扱いません。
+2026-10-20にopenの17件と直近の統合、Organizationの進捗を確認し、引数取得#174・整数読取り#175を分割しました（分割後19件）。以下は優先度と目的の整理です。調査Issueを確認済みの不具合として扱いません。
 
 | Issue | 目的 | 進め方・残件 |
 | --- | --- | --- |
@@ -115,7 +115,8 @@ Native buildは新しい入力や標準ライブラリがなくても、現在�
 | [#134](https://github.com/Cerune-Lang/Cerune/issues/134) | 文字列所有の正しさ | PR #137で統合済み。内部APIの所属・所有数を変更前に検証。性能改善とは分ける |
 | [#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#104](https://github.com/Cerune-Lang/Cerune/issues/104) | 標準入出力と副作用比較 | 出力接続は統合済み。明示flushを実装。C・LLVM・QBE・WAT・Nativeの書込み失敗も実装。仮想std:io・行入力・所有を4実行器へ接続。CLI/C/LLVM/QBE/Nativeの実stdin・対話テストを追加。WATの版付き入力hostも実装済み。Native入力も実装済み。次は実例で必要になった小さな標準ライブラリを選ぶ。生成経路の成功操作の共通記録は後続 |
 | [#153](https://github.com/Cerune-Lang/Cerune/issues/153) / [#135](https://github.com/Cerune-Lang/Cerune/issues/135) | Parserとソース読込みの上限 | 初版を実装。共通frontendで超過を診断し、子プロセスとCLIの境界を検証。import隔離・生成C・CIの他候補は別段階 |
-| [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | 型付きプログラムの差分検証 | 固定seed・有限実行・既知の期待値で小さく開始。Parser耐性や内部API検査とは別 |
+| [#131](https://github.com/Cerune-Lang/Cerune/issues/131) | 型付きプログラムの差分検証 | [Parallax](ecosystem.ja.md)で固定seed・式・分岐・反復・配列、IR/MIR/VMと独立期待値の比較を実装。SSA・生成経路・一般の出自比較は残件 |
+| [#173](https://github.com/Cerune-Lang/Cerune/issues/173) / [#174](https://github.com/Cerune-Lang/Cerune/issues/174) / [#175](https://github.com/Cerune-Lang/Cerune/issues/175) | 利用例から不足機能を選ぶ | [担当処理の棚卸しと引数設計](dogfooding-inputs.ja.md)。引数→数値読取り→限定ファイルI/O→子プロセスの順。Pythonの独立期待値を維持 |
 | [#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | 入力容量とメモリ測定 | 優先3。メモリ上限と確保容量・RSS・WATページを区別。大きな上限と短い入力を測定し、未確認の漏えい・退行を断定しない |
 | [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | ActionsのNode.js警告 | PR #157で完了。Actionの実行用Node 24とWATテスト用Node 20.20.2を区別 |
 | [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release・経路の責務 | Native buildは独立着手可。Image検証・配布へ進む。show／via／optional backendは用途と詳細設計待ち |
