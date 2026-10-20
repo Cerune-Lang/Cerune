@@ -102,6 +102,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
         output.push_str("declare i32 @_setmode(i32, i32)\n");
     }
     super::output::emit_support(module, &mut output);
+    super::arguments::emit_support(module, &mut output);
     super::input::emit_support(module, &mut output);
     for ty in &array_types {
         emit_array_get(ty, module, &mut output);
@@ -118,7 +119,11 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     }
 
     emit_origin(Origin::Synthetic, annotate_origins, &mut output);
-    output.push_str("define i32 @main() {\nentry:\n");
+    output.push_str(if super::arguments::used(module) {
+        "define internal i32 @cerune.program() {\nentry:\n"
+    } else {
+        "define i32 @main() {\nentry:\n"
+    });
     if binary_stdout && module.target == Some(super::Target::X86_64PcWindowsMsvc) {
         // CRTの標準出力(記述子1)を、最初の出力より前にバイナリモードにします。
         output.push_str("  %stdout.mode = call i32 @_setmode(i32 1, i32 32768)\n");
@@ -157,6 +162,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     output.push_str("  ret i32 0\n");
     output.push_str("}\n");
 
+    super::arguments::emit_entry(module, &mut output);
     crate::codegen::output::llvm(module, &mut output);
     output
 }
@@ -305,6 +311,25 @@ fn emit_instruction(
                 operand(*length),
                 operand(*start),
                 operand(*end)
+            )
+            .unwrap();
+        }
+        Instruction::ArgumentCount { dest } => {
+            writeln!(
+                output,
+                "  {} = call i64 @cerune.arguments.count(ptr {})",
+                temp(*dest),
+                super::arguments::origin_name(origin)
+            )
+            .unwrap();
+        }
+        Instruction::ArgumentGet { dest, index } => {
+            writeln!(
+                output,
+                "  {} = call %cerune.string @cerune.arguments.get(i64 {}, ptr {})",
+                temp(*dest),
+                operand(*index),
+                super::arguments::origin_name(origin)
             )
             .unwrap();
         }

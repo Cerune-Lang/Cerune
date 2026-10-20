@@ -1,3 +1,4 @@
+mod arguments;
 mod array;
 mod conversion;
 mod emit;
@@ -11,6 +12,7 @@ mod output;
 mod rounding;
 mod string;
 mod unsigned;
+mod utf8;
 
 pub use emit::emit;
 use lower::lower;
@@ -69,8 +71,30 @@ pub fn emit_llvm_with_options(
     program: &cerune_ir::Program,
     options: Options,
 ) -> Result<String, Diagnostic> {
+    emit_llvm_with_argument_limits(program, options, Default::default())
+}
+
+/// Explicit startup limits; existing emission APIs retain their defaults.
+pub fn emit_llvm_with_argument_limits(
+    program: &cerune_ir::Program,
+    options: Options,
+    limits: crate::runtime::arguments::Limits,
+) -> Result<String, Diagnostic> {
     let target = options.target;
-    crate::codegen::support::reject_arguments(program, "LLVM")?;
+    if let Some(span) = program.first_argument_span() {
+        if target.is_none() {
+            return Err(Diagnostic::new(
+                "LLVM program arguments require an explicit --target: x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc",
+                span,
+            ));
+        }
+        if limits.max_count > i64::MAX as u64 {
+            return Err(Diagnostic::new(
+                "LLVM argument count limit must not exceed i64::MAX",
+                span,
+            ));
+        }
+    }
     if let Some(span) = program.first_input_span()
         && target.is_none()
     {
@@ -122,6 +146,7 @@ pub fn emit_llvm_with_options(
         ));
     }
     module.target = target;
+    module.argument_limits = limits;
     module.uses_strings = string_span.is_some();
 
     Ok(emit::emit_with_origins(&module, options.annotate_origins))

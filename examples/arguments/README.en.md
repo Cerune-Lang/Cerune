@@ -23,7 +23,7 @@ end
 
 No arguments print `0` and `end`. One empty argument prints `1`, `[""]`, `0`, and `end`. Follow your shell's rules for passing empty arguments.
 
-HIR/MIR/SSA/VM, CLI and generated C execution are supported. LLVM/QBE/WAT/Native connections remain unimplemented and explicitly reject generation containing argument operations. Integer parsing is unimplemented. See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
+HIR/MIR/SSA/VM, CLI and generated C/LLVM execution are supported. QBE/WAT/Native connections remain unimplemented and explicitly reject generation containing argument operations. Integer parsing is unimplemented. See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
 
 Compare the same output through generated C. On Linux/macOS:
 
@@ -34,3 +34,13 @@ clang -std=c11 target/arguments.c -o target/arguments
 ```
 
 For Windows MSVC-target Clang, output to `target/arguments.exe` and run `./target/arguments.exe hello --ssa`. MinGW targets additionally require `-municode` when compiling. The generated executable does not need the Cerune CLI separator `--`.
+
+Run through LLVM as well. For Linux:
+
+```sh
+cargo run -- emit-llvm examples/arguments/list.ceru --target x86_64-unknown-linux-gnu --annotate-origins -o target/arguments.ll
+clang target/arguments.ll -o target/arguments-llvm
+./target/arguments-llvm hello --ssa
+```
+
+On Windows, select `x86_64-pc-windows-msvc` and output to `target/arguments-llvm.exe`. Override limits by passing options such as `--argument-count-limit 2 --argument-byte-limit 10` to `emit-llvm`. The displayed result is the same as above.

@@ -12,6 +12,7 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    pub argument_limits: crate::runtime::arguments::Limits,
     pub array_heap_limit: Option<u64>,
     pub string_heap_limit: Option<u64>,
     pub target: Option<super::Target>,
@@ -123,6 +124,13 @@ pub enum Instruction {
         length: Operand,
         start: Operand,
         end: Operand,
+    },
+    ArgumentCount {
+        dest: Temp,
+    },
+    ArgumentGet {
+        dest: Temp,
+        index: Operand,
     },
     ReadLine {
         dest: Temp,
