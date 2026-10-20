@@ -20,6 +20,8 @@ pub enum Code {
     AllocationFailed,
     Unconfigured,
     InvalidIndex,
+    IndexOutOfBounds,
+    BudgetExceeded,
 }
 impl Code {
     pub const fn name(self) -> &'static str {
@@ -31,6 +33,8 @@ impl Code {
             Self::EmbeddedNul => "embedded-nul",
             Self::AllocationFailed => "allocation-failed",
             Self::Unconfigured => "unconfigured",
+            Self::IndexOutOfBounds => "index-out-of-bounds",
+            Self::BudgetExceeded => "budget-exceeded",
             Self::InvalidIndex => "invalid-index",
         }
     }
@@ -350,5 +354,122 @@ mod tests {
             "arguments-v1 phase=capture code=embedded-nul index=0"
         );
         assert!(!format!("{failure:?}").contains("SECRET"));
+    }
+}
+
+/// Source operation failure; argument contents are never included.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Failure {
+    pub code: Code,
+    pub index: Option<i64>,
+    pub origin: super::output::Origin,
+}
+impl Failure {
+    pub fn record(self) -> String {
+        let operation = if self.index.is_some() { "get" } else { "count" };
+        let index = self
+            .index
+            .map(|i| format!(" index={i}"))
+            .unwrap_or_default();
+        format!(
+            "arguments-v1 phase=execute operation={operation} code={}{} node={}{} bytes={}..{}",
+            self.code.name(),
+            index,
+            self.origin.node_id.0,
+            self.origin.span.source_id().record_field(),
+            self.origin.span.start(),
+            self.origin.span.end()
+        )
+    }
+}
+impl fmt::Display for Failure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.record())
+    }
+}
+impl std::error::Error for Failure {}
+impl Arguments {
+    pub(crate) fn count_at(&self, origin: super::output::Origin) -> Result<i64, Failure> {
+        self.count().map_err(|code| Failure {
+            code,
+            index: None,
+            origin,
+        })
+    }
+    pub(crate) fn get_value(
+        &self,
+        heap: &mut super::string_heap::StringHeap,
+        index: i64,
+        origin: super::output::Origin,
+    ) -> Result<super::string_heap::StringValue, Failure> {
+        let failure = |code| Failure {
+            code,
+            index: Some(index),
+            origin,
+        };
+        let text = self
+            .get(index)
+            .map_err(failure)?
+            .ok_or_else(|| failure(Code::IndexOutOfBounds))?;
+        if text.is_empty() {
+            return Ok(String::new().into());
+        }
+        let reservation = heap.reserve(text.len()).map_err(|e| {
+            failure(match e {
+                super::string_heap::HeapError::AllocationLimitExceeded => Code::BudgetExceeded,
+                _ => Code::AllocationFailed,
+            })
+        })?;
+        let mut owned = String::new();
+        owned
+            .try_reserve_exact(text.len())
+            .map_err(|_| failure(Code::AllocationFailed))?;
+        owned.push_str(text);
+        Ok(reservation.finish(owned))
+    }
+}
+
+#[cfg(test)]
+mod execution_tests {
+    use super::*;
+    use crate::{
+        ir::NodeId, runtime::output::Origin, runtime::string_heap::StringHeap, source::Span,
+    };
+    #[test]
+    fn returned_value_allocation_failures_keep_origin_and_leave_the_heap_empty() {
+        let origin = Origin {
+            node_id: NodeId(9),
+            span: Span::new(4, 8),
+        };
+        let args = Arguments::capture(
+            &[b"SECRET"],
+            Limits {
+                max_count: 1,
+                max_bytes: 6,
+            },
+        )
+        .unwrap();
+        let mut heap = StringHeap::new(6);
+        heap.fail_next_allocation();
+        let failure = args.get_value(&mut heap, 0, origin).unwrap_err();
+        assert_eq!(failure.code, Code::AllocationFailed);
+        assert_eq!(failure.origin, origin);
+        assert!(!failure.record().contains("SECRET"));
+        assert!(heap.is_empty());
+        let value = args.get_value(&mut heap, 0, origin).unwrap();
+        assert_eq!(value.text(), "SECRET");
+        heap.manage(&value, false).unwrap();
+        assert!(heap.is_empty());
+        let empty = Arguments::capture(
+            &[b""],
+            Limits {
+                max_count: 1,
+                max_bytes: 0,
+            },
+        )
+        .unwrap();
+        let mut heap = StringHeap::new(0);
+        assert_eq!(empty.get_value(&mut heap, 0, origin).unwrap().text(), "");
+        assert!(heap.is_empty());
     }
 }

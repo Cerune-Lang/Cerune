@@ -11,7 +11,9 @@ pub(super) fn lower(program: &mut Program) {
             &mut |e| {
                 needed |= matches!(
                     e.kind,
-                    ExprKind::StringConcat { .. } | ExprKind::ReadLine { .. }
+                    ExprKind::StringConcat { .. }
+                        | ExprKind::ArgumentGet { .. }
+                        | ExprKind::ReadLine { .. }
                 );
             },
             &mut |_| {},
@@ -22,7 +24,9 @@ pub(super) fn lower(program: &mut Program) {
         &mut |e| {
             needed |= matches!(
                 e.kind,
-                ExprKind::StringConcat { .. } | ExprKind::ReadLine { .. }
+                ExprKind::StringConcat { .. }
+                    | ExprKind::ArgumentGet { .. }
+                    | ExprKind::ReadLine { .. }
             );
         },
         &mut |_| {},
@@ -642,6 +646,7 @@ impl Lowerer {
             value.kind,
             ExprKind::Call { .. }
                 | ExprKind::StringConcat { .. }
+                | ExprKind::ArgumentGet { .. }
                 | ExprKind::ReadLine { .. }
                 | ExprKind::Array(_)
                 | ExprKind::Construct { base: None, .. }
@@ -669,6 +674,7 @@ impl Lowerer {
         };
         match &mut value.kind {
             ExprKind::ArrayLength { value }
+            | ExprKind::ArgumentGet { index: value }
             | ExprKind::ReadLine { max_bytes: value }
             | ExprKind::StringByteLength { value }
             | ExprKind::ConvertNumeric { value, .. }

@@ -762,6 +762,9 @@ impl LoweringContext<'_> {
             return Value::Scalar(Type::I64);
         }
         match &expr.kind {
+            cerune_ir::ExprKind::ArgumentCount | cerune_ir::ExprKind::ArgumentGet { .. } => {
+                unreachable!("argument operations rejected before lowering")
+            }
             cerune_ir::ExprKind::ArrayCopy { .. } | cerune_ir::ExprKind::ArrayRepeat { .. } => {
                 unreachable!("array copies are expanded in common IR")
             }

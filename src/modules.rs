@@ -241,7 +241,7 @@ fn visit(
             ));
         }
         if import.path.starts_with("std:") {
-            if import.path != "std:io" {
+            if !matches!(import.path.as_str(), "std:io" | "std:env") {
                 return Err(Diagnostic::new(
                     format!("unknown standard module `{}`", import.path),
                     import.span,
@@ -250,21 +250,29 @@ fn visit(
             let target = if let Some(target) = units.iter().position(|u| {
                 matches!(
                     sources.get(u.id).unwrap().kind(),
-                    SourceKind::Standard {
-                        identifier: "std:io",
-                        ..
-                    }
+                    SourceKind::Standard { identifier, .. } if *identifier == import.path
                 )
             }) {
                 target
             } else {
-                let id = sources.add_standard("std:io", 1, include_str!("standard/io.ceru"));
+                let (identifier, text) = match import.path.as_str() {
+                    "std:io" => ("std:io", include_str!("standard/io.ceru")),
+                    "std:env" => ("std:env", include_str!("standard/env.ceru")),
+                    _ => unreachable!(),
+                };
+                let id = sources.add_standard(identifier, 1, text);
                 let mut tokens = lexer::lex_source(sources.get(id).unwrap())?;
                 for token in &mut tokens {
-                    if let lexer::TokenKind::Identifier(name) = &mut token.kind
-                        && name == "__cerune_read_line_utf8"
-                    {
-                        *name = "$read_line".into();
+                    if let lexer::TokenKind::Identifier(name) = &mut token.kind {
+                        let internal = match (identifier, name.as_str()) {
+                            ("std:io", "__cerune_read_line_utf8") => Some("$read_line"),
+                            ("std:env", "__cerune_arg_count") => Some("$arg_count"),
+                            ("std:env", "__cerune_arg_get") => Some("$arg_get"),
+                            _ => None,
+                        };
+                        if let Some(internal) = internal {
+                            *name = internal.into();
+                        }
                     }
                 }
                 let module = parser::parse_module(tokens)?;

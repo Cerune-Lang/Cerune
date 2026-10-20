@@ -483,6 +483,14 @@ print(item.amount);
 
 現在はHIR・MIR・SSA・VMのRust入力接続APIで利用できます。[CLI・生成C・LLVM・QBE・Nativeの実stdin](../design/stdin-connections.ja.md)も利用できます。[WATの版付きhost接続](../design/wat-input-host.ja.md)も実装済みです。**Windows console入力は未対応です。** 標準モジュールはファイルや環境変数から探さず、本文・型・出自をemit-sources等で確認できます。[解決規則と実行例](../design/standard-modules.ja.md)・[消費数と失敗の契約](../design/line-input.ja.md)を参照してください。
 
+### プログラム引数
+
+`import "std:env" as env;`で`env::arg_count() -> i64`と`env::arg(index: i64) -> env::Argument`を使えます。結果は`Value { text: string }`／`Missing {}`です。空文字はValue、0以上の範囲外はMissing、負添字は位置付き診断で停止します。文字列の内容を正規化・再分割しません。
+
+HIR・MIR・SSA・VMとCLIに対応しています。CLIの最初の`--`以後をプログラム引数とし、実行ファイル名やソース名を含めません。既定上限は4096件・UTF-8合計1048576バイトで、区切り前の`--argument-count-limit`／`--argument-byte-limit`で変更できます。不正Unicode・NUL・上限超過は起動準備で停止します。取得文字列には別途文字列ヒープ上限を適用します。
+
+既存の埋込みAPIは暗黙にOS引数を読まず、引数取得時に未設定を診断します。`run_with_arguments`等で明示注入してください。**C・LLVM・QBE・WAT・Native接続と整数読取りは未実装**です。[契約](../design/dogfooding-inputs.ja.md)・[実行例](../../examples/arguments/README.md)を参照してください。
+
 ## 関数とentry point
 
 `fn`は、名前を付けた処理を定義します。parameterと戻り値の型は必ず書きます。

@@ -1,3 +1,4 @@
+use crate::runtime::arguments::{self, Arguments};
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::{
@@ -26,8 +27,10 @@ pub enum IntegerOperation {
 /// Cerune VMの実行中に発生した問題の種類を表します。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VmErrorKind {
+    Arguments(Box<arguments::Failure>),
     Input(Box<input::Failure>),
     InputOriginMissing,
+    ArgumentOriginMissing,
     Output(Box<output::Failure>),
     ArrayRangeOutOfBounds,
     ArrayLengthOutOfRange,
@@ -269,19 +272,48 @@ pub fn run_with_output<W: std::io::Write>(
     run_sink(program, output).map(|_| ())
 }
 fn run_sink(program: &BytecodeProgram, output: &mut dyn Sink) -> Result<String, VmError> {
-    run_connections(program, output, &mut crate::runtime::input::unconfigured())
+    run_connections(
+        program,
+        output,
+        &mut crate::runtime::input::unconfigured(),
+        &Arguments::unconfigured(),
+    )
 }
 pub fn run_with_io<R: std::io::Read, W: std::io::Write>(
     program: &BytecodeProgram,
     input: &mut input::Input<R>,
     output: &mut output::Output<W>,
 ) -> Result<(), VmError> {
-    run_connections(program, output, input).map(|_| ())
+    run_connections(program, output, input, &Arguments::unconfigured()).map(|_| ())
+}
+pub fn run_with_arguments(
+    program: &BytecodeProgram,
+    arguments: &Arguments,
+) -> Result<String, VmError> {
+    run_connections(
+        program,
+        &mut Capture::default(),
+        &mut input::unconfigured(),
+        arguments,
+    )
+}
+pub fn run_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
+    program: &BytecodeProgram,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    arguments: &Arguments,
+) -> Result<(), VmError> {
+    run_connections(program, output, input, arguments).map(|_| ())
+}
+struct ExecutionInput<'a> {
+    stdin: &'a mut dyn Source,
+    arguments: &'a Arguments,
 }
 fn run_connections(
     program: &BytecodeProgram,
     output: &mut dyn Sink,
     input: &mut dyn Source,
+    arguments: &Arguments,
 ) -> Result<String, VmError> {
     let mut heap = StringHeap::new(program.string_heap_limit);
     let mut arrays = ArrayHeap::new(program.array_heap_limit);
@@ -292,7 +324,10 @@ fn run_connections(
         output,
         &mut heap,
         &mut arrays,
-        input,
+        &mut ExecutionInput {
+            stdin: input,
+            arguments,
+        },
     ) {
         error.output = output.captured().into();
         return Err(error);
@@ -326,7 +361,10 @@ pub(crate) fn execute_function(
         &mut output,
         &mut StringHeap::new(program.string_heap_limit),
         &mut ArrayHeap::new(program.array_heap_limit),
-        &mut crate::runtime::input::unconfigured(),
+        &mut crate::vm::ExecutionInput {
+            stdin: &mut crate::runtime::input::unconfigured(),
+            arguments: &crate::runtime::arguments::Arguments::unconfigured(),
+        },
     ) {
         Ok(value) => Ok((value.map(string_heap::freeze), output.0)),
         Err(mut error) => {
@@ -343,7 +381,7 @@ fn execute_frame(
     output: &mut dyn Sink,
     heap: &mut StringHeap,
     arrays: &mut ArrayHeap<Value>,
-    input: &mut dyn Source,
+    input: &mut ExecutionInput<'_>,
 ) -> Result<Option<Value>, VmError> {
     let result = execute_frame_inner(program, frame, arguments, output, heap, arrays, input);
     match (frame, result) {
@@ -359,7 +397,7 @@ fn execute_frame_inner(
     output: &mut dyn Sink,
     heap: &mut StringHeap,
     arrays: &mut ArrayHeap<Value>,
-    input: &mut dyn Source,
+    input: &mut ExecutionInput<'_>,
 ) -> Result<Option<Value>, VmError> {
     let (instructions, slot_info, parameter_count, return_type) = match frame {
         Frame::Entry => (
@@ -518,6 +556,31 @@ fn execute_frame_inner(
                 }
                 stack.push(Value::Integer(*length as i128, IntegerType::I64));
             }
+            InstructionKind::ArgumentCount | InstructionKind::ArgumentGet => {
+                let crate::bytecode::InstructionOrigin::Source { node_id, span } =
+                    instruction.origin
+                else {
+                    return Err(VmError::new(VmErrorKind::ArgumentOriginMissing, pc));
+                };
+                let origin = output::Origin { node_id, span };
+                let value = if matches!(instruction.kind, InstructionKind::ArgumentCount) {
+                    input
+                        .arguments
+                        .count_at(origin)
+                        .map(|n| Value::Integer(n as i128, IntegerType::I64))
+                } else {
+                    let index =
+                        at_instruction(pop_integer(&mut stack, IntegerType::I64), pc)? as i64;
+                    input
+                        .arguments
+                        .get_value(heap, index, origin)
+                        .map(Value::String)
+                };
+                stack.push(at_instruction(
+                    value.map_err(|f| VmErrorKind::Arguments(Box::new(f))),
+                    pc,
+                )?);
+            }
             InstructionKind::ReadLine => {
                 let limit = at_instruction(pop_integer(&mut stack, IntegerType::I64), pc)? as i64;
                 let crate::bytecode::InstructionOrigin::Source { node_id, span } =
@@ -527,6 +590,7 @@ fn execute_frame_inner(
                 };
                 let value = at_instruction(
                     input
+                        .stdin
                         .read_value(heap, limit, input::Origin { node_id, span })
                         .map_err(|f| VmErrorKind::Input(Box::new(f))),
                     pc,
@@ -1991,7 +2055,10 @@ mod tests {
             &mut output,
             &mut heap,
             &mut arrays,
-            &mut crate::runtime::input::unconfigured(),
+            &mut crate::vm::ExecutionInput {
+                stdin: &mut crate::runtime::input::unconfigured(),
+                arguments: &crate::runtime::arguments::Arguments::unconfigured(),
+            },
         )
         .unwrap_err();
         assert_eq!(e.kind(), VmErrorKind::AllocationFailed);

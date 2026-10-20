@@ -137,6 +137,7 @@ fn string_expr(expr: &Expr) -> Option<Span> {
         }
         ExprKind::Constant { value, .. } => string_expr(value),
         ExprKind::ArrayLength { value }
+        | ExprKind::ArgumentGet { index: value }
         | ExprKind::ReadLine { max_bytes: value }
         | ExprKind::StringByteLength { value }
         | ExprKind::ConvertNumeric { value, .. }
@@ -162,7 +163,8 @@ fn string_expr(expr: &Expr) -> Option<Span> {
         | ExprKind::Call {
             arguments: values, ..
         } => values.iter().find_map(string_expr),
-        ExprKind::Boolean(_)
+        ExprKind::ArgumentCount
+        | ExprKind::Boolean(_)
         | ExprKind::Integer(_)
         | ExprKind::Float { .. }
         | ExprKind::Variable { .. }

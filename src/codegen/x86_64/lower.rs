@@ -42,6 +42,20 @@ pub fn lower(
         for b in &f.blocks {
             for i in &b.instructions {
                 match &i.kind {
+                    Kind::Assign {
+                        value: Op::ArgumentCount | Op::ArgumentGet(_),
+                        ..
+                    } => {
+                        return Err(match i.origin.source() {
+                            Some(origin) => crate::diagnostic::Diagnostic::new(
+                                "Native program arguments are not supported yet",
+                                origin.span,
+                            ),
+                            None => crate::diagnostic::Diagnostic::without_span(
+                                "Native program arguments are not supported yet",
+                            ),
+                        });
+                    }
                     Kind::Output { .. } => module.uses_write = true,
                     Kind::StringManage { .. }
                     | Kind::Assign {
@@ -505,6 +519,9 @@ impl Lowerer<'_> {
         let ty = self.ty(d).clone();
         let destination = self.slots[d.0];
         match op {
+            Op::ArgumentCount | Op::ArgumentGet(_) => {
+                unreachable!("argument operations rejected before lowering")
+            }
             Op::Copy(v) => {
                 self.copy_local(*v, destination);
                 return;

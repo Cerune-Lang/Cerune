@@ -70,6 +70,7 @@ pub fn emit_llvm_with_options(
     options: Options,
 ) -> Result<String, Diagnostic> {
     let target = options.target;
+    crate::codegen::support::reject_arguments(program, "LLVM")?;
     if let Some(span) = program.first_input_span()
         && target.is_none()
     {

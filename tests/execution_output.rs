@@ -12,6 +12,7 @@ use std::io::{self, Write};
 struct Stopped {
     io: Option<Failure>,
     input: Option<input::Failure>,
+    arguments: Option<cerune_lang::runtime::arguments::Failure>,
     runtime: Option<RuntimeFailure>,
     origin: Option<Origin>,
 }
@@ -32,6 +33,10 @@ fn execute<W: Write>(
                     ir_executor::ErrorKind::Input(f) => Some(**f),
                     _ => None,
                 },
+                arguments: match e.kind() {
+                    ir_executor::ErrorKind::Arguments(f) => Some(**f),
+                    _ => None,
+                },
                 runtime: e.runtime_failure(),
                 origin: e.origin().map(|o| Origin {
                     node_id: o.node_id,
@@ -48,6 +53,10 @@ fn execute<W: Write>(
                 },
                 input: match e.kind() {
                     mir_executor::ErrorKind::Input(f) => Some(**f),
+                    _ => None,
+                },
+                arguments: match e.kind() {
+                    mir_executor::ErrorKind::Arguments(f) => Some(**f),
                     _ => None,
                 },
                 runtime: e.runtime_failure(),
@@ -72,6 +81,10 @@ fn execute<W: Write>(
                     mir_executor::ErrorKind::Input(f) => Some(**f),
                     _ => None,
                 },
+                arguments: match e.kind() {
+                    mir_executor::ErrorKind::Arguments(f) => Some(**f),
+                    _ => None,
+                },
                 runtime: e.runtime_failure(),
                 origin: e.origin().map(|o| Origin {
                     node_id: o.node_id,
@@ -92,6 +105,10 @@ fn execute<W: Write>(
                 },
                 input: match e.vm_error().kind() {
                     cerune_lang::vm::VmErrorKind::Input(f) => Some(*f),
+                    _ => None,
+                },
+                arguments: match e.vm_error().kind() {
+                    cerune_lang::vm::VmErrorKind::Arguments(f) => Some(*f),
                     _ => None,
                 },
                 runtime: e.runtime_failure(),
@@ -356,6 +373,15 @@ fn every_runnable_example_matches_existing_captured_output_in_all_executors() {
                 Err(error) => {
                     let stopped = result.unwrap_err();
                     assert_eq!(stopped.io, None);
+                    let expected_arguments = match error.kind() {
+                        ir_executor::ErrorKind::Arguments(f) => Some(**f),
+                        _ => None,
+                    };
+                    if let Some(f) = expected_arguments {
+                        assert_eq!(f.code, cerune_lang::runtime::arguments::Code::Unconfigured);
+                        assert_eq!(stopped.origin, Some(f.origin));
+                    }
+                    assert_eq!(stopped.arguments, expected_arguments);
 
                     let expected_input = match error.kind() {
                         ir_executor::ErrorKind::Input(f) => Some(**f),

@@ -1,4 +1,5 @@
 //! 完成済みのCerune IRを直接実行します。命令列や別のIRへ変換しません。
+use crate::runtime::arguments::{self, Arguments};
 use crate::runtime::array_heap::{ArrayError, ArrayHeap};
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
@@ -25,6 +26,7 @@ pub struct Origin {
 /// 言語の異常停止と、不正なIRによる内部問題を区別します。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
+    Arguments(Box<arguments::Failure>),
     Input(Box<input::Failure>),
     Output(Box<output::Failure>),
     Runtime(FailureCode),
@@ -58,6 +60,7 @@ impl ExecutionError {
     }
     pub fn diagnostic(&self) -> crate::diagnostic::Diagnostic {
         let message = match &self.kind {
+            ErrorKind::Arguments(failure) => failure.to_string(),
             ErrorKind::Input(failure) => failure.to_string(),
             ErrorKind::Output(failure) => failure.to_string(),
             ErrorKind::Runtime(code) => format!("runtime error: {}", code.name()),
@@ -143,6 +146,7 @@ struct Executor<'a, 'o> {
     program: &'a ir::Program,
     output: &'o mut dyn Sink,
     input: &'o mut dyn Source,
+    program_arguments: &'o Arguments,
     heap: StringHeap,
     arrays: ArrayHeap<Value>,
 }
@@ -165,24 +169,50 @@ fn run_sink(
     program: &ir::Program,
     output: &mut dyn Sink,
 ) -> std::result::Result<String, ExecutionError> {
-    run_connections(program, output, &mut crate::runtime::input::unconfigured())
+    run_connections(
+        program,
+        output,
+        &mut crate::runtime::input::unconfigured(),
+        &Arguments::unconfigured(),
+    )
 }
 pub fn run_with_io<R: std::io::Read, W: std::io::Write>(
     program: &ir::Program,
     input: &mut input::Input<R>,
     output: &mut output::Output<W>,
 ) -> std::result::Result<(), ExecutionError> {
-    run_connections(program, output, input).map(|_| ())
+    run_connections(program, output, input, &Arguments::unconfigured()).map(|_| ())
+}
+pub fn run_with_arguments(
+    program: &ir::Program,
+    arguments: &Arguments,
+) -> std::result::Result<String, ExecutionError> {
+    run_connections(
+        program,
+        &mut Capture::default(),
+        &mut input::unconfigured(),
+        arguments,
+    )
+}
+pub fn run_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
+    program: &ir::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    arguments: &Arguments,
+) -> std::result::Result<(), ExecutionError> {
+    run_connections(program, output, input, arguments).map(|_| ())
 }
 fn run_connections(
     program: &ir::Program,
     output: &mut dyn Sink,
     input: &mut dyn Source,
+    program_arguments: &Arguments,
 ) -> std::result::Result<String, ExecutionError> {
     let mut executor = Executor {
         program,
         output,
         input,
+        program_arguments,
         heap: StringHeap::new(program.string_heap_limit),
         arrays: ArrayHeap::new(program.array_heap_limit),
     };
@@ -572,6 +602,36 @@ impl Executor<'_, '_> {
                 .value
                 .clone(),
             E::Constant { value, .. } => self.expr(value, frame)?,
+            E::ArgumentCount => Value::Number(Number::Integer(
+                self.program_arguments
+                    .count_at(output::Origin {
+                        node_id: e.id,
+                        span: e.span,
+                    })
+                    .map_err(|failure| Fault {
+                        kind: ErrorKind::Arguments(Box::new(failure)),
+                        origin: None,
+                    })? as i128,
+                IntegerType::I64,
+            )),
+            E::ArgumentGet { index } => {
+                let index = self.expr(index, frame)?.integer(IntegerType::I64)? as i64;
+                Value::String(
+                    self.program_arguments
+                        .get_value(
+                            &mut self.heap,
+                            index,
+                            output::Origin {
+                                node_id: e.id,
+                                span: e.span,
+                            },
+                        )
+                        .map_err(|failure| Fault {
+                            kind: ErrorKind::Arguments(Box::new(failure)),
+                            origin: None,
+                        })?,
+                )
+            }
             E::ReadLine { max_bytes } => {
                 let limit = self.expr(max_bytes, frame)?.integer(IntegerType::I64)? as i64;
                 Value::String(
@@ -819,6 +879,7 @@ mod tests {
             program: &program,
             output: &mut captured,
             input: &mut crate::runtime::input::unconfigured(),
+            program_arguments: &Arguments::unconfigured(),
             heap: StringHeap::new(program.string_heap_limit),
             arrays: ArrayHeap::new(program.array_heap_limit),
         };
@@ -863,6 +924,7 @@ mod tests {
             program: &p,
             output: &mut captured,
             input: &mut crate::runtime::input::unconfigured(),
+            program_arguments: &Arguments::unconfigured(),
             heap: StringHeap::new(p.string_heap_limit),
             arrays: ArrayHeap::new(p.array_heap_limit),
         };

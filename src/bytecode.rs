@@ -137,6 +137,8 @@ pub enum InstructionKind {
         element: Type,
         length: usize,
     },
+    ArgumentCount,
+    ArgumentGet,
     ReadLine,
     StringByteLength,
     StringConcat,
@@ -371,7 +373,9 @@ pub fn format_program(program: &BytecodeProgram) -> String {
         .any(|i| {
             matches!(
                 i.kind,
-                InstructionKind::StringConcat | InstructionKind::ReadLine
+                InstructionKind::StringConcat
+                    | InstructionKind::ReadLine
+                    | InstructionKind::ArgumentGet
             )
         })
     {
@@ -842,6 +846,13 @@ impl Compiler {
                 self.emit_expr(right);
                 self.emit_source(InstructionKind::StringConcat, expr.id, expr.span);
             }
+            ExprKind::ArgumentCount => {
+                self.emit_source(InstructionKind::ArgumentCount, expr.id, expr.span)
+            }
+            ExprKind::ArgumentGet { index } => {
+                self.emit_expr(index);
+                self.emit_source(InstructionKind::ArgumentGet, expr.id, expr.span);
+            }
             ExprKind::ReadLine { max_bytes } => {
                 self.emit_expr(max_bytes);
                 self.emit_source(InstructionKind::ReadLine, expr.id, expr.span);
@@ -1310,6 +1321,12 @@ fn format_instruction(
                 if *retain { "retain" } else { "release" }
             )
             .unwrap();
+        }
+        InstructionKind::ArgumentCount => {
+            writeln!(output, "arguments.count").unwrap();
+        }
+        InstructionKind::ArgumentGet => {
+            writeln!(output, "arguments.get").unwrap();
         }
         InstructionKind::ReadLine => {
             writeln!(output, "input.read_line.utf8").unwrap();

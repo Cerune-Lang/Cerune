@@ -1,4 +1,4 @@
-# 仮想標準モジュール std:io
+# 仮想標準モジュール
 
 [English](standard-modules.en.md)
 
@@ -6,16 +6,16 @@
 
 ## 解決と同一性
 
-- `std:`で始まるimportを標準モジュールとして分類し、現在は完全一致の`std:io`だけを認識します。未知の識別子は診断し、ファイル読取りへフォールバックしません。
+- `std:`で始まるimportを標準モジュールとして分類し、現在は完全一致の`std:io`と`std:env`を認識します。未知の識別子は診断し、ファイル読取りへフォールバックしません。
 - 相対`.ceru`パスの解決規則は維持します。標準モジュールのための環境変数・検索パス・ネットワーク取得・一般的なパッケージ管理は追加しません。
-- 1コンパイルにつき`std:io`を一度だけ登録し、別名や別ファイルからのimportでも同じ型定義へ解決します。公開型は通常のenumであり、backendごとの専用型を作りません。
+- 1コンパイルにつき各標準モジュールを一度だけ登録し、別名や別ファイルからのimportでも同じ型定義へ解決します。公開型は通常のenumであり、backendごとの専用型を作りません。
 - `modules::from_source`はメモリ中のソースと同梱標準モジュールだけを解決します。相対ファイルimportは明示的に拒否します。compile(&str)・compile_to_ir(&str)はこの処理を使い、暗黙のファイルI/Oを導入しません。単独のSourceFileを受けるcompile_source系は従来どおりimportを解決せず、標準ソースを含むSourceMapが必要な場合はmodules::from_sourceを使います。
 
 ## SourceIdと観測
 
 SourceIdはコンパイル内での登録順の識別子です。入口を先に登録し、依存を宣言順に辿ります。std:io専用の固定数値IDは予約せず、別コンパイルの数値一致を前提にしません。
 
-SourceMapには利用者ソースと標準ソースの種別を保持します。標準ソースの名前は`std:io`、契約版は1です。emit-sourcesに本文・SourceId・標準種別・識別子・版を出し、ファイルパスらしい偽の名前を使いません。標準モジュールを使わない既存の単一ソースの匿名Spanとmanifestは維持します。
+SourceMapには利用者ソースと標準ソースの種別を保持します。標準ソースの識別子は`std:io`または`std:env`で、どちらも契約版は1です。emit-sourcesに本文・SourceId・標準種別・識別子・版を出し、ファイルパスらしい偽の名前を使いません。標準モジュールを使わない既存の単一ソースの匿名Spanとmanifestは維持します。
 
 入力命令のSpanは同梱関数内の操作を指します。呼出し側のHIR Callは利用者のSpanを保持し、生成過程から呼出し先と入力操作を辿れます。仮想ソースの診断を利用者ファイルの同じバイト位置へ誤って表示しません。
 
@@ -38,3 +38,7 @@ cargo test --test standard_input
 cargo run -- emit-sources tests/fixtures/line_input.ceru
 cargo run -- emit-ir tests/fixtures/line_input.ceru
 ```
+
+## プログラム引数 std:env
+
+arg_count／arg／Argumentの宣言を同梱し、同じSourceMap・名前解決・enum展開を使います。HIR・MIR・SSA・VMとCLIを接続済みで、生成経路は未対応を診断します。[契約と残件](dogfooding-inputs.ja.md)・[実行例](../../examples/arguments/README.md)を参照してください。

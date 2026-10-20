@@ -286,6 +286,10 @@ pub enum ExprKind {
         value: Box<Expr>,
     },
     /// 空文字列はEOFの内部表現です。公開enumへの変換は標準モジュールで観測できます。
+    ArgumentCount,
+    ArgumentGet {
+        index: Box<Expr>,
+    },
     ReadLine {
         max_bytes: Box<Expr>,
     },
@@ -472,6 +476,24 @@ impl Program {
 }
 
 impl Program {
+    pub(crate) fn first_argument_span(&self) -> Option<Span> {
+        let mut span = None;
+        input::visit_program(
+            self,
+            &mut |e| {
+                if span.is_none()
+                    && matches!(
+                        e.kind,
+                        ExprKind::ArgumentCount | ExprKind::ArgumentGet { .. }
+                    )
+                {
+                    span = Some(e.span);
+                }
+            },
+            &mut |_| {},
+        );
+        span
+    }
     pub(crate) fn first_input_span(&self) -> Option<Span> {
         input::first_span(self)
     }

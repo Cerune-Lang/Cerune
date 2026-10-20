@@ -2,7 +2,7 @@
 
 [English](dogfooding-inputs.en.md)
 
-2026-10-20。[#173](https://github.com/Cerune-Lang/Cerune/issues/173)と[#89](https://github.com/Cerune-Lang/Cerune/issues/89)の次の設計案です。**この文書のCLI引数・数値読取りAPIは未実装**です。実装済みの標準入力・WAT関数公開を作り直しません。
+2026-10-20。[#173](https://github.com/Cerune-Lang/Cerune/issues/173)と[#89](https://github.com/Cerune-Lang/Cerune/issues/89)の次の設計案です。**引数取得はHIR・MIR・SSA・VMとCLIに対応済み。生成経路と整数読取りは未実装**です。実装済みの標準入力・WAT関数公開を作り直しません。
 
 ## 最小の用途
 
@@ -17,9 +17,9 @@ next = (state * 48271) % 2147483647
 
 積の最大値103661183076066はi64に収まります。既知の期待値とHIR/MIR/SSA/VMを照合し、読取り専用のIR表示を挟んでも同じ結果を得ます。Parallaxの生成器・出力プロトコルを複製する例ではなく、引数対応の前後で計算を比較するための小さな例です。
 
-## 現在足りないことの再現
+## 実装前の基準
 
-master 200c1ecでは、`cerune run examples/deterministic_seed.ceru -- 1337`はusage診断で終了1になります。`import "std:env" as env;`だけのソースもunknown standard moduleで終了1です。引数取得が既に動く例として紹介しません。
+master 200c1ecでは、`cerune run examples/deterministic_seed.ceru -- 1337`はusage診断で終了1になります。`import "std:env" as env;`だけのソースもunknown standard moduleで終了1です。これは実装前の履歴です。現在は下記の公開APIとCLIで引数取得に対応しています。
 
 ## Parallaxの担当処理を分ける
 
@@ -38,9 +38,9 @@ master 200c1ecでは、`cerune run examples/deterministic_seed.ceru -- 1337`はu
 
 引数取得は[#174](https://github.com/Cerune-Lang/Cerune/issues/174)、整数の読取りは[#175](https://github.com/Cerune-Lang/Cerune/issues/175)で個別に追跡します。
 
-## 引数取得の提案
+## 引数取得の共通契約
 
-`std:env`という予約済み仮想モジュールに、引数数と指定位置の引数を読む操作を置く案です。環境変数やファイル探索の追加は含めません。API名は実装前に確定します。
+`std:env`という予約済み仮想モジュールに、引数数と指定位置の引数を読む操作を置く案です。環境変数やファイル探索の追加は含めません。公開名はarg_count／arg／Argumentに確定しました。生成経路への接続は後続です。
 
 | 項目 | 提案する契約 |
 | --- | --- |
@@ -48,13 +48,13 @@ master 200c1ecでは、`cerune run examples/deterministic_seed.ceru -- 1337`はu
 | 分割順 | 最初の区切りを全オプション解析より先に分離。以後の`--ssa`・`--string-heap-limit`等もプログラムの値 |
 | 対象 | プログラムの引数だけ。実行ファイル名、ソース名、コンパイラオプションは含めない |
 | 空と欠落 | 空文字列は存在する引数。範囲外は既存enumによるMissing等で表現。負の添字は不正として診断 |
-| 内容 | UTF-8、順序、空白、CR/LFを保持。正規化・分割・quoteの再解釈なし。OSで表せないNULは全接続共通で拒否する案 |
+| 内容 | UTF-8、順序、空白、CR/LFを保持。正規化・分割・quoteの再解釈なし。OSで表せないNULは全接続共通で拒否 |
 | 接続 | 実行開始前に固定した引数列を渡す。呼出すたびにOSや外部の可変配列を読まない |
 | 埋込み | ホストが明示注入。未設定と設定済み空列を区別。既存APIは暗黙にホストプロセスの引数を読まない |
 | 所有・上限 | 引数列の件数・総UTF-8バイト数を制限。返した文字列は既存の不変内容・所有・文字列ヒープ上限に従う |
 | 観測 | 共通IRの引数操作、型、NodeId/Span、取得位置と結果種別を追跡。本文は既定の診断や観測bundleへ入れない |
 
-現在のCLIは`env::args()`を読み、`parse_heap_limits`が全要素を走査します。区切り以後をこの関数へ渡さない構造が必要です。不正Unicodeをpanicへ流さないよう、OS文字列からの変換も明示します。起動時の不正入力には存在しないNodeId/Spanを付けず、ソース内の操作に起因する停止と区別します。
+CLIは`env::args_os()`を厳密変換し、区切り以後を`parse_heap_limits`へ渡さない構造に変更しました。不正Unicodeはpanicにせず診断します。起動時の不正入力には存在しないNodeId/Spanを付けず、ソース内の操作に起因する停止と区別します。
 
 `compile(&str)`やemit/observeは引数を取得せず、同じIRを構築します。標準宣言と本文は通常のSourceMapに登録し、std:ioと同じ名前解決・型同一性・出自の仕組みを使います。別のfrontend意味論は作りません。
 
@@ -76,20 +76,20 @@ master 200c1ecでは、`cerune run examples/deterministic_seed.ceru -- 1337`はu
 
 ## 実装単位と検証
 
-1. 引数の公開宣言・snapshot・共通IRを設計し、HIR/MIR/SSA/VMへ明示接続する。取得した文字列を表示する小さなexampleを追加する。
+1. 実装済み：公開宣言・snapshot・共通IRをHIR/MIR/SSA/VMとCLIへ接続。引数を表示するexampleと比較テストを追加。
 2. C/LLVM/QBE/WAT/Nativeへ接続し、同じ引数列で比較する。未接続の経路を空列や成功として扱わない。
 3. 純粋な整数読取りを全経路へ追加し、seedを引数から受け取る例を完成する。
 4. 引数・整数読取りの完了後は、[本体ロードマップ](language-roadmap.ja.md)に従ってoptional let＋fmt、Native build・配布初版、再帰へ進む。その後、明示した作業範囲でのファイルI/Oとshellを経由しない子プロセス操作を個別設計する。
 
 各段階で元HIR・非SSA MIR・SSA・生成物・ソース対応を維持します。最適化・Native build・パッケージ管理は前提にしません。
 
-実装前に確定する残件は、公開名とenum名、snapshot上限の具体値、確保の失敗時点、Windowsのコマンドライン分解とUTF-16変換、WATの版付きhost ABIです。WATの内部memoryを引数転送のために公開しません。C/LLVM/QBE/Nativeでもターゲット固有の入力方法を明示し、生成実行中のOSから黙って選びません。
+生成経路の実装前に確定する残件は、Windowsの起動引数取得とUTF-16変換、WATの版付きhost ABI、各経路での上限設定です。WATの内部memoryを引数転送のために公開しません。C/LLVM/QBE/Nativeでもターゲット固有の入力方法を明示し、生成実行中のOSから黙って選びません。
 
 回帰テストは引数0件・空文字・Unicode・CR/LF・順序・区切り以後のオプション風文字列・不正Unicode・上限ちょうど／超過・未設定接続を含めます。読取りではi64両端・その外側・書式と範囲の競合を確認し、失敗後の停止・本文非表示・観測有無での一致も比較します。
 
 ## 引数列の保持・検証：実装済みの最初の部品
 
-`runtime::arguments::Arguments`を追加しました。これはRust側の引数列の保持・検証だけであり、公開の`std:env`、共通IR命令、CLI、各実行経路への接続は未実装です。この部品だけで`cerune run file.ceru -- ...`が使えるようになるわけではありません。
+`runtime::arguments::Arguments`を追加しました。この不変な保持部品を、下記の公開API・共通IR・CLI・4実行器へ接続しています。
 
 | 項目 | 実装した契約 |
 | --- | --- |
@@ -104,6 +104,29 @@ master 200c1ecでは、`cerune run examples/deterministic_seed.ceru -- 1337`はu
 | 観測 | 件数・使用バイト数・Debugは本文を含まない。読取りは確保・消費・OS接続を行わない。本文は明示した`get`だけで返す |
 | 起動準備の失敗 | `arguments-v1 phase=capture`に理由と該当する引数位置だけを記録。入力本文や存在しないNodeId/Spanを付けない |
 
-引数列の保存容量と、実行中に返す文字列のヒープ上限は別です。既定の上限値とCLI設定方法、文字列ヒープへのコピー、ソース内の取得操作のNodeId/Span付き診断・操作記録は後続の接続時に定義します。初版の検証コードは、件数超過・バイト上限超過・不正UTF-8・NUL・確保失敗を区別します。
+引数列の保存容量と、実行中に返す文字列のヒープ上限は別です。CLI上限、文字列ヒープへのコピー、NodeId/Span付き診断は下記の接続で実装しました。成功した操作の時系列記録は後続です。初版の検証コードは、件数超過・バイト上限超過・不正UTF-8・NUL・確保失敗を区別します。
 
-異常系テストは検証順、上限ちょうど／超過、引数表と各文字列の確保失敗を確認します。成功系はUnicodeの非正規化、元入力からの独立性、空／欠落／未設定、繰返し読取りとDebugによる非干渉を確認します。次は公開標準宣言と共通IRを追加し、この引数列を実行器へ明示注入します。
+異常系テストは検証順、上限ちょうど／超過、引数表と各文字列の確保失敗を確認します。成功系はUnicodeの非正規化、元入力からの独立性、空／欠落／未設定、繰返し読取りとDebugによる非干渉を確認します。公開標準宣言と共通IRから、この引数列を実行器へ明示注入します。
+
+## 公開API・CLI・4実行器の接続
+
+`import "std:env" as env;`を明示し、`env::arg_count() -> i64`と`env::arg(index: i64) -> env::Argument`を使います。`Argument::Value { text: string }`と`Argument::Missing {}`は既存enumです。空文字はValue、0以上の範囲外はMissing、負添字は停止です。型と仮想ソースの出自はstd:ioと同じ仕組みで解決します。
+
+| 項目 | 実装した契約 |
+| --- | --- |
+| 経路 | HIR・MIR・SSA・VM。CLIはrun／run-ir／run-mir／run-mir --ssa／run-vm |
+| CLI区切り | 最初の`--`より前だけをCeruneオプションとして解析。以後の空文字・`--ssa`・`--string-heap-limit`等はそのままプログラム引数 |
+| CLI上限 | 既定4096件・合計1048576バイト。`--argument-count-limit`／`--argument-byte-limit`で明示変更。区切りの前に指定。0を許可し、重複・不正数値は拒否 |
+| 起動処理 | Rustの`args_os`で得た既に区切られたOS文字列を厳密変換。再分割やquote再解釈をしない。不正Unicodeは本文を含めず起動準備の診断にする |
+| 引数なし | CLIでは設定済み0件。既存の埋込み実行APIは未設定のまま。compile・emitは引数を取得しない |
+| Rust API | 各実行器の`run_with_arguments`／`run_with_io_and_arguments`へ不変のArgumentsを明示注入。VMにも同じAPIがあり、libには`run_bytecode_with_io_and_arguments`を追加 |
+| 共通表現 | HIRのArgumentCount／ArgumentGet、MIR・SSA・bytecodeのarguments.count／arguments.get。Missingへの分岐とenum構築は同梱Cerune本文から通常の展開を行う |
+| 所有 | 取得した非空文字列を既存ヒープへ確保・コピーし、通常の所有展開で解放。空文字は0バイト。snapshotの上限と返却値のヒープ上限を分離 |
+| 実行時失敗 | arguments-v1 phase=executeで操作・理由・添字・NodeId/SourceId/Spanを記録して停止。未設定、負添字、ヒープ上限超過、確保失敗を区別。本文は含めない |
+| 出自 | 内部操作の位置はstd:env内。利用者の呼出し位置はHIR Callに保持。架空の利用者Spanに置き換えない |
+
+`--diagnostic-format runtime-v1`でも引数操作の失敗はarguments-v1として出します。起動準備の失敗にはソース操作の位置を付けません。CLIのOS文字列取得・一時変換の領域はsnapshot保存の上限とは別です。
+
+[実行例](../../examples/arguments/README.md)と[比較テスト](../../tests/program_arguments/mod.rs)で正常出力、短絡評価、関数・配列への受渡し、コピー後の独立性、停止前の出力、停止理由・出自、元IRが変わらないことを確認します。
+
+C・LLVM・QBE・WAT・Nativeは未接続で、引数操作を含む生成を位置付きで拒否します。未使用関数も保持するため、std:envのimportだけでも対象になります。emit-sources／emit-ir／emit-mir／emit-bytecodeは観測できますが、Native生成を含むobserve bundleは未対応です。成功した各取得の時系列イベント記録は未実装です。次は生成経路の接続を進め、全経路が揃ってから整数読取りへ進みます。

@@ -34,3 +34,16 @@ pub(super) fn first_flush_span(program: &crate::ir::Program) -> Option<crate::so
             .find_map(|f| body(&f.body))
     })
 }
+
+pub(super) fn reject_arguments(
+    program: &crate::ir::Program,
+    backend: &str,
+) -> Result<(), crate::diagnostic::Diagnostic> {
+    if let Some(span) = program.first_argument_span() {
+        return Err(crate::diagnostic::Diagnostic::new(
+            format!("{backend} program arguments are not supported yet"),
+            span,
+        ));
+    }
+    Ok(())
+}
