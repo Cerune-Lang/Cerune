@@ -5,7 +5,7 @@ use std::ffi::OsString;
 pub fn parse(
     command: &str,
     values: impl IntoIterator<Item = OsString>,
-) -> Result<(Vec<String>, Arguments), String> {
+) -> Result<(Vec<String>, Arguments, Limits), String> {
     let executable = matches!(command, "run" | "run-ir" | "run-mir" | "run-vm");
     let mut compiler = Vec::new();
     let mut program = Vec::new();
@@ -29,13 +29,10 @@ pub fn parse(
             );
         }
     }
-    if !executable {
-        return Ok((compiler, Arguments::unconfigured()));
+    if !executable && command != "emit-llvm" {
+        return Ok((compiler, Arguments::unconfigured(), Limits::default()));
     }
-    let mut limits = Limits {
-        max_count: 4096,
-        max_bytes: 1048576,
-    };
+    let mut limits = Limits::default();
     let mut rest = Vec::new();
     let mut args = compiler.into_iter();
     let (mut count_seen, mut bytes_seen) = (false, false);
@@ -60,9 +57,15 @@ pub fn parse(
         }
         *limit = value.parse().map_err(|_| format!("{arg} exceeds u64"))?;
     }
+    if !executable {
+        if limits.max_count > i64::MAX as u64 {
+            return Err("LLVM argument count limit must not exceed i64::MAX".into());
+        }
+        return Ok((rest, Arguments::unconfigured(), limits));
+    }
     let bytes: Vec<&[u8]> = program.iter().map(|s| s.as_bytes()).collect();
     let arguments = Arguments::capture(&bytes, limits).map_err(|e| e.to_string())?;
-    Ok((rest, arguments))
+    Ok((rest, arguments, limits))
 }
 
 #[cfg(test)]
@@ -80,7 +83,7 @@ mod tests {
             "0",
         ]
         .map(OsString::from);
-        let (compiler, args) = parse("run", values).unwrap();
+        let (compiler, args, _) = parse("run", values).unwrap();
         assert_eq!(compiler, ["app.ceru"]);
         assert_eq!(args.count(), Ok(3));
         assert_eq!(args.get(0), Ok(Some("--")));

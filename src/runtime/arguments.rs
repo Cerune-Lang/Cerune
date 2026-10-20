@@ -10,6 +10,15 @@ pub struct Limits {
     pub max_bytes: u64,
 }
 
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            max_count: 4096,
+            max_bytes: 1048576,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Code {
     InvalidLimit,

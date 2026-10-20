@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-fn build(text: &str, opt: &str, flags: &[&str]) -> Option<(PathBuf, PathBuf)> {
+pub(super) fn build(text: &str, opt: &str, flags: &[&str]) -> Option<(PathBuf, PathBuf)> {
     let configured = std::env::var_os("CERUNE_TEST_CC");
     let cc = configured
         .clone()
@@ -73,7 +73,7 @@ fn build(text: &str, opt: &str, flags: &[&str]) -> Option<(PathBuf, PathBuf)> {
     );
     Some((dir, exe))
 }
-fn run(dir: &std::path::Path, exe: &std::path::Path, args: &[&OsStr]) -> Output {
+pub(super) fn run(dir: &std::path::Path, exe: &std::path::Path, args: &[&OsStr]) -> Output {
     process::bounded_output(
         Command::new(exe).args(args),
         dir,
@@ -82,7 +82,7 @@ fn run(dir: &std::path::Path, exe: &std::path::Path, args: &[&OsStr]) -> Output 
     )
     .unwrap()
 }
-fn compare(program: &ir::Program, values: &[&str], actual: &Output) {
+pub(super) fn compare(program: &ir::Program, values: &[&str], actual: &Output) {
     let args = snapshot(values);
     let expected = execute(0, program, &args);
     for route in 1..4 {

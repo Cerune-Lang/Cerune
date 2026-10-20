@@ -29,7 +29,7 @@ Preserve the [line-input contract](line-input.en.md), including limits, consumpt
 
 ## Execution and checks
 
-Pass Input and Output explicitly to HIR/MIR/SSA `run_with_io` or VM `run_bytecode_with_io`. Existing capture APIs keep input unconfigured. [CLI and generated C/LLVM/QBE/Native](stdin-connections.en.md) connect actual stdin. [Versioned WAT input hosts](wat-input-host.en.md) are also implemented. Native lowers input from ordinary/SSA MIR through LIR, ASM, and self-encoded Object. Unused functions are retained, so importing std:io alone includes input support in generated artifacts.
+Pass Input and Output explicitly to HIR/MIR/SSA `run_with_io` or VM `run_bytecode_with_io`. Existing capture APIs keep input unconfigured. [CLI and generated C/LLVM/LLVM/QBE/Native](stdin-connections.en.md) connect actual stdin. [Versioned WAT input hosts](wat-input-host.en.md) are also implemented. Native lowers input from ordinary/SSA MIR through LIR, ASM, and self-encoded Object. Unused functions are retained, so importing std:io alone includes input support in generated artifacts.
 
 The [Cerune line-input fixture](../../tests/fixtures/line_input.ceru) executes print → flush → read_line → match. [Differential tests](../../tests/standard_input.rs) supply independent identical inputs to four executors and check [expected output](../../tests/fixtures/line_input.stdout), operation order, failures, and ownership. A [real stdin example](../../examples/stdin/README.en.md) is also tested across all routes.
 
@@ -41,4 +41,4 @@ cargo run -- emit-ir tests/fixtures/line_input.ceru
 
 ## Program arguments: std:env
 
-Bundled arg_count/arg/Argument declarations reuse the same SourceMap, name resolution and enum lowering. HIR/MIR/SSA/VM, CLI and generated C are connected; LLVM/QBE/WAT/Native diagnose unsupported operations. See the [contract and remaining work](dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
+Bundled arg_count/arg/Argument declarations reuse the same SourceMap, name resolution and enum lowering. HIR/MIR/SSA/VM, CLI and generated C/LLVM are connected; QBE/WAT/Native diagnose unsupported operations. See the [contract and remaining work](dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
