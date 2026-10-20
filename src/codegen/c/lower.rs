@@ -368,9 +368,10 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
     }
 
     let kind = match &expr.kind {
-        cerune_ir::ExprKind::ArgumentCount | cerune_ir::ExprKind::ArgumentGet { .. } => {
-            unreachable!("argument operations rejected before lowering")
-        }
+        cerune_ir::ExprKind::ArgumentCount => ExprKind::ArgumentCount,
+        cerune_ir::ExprKind::ArgumentGet { index } => ExprKind::ArgumentGet {
+            index: Box::new(lower_expr(index)),
+        },
         cerune_ir::ExprKind::ArrayCopy { .. } | cerune_ir::ExprKind::ArrayRepeat { .. } => {
             unreachable!("array copies are expanded in common IR")
         }

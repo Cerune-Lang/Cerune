@@ -44,7 +44,7 @@ for (const [,suite,timeout,body] of entries) {
   }
 }
 assert.deepEqual([lib,bins,examples], [1,1,1], 'lib/bins/examples must be verified once');
-assert.deepEqual(sanitizer.sort(), ['c_strings','dynamic_arrays'], 'sanitizer coverage changed');
+assert.deepEqual(sanitizer.sort(), ['c_strings','dynamic_arrays','standard_input'], 'sanitizer coverage changed');
 assert.equal(assigned.length, new Set(assigned).size, 'Linux route target assigned more than once');
 assert.deepEqual(assigned.sort(), expected, 'Linux integration targets are missing or duplicated');
 assert.match(body, /matrix\.suite == 'sanitizer'/, 'sanitizer setup missing');

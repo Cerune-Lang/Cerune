@@ -179,6 +179,10 @@ pub enum ExprKind {
     ArrayReleaseOwner {
         value: Box<Expr>,
     },
+    ArgumentCount,
+    ArgumentGet {
+        index: Box<Expr>,
+    },
     ReadLine {
         max_bytes: Box<Expr>,
     },

@@ -27,6 +27,7 @@ pub fn emit(module: &Module) -> String {
         output.push_str("#include <stdlib.h>\n#include <signal.h>\n");
     }
     let reads = support.input;
+    let arguments = support.arguments;
     let writes = super::output::used(module);
     let strings = module.uses_strings || support.strings || super::string::uses_type(module);
     if !support.conversions.is_empty() || support.nonfinite {
@@ -70,6 +71,16 @@ pub fn emit(module: &Module) -> String {
         }
     }
 
+    if reads || arguments {
+        output.push_str(super::utf8::SUPPORT);
+    }
+    if arguments {
+        output.push_str(&super::arguments::support(
+            module
+                .string_heap_limit
+                .expect("arguments use string ownership"),
+        ));
+    }
     if reads {
         output.push_str(&super::input::support(
             module
@@ -144,7 +155,11 @@ pub fn emit(module: &Module) -> String {
         output.push_str("}\n\n");
     }
 
-    output.push_str("int main(void) {\n");
+    output.push_str(if arguments {
+        "static int cerune_program(void) {\n"
+    } else {
+        "int main(void) {\n"
+    });
     if writes || strings || module.array_heap_limit.is_some() {
         // WindowsのテキストモードによるLFの書き換えを防ぎ、VMと同じバイトを出力します。
         output.push_str("#ifdef _WIN32\n    if (_setmode(_fileno(stdout), _O_BINARY) == -1) {\n        fputs(\"cerune: cannot set stdout to binary mode\\n\", stderr);\n        return 1;\n    }\n#endif\n");
@@ -166,6 +181,9 @@ pub fn emit(module: &Module) -> String {
     output.push_str("    return 0;\n");
     output.push_str("}\n");
 
+    if arguments {
+        output.push_str(super::arguments::ENTRY);
+    }
     output
 }
 
@@ -568,6 +586,17 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
                 output.push_str(").length");
             }
         }
+        ExprKind::ArgumentCount => {
+            output.push_str("cerune_arguments_count(");
+            super::failure::literal(expr.origin, output);
+            output.push(')');
+        }
+        ExprKind::ArgumentGet { index } => {
+            output.push_str("cerune_arguments_get(");
+            emit_expr(index, module, output);
+            super::failure::argument(expr.origin, output);
+            output.push(')');
+        }
         ExprKind::ReadLine { max_bytes } => {
             output.push_str("cerune_input_read_line(");
             emit_expr(max_bytes, module, output);
@@ -847,6 +876,7 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
 
 #[derive(Clone, Default)]
 struct RuntimeSupport {
+    arguments: bool,
     input: bool,
     strings: bool,
     nonfinite: bool,
@@ -878,6 +908,11 @@ impl RuntimeSupport {
         self.strings |= expr.ty == Type::String;
         self.nonfinite |= matches!(&expr.kind, ExprKind::Float { text, .. } if matches!(text.as_str(), "nan" | "inf" | "-inf"));
         match &expr.kind {
+            ExprKind::ArgumentCount => self.arguments = true,
+            ExprKind::ArgumentGet { index } => {
+                self.arguments = true;
+                self.include_expr(index);
+            }
             ExprKind::ReadLine { max_bytes } => {
                 self.input = true;
                 self.include_expr(max_bytes);

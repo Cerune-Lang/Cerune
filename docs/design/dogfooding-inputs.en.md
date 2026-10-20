@@ -2,7 +2,7 @@
 
 [日本語](dogfooding-inputs.ja.md)
 
-2026-10-20. This is the next design proposal for [#173](https://github.com/Cerune-Lang/Cerune/issues/173) and [#89](https://github.com/Cerune-Lang/Cerune/issues/89). **Argument acquisition works in HIR/MIR/SSA/VM and CLI; generated-route connections and integer parsing remain unimplemented.** Existing stdin and WAT function exports remain in place.
+2026-10-20. This is the next design proposal for [#173](https://github.com/Cerune-Lang/Cerune/issues/173) and [#89](https://github.com/Cerune-Lang/Cerune/issues/89). **Argument acquisition works in HIR/MIR/SSA/VM, CLI and generated C; LLVM/QBE/WAT/Native connections and integer parsing remain unimplemented.** Existing stdin and WAT function exports remain in place.
 
 ## Smallest use
 
@@ -77,13 +77,13 @@ General string indexing is currently unavailable. Compare the necessary pure IR 
 ## Implementation units and validation
 
 1. Implemented: public declarations, snapshot and common IR connected to HIR/MIR/SSA/VM and CLI, with an argument-display example and comparison tests.
-2. Connect C/LLVM/QBE/WAT/Native and compare equal argument lists. Unconnected routes must not silently use an empty list or succeed.
+2. Generated C is connected. Next connect LLVM/QBE/WAT/Native and compare equal argument lists. Unconnected routes must not silently use an empty list or succeed.
 3. Add pure integer parsing across routes and complete the argument-driven seed example.
 4. After arguments and integer parsing, follow the [core roadmap](language-roadmap.en.md): optional let + fmt, Native build/initial distribution, then recursion. Subsequently design limited file I/O and shell-free subprocess operations separately.
 
 Retain original HIR, non-SSA MIR, SSA, generated artifacts and origins throughout. Optimization, Native build and package management are not prerequisites.
 
-Before generated-route implementation, settle Windows startup argument acquisition/UTF-16 conversion, the versioned WAT host ABI and per-route limit configuration. Do not export WAT memory for argument transfer. C/LLVM/QBE/Native must explicitly select target-specific acquisition rather than infer it from the emitter host OS.
+C Windows startup, UTF-16 conversion and limits are settled below. LLVM/QBE/Native startup and limits, plus the versioned WAT host ABI, remain to be settled. Do not export WAT memory for argument transfer. C/LLVM/QBE/Native must explicitly select target-specific acquisition rather than infer it from the emitter host OS.
 
 Regression cases include zero arguments, empty strings, Unicode, CR/LF, order, option-like text after the delimiter, invalid Unicode, exact/exceeded limits and unconfigured connections. Parsing tests cover both i64 bounds and neighboring values, syntax/range precedence, stopping behavior, omitted input text in diagnostics and observation-independent results.
 
@@ -129,4 +129,22 @@ Argument failures use arguments-v1 even with `--diagnostic-format runtime-v1`. C
 
 The [example](../../examples/arguments/README.en.md) and [comparison tests](../../tests/program_arguments/mod.rs) verify expected output, short-circuiting, function/array transfers, independent copies, prior output, stop reason/origin, and unchanged original IR.
 
-C/LLVM/QBE/WAT/Native connections remain unimplemented and reject generation containing argument operations with source locations. Unused functions are retained, so importing std:env alone is sufficient. emit-sources/emit-ir/emit-mir/emit-bytecode remain observable; observe bundles requiring Native generation are unsupported. A chronological event log of successful accesses remains unimplemented. Connect generated routes next, then proceed to integer parsing once route support is complete.
+LLVM/QBE/WAT/Native connections remain unimplemented and reject generation containing argument operations with source locations. Unused functions are retained, so importing std:env alone is sufficient. emit-sources/emit-ir/emit-mir/emit-bytecode remain observable; observe bundles requiring Native generation are unsupported. A chronological event log of successful accesses remains unimplemented. Connect generated routes next, then proceed to integer parsing once route support is complete.
+
+## Generated C argument connection
+
+The same common IR operations generate C acquisition, diagnostics and ownership code. Emitting C never reads OS arguments.
+
+| Area | Implemented contract |
+| --- | --- |
+| Startup | Selected by the C compilation target's `_WIN32`. Windows strictly converts `wmain` UTF-16 arguments with `WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS)`; other targets validate `main` arguments as UTF-8. Never select from the emitter's OS |
+| Contents | Omit only the executable name from arguments already split by the CRT. No resplitting or normalization. Generated executables treat every argument as a value, so the Cerune CLI separator `--` is unnecessary |
+| Startup validation | Validate OS Unicode, then validate limits, count, cumulative bytes, UTF-8 and NUL in the same order as the common snapshot; copy all entries before execution. Invalid OS text reports `invalid-unicode`. Original/temporary conversion storage is separate from snapshot limits |
+| Limits | Set `CERUNE_ARGUMENT_COUNT_LIMIT` and `CERUNE_ARGUMENT_BYTE_LIMIT` when compiling C. Defaults: 4096 entries and 1048576 bytes. No implicit configuration through environment variables or executable arguments |
+| Ownership | Snapshot contents remain immutable during execution. Retrieval copies into the existing string heap; normal ownership lowering releases values passed through functions, arrays, etc. Release the snapshot on normal termination |
+| Failures | `arguments-v1` distinguishes startup from source operations. Negative indices, string-heap excess and allocation failures flush prior output, record NodeId/SourceId/Span and exit 1 without subsequent execution. Never include contents |
+| Tools | Normal linking for Windows MSVC-target Clang. MinGW targets require `-municode` for Unicode startup. No extra libraries beyond the C runtime and basic Windows APIs |
+
+[Generated C comparisons](../../tests/program_arguments/c.rs) run at `-O0` and `-O2`, covering the example, empty/Japanese/CR/LF/combining/supplementary-plane text, quotes, option-like values, evaluation order, short-circuiting, copying and release. They also check limits, mutation of original input, unconfigured snapshots, NUL, invalid UTF-8/UTF-16 and allocation failure. Input and arguments share the same emitted UTF-8 validator.
+
+LLVM/QBE/WAT/Native startup connections and limits, plus the versioned WAT host contract, follow separately. Static C helpers are not a published stable embedding ABI.

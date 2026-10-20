@@ -17,32 +17,6 @@ static void cerune_input_failed(const char *code, int64_t limit, size_t consumed
     fflush(stderr);
     _Exit(1);
 }
-static int cerune_input_utf8(const unsigned char *data, size_t length) {
-    size_t i = 0;
-    while (i < length) {
-        unsigned char a = data[i++];
-        if (a <= 0x7f) continue;
-        size_t rest;
-        unsigned char low = 0x80, high = 0xbf;
-        if (a >= 0xc2 && a <= 0xdf) rest = 1;
-        else if (a >= 0xe0 && a <= 0xef) {
-            rest = 2;
-            if (a == 0xe0) low = 0xa0;
-            if (a == 0xed) high = 0x9f;
-        } else if (a >= 0xf0 && a <= 0xf4) {
-            rest = 3;
-            if (a == 0xf0) low = 0x90;
-            if (a == 0xf4) high = 0x8f;
-        } else return 0;
-        if (rest > length - i || data[i] < low || data[i] > high) return 0;
-        ++i;
-        while (--rest) {
-            if (data[i] < 0x80 || data[i] > 0xbf) return 0;
-            ++i;
-        }
-    }
-    return 1;
-}
 static cerune_string cerune_input_read_line(int64_t limit, const char *origin) {
     if (limit < 1 || limit > INT32_MAX)
         cerune_input_failed("invalid-limit", limit, 0, 1, origin);
@@ -72,7 +46,7 @@ static cerune_string cerune_input_read_line(int64_t limit, const char *origin) {
         p->data[length++] = byte;
         if (byte == 10) break;
     }
-    if (!code && !cerune_input_utf8(p->data, length)) code = "invalid-utf8";
+    if (!code && !cerune_utf8(p->data, length)) code = "invalid-utf8";
     if (code || length == 0) {
         cerune_string_live_bytes -= (uint64_t)limit;
         free(p);
