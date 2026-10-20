@@ -64,6 +64,8 @@ impl<R: Copy> O<R> {
                 ownership: *ownership,
             },
             O::ArrayLength(v) => O::ArrayLength(f(*v)),
+            O::ArgumentCount => O::ArgumentCount,
+            O::ArgumentGet(v) => O::ArgumentGet(f(*v)),
             O::ReadLine(v) => O::ReadLine(f(*v)),
             O::StringByteLength(v) => O::StringByteLength(f(*v)),
             O::StringConcat { left, right } => O::StringConcat {

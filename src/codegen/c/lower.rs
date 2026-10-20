@@ -368,6 +368,9 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
     }
 
     let kind = match &expr.kind {
+        cerune_ir::ExprKind::ArgumentCount | cerune_ir::ExprKind::ArgumentGet { .. } => {
+            unreachable!("argument operations rejected before lowering")
+        }
         cerune_ir::ExprKind::ArrayCopy { .. } | cerune_ir::ExprKind::ArrayRepeat { .. } => {
             unreachable!("array copies are expanded in common IR")
         }
@@ -595,6 +598,7 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
             }
             cerune_ir::ExprKind::Constant { value, .. } => visit_expr(value, types),
             cerune_ir::ExprKind::ArrayLength { value }
+            | cerune_ir::ExprKind::ArgumentGet { index: value }
             | cerune_ir::ExprKind::ReadLine { max_bytes: value }
             | cerune_ir::ExprKind::StringByteLength { value } => visit_expr(value, types),
             cerune_ir::ExprKind::String(_) => {}
@@ -641,6 +645,7 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
             cerune_ir::ExprKind::Boolean(_)
             | cerune_ir::ExprKind::Integer(_)
             | cerune_ir::ExprKind::Float { .. }
+            | cerune_ir::ExprKind::ArgumentCount
             | cerune_ir::ExprKind::Variable { .. } => {}
         }
     }

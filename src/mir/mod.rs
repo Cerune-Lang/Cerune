@@ -210,6 +210,8 @@ pub enum Operation<R = LocalId> {
         ownership: ir::ArgumentOwnership,
     },
     ArrayLength(R),
+    ArgumentCount,
+    ArgumentGet(R),
     ReadLine(R),
     StringByteLength(R),
     StringConcat {

@@ -283,7 +283,8 @@ fn operation(p: &Program, f: &Function, op: &Operation, dst: &T, o: Origin) -> R
             same(ty(*v)?, &T::String)?;
             same(dst, &I64)
         }
-        Operation::ReadLine(value) => {
+        Operation::ArgumentCount => same(dst, &I64),
+        Operation::ArgumentGet(value) | Operation::ReadLine(value) => {
             same(ty(*value)?, &I64)?;
             same(dst, &T::String)
         }
@@ -403,9 +404,10 @@ fn instruction(p: &Program, f: &Function, i: &Instruction) -> Result<(), Error> 
 }
 pub(super) fn operation_reads(op: &Operation) -> Vec<LocalId> {
     match op {
-        Operation::Literal(_) => vec![],
+        Operation::ArgumentCount | Operation::Literal(_) => vec![],
         Operation::Copy(v)
         | Operation::ArrayLength(v)
+        | Operation::ArgumentGet(v)
         | Operation::ReadLine(v)
         | Operation::StringByteLength(v)
         | Operation::ArrayReleaseOwner(v) => vec![*v],

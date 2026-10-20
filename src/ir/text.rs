@@ -474,6 +474,12 @@ fn emit_expr(expr: &Expr, program: &Program, output: &mut String) {
             emit_expr(right, program, output);
             output.push(')');
         }
+        ExprKind::ArgumentCount => output.push_str("arguments.count()"),
+        ExprKind::ArgumentGet { index } => {
+            output.push_str("arguments.get(");
+            emit_expr(index, program, output);
+            output.push(')');
+        }
         ExprKind::ReadLine { max_bytes } => {
             output.push_str("input.read_line.utf8(");
             emit_expr(max_bytes, program, output);

@@ -1,5 +1,6 @@
 //! MIRとSSAで共有する個々の演算・所有操作です。CFGの実行や値の参照方式は含みません。
 use super::{Fault, Result};
+use crate::runtime::arguments::Arguments;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Sink};
 use crate::{
@@ -18,6 +19,7 @@ use crate::{
 pub(crate) struct State<'a> {
     pub output: &'a mut dyn Sink,
     pub input: Option<&'a mut dyn Source>,
+    pub arguments: Option<&'a Arguments>,
     pub strings: StringHeap,
     pub arrays: ArrayHeap<Value>,
 }
@@ -26,6 +28,7 @@ impl<'a> State<'a> {
         Self {
             output,
             input: None,
+            arguments: None,
             strings: StringHeap::new(string_limit),
             arrays: ArrayHeap::new(array_limit),
         }
@@ -172,6 +175,35 @@ fn operation<'a, R: Copy>(
     origin: mir::Origin,
 ) -> Result<Value> {
     Ok(match op {
+        O::ArgumentCount | O::ArgumentGet(_) => {
+            let index = match op {
+                O::ArgumentGet(value) => Some(frame.get(*value)?.integer(IntegerType::I64)? as i64),
+                _ => None,
+            };
+            let origin = origin
+                .source()
+                .ok_or_else(|| Fault::invalid("argument operation lacks source origin"))?;
+            let site = output::Origin {
+                node_id: origin.node_id,
+                span: origin.span,
+            };
+            let state = executor.state();
+            let missing = Arguments::unconfigured();
+            let arguments = state.arguments.unwrap_or(&missing);
+            let result = match index {
+                None => arguments
+                    .count_at(site)
+                    .map(|n| Value::Number(Number::Integer(n as i128, IntegerType::I64))),
+                Some(index) => arguments
+                    .get_value(&mut state.strings, index, site)
+                    .map(Value::String),
+            };
+            result.map_err(|f| Fault {
+                kind: super::ErrorKind::Arguments(Box::new(f)),
+                origin: Some(origin),
+                location: None,
+            })?
+        }
         O::ReadLine(value) => {
             let limit = frame.get(*value)?.integer(IntegerType::I64)? as i64;
             let origin = origin

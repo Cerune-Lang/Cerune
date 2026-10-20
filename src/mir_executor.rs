@@ -1,5 +1,6 @@
 //! 型付きMIRの局所値・命令・CFGを直接実行します。
 //! HIR実行器やbytecode/VMの実行には委譲しません。
+use crate::runtime::arguments::{self, Arguments};
 use crate::{
     ir,
     mir::{self, TerminatorKind as T},
@@ -25,6 +26,7 @@ pub struct Location {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
+    Arguments(Box<arguments::Failure>),
     Input(Box<input::Failure>),
     Output(Box<output::Failure>),
     Validation(Box<mir::Error>),
@@ -66,6 +68,7 @@ impl ExecutionError {
             return e.diagnostic();
         }
         let message = match &self.kind {
+            ErrorKind::Arguments(failure) => failure.to_string(),
             ErrorKind::Input(failure) => failure.to_string(),
             ErrorKind::Output(failure) => failure.to_string(),
             ErrorKind::Runtime(code) => format!("runtime error: {}", code.name()),
@@ -206,23 +209,39 @@ fn run_sink(
     program: &mir::Program,
     output: &mut dyn Sink,
 ) -> std::result::Result<String, ExecutionError> {
-    run_connections(program, output, None)
+    run_connections(program, output, None, None)
 }
 pub fn run_with_io<R: std::io::Read, W: std::io::Write>(
     program: &mir::Program,
     input: &mut input::Input<R>,
     output: &mut output::Output<W>,
 ) -> std::result::Result<(), ExecutionError> {
-    run_connections(program, output, Some(input)).map(|_| ())
+    run_connections(program, output, Some(input), None).map(|_| ())
+}
+pub fn run_with_arguments(
+    program: &mir::Program,
+    arguments: &Arguments,
+) -> std::result::Result<String, ExecutionError> {
+    run_connections(program, &mut Capture::default(), None, Some(arguments))
+}
+pub fn run_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
+    program: &mir::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    arguments: &Arguments,
+) -> std::result::Result<(), ExecutionError> {
+    run_connections(program, output, Some(input), Some(arguments)).map(|_| ())
 }
 fn run_connections<'o>(
     program: &mir::Program,
     output: &'o mut dyn Sink,
     input: Option<&'o mut dyn input::Source>,
+    arguments: Option<&'o Arguments>,
 ) -> std::result::Result<String, ExecutionError> {
     mir::validate(program).map_err(validation_error)?;
     let mut executor = Executor::new(program, output);
     executor.state.input = input;
+    executor.state.arguments = arguments;
     let result = executor.entry();
     finish(result, executor.state)
 }

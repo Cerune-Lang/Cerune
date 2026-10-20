@@ -129,6 +129,7 @@ pub(super) fn visit_expr(expr: &Expr, f: &mut impl FnMut(&Expr)) {
         | ExprKind::ArrayReleaseOwner { value }
         | ExprKind::Constant { value, .. }
         | ExprKind::ArrayLength { value }
+        | ExprKind::ArgumentGet { index: value }
         | ExprKind::ReadLine { max_bytes: value }
         | ExprKind::StringByteLength { value }
         | ExprKind::ConvertNumeric { value, .. }

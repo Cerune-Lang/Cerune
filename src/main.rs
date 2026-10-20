@@ -1,4 +1,5 @@
 mod observation_bundle;
+mod program_arguments;
 
 use cerune_lang::{diagnostic::Diagnostic, modules::Compilation};
 use std::{env, fs, path::PathBuf, process};
@@ -11,14 +12,18 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
-    let mut args = env::args().skip(1);
+    let mut args = env::args_os().skip(1);
 
     let Some(command) = args.next() else {
         print_help();
         return Ok(());
     };
 
-    let (rest, string_heap_limit, array_heap_limit) = parse_heap_limits(args.collect(), &command)?;
+    let command = command
+        .into_string()
+        .map_err(|_| "invalid Unicode in Cerune command")?;
+    let (compiler_args, program_arguments) = program_arguments::parse(&command, args)?;
+    let (rest, string_heap_limit, array_heap_limit) = parse_heap_limits(compiler_args, &command)?;
     let mut args = rest.into_iter();
     match command.as_str() {
         // コードの構文チェック
@@ -329,51 +334,92 @@ fn run() -> Result<(), String> {
             let stdout = std::io::stdout();
             let mut output = cerune_lang::runtime::output::Output::new(stdout.lock());
             let mut stdin = cerune_lang::runtime::input::stdin();
-            let mut result =
-                if command == "run-mir" {
-                    let mir = render_compilation_result(
-                        cerune_lang::mir::lower(&ir).map_err(|e| e.diagnostic()),
-                        &source,
-                    )?;
-                    if ssa {
-                        let ssa = ssa_for(&mir, &source)?;
-                        cerune_lang::ssa_executor::run_with_io(&ssa, &mut stdin, &mut output)
-                            .map_err(|error| {
-                                if runtime_format && let Some(failure) = error.runtime_failure() {
-                                    return failure.record();
-                                }
-                                source.render(&error.diagnostic())
-                            })
-                    } else {
-                        cerune_lang::mir_executor::run_with_io(&mir, &mut stdin, &mut output)
-                            .map_err(|error| {
-                                if runtime_format && let Some(failure) = error.runtime_failure() {
-                                    return failure.record();
-                                }
-                                source.render(&error.diagnostic())
-                            })
-                    }
-                } else if command != "run-vm" {
-                    cerune_lang::ir_executor::run_with_io(&ir, &mut stdin, &mut output).map_err(
-                        |error| {
-                            if runtime_format && let Some(failure) = error.runtime_failure() {
-                                return failure.record();
-                            }
-                            source.render(&error.diagnostic())
-                        },
+            let mut result = if command == "run-mir" {
+                let mir = render_compilation_result(
+                    cerune_lang::mir::lower(&ir).map_err(|e| e.diagnostic()),
+                    &source,
+                )?;
+                if ssa {
+                    let ssa = ssa_for(&mir, &source)?;
+                    cerune_lang::ssa_executor::run_with_io_and_arguments(
+                        &ssa,
+                        &mut stdin,
+                        &mut output,
+                        &program_arguments,
                     )
+                    .map_err(|error| {
+                        if runtime_format
+                            && let cerune_lang::ssa_executor::ErrorKind::Arguments(failure) =
+                                error.kind()
+                        {
+                            return failure.record();
+                        }
+                        if runtime_format && let Some(failure) = error.runtime_failure() {
+                            return failure.record();
+                        }
+                        source.render(&error.diagnostic())
+                    })
                 } else {
-                    let bytecode =
-                        render_compilation_result(cerune_lang::bytecode::lower(&ir), &source)?;
-                    cerune_lang::run_bytecode_with_io(&bytecode, &mut stdin, &mut output).map_err(
-                        |error| {
-                            if runtime_format && let Some(failure) = error.runtime_failure() {
-                                return failure.record();
-                            }
-                            source.render_execution(&error)
-                        },
+                    cerune_lang::mir_executor::run_with_io_and_arguments(
+                        &mir,
+                        &mut stdin,
+                        &mut output,
+                        &program_arguments,
                     )
-                };
+                    .map_err(|error| {
+                        if runtime_format
+                            && let cerune_lang::mir_executor::ErrorKind::Arguments(failure) =
+                                error.kind()
+                        {
+                            return failure.record();
+                        }
+                        if runtime_format && let Some(failure) = error.runtime_failure() {
+                            return failure.record();
+                        }
+                        source.render(&error.diagnostic())
+                    })
+                }
+            } else if command != "run-vm" {
+                cerune_lang::ir_executor::run_with_io_and_arguments(
+                    &ir,
+                    &mut stdin,
+                    &mut output,
+                    &program_arguments,
+                )
+                .map_err(|error| {
+                    if runtime_format
+                        && let cerune_lang::ir_executor::ErrorKind::Arguments(failure) =
+                            error.kind()
+                    {
+                        return failure.record();
+                    }
+                    if runtime_format && let Some(failure) = error.runtime_failure() {
+                        return failure.record();
+                    }
+                    source.render(&error.diagnostic())
+                })
+            } else {
+                let bytecode =
+                    render_compilation_result(cerune_lang::bytecode::lower(&ir), &source)?;
+                cerune_lang::run_bytecode_with_io_and_arguments(
+                    &bytecode,
+                    &mut stdin,
+                    &mut output,
+                    &program_arguments,
+                )
+                .map_err(|error| {
+                    if runtime_format
+                        && let cerune_lang::vm::VmErrorKind::Arguments(failure) =
+                            error.vm_error().kind()
+                    {
+                        return failure.record();
+                    }
+                    if runtime_format && let Some(failure) = error.runtime_failure() {
+                        return failure.record();
+                    }
+                    source.render_execution(&error)
+                })
+            };
 
             if runtime_format && let Some(failure) = stdin.failure() {
                 result = Err(failure.record());
@@ -643,14 +689,16 @@ fn print_help() {
            cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>\n\
            cerune emit-mir <file> [--ssa] [-o <output.txt>]\n\
            cerune emit-bytecode <file> [-o <output.cebc>]\n\
-           cerune run <file> [--diagnostic-format runtime-v1]\n\
-           cerune run-ir <file> [--diagnostic-format runtime-v1]\n\
-           cerune run-mir <file> [--ssa] [--diagnostic-format runtime-v1]\n\
-           cerune run-vm <file> [--diagnostic-format runtime-v1]\n\
+           cerune run <file> [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
+           cerune run-ir <file> [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
+           cerune run-mir <file> [--ssa] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
+           cerune run-vm <file> [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
            cerune --version\n\n\
          run / run-ir: direct Cerune IR execution; run-mir: HIR -> MIR execution; run-vm: Bytecode -> VM.\n\
          run / run-ir / run-mir / run-vm / observe / emit-* (except emit-sources): --string-heap-limit <bytes> / --array-heap-limit <bytes>\n\
          --ssa: explicit scalar SSA construction for emit-mir / run-mir / emit-lir / emit-asm / emit-obj / observe; no optimization.\n\
+         run commands: --argument-count-limit <count> / --argument-byte-limit <bytes>; defaults: 4096 / 1048576.\n\
+         First -- separates all program arguments from Cerune options.\n\
          Default: 67108864 bytes per heap; compile-time string budget is independent.\n",
         env!("CARGO_PKG_VERSION")
     );

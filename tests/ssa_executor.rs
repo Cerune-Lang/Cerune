@@ -45,6 +45,17 @@ fn compare(hir: &ir::Program) {
         (Err(a), Err(b), Err(c), Err(d)) => {
             match (a.kind(), b.kind(), c.kind(), d.vm_error().kind()) {
                 (
+                    ir_executor::ErrorKind::Arguments(ai),
+                    mir_executor::ErrorKind::Arguments(bi),
+                    mir_executor::ErrorKind::Arguments(ci),
+                    VmErrorKind::Arguments(di),
+                ) => {
+                    assert_eq!(ai.code, cerune_lang::runtime::arguments::Code::Unconfigured);
+                    assert_eq!(ai.as_ref(), bi.as_ref());
+                    assert_eq!(ai.as_ref(), ci.as_ref());
+                    assert_eq!(ai.as_ref(), di.as_ref());
+                }
+                (
                     ir_executor::ErrorKind::Input(ai),
                     mir_executor::ErrorKind::Input(bi),
                     mir_executor::ErrorKind::Input(ci),

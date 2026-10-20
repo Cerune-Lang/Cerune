@@ -19,6 +19,7 @@ use lower::lower;
 use crate::{diagnostic::Diagnostic, ir as cerune_ir};
 
 pub fn emit_c(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
+    crate::codegen::support::reject_arguments(program, "C")?;
     let module = lower(program);
 
     Ok(emit(&module))

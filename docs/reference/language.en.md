@@ -483,6 +483,14 @@ Explicitly import the bundled module with `import "std:io" as io;` and call `io:
 
 Currently available through HIR/MIR/SSA/VM Rust input connection APIs. [CLI and generated C/LLVM/QBE/Native stdin](../design/stdin-connections.en.md) are also available. [Versioned WAT input hosts](../design/wat-input-host.en.md) are also implemented. **Windows console input remains unsupported.** Standard modules are not searched through files or environment variables; emit-sources exposes their text, types can be inspected in IR, and source origins remain observable. See [resolution and execution examples](../design/standard-modules.en.md) and the [consumption/failure contract](../design/line-input.en.md).
 
+### Program arguments
+
+Import `std:env` explicitly to use `env::arg_count() -> i64` and `env::arg(index: i64) -> env::Argument`. Results are `Value { text: string }` / `Missing {}`. Empty text is Value, nonnegative out-of-range indices are Missing, and negative indices stop with source diagnostics. Contents are neither normalized nor split again.
+
+HIR/MIR/SSA/VM and CLI are supported. Values after the first CLI `--` are program arguments, excluding executable/source names. Defaults are 4096 entries and 1048576 total UTF-8 bytes; override with `--argument-count-limit` / `--argument-byte-limit` before the delimiter. Invalid Unicode, NUL and limit excess stop startup preparation. Returned strings separately obey the string-heap limit.
+
+Existing embedding APIs never read OS arguments implicitly and report unconfigured access. Inject arguments using `run_with_arguments` or related APIs. **C/LLVM/QBE/WAT/Native connections and integer parsing remain unimplemented.** See the [contract](../design/dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
+
 ## Functions and entrypoint
 
 `fn` defines a named computation. Every parameter and the return type are explicit.

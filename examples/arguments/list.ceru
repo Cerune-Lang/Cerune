@@ -1,0 +1,16 @@
+import "std:env" as env;
+
+print(env::arg_count());
+for (mut index: i64 = 0; index < env::arg_count(); index = index + 1) {
+    match env::arg(index) {
+        env::Argument::Value { text: text } => {
+            print([text]);
+            print(byte_len(text));
+        },
+        env::Argument::Missing {} => { print("missing"); },
+    }
+}
+match env::arg(env::arg_count()) {
+    env::Argument::Value { text: text } => { print([text]); },
+    env::Argument::Missing {} => { print("end"); },
+}

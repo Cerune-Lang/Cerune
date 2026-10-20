@@ -60,6 +60,7 @@ pub fn emit_qbe_with_target(
     program: &cerune_ir::Program,
     target: Option<Target>,
 ) -> Result<String, Diagnostic> {
+    crate::codegen::support::reject_arguments(program, "QBE")?;
     if let Some(span) = program.first_input_span()
         && target.is_none()
     {

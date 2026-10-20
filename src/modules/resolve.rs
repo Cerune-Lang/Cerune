@@ -482,6 +482,8 @@ impl Resolver<'_> {
                 if !matches!(
                     name.as_str(),
                     "$read_line"
+                        | "$arg_count"
+                        | "$arg_get"
                         | "byte_len"
                         | "array_len"
                         | "concat"

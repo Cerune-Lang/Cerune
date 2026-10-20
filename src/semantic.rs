@@ -1929,6 +1929,35 @@ fn check_call(
         }
         return Ok(ReturnType::Value(Type::DynamicArray { element }));
     }
+    if name == "$arg_count" {
+        if !arguments.is_empty() {
+            return Err(Diagnostic::new(
+                "argument count expects no parameters",
+                name_span,
+            ));
+        }
+        return Ok(ReturnType::Value(Type::Integer(IntegerType::I64)));
+    }
+    if name == "$arg_get" {
+        if arguments.len() != 1 {
+            return Err(Diagnostic::new(
+                "argument lookup expects one i64 index",
+                name_span,
+            ));
+        }
+        if model.type_of_expr_expected(
+            &arguments[0],
+            bindings,
+            Some(Type::Integer(IntegerType::I64)),
+        )? != Type::Integer(IntegerType::I64)
+        {
+            return Err(Diagnostic::new(
+                "argument index must be i64",
+                arguments[0].span,
+            ));
+        }
+        return Ok(ReturnType::Value(Type::String));
+    }
     if name == "$read_line" {
         if arguments.len() != 1 {
             return Err(Diagnostic::new(

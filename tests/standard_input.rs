@@ -1,3 +1,5 @@
+#[path = "program_arguments/mod.rs"]
+mod program_arguments;
 use cerune_lang::{
     ir, ir_executor, mir, mir_executor, modules,
     runtime::{

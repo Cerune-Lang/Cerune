@@ -448,6 +448,16 @@ impl Builder<'_> {
         let ty = self.model.type_of_expr_expected(expr, bindings, expected)?;
 
         let kind = match &expr.kind {
+            ast::ExprKind::Call { name, .. } if name == "$arg_count" => ExprKind::ArgumentCount,
+            ast::ExprKind::Call {
+                name, arguments, ..
+            } if name == "$arg_get" => ExprKind::ArgumentGet {
+                index: Box::new(self.build_expr(
+                    &arguments[0],
+                    Some(semantic::Type::Integer(IntegerType::I64)),
+                    bindings,
+                )?),
+            },
             ast::ExprKind::Call {
                 name, arguments, ..
             } if name == "$read_line" => ExprKind::ReadLine {

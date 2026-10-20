@@ -1,5 +1,6 @@
 //! SSAのblock・辺の引数・値・残存slotを直接実行します。
 //! 元MIRへの逆変換や、HIR/VM実行へのfallbackは行いません。
+use crate::runtime::arguments::Arguments;
 use crate::runtime::input;
 use crate::runtime::output::{self, Capture, Sink};
 use crate::{
@@ -154,23 +155,39 @@ fn run_sink(
     program: &ssa::Program,
     output: &mut dyn Sink,
 ) -> std::result::Result<String, ExecutionError> {
-    run_connections(program, output, None)
+    run_connections(program, output, None, None)
 }
 pub fn run_with_io<R: std::io::Read, W: std::io::Write>(
     program: &ssa::Program,
     input: &mut input::Input<R>,
     output: &mut output::Output<W>,
 ) -> std::result::Result<(), ExecutionError> {
-    run_connections(program, output, Some(input)).map(|_| ())
+    run_connections(program, output, Some(input), None).map(|_| ())
+}
+pub fn run_with_arguments(
+    program: &ssa::Program,
+    arguments: &Arguments,
+) -> std::result::Result<String, ExecutionError> {
+    run_connections(program, &mut Capture::default(), None, Some(arguments))
+}
+pub fn run_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
+    program: &ssa::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    arguments: &Arguments,
+) -> std::result::Result<(), ExecutionError> {
+    run_connections(program, output, Some(input), Some(arguments)).map(|_| ())
 }
 fn run_connections<'o>(
     program: &ssa::Program,
     output: &'o mut dyn Sink,
     input: Option<&'o mut dyn input::Source>,
+    arguments: Option<&'o Arguments>,
 ) -> std::result::Result<String, ExecutionError> {
     ssa::validate(program).map_err(|e| error(program, mir_executor::validation_error(e)))?;
     let mut executor = Executor::new(program, output);
     executor.state.input = input;
+    executor.state.arguments = arguments;
     let result = executor.entry();
     mir_executor::finish(result, executor.state).map_err(|e| error(program, e))
 }
