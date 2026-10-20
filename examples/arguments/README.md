@@ -23,7 +23,7 @@ end
 
 引数なしでは `0` と `end`、空文字を1個渡すと `1`・`[""]`・`0`・`end` です。空文字の渡し方は利用するshellの規則に従います。
 
-HIR・MIR・SSA・VM・CLI・生成C・LLVMで実行できます。QBE・WAT・Nativeは未接続のため、引数操作を含む生成を明示的に拒否します。整数の読取りは未実装です。[契約・上限・未対応範囲](../../docs/design/dogfooding-inputs.ja.md)を参照してください。
+HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBEで実行できます。WAT・Nativeは未接続のため、引数操作を含む生成を明示的に拒否します。整数の読取りは未実装です。[契約・上限・未対応範囲](../../docs/design/dogfooding-inputs.ja.md)を参照してください。
 
 生成Cでも同じ出力を確認できます。Linux/macOSでは次のように実行します。
 
@@ -44,3 +44,14 @@ clang target/arguments.ll -o target/arguments-llvm
 ```
 
 Windowsではターゲットを`x86_64-pc-windows-msvc`、出力先を`target/arguments-llvm.exe`に変更します。上限を変える場合は`emit-llvm`に`--argument-count-limit 2 --argument-byte-limit 10`等を指定します。表示される結果は上記と同じです。
+
+QBE 1.3でも同じ出力を確認できます。Linux向けの生成・リンク手順です。
+
+```sh
+cargo run -- emit-qbe examples/arguments/list.ceru --target x86_64-unknown-linux-gnu -o target/arguments.ssa
+qbe -t amd64_sysv -o target/arguments.s target/arguments.ssa
+clang -target x86_64-unknown-linux-gnu target/arguments.s -o target/arguments
+./target/arguments hello --ssa
+```
+
+WindowsではCeruneとClangのtargetを`x86_64-pc-windows-msvc`、QBEの`-t`を`amd64_win`、実行ファイルを`target/arguments.exe`にします。引数取得の上限は`emit-qbe --argument-count-limit 2 --argument-byte-limit 10`のように明示します。

@@ -12,7 +12,7 @@ The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline.
 
 | Order | Work | First usable outcome | Status |
 | --- | --- | --- | --- |
-| 1 | [Program arguments](https://github.com/Cerune-Lang/Cerune/issues/174) → [integer parsing](https://github.com/Cerune-Lang/Cerune/issues/175) | Distinguish empty/missing values, invalid syntax and range errors; compare a seed-argument example across routes | Arguments implemented in four executors, CLI and generated C/LLVM; QBE/WAT/Native and parsing pending |
+| 1 | [Program arguments](https://github.com/Cerune-Lang/Cerune/issues/174) → [integer parsing](https://github.com/Cerune-Lang/Cerune/issues/175) | Distinguish empty/missing values, invalid syntax and range errors; compare a seed-argument example across routes | Arguments implemented in four executors, CLI and generated C/LLVM/QBE; WAT/Native and parsing pending |
 | 2 | [Optional let + fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | Preserve/show/hide let, retain comments, and verify formatting idempotence and semantics; align with [infer omission and related syntax](https://github.com/Cerune-Lang/Cerune/issues/105) | Design and implement together; unimplemented |
 | 3 | [Native build and initial distribution](https://github.com/Cerune-Lang/Cerune/issues/81) | Build an executable with explicit target/linker; distribute dependencies, execution requirements, and origins | Responsibilities outlined; unimplemented |
 | 4 | [Recursion](functions.en.md) | Align per-call storage, ownership/cleanup, limits, failure diagnostics, call stacks and origins across routes | Design and implementation pending |
@@ -24,7 +24,7 @@ Add optional let and fmt together in step 2. Preserve types, mutability, and eva
 
 Step 3 distributes programs written in Cerune. Compiler binary updates can proceed separately. Initial Native distribution does not wait for IR/VM Images; those routes require separate format, validator, and loader work. Release does not imply optimization.
 
-The [fixed-seed baseline example](../../examples/deterministic_seed.ceru) is added in PR #176. An [argument-display example](../../examples/arguments/README.en.md) runs in four executors, CLI and generated C/LLVM. QBE/WAT/Native and integer parsing remain unimplemented. Parallax seed selection is one validation use case for general Cerune features. Retain Parallax's independent Python oracle.
+The [fixed-seed baseline example](../../examples/deterministic_seed.ceru) is added in PR #176. An [argument-display example](../../examples/arguments/README.en.md) runs in four executors, CLI and generated C/LLVM/QBE. WAT/Native and integer parsing remain unimplemented. Parallax seed selection is one validation use case for general Cerune features. Retain Parallax's independent Python oracle.
 
 At each step, preserve observation of original unoptimized forms, transformations, inputs, outputs, stop reasons, and origins; compare identical inputs across existing routes. Observation APIs must not mutate execution state.
 
@@ -122,7 +122,7 @@ Separate existing behavior from decisions for the next design.
 | --- | --- | --- |
 | Standard output | `print` displays values; `run`/`run-mir`/`run-vm` deliver output during execution and flush at completion; captured Rust APIs remain | `flush();` is implemented; C/LLVM/QBE/WAT/Native write failures are also implemented; dialogue tests already verify prompts before waiting for input |
 | Standard error | Used for compiler/runtime diagnostics; no general program-facing write API | Distinguish program output from runtime diagnostics and define write failures |
-| Standard input/arguments | io::read_line and the line/EOF enum work in four executors, CLI, generated C/LLVM/QBE/Native, and versioned WAT hosts | Windows console support remains; arguments work in four executors, CLI and generated C/LLVM, with other generated connections pending; files, FFI and networking follow separately |
+| Standard input/arguments | io::read_line and the line/EOF enum work in four executors, CLI, generated C/LLVM/QBE/Native, and versioned WAT hosts | Windows console support remains; arguments work in four executors, CLI and generated C/LLVM/QBE, with other generated connections pending; files, FFI and networking follow separately |
 | Standard library | std:io and std:env are bundled virtual sources with observable types, text, and origins; no file lookup | Distinguish language built-ins, runtime connections to external resources, and libraries written in Cerune |
 
 The [standard I/O design](standard-io.en.md) records responsibilities and implementation order. The [input-value branching example](../../examples/io_protocol/README.en.md) runs today but does not use stdin. The [line-input contract and shared Rust connection](line-input.en.md) are added. The initial API returns a line or EOF and stops on errors; existing enums suffice without generic Result. Virtual std:io read_line/ReadLine are connected to four executors. CLI/C/LLVM/QBE/Native stdin is implemented within the [initial scope](stdin-connections.en.md); versioned WAT input hosts are implemented; Native input is implemented. Compare with identical inputs and controlled output destinations, testing real connections separately. A general record/replay or effect system is not a prerequisite.

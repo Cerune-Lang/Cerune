@@ -1,3 +1,4 @@
+mod arguments;
 mod array;
 mod conversion;
 mod emit;
@@ -11,6 +12,7 @@ mod output;
 mod rounding;
 mod string;
 mod unsigned;
+mod utf8;
 
 pub use emit::emit;
 use lower::lower;
@@ -60,7 +62,29 @@ pub fn emit_qbe_with_target(
     program: &cerune_ir::Program,
     target: Option<Target>,
 ) -> Result<String, Diagnostic> {
-    crate::codegen::support::reject_arguments(program, "QBE")?;
+    emit_qbe_with_argument_limits(program, target, Default::default())
+}
+
+/// Explicit startup limits; existing emission APIs retain their defaults.
+pub fn emit_qbe_with_argument_limits(
+    program: &cerune_ir::Program,
+    target: Option<Target>,
+    limits: crate::runtime::arguments::Limits,
+) -> Result<String, Diagnostic> {
+    if let Some(span) = program.first_argument_span() {
+        if target.is_none() {
+            return Err(Diagnostic::new(
+                "QBE program arguments require an explicit --target: x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc",
+                span,
+            ));
+        }
+        if limits.max_count > i64::MAX as u64 {
+            return Err(Diagnostic::new(
+                "QBE argument count limit must not exceed i64::MAX",
+                span,
+            ));
+        }
+    }
     if let Some(span) = program.first_input_span()
         && target.is_none()
     {
@@ -104,6 +128,7 @@ pub fn emit_qbe_with_target(
         ));
     }
     module.target = target;
+    module.argument_limits = limits;
 
     Ok(emit(&module))
 }

@@ -40,6 +40,7 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
     lowerer.lower_statements(&program.statements);
 
     Module {
+        argument_limits: Default::default(),
         array_heap_limit: program
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
@@ -591,8 +592,29 @@ impl Lowerer<'_> {
         }
 
         match &expr.kind {
-            cerune_ir::ExprKind::ArgumentCount | cerune_ir::ExprKind::ArgumentGet { .. } => {
-                unreachable!("argument operations rejected before lowering")
+            cerune_ir::ExprKind::ArgumentCount => {
+                let dest = self.next_temp();
+                self.instructions.push(Instruction::ArgumentCount {
+                    dest,
+                    origin: expr.into(),
+                });
+                Value::Scalar {
+                    ty: Type::I64,
+                    operand: Operand::Temp(dest),
+                }
+            }
+            cerune_ir::ExprKind::ArgumentGet { index } => {
+                let (_, index) = self.lower_scalar_expr(index);
+                let dest = self.next_temp();
+                self.instructions.push(Instruction::ArgumentGet {
+                    dest,
+                    index,
+                    origin: expr.into(),
+                });
+                Value::Scalar {
+                    ty: Type::String,
+                    operand: Operand::Temp(dest),
+                }
             }
             cerune_ir::ExprKind::ArrayCopy { .. } | cerune_ir::ExprKind::ArrayRepeat { .. } => {
                 unreachable!("array copies are expanded in common IR")

@@ -83,3 +83,5 @@ assert.match(workflow, /matrix\.suite == 'qbe'/, 'QBE tool setup is missing');
 assert.equal(new Set(assigned).size, assigned.length, 'a Windows test is assigned twice');
 assert.deepEqual(assigned.sort(), expected.sort(), 'Windows CI test coverage changed');
 console.log(`Windows CI coverage: ${assigned.length} original integration targets + --lib and ${qbeTests.length} QBE checks across ${entries.length} suites`);
+
+assert.match(windows, /cargo test --test standard_input program_arguments::qbe/, 'QBE arguments must run with the required QBE toolchain');

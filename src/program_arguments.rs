@@ -29,7 +29,7 @@ pub fn parse(
             );
         }
     }
-    if !executable && command != "emit-llvm" {
+    if !executable && !matches!(command, "emit-llvm" | "emit-qbe") {
         return Ok((compiler, Arguments::unconfigured(), Limits::default()));
     }
     let mut limits = Limits::default();
@@ -59,7 +59,7 @@ pub fn parse(
     }
     if !executable {
         if limits.max_count > i64::MAX as u64 {
-            return Err("LLVM argument count limit must not exceed i64::MAX".into());
+            return Err("argument count limit must not exceed i64::MAX".into());
         }
         return Ok((rest, Arguments::unconfigured(), limits));
     }
