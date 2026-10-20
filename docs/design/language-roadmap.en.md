@@ -12,7 +12,7 @@ The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline.
 
 | Order | Work | First usable outcome | Status |
 | --- | --- | --- | --- |
-| 1 | [Program arguments](https://github.com/Cerune-Lang/Cerune/issues/174) → [integer parsing](https://github.com/Cerune-Lang/Cerune/issues/175) | Distinguish empty/missing values, invalid syntax and range errors; compare a seed-argument example across routes | Proposed design; unimplemented |
+| 1 | [Program arguments](https://github.com/Cerune-Lang/Cerune/issues/174) → [integer parsing](https://github.com/Cerune-Lang/Cerune/issues/175) | Distinguish empty/missing values, invalid syntax and range errors; compare a seed-argument example across routes | Argument storage/validation implemented; language API and parsing unimplemented |
 | 2 | [Optional let + fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | Preserve/show/hide let, retain comments, and verify formatting idempotence and semantics; align with [infer omission and related syntax](https://github.com/Cerune-Lang/Cerune/issues/105) | Design and implement together; unimplemented |
 | 3 | [Native build and initial distribution](https://github.com/Cerune-Lang/Cerune/issues/81) | Build an executable with explicit target/linker; distribute dependencies, execution requirements, and origins | Responsibilities outlined; unimplemented |
 | 4 | [Recursion](functions.en.md) | Align per-call storage, ownership/cleanup, limits, failure diagnostics, call stacks and origins across routes | Design and implementation pending |

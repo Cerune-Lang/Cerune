@@ -86,3 +86,24 @@ Retain original HIR, non-SSA MIR, SSA, generated artifacts and origins throughou
 Before implementation, settle public/enum names, concrete snapshot limits, allocation failure timing, Windows command-line splitting/UTF-16 conversion and the versioned WAT host ABI. Do not export WAT memory for argument transfer. C/LLVM/QBE/Native must explicitly select target-specific acquisition rather than infer it from the emitter host OS.
 
 Regression cases include zero arguments, empty strings, Unicode, CR/LF, order, option-like text after the delimiter, invalid Unicode, exact/exceeded limits and unconfigured connections. Parsing tests cover both i64 bounds and neighboring values, syntax/range precedence, stopping behavior, omitted input text in diagnostics and observation-independent results.
+
+## Argument storage and validation: first implemented component
+
+`runtime::arguments::Arguments` now stores and validates arguments on the Rust side. Public `std:env`, common IR instructions, CLI support, and execution-route connections remain unimplemented. This component alone does not enable `cerune run file.ceru -- ...`.
+
+| Area | Implemented contract |
+| --- | --- |
+| Injection | Explicitly pass separated byte strings and `Limits { max_count, max_bytes }` to `capture`; no OS, environment-variable, or file reads |
+| Contents | Strict UTF-8; retain empty strings, Japanese text, spaces, CR/LF, combining characters and order without splitting or normalization. Reject NUL |
+| Count | Allow a configured zero-element list. `max_count` ranges from 0 to i64::MAX; counts and indices use i64 |
+| Byte limit | Sum of UTF-8 contents, including CR/LF. An empty argument costs zero bytes but one entry. Terminators and allocator bookkeeping are excluded |
+| Validation order | Limit validity → total count → each argument in order: cumulative byte limit → UTF-8 → NUL. Report the first violation in this order |
+| Allocation | Validate all entries, then copy the table and strings with fallible reservations. Never return a partial snapshot. The connection owns allocation of the original host input |
+| Ownership | Changing or dropping the host input after capture does not affect the snapshot. No mutation API or unconditional Clone |
+| Reads | Unconfigured returns `Unconfigured`; configured negative indices return `InvalidIndex`; missing entries return `None`; present empty strings return `Some("")`. Check configuration first |
+| Observation | Counts, byte usage and Debug exclude contents. Reads allocate nothing, consume nothing and do not contact the OS. Only explicit `get` returns contents |
+| Capture failures | `arguments-v1 phase=capture` records a reason and applicable argument index only, without contents or fabricated NodeId/Span |
+
+Snapshot storage and the heap limit for strings returned during execution are separate. Default limits/CLI settings, copying into the string heap, and source-operation diagnostics/events with NodeId/Span will be defined when connecting execution. Validation distinguishes count excess, byte-limit excess, invalid UTF-8, NUL, and allocation failures.
+
+Failure tests cover precedence, exact/exceeded limits, and failed table/string allocations. Success tests cover non-normalized Unicode, independence from host input, empty/missing/unconfigured states, and non-interference of repeated reads and Debug. Next add public standard declarations and common IR operations, then explicitly inject this snapshot into executors.
