@@ -118,64 +118,12 @@ cerune_input_read_line:
 .Linput_eof_seen:
   movq $1, .Linput_eof(%rip)
 .Linput_validate:
-  movq $0, 128(%rsp)
-  movq $128, 136(%rsp)
-  movq $191, 144(%rsp)
-  xorl %ecx, %ecx
+  movq 88(%rsp), %rcx
   movq 80(%rsp), %rdx
   addq $24, %rdx
-.Linput_utf8_loop:
-  cmpq 88(%rsp), %rcx
-  je .Linput_utf8_end
-  movzbl (%rdx,%rcx), %eax
-  cmpq $0, 128(%rsp)
-  je .Linput_lead
-  cmpq 136(%rsp), %rax
-  jb .Linput_utf8_failed
-  cmpq 144(%rsp), %rax
-  ja .Linput_utf8_failed
-  subq $1, 128(%rsp)
-  movq $128, 136(%rsp)
-  movq $191, 144(%rsp)
-  jmp .Linput_utf8_next
-.Linput_lead:
-  cmpl $128, %eax
-  jb .Linput_utf8_next
-  cmpl $194, %eax
-  jb .Linput_utf8_failed
-  cmpl $224, %eax
-  jae .Linput_three
-  movq $1, 128(%rsp)
-  jmp .Linput_utf8_next
-.Linput_three:
-  cmpl $240, %eax
-  jae .Linput_four
-  movq $2, 128(%rsp)
-  cmpl $224, %eax
-  jne .Linput_surrogate
-  movq $160, 136(%rsp)
-.Linput_surrogate:
-  cmpl $237, %eax
-  jne .Linput_utf8_next
-  movq $159, 144(%rsp)
-  jmp .Linput_utf8_next
-.Linput_four:
-  cmpl $244, %eax
-  ja .Linput_utf8_failed
-  movq $3, 128(%rsp)
-  cmpl $240, %eax
-  jne .Linput_maximum
-  movq $144, 136(%rsp)
-.Linput_maximum:
-  cmpl $244, %eax
-  jne .Linput_utf8_next
-  movq $143, 144(%rsp)
-.Linput_utf8_next:
-  addq $1, %rcx
-  jmp .Linput_utf8_loop
-.Linput_utf8_end:
-  cmpq $0, 128(%rsp)
-  jne .Linput_utf8_failed
+  callq cerune_utf8
+  testl %eax, %eax
+  je .Linput_utf8_failed
   movq 64(%rsp), %rax
   subq %rax, .Lcerune_heap_live(%rip)
   cmpq $0, 88(%rsp)

@@ -23,7 +23,7 @@ end
 
 No arguments print `0` and `end`. One empty argument prints `1`, `[""]`, `0`, and `end`. Follow your shell's rules for passing empty arguments.
 
-HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT execution are supported. Native connections remain unimplemented and explicitly reject generation containing argument operations. Integer parsing is unimplemented. See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
+HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT/Native execution are supported. Integer parsing is unimplemented. See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
 
 Compare the same output through generated C. On Linux/macOS:
 
@@ -70,3 +70,13 @@ In PowerShell, replace the last line with:
 $env:CERUNE_TEST_WAT_ARGUMENTS = '{"values":["hello","--ssa"]}'
 node tests/support/run_wasm_input.cjs target/arguments.wasm
 ```
+
+Native produces the same output. Generate a self-encoded object for Linux and link it.
+
+```sh
+cargo run -- emit-obj examples/arguments/list.ceru --target x86_64-unknown-linux-gnu --annotate-origins -o target/arguments-native.o
+clang target/arguments-native.o -o target/arguments-native
+./target/arguments-native hello --ssa
+```
+
+On Windows, use target `x86_64-pc-windows-msvc`, `.obj` for the object and `.exe` for the executable. `emit-asm` exposes assembly; `emit-lir` exposes instructions, limits and origins. `--ssa` selects the SSA path with the same result. Set limits at generation time, for example `--argument-count-limit 2 --argument-byte-limit 10`.

@@ -23,7 +23,7 @@ end
 
 引数なしでは `0` と `end`、空文字を1個渡すと `1`・`[""]`・`0`・`end` です。空文字の渡し方は利用するshellの規則に従います。
 
-HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WATで実行できます。Nativeは未接続のため、引数操作を含む生成を明示的に拒否します。整数の読取りは未実装です。[契約・上限・未対応範囲](../../docs/design/dogfooding-inputs.ja.md)を参照してください。
+HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeで実行できます。整数の読取りは未実装です。[契約・上限・未対応範囲](../../docs/design/dogfooding-inputs.ja.md)を参照してください。
 
 生成Cでも同じ出力を確認できます。Linux/macOSでは次のように実行します。
 
@@ -70,3 +70,13 @@ PowerShellでは最後の行を次に置き換えます。
 $env:CERUNE_TEST_WAT_ARGUMENTS = '{"values":["hello","--ssa"]}'
 node tests/support/run_wasm_input.cjs target/arguments.wasm
 ```
+
+Nativeでも同じ出力になります。Linux向けに、自前Objectを生成してリンクします。
+
+```sh
+cargo run -- emit-obj examples/arguments/list.ceru --target x86_64-unknown-linux-gnu --annotate-origins -o target/arguments-native.o
+clang target/arguments-native.o -o target/arguments-native
+./target/arguments-native hello --ssa
+```
+
+Windowsではtargetを`x86_64-pc-windows-msvc`、Objectを`.obj`、実行ファイルを`.exe`にします。`emit-asm`ならAssembly、`emit-lir`なら命令・上限・出自を確認できます。`--ssa`でSSA経由にしても同じ結果です。上限は`--argument-count-limit 2 --argument-byte-limit 10`のように生成時に指定します。

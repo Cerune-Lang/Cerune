@@ -30,6 +30,7 @@ pub enum CompareOp {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    pub argument_limits: crate::runtime::arguments::Limits,
     pub string_heap_limit: Option<u64>,
     pub array_heap_limit: Option<u64>,
     pub uses_write: bool,
@@ -144,6 +145,8 @@ pub enum Instruction {
     StringManage {
         retain: bool,
     },
+    ArgumentCount,
+    ArgumentGet,
     ReadLine,
     Flush,
     Output {

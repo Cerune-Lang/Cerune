@@ -38,15 +38,6 @@ fn all_examples_have_valid_deterministic_baseline_and_ssa_lir() {
         let lowered = mir::ssa::lower(&ssa).unwrap();
         for p in [&original, &lowered.program] {
             for target in TARGETS {
-                if file.parent() == Some(root.join("examples/arguments").as_path()) {
-                    let error = x86_64::lower_mir(p, target).unwrap_err();
-                    assert!(
-                        error
-                            .message()
-                            .contains("Native program arguments are not supported yet")
-                    );
-                    continue;
-                }
                 let m = x86_64::lower_mir(p, target)
                     .unwrap_or_else(|e| panic!("{} {target:?}: {e:?}", file.display()));
                 let before = m.clone();
@@ -62,9 +53,7 @@ fn all_examples_have_valid_deterministic_baseline_and_ssa_lir() {
                 );
             }
         }
-        if file.parent() != Some(root.join("examples/arguments").as_path()) {
-            count += 1;
-        }
+        count += 1;
     }
     eprintln!("validated {count} runnable examples, both targets, baseline and SSA");
     assert!(count >= 120);

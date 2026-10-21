@@ -233,7 +233,11 @@ fn run() -> Result<(), String> {
             let hir = ir_for(&source, string_heap_limit, array_heap_limit)?;
             let mir = native_mir_for(&source, &hir, ssa)?;
             let lir = render_compilation_result(
-                cerune_lang::codegen::x86_64::lower_mir(&mir, target),
+                cerune_lang::codegen::x86_64::lower_mir_with_argument_limits(
+                    &mir,
+                    target,
+                    argument_limits,
+                ),
                 &source,
             )?;
             let text =
@@ -259,7 +263,14 @@ fn run() -> Result<(), String> {
             let hir = ir_for(&source, string_heap_limit, array_heap_limit)?;
             let mir = native_mir_for(&source, &hir, ssa)?;
             let asm = render_compilation_result(
-                cerune_lang::codegen::x86_64::emit_asm_from_mir(&mir, target, annotate_origins),
+                cerune_lang::codegen::x86_64::lower_mir_with_argument_limits(
+                    &mir,
+                    target,
+                    argument_limits,
+                )
+                .and_then(|lir| {
+                    cerune_lang::codegen::x86_64::emit_asm_from_lir(&lir, annotate_origins)
+                }),
                 &source,
             )?;
 
@@ -280,7 +291,12 @@ fn run() -> Result<(), String> {
             let hir = ir_for(&source, string_heap_limit, array_heap_limit)?;
             let mir = native_mir_for(&source, &hir, ssa)?;
             let bytes = render_compilation_result(
-                cerune_lang::codegen::x86_64::emit_object_from_mir(&mir, target, origins),
+                cerune_lang::codegen::x86_64::lower_mir_with_argument_limits(
+                    &mir,
+                    target,
+                    argument_limits,
+                )
+                .and_then(|lir| cerune_lang::codegen::x86_64::emit_object_from_lir(&lir, origins)),
                 &source,
             )?;
             fs::write(&output, bytes)
@@ -699,7 +715,7 @@ fn print_help() {
          run / run-ir: direct Cerune IR execution; run-mir: HIR -> MIR execution; run-vm: Bytecode -> VM.\n\
          run / run-ir / run-mir / run-vm / observe / emit-* (except emit-sources): --string-heap-limit <bytes> / --array-heap-limit <bytes>\n\
          --ssa: explicit scalar SSA construction for emit-mir / run-mir / emit-lir / emit-asm / emit-obj / observe; no optimization.\n\
-         run commands / emit-llvm / emit-qbe / emit-wat: --argument-count-limit <count> / --argument-byte-limit <bytes>; defaults: 4096 / 1048576.\n\
+         run commands / emit-llvm / emit-qbe / emit-wat / emit-lir / emit-asm / emit-obj: --argument-count-limit <count> / --argument-byte-limit <bytes>; defaults: 4096 / 1048576.\n\
          First -- separates all program arguments from Cerune options.\n\
          Default: 67108864 bytes per heap; compile-time string budget is independent.\n",
         env!("CARGO_PKG_VERSION")
