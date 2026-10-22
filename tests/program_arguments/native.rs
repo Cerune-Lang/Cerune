@@ -475,3 +475,48 @@ fn native_cli_limits_are_visible_and_emission_does_not_capture_arguments() {
         }
     }
 }
+
+#[test]
+fn native_startup_allocation_failures_stop_before_execution_in_asm_and_object() {
+    let p = hir("import \"std:env\" as env; print(7);print(env::arg(0));print(99);");
+    let allocations_before_get = if cfg!(windows) { 3 } else { 2 };
+    for remaining in 0..=allocations_before_get {
+        let mut text = assembly(&p, Limits::default()).replace("callq malloc", "callq test_malloc");
+        text.push_str(&format!("\n.data\n.Ltest_remaining:\n  .quad {remaining}\n.text\ntest_malloc:\n  cmpq $0, .Ltest_remaining(%rip)\n  je .Ltest_malloc_fail\n  subq $1, .Ltest_remaining(%rip)\n  jmp malloc\n.Ltest_malloc_fail:\n  xorl %eax, %eax\n  retq\n"));
+        let selected = match target() {
+            Target::X86_64PcWindowsMsvc => sashimi_assembler::Target::X86_64PcWindowsMsvc,
+            Target::X86_64UnknownLinuxGnu => sashimi_assembler::Target::X86_64UnknownLinuxGnu,
+        };
+        let object = sashimi_assembler::assemble(&text, selected).unwrap();
+        for (bytes, ext) in [
+            (text.as_bytes(), "s"),
+            (object.as_slice(), if cfg!(windows) { "obj" } else { "o" }),
+        ] {
+            let Some((dir, exe)) = link(bytes, ext) else {
+                continue;
+            };
+            let actual = run(&dir, &exe, &[OsStr::new("SECRET")]);
+            if remaining < allocations_before_get {
+                capture_failure(
+                    &actual,
+                    if cfg!(windows) && remaining == 1 {
+                        "allocation-failed index=0"
+                    } else {
+                        "allocation-failed"
+                    },
+                );
+            } else {
+                let mut baseline = p.clone();
+                baseline.string_heap_limit = 0;
+                let (mut f, output) = execute(0, &baseline, &snapshot(&["SECRET"])).unwrap_err();
+                f.code = Code::AllocationFailed;
+                assert_eq!(actual.status.code(), Some(1));
+                assert_eq!(actual.stdout, output.as_bytes());
+                assert_eq!(
+                    String::from_utf8_lossy(&actual.stderr).replace("\r\n", "\n"),
+                    format!("cerune: {}\n", f.record())
+                );
+            }
+        }
+    }
+}

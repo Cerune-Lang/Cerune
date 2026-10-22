@@ -2,7 +2,7 @@
 
 [English](dogfooding-inputs.en.md)
 
-2026-10-21。[#173](https://github.com/Cerune-Lang/Cerune/issues/173)と[#89](https://github.com/Cerune-Lang/Cerune/issues/89)の次の設計案です。**引数取得はHIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeに対応済み。整数読取りは未実装**です。実装済みの標準入力・WAT関数公開を作り直しません。
+2026-10-23。[#173](https://github.com/Cerune-Lang/Cerune/issues/173)と[#89](https://github.com/Cerune-Lang/Cerune/issues/89)の次の設計案です。**引数取得はHIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeに対応済み。整数読取りは未実装**です。実装済みの標準入力・WAT関数公開を作り直しません。
 
 ## 最小の用途
 
@@ -147,7 +147,7 @@ Nativeも対応し、引数操作を含むLIR・ASM・自前Objectとobserve bun
 
 [生成Cの比較テスト](../../tests/program_arguments/c.rs)は`-O0`と`-O2`でexample、空・日本語・CR/LF・結合文字・補助平面文字・quote・オプション風文字列、評価順・短絡・コピー・解放を比較します。上限、元入力変更、未設定、NUL、不正UTF-8/UTF-16、確保失敗も検証します。入力と引数のUTF-8検査は同じ生成ヘルパーを使います。
 
-Nativeの起動接続と上限設定は後続です。C内の静的補助関数は安定した埋込みABIとして公開するものではありません。
+C内の静的補助関数は安定した埋込みABIとして公開するものではありません。
 
 ## LLVMの引数接続
 
@@ -201,3 +201,5 @@ emit-qbeは実行用の区切り以後の引数を受け取りません。内部
 [Native比較テスト](../../tests/program_arguments/native.rs)で同じexampleを4実行器、通常MIR／SSAのASM・自前Objectで比較します。Windows/Linux CIで必須実行します。未設定・空・欠落、Unicode・CR/LF、上限、検証順、確保失敗、独立コピー・解放、短絡・評価順、stdin併用を検証します。行入力と引数で厳密UTF-8検証を共有します。
 
 内部ヘルパーは安定した埋込みABIではありません。成功操作の時系列記録、整数読取り、Native build・配布は後続です。
+
+PR #182でNativeもmasterへ統合済みです。起動・OS文字列変換・snapshot・取得文字列の確保失敗をASM／Objectで比較し、停止前出力とarguments-v1を確認します。Object生成の[SASHIMI接続](native-encoder.ja.md)は言語の引数契約を変更しません。

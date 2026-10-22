@@ -2,7 +2,7 @@
 
 [日本語](dogfooding-inputs.ja.md)
 
-2026-10-21. This is the next design proposal for [#173](https://github.com/Cerune-Lang/Cerune/issues/173) and [#89](https://github.com/Cerune-Lang/Cerune/issues/89). **Argument acquisition works in HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT/Native; integer parsing remains unimplemented.** Existing stdin and WAT function exports remain in place.
+2026-10-23. This is the next design proposal for [#173](https://github.com/Cerune-Lang/Cerune/issues/173) and [#89](https://github.com/Cerune-Lang/Cerune/issues/89). **Argument acquisition works in HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT/Native; integer parsing remains unimplemented.** Existing stdin and WAT function exports remain in place.
 
 ## Smallest use
 
@@ -201,3 +201,5 @@ Lower common MIR directly to LIR ArgumentCount/ArgumentGet. Baseline MIR and SSA
 [Native comparisons](../../tests/program_arguments/native.rs) compare the same example against four executors through baseline MIR/SSA, assembly and self-encoded objects. Windows/Linux CI require these tests. Cover unconfigured/empty/missing values, Unicode/CR/LF, limits, validation order, allocation failures, independent copies/release, short-circuit/evaluation order and stdin coexistence. Strict UTF-8 validation is shared by input and arguments.
 
 Internal helpers are not a stable embedding ABI. Chronological success records, integer parsing, Native build and distribution remain follow-up work.
+
+PR #182 merged Native support into master. ASM/Object tests cover allocation failures during startup, OS conversion, snapshot capture and string retrieval, including prior output and arguments-v1. The [SASHIMI object connection](native-encoder.en.md) does not change argument semantics.

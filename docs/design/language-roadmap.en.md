@@ -2,16 +2,17 @@
 
 [日本語](language-roadmap.ja.md)
 
-This inventory records capabilities, execution routes, and next steps as of 2026-10-21. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+This inventory records capabilities, execution routes, and next steps as of 2026-10-23. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
 The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline. This page tracks current status.
 
 ## Core development order
 
-**Program argument acquisition is in progress ([#174](https://github.com/Cerune-Lang/Cerune/issues/174)).** Extend Cerune in this order so programs can use external values to select computations, then save and reuse results.
+**Argument acquisition is merged across existing routes. Before integer parsing, prioritize assembler separation in [#183](https://github.com/Cerune-Lang/Cerune/issues/183).** Extend Cerune in this order so programs can use external values to select computations, then save and reuse results.
 
 | Order | Work | First usable outcome | Status |
 | --- | --- | --- | --- |
+| Preceding work | [SASHIMI connection / assembler separation](native-encoder.en.md) (#183) | Preserve pinned-object equivalence and define typed machine instructions and origin ranges | Rust connection and migration comparisons implemented; typed input/OriginId remain next |
 | 1 | [Program arguments](https://github.com/Cerune-Lang/Cerune/issues/174) → [integer parsing](https://github.com/Cerune-Lang/Cerune/issues/175) | Distinguish empty/missing values, invalid syntax and range errors; compare a seed-argument example across routes | Arguments implemented in four executors, CLI and generated C/LLVM/QBE/WAT/Native; integer parsing is next |
 | 2 | [Optional let + fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | Preserve/show/hide let, retain comments, and verify formatting idempotence and semantics; align with [infer omission and related syntax](https://github.com/Cerune-Lang/Cerune/issues/105) | Design and implement together; unimplemented |
 | 3 | [Native build and initial distribution](https://github.com/Cerune-Lang/Cerune/issues/81) | Build an executable with explicit target/linker; distribute dependencies, execution requirements, and origins | Responsibilities outlined; unimplemented |

@@ -37,7 +37,7 @@ Each document links to its Japanese counterpart.
 - [Dynamic strings and data](design/dynamic-data.en.md)
 - [Language features and roadmap](design/language-roadmap.en.md)
 - [Responsibilities across projects](design/ecosystem.en.md)
-- [Arguments and integer parsing from real uses (unimplemented design)](design/dogfooding-inputs.en.md)
+- [Arguments and integer parsing from real uses](design/dogfooding-inputs.en.md)
 - [Rounding and saturation](design/rounding-conversions.en.md)
 - [Truncating conversions](design/truncating-conversions.en.md)
 - [Generic functions](design/generic-functions.en.md)
