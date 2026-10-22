@@ -12,7 +12,7 @@
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
-| 先行整理 | [SASHIMI接続・アセンブラ分離](native-encoder.ja.md)（#183） | 固定版のObject同等性を維持し、型付き機械命令と出自範囲の責務を整理 | Rust版接続・移行比較とSASHIMIの型付きProgram/ASM/Object・OriginId対応を実装。CeruneのUTF-8検証・文字列比較・読取り専用定数を型付き構築へ移行済み。次は書込み可能データと残りのruntime補助 |
+| 先行整理 | [SASHIMI接続・アセンブラ分離](native-encoder.ja.md)（#183） | 固定版のObject同等性を維持し、型付き機械命令と出自範囲の責務を整理 | Rust版接続・移行比較とSASHIMIの型付きProgram/ASM/Object・OriginId対応を実装。CeruneのUTF-8検証・文字列比較・定数・文字列heap・配列ownerを型付き構築へ移行済み。次は入出力・引数取得のruntimeと管理データ、その後LIR・出自を接続してASM再解析を除去 |
 | 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) → [整数読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 空・欠落・書式・範囲外を区別し、引数でseedを指定するexampleを全経路で比較 | 引数取得は4実行器・CLI・生成C・LLVM・QBE・WAT・Nativeに対応。次は整数読取り |
 | 2 | [optional let＋fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | letの保持・表示・非表示、コメント保持、整形の冪等性と意味の一致。[infer省略等](https://github.com/Cerune-Lang/Cerune/issues/105)との整合を確認 | 同時に設計・実装する。未実装 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | 責務整理済み・未実装 |

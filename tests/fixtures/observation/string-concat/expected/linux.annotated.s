@@ -742,19 +742,18 @@ cerune_string_equal:
 .Lstring_different:
   xorl %eax, %eax
   retq
-
 .data
 .p2align 3
 .Lcerune_heap_head:
-  .quad 0
+.quad 0x0000000000000000
 .Lcerune_heap_live:
-  .quad 0
+.quad 0x0000000000000000
 .Lcerune_heap_limit:
-  .quad 67108864
+.quad 0x0000000004000000
 .Lcerune_heap_max:
-  .quad 9223372036854775783
+.quad 0x7FFFFFFFFFFFFFE7
 .Lcerune_heap_empty:
-  .quad 0
+.quad 0x0000000000000000
 .text
 cerune_string_retain:
   movq %rdi, %r10
@@ -765,7 +764,7 @@ cerune_string_retain:
   leaq 16(%rax), %r11
   cmpq %r10, %r11
   je .Lcerune_heap_retain_found
-  movq (%rax), %rax
+  movq 0(%rax), %rax
   jmp .Lcerune_heap_retain_search
 .Lcerune_heap_retain_found:
   addq $1, 8(%rax)
@@ -778,7 +777,7 @@ cerune_string_release:
   movq %rdi, %r10
   leaq .Lcerune_heap_head(%rip), %r11
 .Lcerune_heap_release_search:
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   testq %rax, %rax
   je .Lcerune_heap_release_done
   leaq 16(%rax), %rcx
@@ -789,8 +788,8 @@ cerune_string_release:
 .Lcerune_heap_release_found:
   subq $1, 8(%rax)
   jne .Lcerune_heap_release_done
-  movq (%rax), %rcx
-  movq %rcx, (%r11)
+  movq 0(%rax), %rcx
+  movq %rcx, 0(%r11)
   movq 16(%rax), %rcx
   subq %rcx, .Lcerune_heap_live(%rip)
   movq %rax, %rdi
@@ -805,10 +804,10 @@ cerune_string_concat:
   subq $80, %rsp
   movq %rdi, -8(%rbp)
   movq %rsi, -16(%rbp)
-  movq (%rdi), %rax
+  movq 0(%rdi), %rax
   movq %rax, -32(%rbp)
-  addq (%rsi), %rax
-  jc .Lcerune_heap_size_fail
+  addq 0(%rsi), %rax
+  jb .Lcerune_heap_size_fail
   cmpq .Lcerune_heap_max(%rip), %rax
   ja .Lcerune_heap_size_fail
   testq %rax, %rax
@@ -824,7 +823,7 @@ cerune_string_concat:
   je .Lcerune_heap_allocation_fail
   movq %rax, -40(%rbp)
   movq .Lcerune_heap_head(%rip), %rcx
-  movq %rcx, (%rax)
+  movq %rcx, 0(%rax)
   movq $1, 8(%rax)
   movq -24(%rbp), %rcx
   movq %rcx, 16(%rax)
@@ -837,7 +836,7 @@ cerune_string_concat:
   addq $24, %rdi
   addq -32(%rbp), %rdi
   movq -16(%rbp), %rsi
-  movq (%rsi), %rdx
+  movq 0(%rsi), %rdx
   addq $8, %rsi
   callq memcpy
   movq -40(%rbp), %rax
