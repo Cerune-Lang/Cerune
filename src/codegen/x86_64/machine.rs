@@ -11,6 +11,25 @@ pub(super) fn target(target: super::Target) -> sashimi_assembler::Target {
         super::Target::X86_64UnknownLinuxGnu => sashimi_assembler::Target::X86_64UnknownLinuxGnu,
     }
 }
+/// Runtime helpers share explicit external declarations when appended together.
+pub(super) fn external(program: &mut Program, name: &str) -> sashimi_assembler::program::SymbolId {
+    if let Some((index, symbol)) = program
+        .symbols
+        .iter()
+        .enumerate()
+        .find(|(_, s)| s.name == name)
+    {
+        assert_eq!(
+            symbol.linkage,
+            Linkage::External,
+            "runtime external conflicts with local symbol"
+        );
+        sashimi_assembler::program::SymbolId(index)
+    } else {
+        program.declare(name, Linkage::External)
+    }
+}
+
 pub(super) fn push(program: &mut Program, kind: EntryKind) {
     program.push(kind, Provenance::synthetic());
 }
@@ -63,8 +82,14 @@ pub(super) fn render_support(target: super::Target, emit: impl FnOnce(&mut Progr
         .expect("compiler-generated runtime Program must be valid");
     let mut output = String::new();
     for line in asm.lines() {
+        // The legacy text Object reader expects plain names and already emits PLT32
+        // for external calls. Retire this formatting bridge with whole-Program output.
+        let line = line.strip_suffix("@PLT").unwrap_or(line);
         // The enclosing emitter owns the final stack-note section and annotations.
-        if line.starts_with("# entry ") || line.starts_with(".section .note.GNU-stack,") {
+        if line.starts_with("# entry ")
+            || line.starts_with(".section .note.GNU-stack,")
+            || line.starts_with(".extern ")
+        {
             continue;
         }
         if !line.starts_with('.') && !line.ends_with(':') {

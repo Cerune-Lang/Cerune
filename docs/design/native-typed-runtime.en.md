@@ -10,12 +10,13 @@ The next stage of the [SASHIMI connection](native-encoder.en.md). Cerune retains
 | --- | --- |
 | UTF-8 validation | `utf8::append` adds directly to Program; shared by stdin and program arguments |
 | String equality | `string::append` adds directly to Program; Cerune explicitly selects Windows/Linux argument registers |
+| String heap / array owners | `heap::append` / `array::append` add allocation, reference counting, release and writable bookkeeping directly to Program |
 | Read-only constants | `data::append` adds sign masks, f32/f64 bits and length-prefixed strings directly to Program |
 | Standalone helper/constant ASM/Object | Generate both from the same Program; object generation does not parse text |
 | Whole Cerune programs | Migration in progress. Helpers and constants are rendered into existing assembly output, so final object generation still reparses assembly |
-| Remaining migration | Writable data, startup, I/O/heap/array helpers, LIR instruction selection and source provenance |
+| Remaining migration | Startup, I/O/argument helpers and bookkeeping, LIR instruction selection (including array callers) and source provenance |
 
-This does not complete removal of assembly reparsing. The temporary `machine::render_support` adapter formats validated assembly for the existing output without parsing instructions or operands. SASHIMI location comments and the final stack note are left to the enclosing emitter. Remove this adapter when the entire output shares one Program.
+This does not complete removal of assembly reparsing. The temporary `machine::render_support` adapter formats validated assembly for the existing output without parsing instructions or operands. SASHIMI location comments and the final stack note are left to the enclosing emitter. The legacy Object reader derives PLT32 from external call symbol names, so this adapter omits `.extern` and `@PLT`; direct Program assembly retains both. Remove this adapter when the entire output shares one Program.
 
 ## Preserved contracts
 
@@ -25,6 +26,8 @@ This does not complete removal of assembly reparsing. The temporary `machine::re
 - Runtime instructions, labels and constant pools carry Synthetic provenance. No NodeId/Span is invented. Existing call-site origin labels and failure diagnostics remain.
 - Preserve instruction/label order, branches and alignment; introduce no optimization. Mappings serve observation, not execution control.
 
+String heap and array owners preserve capacity accounting, reference counts, final release, error values and Windows/Linux trap behavior. `malloc` / `free` / `memcpy` share explicit external declarations. Bookkeeping data and helper instructions remain Synthetic; public I/O contracts and limits do not change.
+
 ## Constant representation and provenance
 
 SASHIMI `Data32` / `Data64` preserve four/eight little-endian bytes and render as hexadecimal `.long` / `.quad` so widths remain visible. No floating-point recalculation occurs; only explicit `Align` entries add alignment. Strings retain an eight-byte byte length and contents, with no added NUL terminator.
@@ -33,7 +36,7 @@ Current LIR constant pools have no per-constant source position, so they remain 
 
 ## Validation and existing examples
 
-The [pre-migration assembly](../../tests/support/native_runtime_reference/README.en.md) is a fixed test-only reference. Compare typed Program objects with the old encoder on both targets. The [old data emitter](../../tests/support/native_data_reference.rs) is frozen from 0eca28a for tests. The 135-example connection comparison restores migrated helpers and constants from these old outputs and compares complete objects. Current-output ASM observation fixtures are updated; these frozen migration references are not.
+The [pre-migration assembly](../../tests/support/native_runtime_reference/README.en.md) is a fixed test-only reference. Compare typed Program objects with the old encoder on both targets. The [old data emitter](../../tests/support/native_data_reference.rs) is frozen from 0eca28a for tests. The 135-example connection comparison restores migrated helpers, constants and allocation bookkeeping from these old outputs and compares complete objects. Current-output ASM observation fixtures are updated; these frozen migration references are not.
 
 Independent execution tests link ASM/Object from the same Program with clang and compare both on Windows/Linux. Linux explicitly enables PIE.
 
@@ -43,6 +46,7 @@ Independent execution tests link ASM/Object from the same Program with clang and
 | Empty strings, Japanese, embedded NUL, CR/LF, combining and precomposed characters | Raw byte equality |
 | f32/f64 ±0, subnormals, ±infinity, NaN payloads and sign masks | Original bits, width, alignment and identical old objects |
 | Length-prefixed strings and empty contents | Eight-byte byte length plus raw contents, eight-byte alignment and zero-byte empty-content range |
+| String/array reference counts and capacity | Capacity stays occupied while retained and recovers after final release; distinguish empty values, zero-width elements, invalid sizes and limit failures |
 | Helper/constant provenance | Synthetic, nonempty instruction ranges, empty label ranges, no range for section selection |
 | Repeated rendering/generation | Unchanged input Program and Object |
 
@@ -51,6 +55,7 @@ Relevant runnable examples are [string_values](../../examples/string_values.ceru
 ```sh
 CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::machine::tests
 CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::data::tests
+CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::heap::tests
 cargo test --lib codegen::x86_64::object::tests
 CERUNE_TEST_ASM_CLANG=clang cargo test --test standard_input program_arguments::native
 ```
@@ -59,9 +64,9 @@ In PowerShell first set `$env:CERUNE_TEST_ASM_CLANG = 'clang'`. Without it, stan
 
 ## Next steps
 
-1. Migrate writable data and remaining runtime helpers so they can append to the same Program.
+1. Migrate I/O and argument runtime helpers and their bookkeeping to the same Program.
 2. Connect LIR instruction selection, ABI startup/exit, NodeId/SourceId/Span and MIR provenance.
 3. Generate whole-program ASM/Object from the same Program, comparing existing diagnostics, output ordering and execution.
 4. Remove generated-assembly reparsing and the transitional adapter, then decide when to retire migration references.
 
-Return to language additions such as integer input after this migration is established.
+Completion means whole-program ASM and Object share one typed Program, object generation no longer reparses generated assembly, and source origins, failure diagnostics, I/O order and existing example behavior are preserved. Return to language additions such as integer input after verifying these conditions. Porting SASHIMI to Cerune is separate future work.

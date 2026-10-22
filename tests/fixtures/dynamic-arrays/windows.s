@@ -746,17 +746,16 @@ cerune_string_equal:
 .Lstring_different:
   xorl %eax, %eax
   retq
-
 .data
 .p2align 3
 .Lcerune_array_live:
-  .quad 0
+.quad 0x0000000000000000
 .Lcerune_array_limit:
-  .quad 67108864
+.quad 0x0000000004000000
 .Lcerune_array_max:
-  .quad 9223372036854775807
+.quad 0x7FFFFFFFFFFFFFFF
 .Lcerune_array_physical_max:
-  .quad 9223372036854775759
+.quad 0x7FFFFFFFFFFFFFCF
 .text
 cerune_array_allocate:
   pushq %rbp
@@ -798,7 +797,7 @@ cerune_array_allocate:
   subq $8, %r10
   addq %r11, %r10
 .Lcerune_array_payload_ready:
-  movq %r10, (%rax)
+  movq %r10, 0(%rax)
   movq -8(%rbp), %r10
   movq %r10, 8(%rax)
   movq $1, 16(%rax)
@@ -843,7 +842,7 @@ cerune_array_init_address:
   cmpq 8(%r10), %rax
   jae .Lcerune_array_invalid_owner
   imulq 40(%r10), %rax
-  movq (%r10), %r11
+  movq 0(%r10), %r11
   subq %rax, %r11
   movq %r11, %rax
   retq
@@ -888,7 +887,7 @@ cerune_array_free:
   retq
 .Lcerune_array_invalid_owner:
   movl $7, %ecx
-  int $0x29
+  int $41
 .p2align 4
 cerune_fn__display0_0:
   pushq %rbp

@@ -10,12 +10,13 @@
 | --- | --- |
 | UTF-8検証 | `utf8::append` がProgramへ直接追加。標準入力・プログラム引数で共有 |
 | 文字列比較 | `string::append` がProgramへ直接追加。Windows/Linuxの引数レジスタはCerune側で明示選択 |
+| 文字列heap・配列owner | `heap::append` / `array::append` が確保・参照数・解放と書込み可能な管理データをProgramへ直接追加 |
 | 読取り専用の定数 | `data::append` が符号マスク・f32/f64のビット列・長さ付き文字列をProgramへ直接追加 |
 | 補助関数・定数単体のASM/Object | 同じProgramをSASHIMIへ渡して生成。Object生成に文字列解析なし |
 | Ceruneプログラム全体 | 移行中。上記補助関数・定数をASMへ表示して既存出力に組み込むため、最終Object生成にはまだASM再解析がある |
-| 残る移行 | 書込み可能データ、起動処理、入出力・heap・array等の補助、LIR命令選択、ソース出自との接続 |
+| 残る移行 | 起動処理、入出力・引数取得の補助と管理データ、LIR命令選択（配列操作の呼出側を含む）、ソース出自との接続 |
 
-現段階を「ASM再解析の除去完了」とは扱いません。移行用の `machine::render_support` は検証済みASMの表示を既存出力へ合わせるだけで、命令・オペランドを解析しません。SASHIMIの位置コメントと最終stack-noteは外側のemitterに任せます。全体をProgramで共有できた段階でこのadapterを取り除きます。
+現段階を「ASM再解析の除去完了」とは扱いません。移行用の `machine::render_support` は検証済みASMの表示を既存出力へ合わせるだけで、命令・オペランドを解析しません。SASHIMIの位置コメントと最終stack-noteは外側のemitterに任せます。旧Object入口は外部callのシンボル名からPLT32を生成するため、このadapterでは `.extern` と `@PLT` の表示を省きます。直接Programから生成するASMには両方を残します。全体をProgramで共有できた段階でこのadapterを取り除きます。
 
 ## 保持する契約
 
@@ -25,6 +26,8 @@
 - runtime内部の命令・ラベルと定数プールはSyntheticとして記録します。架空のNodeId/Spanは作りません。呼出箇所の既存出自ラベル・失敗診断は維持します。
 - 命令・ラベルの順序、分岐、整列を保持し、最適化は加えません。対応表は観測用であり実行制御に使いません。
 
+文字列heapと配列ownerは、容量の加算・参照数・最後の解放・エラー値・Windows/Linuxの異常停止方法を維持します。`malloc` / `free` / `memcpy` は明示的な外部宣言を共有します。管理データと補助命令もSyntheticであり、公開I/O契約や上限値を変更しません。
+
 ## 定数の表示と出自
 
 SASHIMIの `Data32` / `Data64` はリトルエンディアンの4/8バイトを保持し、ASMでは `.long` / `.quad` の16進表記で幅を表示します。浮動小数点として再計算せず、整列は明示した `Align` のみで行います。文字列は8バイトのバイト長と内容で、終端NULを追加しません。
@@ -33,7 +36,7 @@ SASHIMIの `Data32` / `Data64` はリトルエンディアンの4/8バイトを�
 
 ## 検証と既存例
 
-[移行前のASM](../../tests/support/native_runtime_reference/README.md)をテスト専用に固定しています。型付きProgramのObjectを旧エンコーダのObjectと両targetで比較します。定数データは[旧emitter](../../tests/support/native_data_reference.rs)を0eca28aからテスト専用に固定しています。135例の接続比較では、変更した補助関数・定数を旧出力へ戻した基準とObject全体を照合します。現在のASM表記を確認する観測fixtureは更新しますが、この旧比較基準は更新しません。
+[移行前のASM](../../tests/support/native_runtime_reference/README.md)をテスト専用に固定しています。型付きProgramのObjectを旧エンコーダのObjectと両targetで比較します。定数データは[旧emitter](../../tests/support/native_data_reference.rs)を0eca28aからテスト専用に固定しています。135例の接続比較では、変更した補助関数・定数・確保管理データを旧出力へ戻した基準とObject全体を照合します。現在のASM表記を確認する観測fixtureは更新しますが、この旧比較基準は更新しません。
 
 独立した実行検証では、同じProgramのASM/Objectをclangでリンクし、Windows/Linuxで以下を比較します。LinuxではPIEを有効にします。
 
@@ -43,6 +46,7 @@ SASHIMIの `Data32` / `Data64` はリトルエンディアンの4/8バイトを�
 | 空文字、日本語、埋込みNUL、CR/LF、結合文字と合成済み文字の組合せ | 生バイト列の等値比較 |
 | f32/f64の±0・非正規化数・±∞・NaN payload、符号マスク | 元のビット列、幅、整列、旧Objectとの一致 |
 | 長さ付き文字列と空の内容 | 8バイトの長さと生バイト、8バイト整列、空内容の0バイト区間 |
+| 文字列・配列の参照数と容量 | 保持中は容量を再使用せず、最後の解放後に回復。空値・要素幅0・サイズ不正・上限超過を区別 |
 | 補助関数・定数の出自 | Synthetic、命令の非空区間、ラベルの空区間、Section切替の範囲なし |
 | 表示・生成の繰返し | 入力ProgramとObjectが不変 |
 
@@ -51,6 +55,7 @@ SASHIMIの `Data32` / `Data64` はリトルエンディアンの4/8バイトを�
 ```sh
 CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::machine::tests
 CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::data::tests
+CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::heap::tests
 cargo test --lib codegen::x86_64::object::tests
 CERUNE_TEST_ASM_CLANG=clang cargo test --test standard_input program_arguments::native
 ```
@@ -59,9 +64,9 @@ PowerShellでは先に `$env:CERUNE_TEST_ASM_CLANG = 'clang'` を設定します
 
 ## 次の順序
 
-1. 書込み可能データと残りのruntime補助を同じProgramへ追加できる形に移す。
+1. 入出力・引数取得のruntime補助と管理データを同じProgramへ追加できる形に移す。
 2. LIRの命令選択、ABIの起動・終了、NodeId/SourceId/Span・MIR出自を接続する。
 3. ASM/Object全体を同じProgramから生成し、既存の診断・出力順・実行結果を比較する。
 4. 生成ASMの再解析と移行用adapterを除去し、旧比較基準の退役を判断する。
 
-整数読取り等の言語機能追加は、この移行を固めた後に戻ります。
+この作業の完了条件は、Cerune全体のASMとObjectが同じ型付きProgramを使い、生成ASMの再解析を必要とせず、ソース出自・失敗診断・I/O順・既存例の実行結果を保持することです。整数読取り等の言語機能追加は、ここを確認して戻ります。SASHIMIのCerune言語への移植は別の将来作業です。
