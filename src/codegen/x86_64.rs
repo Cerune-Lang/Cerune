@@ -2,6 +2,7 @@ mod abi;
 mod arguments;
 mod array;
 mod conversion;
+mod data;
 mod emit;
 mod failure;
 mod heap;

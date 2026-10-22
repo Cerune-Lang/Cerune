@@ -1,7 +1,6 @@
 use super::failure::Reporter;
 use super::ir::{
-    Argument, ArgumentLocation, BinaryOp, CompareOp, FloatConstant, Function, Instruction, Module,
-    Type,
+    Argument, ArgumentLocation, BinaryOp, CompareOp, Function, Instruction, Module, Type,
 };
 use crate::runtime::FailureCode as Failure;
 
@@ -11,16 +10,9 @@ pub fn emit(module: &Module) -> String {
 
 pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
     let mut reporter = Reporter::new(module.target);
-    let mut output = initial_data(module.target);
+    let mut output = super::data::render(module);
     if annotate {
         output.insert_str(0, "# cerune-asm-origins v1: UTF-8 byte ranges, end exclusive\n# cerune-origin: synthetic\n");
-    }
-    if module.uses_strings {
-        super::string::emit_data(module, &mut output);
-    }
-
-    for constant in &module.float_constants {
-        emit_float_constant(constant, &mut output);
     }
 
     output.push_str("\n.text\n");
@@ -230,26 +222,6 @@ fn emit_epilogue(frame_size: usize, zero_result: bool, output: &mut String) {
     output.push_str(&format!("  addq ${frame_size}, %rsp\n"));
     output.push_str("  popq %rbp\n");
     output.push_str("  retq\n");
-}
-
-fn emit_float_constant(constant: &FloatConstant, output: &mut String) {
-    match constant {
-        FloatConstant::F32 { id, bits } => {
-            output.push_str(".p2align 2\n");
-
-            output.push_str(&format!(".Lcerune_f32_{id}:\n"));
-
-            output.push_str(&format!("  .long 0x{bits:08X}\n"));
-        }
-
-        FloatConstant::F64 { id, bits } => {
-            output.push_str(".p2align 3\n");
-
-            output.push_str(&format!(".Lcerune_f64_{id}:\n"));
-
-            output.push_str(&format!("  .quad 0x{bits:016X}\n"));
-        }
-    }
 }
 
 fn emit_instruction(
@@ -834,39 +806,6 @@ fn integer_argument_register(index: usize, target: super::Target) -> &'static st
     } else {
         ["%rcx", "%rdx", "%r8", "%r9"][index]
     }
-}
-
-fn initial_data(target: super::Target) -> String {
-    let mut output = String::new();
-
-    output.push_str(if target.is_linux() {
-        "# target: x86_64-unknown-linux-gnu\n.section .rodata\n"
-    } else {
-        ".section .rdata,\"dr\"\n"
-    });
-
-    // Unary minus masks.
-    output.push_str(".p2align 4\n");
-
-    output.push_str(".Lcerune_sign_f32:\n");
-
-    output.push_str("  .long 0x80000000\n");
-
-    output.push_str("  .long 0\n");
-
-    output.push_str("  .long 0\n");
-
-    output.push_str("  .long 0\n");
-
-    output.push_str(".p2align 4\n");
-
-    output.push_str(".Lcerune_sign_f64:\n");
-
-    output.push_str("  .quad 0x8000000000000000\n");
-
-    output.push_str("  .quad 0\n");
-
-    output
 }
 
 fn compare_setcc(op: CompareOp) -> &'static str {

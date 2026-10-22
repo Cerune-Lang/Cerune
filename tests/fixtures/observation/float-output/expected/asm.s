@@ -1,62 +1,62 @@
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
-  .long 0x80000000
-  .long 0
-  .long 0
-  .long 0
+.long 0x80000000
+.long 0x00000000
+.long 0x00000000
+.long 0x00000000
 .p2align 4
 .Lcerune_sign_f64:
-  .quad 0x8000000000000000
-  .quad 0
+.quad 0x8000000000000000
+.quad 0x0000000000000000
 .p2align 2
 .Lcerune_f32_0:
-  .long 0x1E3CE508
+.long 0x1E3CE508
 .p2align 3
 .Lcerune_f64_1:
-  .quad 0x3BC79CA10C924223
+.quad 0x3BC79CA10C924223
 .p2align 3
 .Lcerune_f64_2:
-  .quad 0x3BC79CA10C924223
+.quad 0x3BC79CA10C924223
 .p2align 3
 .Lcerune_f64_3:
-  .quad 0x0000000000000000
+.quad 0x0000000000000000
 .p2align 2
 .Lcerune_f32_4:
-  .long 0x00000001
+.long 0x00000001
 .p2align 3
 .Lcerune_f64_5:
-  .quad 0x0000000000000001
+.quad 0x0000000000000001
 .p2align 2
 .Lcerune_f32_6:
-  .long 0x7F7FFFFF
+.long 0x7F7FFFFF
 .p2align 3
 .Lcerune_f64_7:
-  .quad 0x7FEFFFFFFFFFFFFF
+.quad 0x7FEFFFFFFFFFFFFF
 .p2align 2
 .Lcerune_f32_8:
-  .long 0x00000000
+.long 0x00000000
 .p2align 3
 .Lcerune_f64_9:
-  .quad 0x0000000000000000
+.quad 0x0000000000000000
 .p2align 2
 .Lcerune_f32_10:
-  .long 0x00000000
+.long 0x00000000
 .p2align 3
 .Lcerune_f64_11:
-  .quad 0x0000000000000000
+.quad 0x0000000000000000
 .p2align 2
 .Lcerune_f32_12:
-  .long 0x38D1B717
+.long 0x38D1B717
 .p2align 3
 .Lcerune_f64_13:
-  .quad 0x3F1A36E2EB1C432D
+.quad 0x3F1A36E2EB1C432D
 .p2align 2
 .Lcerune_f32_14:
-  .long 0x4E6E6B28
+.long 0x4E6E6B28
 .p2align 3
 .Lcerune_f64_15:
-  .quad 0x4376345785D8A000
+.quad 0x4376345785D8A000
 
 .text
 .section .rdata,"dr"

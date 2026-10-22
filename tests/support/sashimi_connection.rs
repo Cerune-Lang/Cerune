@@ -3,8 +3,8 @@ use super::super::{emit_asm_from_lir, lower_mir, object_reference};
 use super::{Target, assemble};
 use std::path::{Path, PathBuf};
 const TARGETS: [Target; 2] = [Target::X86_64PcWindowsMsvc, Target::X86_64UnknownLinuxGnu];
-fn compare(asm: &str, target: Target, context: &str) -> bool {
-    let original = super::super::machine::tests::with_frozen_runtime(asm, target);
+fn compare(asm: &str, baseline: &str, target: Target, context: &str) -> bool {
+    let original = super::super::machine::tests::with_frozen_runtime(baseline, target);
     let expected =
         object_reference::assemble(&original, target).map_err(|e| e.message().to_owned());
     let actual = assemble(asm, target).map_err(|e| e.message().to_owned());
@@ -52,8 +52,9 @@ fn all_examples_keep_exact_objects_with_both_targets_ssa_and_origins() {
                 let lir = lower_mir(program, target).unwrap();
                 for origins in [false, true] {
                     let asm = emit_asm_from_lir(&lir, origins).unwrap();
+                    let baseline = super::super::data::tests::with_frozen_data(&asm, &lir);
                     assert!(
-                        compare(&asm, target, &file.display().to_string()),
+                        compare(&asm, &baseline, target, &file.display().to_string()),
                         "{} must assemble",
                         file.display()
                     );
@@ -88,7 +89,7 @@ fn adapter_preserves_diagnostics_and_relocations() {
         ".text\nint $0x80\n",
     ] {
         for target in TARGETS {
-            compare(asm, target, asm);
+            compare(asm, asm, target, asm);
         }
     }
 }

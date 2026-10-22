@@ -2,46 +2,46 @@
 .section .rodata
 .p2align 4
 .Lcerune_sign_f32:
-  .long 0x80000000
-  .long 0
-  .long 0
-  .long 0
+.long 0x80000000
+.long 0x00000000
+.long 0x00000000
+.long 0x00000000
 .p2align 4
 .Lcerune_sign_f64:
-  .quad 0x8000000000000000
-  .quad 0
+.quad 0x8000000000000000
+.quad 0x0000000000000000
 .p2align 3
 .Lcerune_string_0:
-  .quad 1
-  .byte 91
+.quad 0x0000000000000001
+.byte 91
 .p2align 3
 .Lcerune_string_1:
-  .quad 1
-  .byte 93
+.quad 0x0000000000000001
+.byte 93
 .p2align 3
 .Lcerune_string_2:
-  .quad 0
+.quad 0x0000000000000000
 .p2align 3
 .Lcerune_string_3:
-  .quad 2
-  .byte 44
-  .byte 32
+.quad 0x0000000000000002
+.byte 44
+.byte 32
 .p2align 3
 .Lcerune_string_4:
-  .quad 1
-  .byte 91
+.quad 0x0000000000000001
+.byte 91
 .p2align 3
 .Lcerune_string_5:
-  .quad 1
-  .byte 93
+.quad 0x0000000000000001
+.byte 93
 .p2align 3
 .Lcerune_string_6:
-  .quad 0
+.quad 0x0000000000000000
 .p2align 3
 .Lcerune_string_7:
-  .quad 2
-  .byte 44
-  .byte 32
+.quad 0x0000000000000002
+.byte 44
+.byte 32
 
 .text
 .section .rodata
