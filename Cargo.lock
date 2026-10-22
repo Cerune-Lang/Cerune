@@ -12,4 +12,4 @@ dependencies = [
 [[package]]
 name = "sashimi-assembler"
 version = "0.1.0"
-source = "git+https://github.com/Cerune-Lang/SASHIMI.git?rev=68edab5badc905c84ad74754f6fa1aed2be5b808#68edab5badc905c84ad74754f6fa1aed2be5b808"
+source = "git+https://github.com/Cerune-Lang/SASHIMI.git?rev=7068cade33213d9d188f0f6b767aaca6ffdba293#7068cade33213d9d188f0f6b767aaca6ffdba293"
