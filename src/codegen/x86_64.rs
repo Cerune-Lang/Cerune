@@ -9,6 +9,7 @@ mod input;
 pub mod ir;
 pub mod lir;
 mod lower;
+mod machine;
 mod object;
 #[cfg(test)]
 #[path = "../../tests/support/native_object_reference/mod.rs"]

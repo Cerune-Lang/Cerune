@@ -26,7 +26,7 @@ Object生成は[SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/7068cade332
 | SASHIMI | 制限されたASMの解析、命令符号化、ラベル解決、再配置、ELF64/COFF出力 |
 | 接続コード | 明示Targetと診断の変換。本文・診断文字列・生成Objectを変えずに返す |
 
-[SASHIMI PR #5](https://github.com/Cerune-Lang/SASHIMI/pull/5)で、同じ型付きProgramからASM・Object・OriginIdの出自対応表を生成するAPIを実装しました。Ceruneは同PRのコミットへ固定し、既存経路の互換性を検証しています。現在の本番接続はASM文字列を渡し、Ceruneが作った出自ラベルを通常のシンボルとして保持します。Ceruneの命令選択・runtime補助を型付きProgram構築へ移す作業は後続です。安定した公開ABIも未実装です。旧テキスト入口の未解決cerune_ラベルを拒否する規則は維持し、型付きProgramは名前の接頭辞ではなく明示的な内部／外部宣言を使います。
+[SASHIMI PR #5](https://github.com/Cerune-Lang/SASHIMI/pull/5)で、同じ型付きProgramからASM・Object・OriginIdの出自対応表を生成するAPIを実装しました。Ceruneは同PRのコミットへ固定し、既存経路の互換性を検証しています。現在の本番接続はASM文字列を渡し、Ceruneが作った出自ラベルを通常のシンボルとして保持します。[UTF-8検証と文字列比較の型付き構築](native-typed-runtime.ja.md)は実装済みです。全体の命令選択・残りのruntime補助の移行は後続で、最終Object生成にはASM再解析が残ります。安定した公開ABIも未実装です。旧テキスト入口の未解決cerune_ラベルを拒否する規則は維持し、型付きProgramは名前の接頭辞ではなく明示的な内部／外部宣言を使います。
 
 [旧エンコーダ](../../tests/support/native_object_reference/README.md)は移行比較用にテスト専用へ移し、本番ビルドには含めません。新機能の追加先にはしません。[接続テスト](../../tests/support/sashimi_connection.rs)は135個の実行用exampleについて、両ターゲット・通常MIR/SSA・出自注釈の有無を組み合わせ、Object全体と失敗診断を旧実装に照合します。この一致は切替前後の同等性であり、双方に共通する不具合を否定する証明ではありません。外部アセンブラとの比較・既知の期待値・リンク後実行も維持します。
 

@@ -702,18 +702,18 @@ cerune_output_escape:
   movb $125, 5(%rcx)
   movl $6, %eax
   retq
-
+.text
 .p2align 4
 cerune_string_equal:
-  movq (%rcx), %r8
-  cmpq (%rdx), %r8
+  movq 0(%rcx), %r8
+  cmpq 0(%rdx), %r8
   jne .Lstring_different
   xorq %r9, %r9
 .Lstring_compare:
   cmpq %r8, %r9
   je .Lstring_equal
-  movzbl 8(%rcx,%r9), %eax
-  cmpb 8(%rdx,%r9), %al
+  movzbl 8(%rcx,%r9,1), %eax
+  cmpb 8(%rdx,%r9,1), %al
   jne .Lstring_different
   incq %r9
   jmp .Lstring_compare
@@ -723,7 +723,6 @@ cerune_string_equal:
 .Lstring_different:
   xorl %eax, %eax
   retq
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn_echo_0:

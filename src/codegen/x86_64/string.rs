@@ -1,30 +1,6 @@
 use super::ir::Module;
 use std::fmt::Write;
 
-pub(super) const LINUX_SUPPORT: &str = r#"
-.p2align 4
-cerune_string_equal:
-  movq (%rdi), %rdx
-  cmpq (%rsi), %rdx
-  jne .Lstring_different
-  xorq %r8, %r8
-.Lstring_compare:
-  cmpq %rdx, %r8
-  je .Lstring_equal
-  movzbl 8(%rdi,%r8), %eax
-  cmpb 8(%rsi,%r8), %al
-  jne .Lstring_different
-  incq %r8
-  jmp .Lstring_compare
-.Lstring_equal:
-  movl $1, %eax
-  retq
-.Lstring_different:
-  xorl %eax, %eax
-  retq
-
-"#;
-
 pub(super) fn emit_data(module: &Module, output: &mut String) {
     for (id, value) in module.strings.iter().enumerate() {
         writeln!(
@@ -39,27 +15,40 @@ pub(super) fn emit_data(module: &Module, output: &mut String) {
     }
 }
 
-// 比較は揮発レジスタだけで行い、出力はshadow spaceと16バイト境界を守ります。
-pub(super) const SUPPORT: &str = r#"
-.p2align 4
-cerune_string_equal:
-  movq (%rcx), %r8
-  cmpq (%rdx), %r8
-  jne .Lstring_different
-  xorq %r9, %r9
-.Lstring_compare:
-  cmpq %r8, %r9
-  je .Lstring_equal
-  movzbl 8(%rcx,%r9), %eax
-  cmpb 8(%rdx,%r9), %al
-  jne .Lstring_different
-  incq %r9
-  jmp .Lstring_compare
-.Lstring_equal:
-  movl $1, %eax
-  retq
-.Lstring_different:
-  xorl %eax, %eax
-  retq
-
-"#;
+/// Immutable byte equality. Calling convention and string layout belong to Cerune.
+pub(super) fn append(program: &mut super::machine::Program) {
+    use super::machine::*;
+    use Opcode::*;
+    use Operand::{Immediate as imm, Symbol as sym};
+    let entry = program.declare("cerune_string_equal", Linkage::Local);
+    let different = program.declare(".Lstring_different", Linkage::Local);
+    let compare = program.declare(".Lstring_compare", Linkage::Local);
+    let equal = program.declare(".Lstring_equal", Linkage::Local);
+    let linux = program.target == sashimi_assembler::Target::X86_64UnknownLinuxGnu;
+    let (left, right, length, index) = if linux { (7, 6, 2, 8) } else { (1, 2, 8, 9) };
+    push(program, EntryKind::Section(Section::Text));
+    push(program, EntryKind::Align(4));
+    push(program, EntryKind::Label(entry));
+    instruction(program, Mov64, [memory(left, None, 0), r64(length)]);
+    instruction(program, Cmp64, [memory(right, None, 0), r64(length)]);
+    instruction(program, JumpNe, [sym(different)]);
+    instruction(program, Xor64, [r64(index), r64(index)]);
+    push(program, EntryKind::Label(compare));
+    instruction(program, Cmp64, [r64(length), r64(index)]);
+    instruction(program, JumpE, [sym(equal)]);
+    instruction(
+        program,
+        ZeroExtend8To32,
+        [memory(left, Some(index), 8), r32(0)],
+    );
+    instruction(program, Cmp8, [memory(right, Some(index), 8), r8(0)]);
+    instruction(program, JumpNe, [sym(different)]);
+    instruction(program, Inc64, [r64(index)]);
+    instruction(program, Jump, [sym(compare)]);
+    push(program, EntryKind::Label(equal));
+    instruction(program, Mov32, [imm(1), r32(0)]);
+    instruction(program, Ret, []);
+    push(program, EntryKind::Label(different));
+    instruction(program, Xor32, [r32(0), r32(0)]);
+    instruction(program, Ret, []);
+}

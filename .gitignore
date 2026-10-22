@@ -19,3 +19,6 @@
 !tests/support/input_memory_probe.c
 
 /experiments/host_calls/vm/target
+
+# Fixed pre-migration Native runtime assembly
+!tests/support/native_runtime_reference/*.s
