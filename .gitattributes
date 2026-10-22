@@ -32,3 +32,5 @@ tests/support/input_memory_probe.c text eol=lf -linguist-detectable
 # Host-call adapters and tools are experiments, not language implementation.
 experiments/host_calls/** -linguist-detectable
 examples/host_calls/*.ceru text eol=lf
+
+tests/support/native_runtime_reference/*.s text eol=lf -linguist-detectable

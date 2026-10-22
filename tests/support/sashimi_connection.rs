@@ -1,10 +1,12 @@
-//! Compare the production dependency with the frozen pre-extraction encoder.
+//! Compare production objects with the frozen encoder and pre-migration runtime.
 use super::super::{emit_asm_from_lir, lower_mir, object_reference};
 use super::{Target, assemble};
 use std::path::{Path, PathBuf};
 const TARGETS: [Target; 2] = [Target::X86_64PcWindowsMsvc, Target::X86_64UnknownLinuxGnu];
 fn compare(asm: &str, target: Target, context: &str) -> bool {
-    let expected = object_reference::assemble(asm, target).map_err(|e| e.message().to_owned());
+    let original = super::super::machine::tests::with_frozen_runtime(asm, target);
+    let expected =
+        object_reference::assemble(&original, target).map_err(|e| e.message().to_owned());
     let actual = assemble(asm, target).map_err(|e| e.message().to_owned());
     match (&expected, &actual) {
         (Ok(a), Ok(b)) => {

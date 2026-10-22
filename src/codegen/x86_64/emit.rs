@@ -28,11 +28,10 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
         output.push_str(&super::output::support(module.target.is_linux()));
     }
     if module.uses_strings {
-        output.push_str(if module.target.is_linux() {
-            super::string::LINUX_SUPPORT
-        } else {
-            super::string::SUPPORT
-        });
+        output.push_str(&super::machine::render_support(
+            module.target,
+            super::string::append,
+        ));
     }
 
     if let Some(limit) = module.string_heap_limit {
@@ -44,7 +43,10 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
     }
 
     if super::input::used(module) || super::arguments::used(module) {
-        output.push_str(super::utf8::SUPPORT);
+        output.push_str(&super::machine::render_support(
+            module.target,
+            super::utf8::append,
+        ));
     }
     if super::arguments::used(module) {
         output.push_str(&super::arguments::support(module));
