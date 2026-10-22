@@ -11,10 +11,11 @@ The next stage of the [SASHIMI connection](native-encoder.en.md). Cerune retains
 | UTF-8 validation | `utf8::append` adds directly to Program; shared by stdin and program arguments |
 | String equality | `string::append` adds directly to Program; Cerune explicitly selects Windows/Linux argument registers |
 | String heap / array owners | `heap::append` / `array::append` add allocation, reference counting, release and writable bookkeeping directly to Program |
+| Normal output | `output::append` directly builds numeric/boolean/raw/quoted formatting, writes, retries and failure diagnostics in Program |
 | Read-only constants | `data::append` adds sign masks, f32/f64 bits and length-prefixed strings directly to Program |
 | Standalone helper/constant ASM/Object | Generate both from the same Program; object generation does not parse text |
 | Whole Cerune programs | Migration in progress. Helpers and constants are rendered into existing assembly output, so final object generation still reparses assembly |
-| Remaining migration | Startup, I/O/argument helpers and bookkeeping, LIR instruction selection (including array callers) and source provenance |
+| Remaining migration | Startup, stdin/argument helpers and bookkeeping, LIR instruction selection (including array/output callers and flush) and source provenance |
 
 This does not complete removal of assembly reparsing. The temporary `machine::render_support` adapter formats validated assembly for the existing output without parsing instructions or operands. SASHIMI location comments and the final stack note are left to the enclosing emitter. The legacy Object reader derives PLT32 from external call symbol names, so this adapter omits `.extern` and `@PLT`; direct Program assembly retains both. Remove this adapter when the entire output shares one Program.
 
@@ -27,6 +28,8 @@ This does not complete removal of assembly reparsing. The temporary `machine::re
 - Preserve instruction/label order, branches and alignment; introduce no optimization. Mappings serve observation, not execution control.
 
 String heap and array owners preserve capacity accounting, reference counts, final release, error values and Windows/Linux trap behavior. `malloc` / `free` / `memcpy` share explicit external declarations. Bookkeeping data and helper instructions remain Synthetic; public I/O contracts and limits do not change.
+
+Normal output retains requested/accepted byte counts and call-site origins. Short writes continue, EINTR retries, and zero progress, invalid accepted counts or write failures emit io-v1 diagnostics and stop. Linux SIGPIPE handling, numeric formats and escape ordering are preserved. Formatting/diagnostic C strings are built as `Data` including the terminating NUL and rendered as `.byte` in ASM; user strings retain their existing length-prefixed representation.
 
 ## Constant representation and provenance
 
@@ -47,15 +50,18 @@ Independent execution tests link ASM/Object from the same Program with clang and
 | f32/f64 ±0, subnormals, ±infinity, NaN payloads and sign masks | Original bits, width, alignment and identical old objects |
 | Length-prefixed strings and empty contents | Eight-byte byte length plus raw contents, eight-byte alignment and zero-byte empty-content range |
 | String/array reference counts and capacity | Capacity stays occupied while retained and recovers after final release; distinguish empty values, zero-width elements, invalid sizes and limit failures |
+| Normal output success/failure | Compare bytes, io-v1 diagnostics and stopping across ASM/Object and four executors: scalar formats, Japanese/NUL/CRLF, aggregates, short writes, EINTR, zero progress, invalid counts and closed stdout |
 | Helper/constant provenance | Synthetic, nonempty instruction ranges, empty label ranges, no range for section selection |
 | Repeated rendering/generation | Unchanged input Program and Object |
 
-Relevant runnable examples are [string_values](../../examples/string_values.ceru), [io_protocol/input_flow](../../examples/io_protocol/input_flow.ceru) and [arguments/list](../../examples/arguments/list.ceru). Native argument tests compare examples through MIR/SSA, ASM/Object and four executors, including I/O ordering, copy independence and failures.
+Normal output uses [io_protocol/output_values](../../examples/io_protocol/output_values.ceru). Other relevant runnable examples are [string_values](../../examples/string_values.ceru), [io_protocol/input_flow](../../examples/io_protocol/input_flow.ceru) and [arguments/list](../../examples/arguments/list.ceru). Native argument tests compare examples through MIR/SSA, ASM/Object and four executors, including I/O ordering, copy independence and failures.
 
 ```sh
 CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::machine::tests
 CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::data::tests
 CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::heap::tests
+CERUNE_TEST_ASM_CLANG=clang cargo test --lib codegen::x86_64::output
+CERUNE_TEST_ASM_CLANG=clang cargo test --test native_output
 cargo test --lib codegen::x86_64::object::tests
 CERUNE_TEST_ASM_CLANG=clang cargo test --test standard_input program_arguments::native
 ```
@@ -64,7 +70,7 @@ In PowerShell first set `$env:CERUNE_TEST_ASM_CLANG = 'clang'`. Without it, stan
 
 ## Next steps
 
-1. Migrate I/O and argument runtime helpers and their bookkeeping to the same Program.
+1. Migrate stdin and argument runtime helpers and their bookkeeping to the same Program.
 2. Connect LIR instruction selection, ABI startup/exit, NodeId/SourceId/Span and MIR provenance.
 3. Generate whole-program ASM/Object from the same Program, comparing existing diagnostics, output ordering and execution.
 4. Remove generated-assembly reparsing and the transitional adapter, then decide when to retire migration references.

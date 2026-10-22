@@ -13,6 +13,17 @@ pub(super) fn target(target: super::Target) -> sashimi_assembler::Target {
 }
 /// Runtime helpers share explicit external declarations when appended together.
 pub(super) fn external(program: &mut Program, name: &str) -> sashimi_assembler::program::SymbolId {
+    declare(program, name, Linkage::External)
+}
+/// Reuse a local symbol for forward references; Program validation requires its label.
+pub(super) fn local(program: &mut Program, name: &str) -> sashimi_assembler::program::SymbolId {
+    declare(program, name, Linkage::Local)
+}
+fn declare(
+    program: &mut Program,
+    name: &str,
+    linkage: Linkage,
+) -> sashimi_assembler::program::SymbolId {
     if let Some((index, symbol)) = program
         .symbols
         .iter()
@@ -20,13 +31,12 @@ pub(super) fn external(program: &mut Program, name: &str) -> sashimi_assembler::
         .find(|(_, s)| s.name == name)
     {
         assert_eq!(
-            symbol.linkage,
-            Linkage::External,
-            "runtime external conflicts with local symbol"
+            symbol.linkage, linkage,
+            "runtime symbol has conflicting linkage"
         );
         sashimi_assembler::program::SymbolId(index)
     } else {
-        program.declare(name, Linkage::External)
+        program.declare(name, linkage)
     }
 }
 

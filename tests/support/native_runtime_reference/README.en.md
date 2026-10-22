@@ -9,3 +9,5 @@ Production code does not reference these files. Do not copy new implementation c
 The repository's MIT OR Apache-2.0 licensing is preserved.
 
 `heap.rs` / `array.rs` freeze allocation, reference counting, release and bookkeeping ASM emitters from bf81a78. Target and limit parameters support standalone and 135-example old-object comparisons. These are also test-only references and must not track new implementation changes.
+
+`output.rs` freezes the normal-output emitter from 0691c66 to compare typed formatting, retries and failure diagnostics with the original constants, instructions and relocations.

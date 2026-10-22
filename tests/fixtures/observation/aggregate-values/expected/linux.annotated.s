@@ -57,25 +57,149 @@
 .text
 .section .rodata
 .Loutput_record:
-  .asciz "cerune: io-v1 operation=write requested=%llu accepted=%llu%s"
+.byte 99
+.byte 101
+.byte 114
+.byte 117
+.byte 110
+.byte 101
+.byte 58
+.byte 32
+.byte 105
+.byte 111
+.byte 45
+.byte 118
+.byte 49
+.byte 32
+.byte 111
+.byte 112
+.byte 101
+.byte 114
+.byte 97
+.byte 116
+.byte 105
+.byte 111
+.byte 110
+.byte 61
+.byte 119
+.byte 114
+.byte 105
+.byte 116
+.byte 101
+.byte 32
+.byte 114
+.byte 101
+.byte 113
+.byte 117
+.byte 101
+.byte 115
+.byte 116
+.byte 101
+.byte 100
+.byte 61
+.byte 37
+.byte 108
+.byte 108
+.byte 117
+.byte 32
+.byte 97
+.byte 99
+.byte 99
+.byte 101
+.byte 112
+.byte 116
+.byte 101
+.byte 100
+.byte 61
+.byte 37
+.byte 108
+.byte 108
+.byte 117
+.byte 37
+.byte 115
+.byte 0
 .Loutput_format_error:
-  .asciz "cerune: output formatting failed%s"
+.byte 99
+.byte 101
+.byte 114
+.byte 117
+.byte 110
+.byte 101
+.byte 58
+.byte 32
+.byte 111
+.byte 117
+.byte 116
+.byte 112
+.byte 117
+.byte 116
+.byte 32
+.byte 102
+.byte 111
+.byte 114
+.byte 109
+.byte 97
+.byte 116
+.byte 116
+.byte 105
+.byte 110
+.byte 103
+.byte 32
+.byte 102
+.byte 97
+.byte 105
+.byte 108
+.byte 101
+.byte 100
+.byte 37
+.byte 115
+.byte 0
 .Loutput_i64:
-  .asciz "%lld"
+.byte 37
+.byte 108
+.byte 108
+.byte 100
+.byte 0
 .Loutput_u64:
-  .asciz "%llu"
+.byte 37
+.byte 108
+.byte 108
+.byte 117
+.byte 0
 .Loutput_f32:
-  .asciz "%.9g"
+.byte 37
+.byte 46
+.byte 57
+.byte 103
+.byte 0
 .Loutput_f64:
-  .asciz "%.17g"
+.byte 37
+.byte 46
+.byte 49
+.byte 55
+.byte 103
+.byte 0
 .Loutput_true:
-  .asciz "true\n"
+.byte 116
+.byte 114
+.byte 117
+.byte 101
+.byte 10
+.byte 0
 .Loutput_false:
-  .asciz "false\n"
+.byte 102
+.byte 97
+.byte 108
+.byte 115
+.byte 101
+.byte 10
+.byte 0
 .Loutput_lf:
-  .asciz "\n"
+.byte 10
+.byte 0
 .Loutput_quote:
-  .asciz "\""
+.byte 34
+.byte 0
 .text
 cerune_output_write:
   subq $40, %rsp
@@ -85,7 +209,6 @@ cerune_output_write:
   callq write
   addq $40, %rsp
   retq
-
 cerune_output_part:
   subq $88, %rsp
   movq %r10, 48(%rsp)
@@ -107,10 +230,9 @@ cerune_output_part:
   testq %rax, %rax
   jns .Loutput_part_check
   callq __errno_location
-  cmpl $4, (%rax)
+  cmpl $4, 0(%rax)
   je .Loutput_part_write
   jmp .Loutput_part_failed
-
 .Loutput_part_check:
   testq %rax, %rax
   je .Loutput_part_failed
@@ -133,7 +255,7 @@ cerune_output_failed:
   leaq 64(%rsp), %rdi
   movl $512, %esi
   leaq .Loutput_record(%rip), %rdx
-  movq (%r10), %rcx
+  movq 0(%r10), %rcx
   movq 8(%r10), %r8
   movq 16(%r10), %r9
   xorl %eax, %eax
@@ -172,7 +294,7 @@ cerune_output_i64:
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
-  movb $10, (%rcx,%rax)
+  movb $10, 0(%rcx,%rax,1)
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   movq %rcx, 96(%rsp)
@@ -192,7 +314,7 @@ cerune_output_u64:
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
-  movb $10, (%rcx,%rax)
+  movb $10, 0(%rcx,%rax,1)
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   movq %rcx, 96(%rsp)
@@ -213,7 +335,7 @@ cerune_output_f32:
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
-  movb $10, (%rcx,%rax)
+  movb $10, 0(%rcx,%rax,1)
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   movq %rcx, 96(%rsp)
@@ -233,7 +355,7 @@ cerune_output_f64:
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
-  movb $10, (%rcx,%rax)
+  movb $10, 0(%rcx,%rax,1)
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   movq %rcx, 96(%rsp)
@@ -244,7 +366,6 @@ cerune_output_bool:
   movq %r10, 104(%rsp)
   movq %r11, 80(%rsp)
   movq $0, 152(%rsp)
-
   testq %rax, %rax
   je .Loutput_bool_false
   leaq .Loutput_true(%rip), %rax
@@ -264,7 +385,7 @@ cerune_output_string:
   movq %r10, 104(%rsp)
   movq %r11, 80(%rsp)
   movq $1, 152(%rsp)
-  movq (%rax), %rax
+  movq 0(%rax), %rax
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   jmp .Loutput_begin
@@ -274,7 +395,6 @@ cerune_output_quoted:
   movq %r10, 104(%rsp)
   movq %r11, 80(%rsp)
   movq $2, 152(%rsp)
-
   movq $0, 112(%rsp)
   movq 104(%rsp), %rax
   addq $2, %rax
@@ -282,9 +402,9 @@ cerune_output_quoted:
 .Loutput_count:
   movq 96(%rsp), %rdx
   movq 112(%rsp), %rax
-  cmpq (%rdx), %rax
+  cmpq 0(%rdx), %rax
   je .Loutput_begin
-  movzbl 8(%rdx,%rax), %eax
+  movzbl 8(%rdx,%rax,1), %eax
   leaq 160(%rsp), %rcx
   callq cerune_output_escape
   addq %rax, 64(%rsp)
@@ -308,7 +428,6 @@ cerune_output_quoted:
   cmpq $-1, %rax
   je .Loutput_failed
   movq %rax, 88(%rsp)
-
   cmpq $2, 152(%rsp)
   je .Loutput_quoted
   cmpq $1, 152(%rsp)
@@ -320,7 +439,7 @@ cerune_output_quoted:
   jmp .Loutput_end
 .Loutput_raw:
   movq 96(%rsp), %rax
-  movq (%rax), %rdx
+  movq 0(%rax), %rdx
   addq $8, %rax
   leaq 64(%rsp), %r10
   callq cerune_output_part
@@ -335,7 +454,7 @@ cerune_output_quoted:
 .Loutput_quote_loop:
   movq 96(%rsp), %rdx
   movq 112(%rsp), %rax
-  cmpq (%rdx), %rax
+  cmpq 0(%rdx), %rax
   je .Loutput_quote_tail
   cmpq $250, 120(%rsp)
   jbe .Loutput_quote_byte
@@ -347,7 +466,7 @@ cerune_output_quoted:
 .Loutput_quote_byte:
   movq 96(%rsp), %rdx
   movq 112(%rsp), %rax
-  movzbl 8(%rdx,%rax), %eax
+  movzbl 8(%rdx,%rax,1), %eax
   leaq 160(%rsp), %rcx
   addq 120(%rsp), %rcx
   callq cerune_output_escape
@@ -452,7 +571,7 @@ cerune_output_escape:
   je .Loutput_escape_92
   cmpl $127, %eax
   je .Loutput_escape_127
-  movb %al, (%rcx)
+  movb %al, 0(%rcx)
   movl $1, %eax
   retq
 .Loutput_escape_0:
