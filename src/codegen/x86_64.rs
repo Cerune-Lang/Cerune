@@ -4,6 +4,9 @@ mod array;
 mod conversion;
 mod data;
 mod emit;
+#[cfg(test)]
+#[path = "../../tests/support/native_emitter_reference/mod.rs"]
+mod emitter_reference;
 mod failure;
 mod heap;
 mod input;
@@ -11,7 +14,10 @@ pub mod ir;
 pub mod lir;
 mod lower;
 mod machine;
+#[cfg(test)]
 mod object;
+mod program;
+pub use program::{NativeProgram, Origin as NativeOrigin};
 #[cfg(test)]
 #[path = "../../tests/support/native_object_reference/mod.rs"]
 mod object_reference;
@@ -89,16 +95,26 @@ pub fn emit_asm_from_lir(
     module: &ir::Module,
     annotate_origins: bool,
 ) -> Result<String, Diagnostic> {
-    lir::validate(module)?;
-    Ok(emit::emit_with_origins(module, annotate_origins))
+    build_program_from_lir(module, annotate_origins)?.render_asm()
 }
 
-/// 同じLIRから自前encoderでObjectを生成します。
+/// LIRを検証し、ASM・Object・出自対応を共有する型付きProgramを構築します。
+pub fn build_program_from_lir(
+    module: &ir::Module,
+    annotate_origins: bool,
+) -> Result<NativeProgram, Diagnostic> {
+    lir::validate(module)?;
+    Ok(emit::build(module, annotate_origins))
+}
+
+/// 同じ型付きProgramから、ASM文字列を経由せずObjectを生成します。
 pub fn emit_object_from_lir(
     module: &ir::Module,
     annotate_origins: bool,
 ) -> Result<Vec<u8>, Diagnostic> {
-    object::assemble(&emit_asm_from_lir(module, annotate_origins)?, module.target)
+    Ok(build_program_from_lir(module, annotate_origins)?
+        .assemble()?
+        .object)
 }
 
 pub fn emit_object_from_mir(
@@ -106,14 +122,11 @@ pub fn emit_object_from_mir(
     target: Target,
     annotate_origins: bool,
 ) -> Result<Vec<u8>, Diagnostic> {
-    object::assemble(
-        &emit_asm_from_mir(program, target, annotate_origins)?,
-        target,
-    )
+    emit_object_from_lir(&lower_mir(program, target)?, annotate_origins)
 }
 
 pub fn emit_asm(program: &cerune_ir::Program, target: Target) -> Result<String, Diagnostic> {
-    Ok(emit(&lower_with_target(program, target)?))
+    emit_asm_from_lir(&lower_with_target(program, target)?, false)
 }
 
 /// 自前の符号化・オブジェクト生成です。リンクや外部プロセス起動は行いません。
@@ -122,24 +135,20 @@ pub fn emit_object(
     target: Target,
     annotate_origins: bool,
 ) -> Result<Vec<u8>, Diagnostic> {
-    let assembly = emit::emit_with_origins(&lower_with_target(program, target)?, annotate_origins);
-    object::assemble(&assembly, target)
+    emit_object_from_lir(&lower_with_target(program, target)?, annotate_origins)
 }
 
 pub fn emit_asm_with_origins(
     program: &cerune_ir::Program,
     target: Target,
 ) -> Result<String, Diagnostic> {
-    Ok(emit::emit_with_origins(
-        &lower_with_target(program, target)?,
-        true,
-    ))
+    emit_asm_from_lir(&lower_with_target(program, target)?, true)
 }
 
 pub fn emit_x86_64_win_asm(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
     let module = lower_with_target(program, Target::X86_64PcWindowsMsvc)?;
 
-    Ok(emit(&module))
+    emit_asm_from_lir(&module, false)
 }
 
 #[cfg(test)]
@@ -215,7 +224,7 @@ mod tests {
 
         assert!(asm.contains("addq %rcx, %rax"));
         assert!(asm.contains("jno .Lcerune_main_integer_ok_"));
-        assert!(asm.contains("movl $7, %ecx\n  int $0x29"));
+        assert!(asm.contains("movl $7, %ecx\n  int $41"));
 
         assert!(asm.contains("callq cerune_output_i64"));
     }
@@ -236,7 +245,7 @@ mod tests {
         assert!(asm.contains("jno .Lcerune_main_integer_ok_"));
         assert!(asm.contains("je .Lcerune_main_division_trap_"));
         assert!(asm.contains("movabsq $-9223372036854775808, %rdx"));
-        assert!(asm.contains("movl $7, %ecx\n  int $0x29"));
+        assert!(asm.contains("movl $7, %ecx\n  int $41"));
     }
 
     #[test]

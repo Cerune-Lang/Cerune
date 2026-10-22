@@ -46,6 +46,7 @@ pub(super) fn append(program: &mut Program, module: &Module) {
         push(program, data);
     }
 }
+#[cfg(test)]
 pub(super) fn render(module: &Module) -> String {
     let mut output = if module.target.is_linux() {
         "# target: x86_64-unknown-linux-gnu\n".to_owned()

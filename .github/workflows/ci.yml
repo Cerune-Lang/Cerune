@@ -63,7 +63,7 @@ jobs:
           - suite: native
             timeout: 25
             tests: >-
-              --test native_output --test native_assembly --test native_mir --test ssa_native
+              --test native_output --test native_assembly --test native_mir --test native_program --test ssa_native
               --test lir_observation
           - suite: wat
             timeout: 25
@@ -236,7 +236,7 @@ jobs:
           - suite: native
             timeout: 25
             tests: >-
-              --test native_output --test native_assembly --test native_mir --test ssa_native
+              --test native_output --test native_assembly --test native_mir --test native_program --test ssa_native
           - suite: wat
             timeout: 15
             tests: >-

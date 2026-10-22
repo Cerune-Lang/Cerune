@@ -110,8 +110,9 @@ fn origins_preserve_encoded_sections_and_relocations_for_all_examples() {
         for target in [Target::X86_64PcWindowsMsvc, Target::X86_64UnknownLinuxGnu] {
             let plain = super::super::emit_asm(&program, target).unwrap();
             let annotated = super::super::emit_asm_with_origins(&program, target).unwrap();
-            let plain = parse::assemble(&plain).unwrap();
-            let annotated = parse::assemble(&annotated).unwrap();
+            let plain = parse::assemble(&super::super::object::legacy_text(&plain)).unwrap();
+            let annotated =
+                parse::assemble(&super::super::object::legacy_text(&annotated)).unwrap();
             assert_eq!(plain.sections, annotated.sections);
             assert_eq!(plain.relocations, annotated.relocations);
             let bytes = super::format::write(&annotated, target).unwrap();

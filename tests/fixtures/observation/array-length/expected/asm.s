@@ -1,3 +1,9 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -9,7 +15,6 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -695,7 +700,8 @@ cerune_fn_values_0:
   subq $80, %rsp
   movq %rax, -48(%rbp)
   jmp .Lcerune_fn_0_block_0
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
   movabsq $42, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -718,10 +724,9 @@ cerune_fn_values_0:
   addq $80, %rsp
   popq %rbp
   retq
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
   ud2
-
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -738,7 +743,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   leaq -8(%rbp), %rax
   callq cerune_fn_values_0
   movabsq $2, %rax
@@ -755,7 +761,8 @@ main:
   testq %rax, %rax
   je .Lcerune_block_2
   jmp .Lcerune_block_1
-.Lcerune_block_1: # mir_block
+.Lcerune_block_1:
+# mir_block
   leaq -48(%rbp), %rax
   callq cerune_fn_values_0
   movabsq $2, %rax
@@ -772,22 +779,23 @@ main:
   movq -80(%rbp), %rax
   movq %rax, -40(%rbp)
   jmp .Lcerune_block_2
-.Lcerune_block_2: # mir_block
+.Lcerune_block_2:
+# mir_block
   movq -40(%rbp), %rax
   movl $1, %r10d
   leaq .Lcerune_output_origin_2(%rip), %r11
   callq cerune_output_bool
   jmp .Lcerune_block_3
-.Lcerune_block_3: # main_exit
+.Lcerune_block_3:
+# main_exit
   xorl %eax, %eax
   addq $112, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_output_origin_0:
-  .asciz " node=0 bytes=30..40\n"
+.asciz " node=0 bytes=30..40\n"
 .Lcerune_output_origin_1:
-  .asciz " node=6 bytes=64..91\n"
+.asciz " node=6 bytes=64..91\n"
 .Lcerune_output_origin_2:
-  .asciz " node=9 bytes=92..133\n"
+.asciz " node=9 bytes=92..133\n"

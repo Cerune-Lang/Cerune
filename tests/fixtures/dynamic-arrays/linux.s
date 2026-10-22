@@ -1,4 +1,13 @@
 # target: x86_64-unknown-linux-gnu
+.extern write
+.extern __errno_location
+.extern snprintf
+.extern _Exit
+.extern signal
+.extern malloc
+.extern free
+.extern fflush
+.globl main
 .section .rodata
 .p2align 4
 .Lcerune_sign_f32:
@@ -42,7 +51,6 @@
 .quad 0x0000000000000002
 .byte 44
 .byte 32
-
 .text
 .section .rodata
 .Loutput_record:
@@ -71,7 +79,7 @@ cerune_output_write:
   movq %rsi, %rdx
   movq %rdi, %rsi
   movl $1, %edi
-  callq write
+  callq write@PLT
   addq $40, %rsp
   retq
 cerune_output_part:
@@ -94,7 +102,7 @@ cerune_output_part:
   callq cerune_output_write
   testq %rax, %rax
   jns .Loutput_part_check
-  callq __errno_location
+  callq __errno_location@PLT
   cmpl $4, 0(%rax)
   je .Loutput_part_write
   jmp .Loutput_part_failed
@@ -124,7 +132,7 @@ cerune_output_failed:
   movq 8(%r10), %r8
   movq 16(%r10), %r9
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   leaq 64(%rsp), %r10
   callq cerune_output_diagnostic
   ud2
@@ -139,10 +147,10 @@ cerune_output_diagnostic:
   movl %eax, %edx
   movq %r10, %rsi
   movl $2, %edi
-  callq write
+  callq write@PLT
 .Loutput_exit:
   movl $1, %edi
-  callq _Exit
+  callq _Exit@PLT
   ud2
 cerune_output_i64:
   subq $936, %rsp
@@ -155,7 +163,7 @@ cerune_output_i64:
   leaq .Loutput_i64(%rip), %rdx
   movq %rax, %rcx
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -175,7 +183,7 @@ cerune_output_u64:
   leaq .Loutput_u64(%rip), %rdx
   movq %rax, %rcx
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -196,7 +204,7 @@ cerune_output_f32:
   movl $128, %esi
   leaq .Loutput_f32(%rip), %rdx
   movl $1, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -216,7 +224,7 @@ cerune_output_f64:
   movl $128, %esi
   leaq .Loutput_f64(%rip), %rdx
   movl $1, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -281,7 +289,7 @@ cerune_output_quoted:
   leaq .Loutput_format_error(%rip), %rdx
   movq 80(%rsp), %rcx
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   leaq 416(%rsp), %r10
   callq cerune_output_diagnostic
   ud2
@@ -289,7 +297,7 @@ cerune_output_quoted:
   movq $0, 72(%rsp)
   movl $13, %edi
   movl $1, %esi
-  callq signal
+  callq signal@PLT
   cmpq $-1, %rax
   je .Loutput_failed
   movq %rax, 88(%rsp)
@@ -356,7 +364,7 @@ cerune_output_quoted:
 .Loutput_end:
   movl $13, %edi
   movq 88(%rsp), %rsi
-  callq signal
+  callq signal@PLT
   cmpq $-1, %rax
   je .Loutput_failed
   addq $936, %rsp
@@ -792,7 +800,7 @@ cerune_array_allocate:
   cmpq -16(%rbp), %r10
   jb .Lcerune_array_limit_fail
   leaq 48(%rax), %rdi
-  callq malloc
+  callq malloc@PLT
   testq %rax, %rax
   je .Lcerune_array_allocation_fail
   movq -24(%rbp), %r11
@@ -885,7 +893,7 @@ cerune_array_free:
   subq $32, %rsp
   movq 24(%rdi), %r10
   subq %r10, .Lcerune_array_live(%rip)
-  callq free
+  callq free@PLT
   addq $32, %rsp
   popq %rbp
 .Lcerune_array_free_empty:
@@ -899,7 +907,8 @@ cerune_fn__display0_0:
   subq $272, %rsp
   movq %rdi, -8(%rbp)
   jmp .Lcerune_fn_0_block_0
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
   leaq .Lcerune_string_0(%rip), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -915,7 +924,8 @@ cerune_fn__display0_0:
   movq -40(%rbp), %rax
   movq %rax, -48(%rbp)
   jmp .Lcerune_fn_0_block_1
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -56(%rbp)
   movq -8(%rbp), %rax
@@ -928,7 +938,8 @@ cerune_fn__display0_0:
   testq %rax, %rax
   je .Lcerune_fn_0_block_3
   jmp .Lcerune_fn_0_block_2
-.Lcerune_fn_0_block_2: # mir_block
+.Lcerune_fn_0_block_2:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -80(%rbp)
   movq -80(%rbp), %rdi
@@ -938,7 +949,8 @@ cerune_fn__display0_0:
   testq %rax, %rax
   je .Lcerune_fn_0_block_6
   jmp .Lcerune_fn_0_block_5
-.Lcerune_fn_0_block_3: # mir_block
+.Lcerune_fn_0_block_3:
+# mir_block
   leaq .Lcerune_string_1(%rip), %rax
   movq %rax, -224(%rbp)
   movq -224(%rbp), %rax
@@ -962,7 +974,8 @@ cerune_fn__display0_0:
   addq $272, %rsp
   popq %rbp
   retq
-.Lcerune_fn_0_block_4: # mir_block
+.Lcerune_fn_0_block_4:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -208(%rbp)
   movq -208(%rbp), %rdi
@@ -971,7 +984,8 @@ cerune_fn__display0_0:
   movq -216(%rbp), %rax
   movq %rax, -48(%rbp)
   jmp .Lcerune_fn_0_block_1
-.Lcerune_fn_0_block_5: # mir_block
+.Lcerune_fn_0_block_5:
+# mir_block
   leaq .Lcerune_string_3(%rip), %rax
   movq %rax, -96(%rbp)
   movq -96(%rbp), %rax
@@ -983,9 +997,11 @@ cerune_fn__display0_0:
   leaq .Lcerune_output_origin_3(%rip), %r11
   callq cerune_output_string
   jmp .Lcerune_fn_0_block_7
-.Lcerune_fn_0_block_6: # mir_block
+.Lcerune_fn_0_block_6:
+# mir_block
   jmp .Lcerune_fn_0_block_7
-.Lcerune_fn_0_block_7: # mir_block
+.Lcerune_fn_0_block_7:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -120(%rbp)
   movq -120(%rbp), %rax
@@ -1013,21 +1029,21 @@ cerune_fn__display0_0:
   cmpq 32(%r10), %rax
   jae .Lcerune_array_invalid_owner
   imulq 40(%r10), %rax
-  movq (%r10), %r11
+  movq 0(%r10), %r11
   subq %rax, %r11
   movq %r11, -272(%rbp)
   jmp .Lfn_0_dynamic_index_done_10
 .Lfn_0_dynamic_index_trap_10:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_4(%rip), %rsi
   movl $71, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_0_dynamic_index_done_10:
   movq -272(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -184(%rbp)
   movq -184(%rbp), %rax
   movq %rax, -192(%rbp)
@@ -1038,11 +1054,11 @@ cerune_fn__display0_0:
   leaq .Lcerune_output_origin_5(%rip), %r11
   callq cerune_output_i64
   jmp .Lcerune_fn_0_block_4
-.Lcerune_fn_0_block_8: # mir_block
+.Lcerune_fn_0_block_8:
+# mir_block
   addq $272, %rsp
   popq %rbp
   retq
-
 .p2align 4
 cerune_fn__display1_1:
   pushq %rbp
@@ -1050,7 +1066,8 @@ cerune_fn__display1_1:
   subq $272, %rsp
   movq %rdi, -8(%rbp)
   jmp .Lcerune_fn_1_block_0
-.Lcerune_fn_1_block_0: # mir_block
+.Lcerune_fn_1_block_0:
+# mir_block
   leaq .Lcerune_string_4(%rip), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -1066,7 +1083,8 @@ cerune_fn__display1_1:
   movq -40(%rbp), %rax
   movq %rax, -48(%rbp)
   jmp .Lcerune_fn_1_block_1
-.Lcerune_fn_1_block_1: # mir_block
+.Lcerune_fn_1_block_1:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -56(%rbp)
   movq -8(%rbp), %rax
@@ -1079,7 +1097,8 @@ cerune_fn__display1_1:
   testq %rax, %rax
   je .Lcerune_fn_1_block_3
   jmp .Lcerune_fn_1_block_2
-.Lcerune_fn_1_block_2: # mir_block
+.Lcerune_fn_1_block_2:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -80(%rbp)
   movq -80(%rbp), %rdi
@@ -1089,7 +1108,8 @@ cerune_fn__display1_1:
   testq %rax, %rax
   je .Lcerune_fn_1_block_6
   jmp .Lcerune_fn_1_block_5
-.Lcerune_fn_1_block_3: # mir_block
+.Lcerune_fn_1_block_3:
+# mir_block
   leaq .Lcerune_string_5(%rip), %rax
   movq %rax, -224(%rbp)
   movq -224(%rbp), %rax
@@ -1113,7 +1133,8 @@ cerune_fn__display1_1:
   addq $272, %rsp
   popq %rbp
   retq
-.Lcerune_fn_1_block_4: # mir_block
+.Lcerune_fn_1_block_4:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -208(%rbp)
   movq -208(%rbp), %rdi
@@ -1122,7 +1143,8 @@ cerune_fn__display1_1:
   movq -216(%rbp), %rax
   movq %rax, -48(%rbp)
   jmp .Lcerune_fn_1_block_1
-.Lcerune_fn_1_block_5: # mir_block
+.Lcerune_fn_1_block_5:
+# mir_block
   leaq .Lcerune_string_7(%rip), %rax
   movq %rax, -96(%rbp)
   movq -96(%rbp), %rax
@@ -1134,9 +1156,11 @@ cerune_fn__display1_1:
   leaq .Lcerune_output_origin_9(%rip), %r11
   callq cerune_output_string
   jmp .Lcerune_fn_1_block_7
-.Lcerune_fn_1_block_6: # mir_block
+.Lcerune_fn_1_block_6:
+# mir_block
   jmp .Lcerune_fn_1_block_7
-.Lcerune_fn_1_block_7: # mir_block
+.Lcerune_fn_1_block_7:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -120(%rbp)
   movq -120(%rbp), %rax
@@ -1164,21 +1188,21 @@ cerune_fn__display1_1:
   cmpq 32(%r10), %rax
   jae .Lcerune_array_invalid_owner
   imulq 40(%r10), %rax
-  movq (%r10), %r11
+  movq 0(%r10), %r11
   subq %rax, %r11
   movq %r11, -272(%rbp)
   jmp .Lfn_1_dynamic_index_done_10
 .Lfn_1_dynamic_index_trap_10:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_10(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_1_dynamic_index_done_10:
   movq -272(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -184(%rbp)
   movq -184(%rbp), %rax
   movq %rax, -192(%rbp)
@@ -1189,18 +1213,19 @@ cerune_fn__display1_1:
   leaq .Lcerune_output_origin_11(%rip), %r11
   callq cerune_output_i64
   jmp .Lcerune_fn_1_block_4
-.Lcerune_fn_1_block_8: # mir_block
+.Lcerune_fn_1_block_8:
+# mir_block
   addq $272, %rsp
   popq %rbp
   retq
-
 .p2align 4
 cerune_fn__ownership2_2:
   pushq %rbp
   movq %rsp, %rbp
   subq $32, %rsp
   jmp .Lcerune_fn_2_block_0
-.Lcerune_fn_2_block_0: # mir_block
+.Lcerune_fn_2_block_0:
+# mir_block
   movabsq $0, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -1211,9 +1236,9 @@ cerune_fn__ownership2_2:
   addq $32, %rsp
   popq %rbp
   retq
-.Lcerune_fn_2_block_1: # mir_block
+.Lcerune_fn_2_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership3_3:
   pushq %rbp
@@ -1222,7 +1247,8 @@ cerune_fn__ownership3_3:
   movq %rdi, -8(%rbp)
   movq %rsi, -16(%rbp)
   jmp .Lcerune_fn_3_block_0
-.Lcerune_fn_3_block_0: # mir_block
+.Lcerune_fn_3_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -24(%rbp)
   movq -24(%rbp), %rax
@@ -1258,9 +1284,9 @@ cerune_fn__ownership3_3:
   addq $112, %rsp
   popq %rbp
   retq
-.Lcerune_fn_3_block_1: # mir_block
+.Lcerune_fn_3_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership4_4:
   pushq %rbp
@@ -1268,7 +1294,8 @@ cerune_fn__ownership4_4:
   subq $80, %rsp
   movq %rdi, -8(%rbp)
   jmp .Lcerune_fn_4_block_0
-.Lcerune_fn_4_block_0: # mir_block
+.Lcerune_fn_4_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -1287,11 +1314,11 @@ cerune_fn__ownership4_4:
   addq %rcx, %rax
   jno .Lcerune_fn_4_integer_ok_3
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_12(%rip), %rsi
   movl $62, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_4_integer_ok_3:
   movq %rax, -64(%rbp)
@@ -1303,9 +1330,9 @@ cerune_fn__ownership4_4:
   addq $80, %rsp
   popq %rbp
   retq
-.Lcerune_fn_4_block_1: # mir_block
+.Lcerune_fn_4_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership5_5:
   pushq %rbp
@@ -1313,7 +1340,8 @@ cerune_fn__ownership5_5:
   subq $80, %rsp
   movq %rdi, -8(%rbp)
   jmp .Lcerune_fn_5_block_0
-.Lcerune_fn_5_block_0: # mir_block
+.Lcerune_fn_5_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -1341,16 +1369,17 @@ cerune_fn__ownership5_5:
   addq $80, %rsp
   popq %rbp
   retq
-.Lcerune_fn_5_block_1: # mir_block
+.Lcerune_fn_5_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership6_6:
   pushq %rbp
   movq %rsp, %rbp
   subq $32, %rsp
   jmp .Lcerune_fn_6_block_0
-.Lcerune_fn_6_block_0: # mir_block
+.Lcerune_fn_6_block_0:
+# mir_block
   movabsq $0, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -1361,9 +1390,9 @@ cerune_fn__ownership6_6:
   addq $32, %rsp
   popq %rbp
   retq
-.Lcerune_fn_6_block_1: # mir_block
+.Lcerune_fn_6_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership7_7:
   pushq %rbp
@@ -1372,7 +1401,8 @@ cerune_fn__ownership7_7:
   movq %rdi, -8(%rbp)
   movq %rsi, -16(%rbp)
   jmp .Lcerune_fn_7_block_0
-.Lcerune_fn_7_block_0: # mir_block
+.Lcerune_fn_7_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -24(%rbp)
   movq -24(%rbp), %rax
@@ -1408,9 +1438,9 @@ cerune_fn__ownership7_7:
   addq $112, %rsp
   popq %rbp
   retq
-.Lcerune_fn_7_block_1: # mir_block
+.Lcerune_fn_7_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership8_8:
   pushq %rbp
@@ -1418,7 +1448,8 @@ cerune_fn__ownership8_8:
   subq $80, %rsp
   movq %rdi, -8(%rbp)
   jmp .Lcerune_fn_8_block_0
-.Lcerune_fn_8_block_0: # mir_block
+.Lcerune_fn_8_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -1437,11 +1468,11 @@ cerune_fn__ownership8_8:
   addq %rcx, %rax
   jno .Lcerune_fn_8_integer_ok_3
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_13(%rip), %rsi
   movl $63, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_8_integer_ok_3:
   movq %rax, -64(%rbp)
@@ -1453,9 +1484,9 @@ cerune_fn__ownership8_8:
   addq $80, %rsp
   popq %rbp
   retq
-.Lcerune_fn_8_block_1: # mir_block
+.Lcerune_fn_8_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership9_9:
   pushq %rbp
@@ -1463,7 +1494,8 @@ cerune_fn__ownership9_9:
   subq $80, %rsp
   movq %rdi, -8(%rbp)
   jmp .Lcerune_fn_9_block_0
-.Lcerune_fn_9_block_0: # mir_block
+.Lcerune_fn_9_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -1491,16 +1523,17 @@ cerune_fn__ownership9_9:
   addq $80, %rsp
   popq %rbp
   retq
-.Lcerune_fn_9_block_1: # mir_block
+.Lcerune_fn_9_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership10_10:
   pushq %rbp
   movq %rsp, %rbp
   subq $416, %rsp
   jmp .Lcerune_fn_10_block_0
-.Lcerune_fn_10_block_0: # mir_block
+.Lcerune_fn_10_block_0:
+# mir_block
   movabsq $1, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -1538,11 +1571,11 @@ cerune_fn__ownership10_10:
   jmp .Lfn_10_array_range_done_7
 .Lfn_10_array_range_trap_7:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_14(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_10_array_range_done_7:
   movabsq $2, %rax
@@ -1555,11 +1588,11 @@ cerune_fn__ownership10_10:
   subq %rcx, %rax
   jno .Lcerune_fn_10_integer_ok_8
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_15(%rip), %rsi
   movl $63, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_10_integer_ok_8:
   movq %rax, -128(%rbp)
@@ -1571,11 +1604,11 @@ cerune_fn__ownership10_10:
   testq %rax, %rax
   jns .Lfn_10_array_length_ok_9
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_16(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_10_array_length_ok_9:
   movq %rax, %rdi
@@ -1587,29 +1620,29 @@ cerune_fn__ownership10_10:
   cmpq $1, %rdx
   jne .Lfn_10_array_limit_9
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_17(%rip), %rsi
   movl $71, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_10_array_limit_9:
   cmpq $2, %rdx
   jne .Lfn_10_array_failed_9
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_18(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_10_array_failed_9:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_19(%rip), %rsi
   movl $64, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_10_array_allocated_9:
   movq %rax, -152(%rbp)
@@ -1620,7 +1653,8 @@ cerune_fn__ownership10_10:
   movq -168(%rbp), %rax
   movq %rax, -176(%rbp)
   jmp .Lcerune_fn_10_block_1
-.Lcerune_fn_10_block_1: # mir_block
+.Lcerune_fn_10_block_1:
+# mir_block
   movq -176(%rbp), %rax
   movq %rax, -184(%rbp)
   movq -136(%rbp), %rax
@@ -1636,7 +1670,8 @@ cerune_fn__ownership10_10:
   testq %rax, %rax
   je .Lcerune_fn_10_block_3
   jmp .Lcerune_fn_10_block_2
-.Lcerune_fn_10_block_2: # mir_block
+.Lcerune_fn_10_block_2:
+# mir_block
   movq -72(%rbp), %rax
   movq %rax, -208(%rbp)
   movq -80(%rbp), %rax
@@ -1663,11 +1698,11 @@ cerune_fn__ownership10_10:
   addq %rcx, %rax
   jno .Lcerune_fn_10_integer_ok_10
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_20(%rip), %rsi
   movl $63, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_10_integer_ok_10:
   movq %rax, -288(%rbp)
@@ -1690,15 +1725,15 @@ cerune_fn__ownership10_10:
   jmp .Lcerune_fn_10_array_done_11
 .Lcerune_fn_10_array_oob_11:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_21(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_10_array_done_11:
   movq -408(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -328(%rbp)
   movq -328(%rbp), %rax
   movq %rax, -336(%rbp)
@@ -1715,18 +1750,20 @@ cerune_fn__ownership10_10:
   movq %rax, -416(%rbp)
   movq -368(%rbp), %rax
   movq -416(%rbp), %rcx
-  movq %rax, (%rcx)
+  movq %rax, 0(%rcx)
   movq -360(%rbp), %r10
   addq $1, 32(%r10)
   jmp .Lcerune_fn_10_block_4
-.Lcerune_fn_10_block_3: # mir_block
+.Lcerune_fn_10_block_3:
+# mir_block
   movq -160(%rbp), %rax
   movq %rax, -400(%rbp)
   movq -400(%rbp), %rax
   addq $416, %rsp
   popq %rbp
   retq
-.Lcerune_fn_10_block_4: # mir_block
+.Lcerune_fn_10_block_4:
+# mir_block
   movq -176(%rbp), %rax
   movq %rax, -376(%rbp)
   movabsq $1, %rax
@@ -1737,20 +1774,20 @@ cerune_fn__ownership10_10:
   addq %rcx, %rax
   jno .Lcerune_fn_10_integer_ok_12
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_22(%rip), %rsi
   movl $63, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_10_integer_ok_12:
   movq %rax, -392(%rbp)
   movq -392(%rbp), %rax
   movq %rax, -176(%rbp)
   jmp .Lcerune_fn_10_block_1
-.Lcerune_fn_10_block_5: # mir_block
+.Lcerune_fn_10_block_5:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership11_11:
   pushq %rbp
@@ -1758,7 +1795,8 @@ cerune_fn__ownership11_11:
   subq $384, %rsp
   movq %rdi, -8(%rbp)
   jmp .Lcerune_fn_11_block_0
-.Lcerune_fn_11_block_0: # mir_block
+.Lcerune_fn_11_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -1792,11 +1830,11 @@ cerune_fn__ownership11_11:
   jmp .Lfn_11_array_range_done_7
 .Lfn_11_array_range_trap_7:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_23(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_11_array_range_done_7:
   movq -40(%rbp), %rax
@@ -1813,11 +1851,11 @@ cerune_fn__ownership11_11:
   subq %rcx, %rax
   jno .Lcerune_fn_11_integer_ok_8
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_24(%rip), %rsi
   movl $63, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_11_integer_ok_8:
   movq %rax, -112(%rbp)
@@ -1829,11 +1867,11 @@ cerune_fn__ownership11_11:
   testq %rax, %rax
   jns .Lfn_11_array_length_ok_9
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_25(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_11_array_length_ok_9:
   movq %rax, %rdi
@@ -1845,29 +1883,29 @@ cerune_fn__ownership11_11:
   cmpq $1, %rdx
   jne .Lfn_11_array_limit_9
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_26(%rip), %rsi
   movl $71, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_11_array_limit_9:
   cmpq $2, %rdx
   jne .Lfn_11_array_failed_9
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_27(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_11_array_failed_9:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_28(%rip), %rsi
   movl $64, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_11_array_allocated_9:
   movq %rax, -136(%rbp)
@@ -1878,7 +1916,8 @@ cerune_fn__ownership11_11:
   movq -152(%rbp), %rax
   movq %rax, -160(%rbp)
   jmp .Lcerune_fn_11_block_1
-.Lcerune_fn_11_block_1: # mir_block
+.Lcerune_fn_11_block_1:
+# mir_block
   movq -160(%rbp), %rax
   movq %rax, -168(%rbp)
   movq -120(%rbp), %rax
@@ -1894,7 +1933,8 @@ cerune_fn__ownership11_11:
   testq %rax, %rax
   je .Lcerune_fn_11_block_3
   jmp .Lcerune_fn_11_block_2
-.Lcerune_fn_11_block_2: # mir_block
+.Lcerune_fn_11_block_2:
+# mir_block
   movq -40(%rbp), %rax
   movq %rax, -192(%rbp)
   movq -192(%rbp), %rax
@@ -1917,11 +1957,11 @@ cerune_fn__ownership11_11:
   addq %rcx, %rax
   jno .Lcerune_fn_11_integer_ok_10
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_29(%rip), %rsi
   movl $63, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_11_integer_ok_10:
   movq %rax, -256(%rbp)
@@ -1942,21 +1982,21 @@ cerune_fn__ownership11_11:
   cmpq 32(%r10), %rax
   jae .Lcerune_array_invalid_owner
   imulq 40(%r10), %rax
-  movq (%r10), %r11
+  movq 0(%r10), %r11
   subq %rax, %r11
   movq %r11, -368(%rbp)
   jmp .Lfn_11_dynamic_index_done_11
 .Lfn_11_dynamic_index_trap_11:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_30(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_11_dynamic_index_done_11:
   movq -368(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -288(%rbp)
   movq -288(%rbp), %rax
   movq %rax, -296(%rbp)
@@ -1973,18 +2013,20 @@ cerune_fn__ownership11_11:
   movq %rax, -376(%rbp)
   movq -328(%rbp), %rax
   movq -376(%rbp), %rcx
-  movq %rax, (%rcx)
+  movq %rax, 0(%rcx)
   movq -320(%rbp), %r10
   addq $1, 32(%r10)
   jmp .Lcerune_fn_11_block_4
-.Lcerune_fn_11_block_3: # mir_block
+.Lcerune_fn_11_block_3:
+# mir_block
   movq -144(%rbp), %rax
   movq %rax, -360(%rbp)
   movq -360(%rbp), %rax
   addq $384, %rsp
   popq %rbp
   retq
-.Lcerune_fn_11_block_4: # mir_block
+.Lcerune_fn_11_block_4:
+# mir_block
   movq -160(%rbp), %rax
   movq %rax, -336(%rbp)
   movabsq $1, %rax
@@ -1995,27 +2037,28 @@ cerune_fn__ownership11_11:
   addq %rcx, %rax
   jno .Lcerune_fn_11_integer_ok_12
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_31(%rip), %rsi
   movl $63, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_11_integer_ok_12:
   movq %rax, -352(%rbp)
   movq -352(%rbp), %rax
   movq %rax, -160(%rbp)
   jmp .Lcerune_fn_11_block_1
-.Lcerune_fn_11_block_5: # mir_block
+.Lcerune_fn_11_block_5:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership12_12:
   pushq %rbp
   movq %rsp, %rbp
   subq $32, %rsp
   jmp .Lcerune_fn_12_block_0
-.Lcerune_fn_12_block_0: # mir_block
+.Lcerune_fn_12_block_0:
+# mir_block
   movabsq $0, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -2026,16 +2069,17 @@ cerune_fn__ownership12_12:
   addq $32, %rsp
   popq %rbp
   retq
-.Lcerune_fn_12_block_1: # mir_block
+.Lcerune_fn_12_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership13_13:
   pushq %rbp
   movq %rsp, %rbp
   subq $32, %rsp
   jmp .Lcerune_fn_13_block_0
-.Lcerune_fn_13_block_0: # mir_block
+.Lcerune_fn_13_block_0:
+# mir_block
   movabsq $9, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -2046,9 +2090,9 @@ cerune_fn__ownership13_13:
   addq $32, %rsp
   popq %rbp
   retq
-.Lcerune_fn_13_block_1: # mir_block
+.Lcerune_fn_13_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership14_14:
   pushq %rbp
@@ -2056,7 +2100,8 @@ cerune_fn__ownership14_14:
   subq $112, %rsp
   movq %rdi, -8(%rbp)
   jmp .Lcerune_fn_14_block_0
-.Lcerune_fn_14_block_0: # mir_block
+.Lcerune_fn_14_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -2067,7 +2112,8 @@ cerune_fn__ownership14_14:
   testq %rax, %rax
   je .Lcerune_fn_14_block_2
   jmp .Lcerune_fn_14_block_1
-.Lcerune_fn_14_block_1: # mir_block
+.Lcerune_fn_14_block_1:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -32(%rbp)
   movq -32(%rbp), %rax
@@ -2077,13 +2123,16 @@ cerune_fn__ownership14_14:
   movq -40(%rbp), %rax
   movq %rax, -48(%rbp)
   jmp .Lcerune_fn_14_block_4
-.Lcerune_fn_14_block_2: # mir_block
+.Lcerune_fn_14_block_2:
+# mir_block
   jmp .Lcerune_fn_14_block_3
-.Lcerune_fn_14_block_3: # mir_block
+.Lcerune_fn_14_block_3:
+# mir_block
   addq $112, %rsp
   popq %rbp
   retq
-.Lcerune_fn_14_block_4: # mir_block
+.Lcerune_fn_14_block_4:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -56(%rbp)
   movabsq $0, %rax
@@ -2099,16 +2148,19 @@ cerune_fn__ownership14_14:
   testq %rax, %rax
   je .Lcerune_fn_14_block_6
   jmp .Lcerune_fn_14_block_5
-.Lcerune_fn_14_block_5: # mir_block
+.Lcerune_fn_14_block_5:
+# mir_block
   jmp .Lcerune_fn_14_block_7
-.Lcerune_fn_14_block_6: # mir_block
+.Lcerune_fn_14_block_6:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -104(%rbp)
   movq -104(%rbp), %rax
   movq %rax, %rdi
   callq cerune_array_free
   jmp .Lcerune_fn_14_block_3
-.Lcerune_fn_14_block_7: # mir_block
+.Lcerune_fn_14_block_7:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -80(%rbp)
   movabsq $1, %rax
@@ -2119,30 +2171,30 @@ cerune_fn__ownership14_14:
   subq %rcx, %rax
   jno .Lcerune_fn_14_integer_ok_10
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_32(%rip), %rsi
   movl $63, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lcerune_fn_14_integer_ok_10:
   movq %rax, -96(%rbp)
   movq -96(%rbp), %rax
   movq %rax, -48(%rbp)
   jmp .Lcerune_fn_14_block_4
-.Lcerune_fn_14_block_8: # mir_block
+.Lcerune_fn_14_block_8:
+# mir_block
   addq $112, %rsp
   popq %rbp
   retq
-
-.globl main
 .p2align 4
 main:
   pushq %rbp
   movq %rsp, %rbp
   subq $192, %rsp
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   callq cerune_fn__ownership10_10
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -2173,21 +2225,21 @@ main:
   cmpq 32(%r10), %rax
   jae .Lcerune_array_invalid_owner
   imulq 40(%r10), %rax
-  movq (%r10), %r11
+  movq 0(%r10), %r11
   subq %rax, %r11
   movq %r11, -184(%rbp)
   jmp .Lmain_dynamic_index_done_2
 .Lmain_dynamic_index_trap_2:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_33(%rip), %rsi
   movl $72, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lmain_dynamic_index_done_2:
   movq -184(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -80(%rbp)
   movq -80(%rbp), %rax
   movq %rax, -88(%rbp)
@@ -2204,24 +2256,24 @@ main:
   cmpq 32(%r10), %rax
   jae .Lcerune_array_invalid_owner
   imulq 40(%r10), %rax
-  movq (%r10), %r11
+  movq 0(%r10), %r11
   subq %rax, %r11
   movq %r11, -176(%rbp)
   jmp .Lmain_dynamic_index_done_3
 .Lmain_dynamic_index_trap_3:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_34(%rip), %rsi
   movl $70, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lmain_dynamic_index_done_3:
   callq cerune_fn__ownership13_13
   movq %rax, -104(%rbp)
   movq -104(%rbp), %rax
   movq -176(%rbp), %rcx
-  movq %rax, (%rcx)
+  movq %rax, 0(%rcx)
   movq -16(%rbp), %rax
   movq %rax, -112(%rbp)
   movq -112(%rbp), %rax
@@ -2247,82 +2299,81 @@ main:
   movq -168(%rbp), %rdi
   callq cerune_fn__ownership14_14
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $192, %rsp
   popq %rbp
   retq
-
 .section .rodata
 .Lcerune_output_origin_0:
-  .asciz " node=15 bytes=78..92\n"
+.asciz " node=15 bytes=78..92\n"
 .Lcerune_output_origin_1:
-  .asciz " node=38 bytes=78..92\n"
+.asciz " node=38 bytes=78..92\n"
 .Lcerune_output_origin_2:
-  .asciz " node=40 bytes=78..92\n"
+.asciz " node=40 bytes=78..92\n"
 .Lcerune_output_origin_3:
-  .asciz " node=26 bytes=78..92\n"
+.asciz " node=26 bytes=78..92\n"
 .Lcerune_failure_4:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=30 bytes=78..92\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=30 bytes=78..92\n"
 .Lcerune_output_origin_5:
-  .asciz " node=31 bytes=78..92\n"
+.asciz " node=31 bytes=78..92\n"
 .Lcerune_output_origin_6:
-  .asciz " node=44 bytes=93..106\n"
+.asciz " node=44 bytes=93..106\n"
 .Lcerune_output_origin_7:
-  .asciz " node=67 bytes=93..106\n"
+.asciz " node=67 bytes=93..106\n"
 .Lcerune_output_origin_8:
-  .asciz " node=69 bytes=93..106\n"
+.asciz " node=69 bytes=93..106\n"
 .Lcerune_output_origin_9:
-  .asciz " node=55 bytes=93..106\n"
+.asciz " node=55 bytes=93..106\n"
 .Lcerune_failure_10:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=59 bytes=93..106\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=59 bytes=93..106\n"
 .Lcerune_output_origin_11:
-  .asciz " node=60 bytes=93..106\n"
+.asciz " node=60 bytes=93..106\n"
 .Lcerune_failure_12:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=34 bytes=78..92\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=34 bytes=78..92\n"
 .Lcerune_failure_13:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=63 bytes=93..106\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=63 bytes=93..106\n"
 .Lcerune_failure_14:
-  .asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=219 bytes=20..38\n"
+.asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=219 bytes=20..38\n"
 .Lcerune_failure_15:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=221 bytes=20..38\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=221 bytes=20..38\n"
 .Lcerune_failure_16:
-  .asciz "cerune: runtime-v1 code=array-length-out-of-range node=224 bytes=20..38\n"
+.asciz "cerune: runtime-v1 code=array-length-out-of-range node=224 bytes=20..38\n"
 .Lcerune_failure_17:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=224 bytes=20..38\n"
+.asciz "cerune: runtime-v1 code=allocation-size-overflow node=224 bytes=20..38\n"
 .Lcerune_failure_18:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=224 bytes=20..38\n"
+.asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=224 bytes=20..38\n"
 .Lcerune_failure_19:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=224 bytes=20..38\n"
+.asciz "cerune: runtime-v1 code=allocation-failed node=224 bytes=20..38\n"
 .Lcerune_failure_20:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=237 bytes=20..38\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=237 bytes=20..38\n"
 .Lcerune_failure_21:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=239 bytes=20..38\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=239 bytes=20..38\n"
 .Lcerune_failure_22:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=233 bytes=20..38\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=233 bytes=20..38\n"
 .Lcerune_failure_23:
-  .asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=275 bytes=55..61\n"
+.asciz "cerune: runtime-v1 code=array-range-out-of-bounds node=275 bytes=55..61\n"
 .Lcerune_failure_24:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=277 bytes=55..61\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=277 bytes=55..61\n"
 .Lcerune_failure_25:
-  .asciz "cerune: runtime-v1 code=array-length-out-of-range node=280 bytes=55..61\n"
+.asciz "cerune: runtime-v1 code=array-length-out-of-range node=280 bytes=55..61\n"
 .Lcerune_failure_26:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=280 bytes=55..61\n"
+.asciz "cerune: runtime-v1 code=allocation-size-overflow node=280 bytes=55..61\n"
 .Lcerune_failure_27:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=280 bytes=55..61\n"
+.asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=280 bytes=55..61\n"
 .Lcerune_failure_28:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=280 bytes=55..61\n"
+.asciz "cerune: runtime-v1 code=allocation-failed node=280 bytes=55..61\n"
 .Lcerune_failure_29:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=293 bytes=55..61\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=293 bytes=55..61\n"
 .Lcerune_failure_30:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=295 bytes=55..61\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=295 bytes=55..61\n"
 .Lcerune_failure_31:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=289 bytes=55..61\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=289 bytes=55..61\n"
 .Lcerune_failure_32:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=354 bytes=40..62\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=354 bytes=40..62\n"
 .Lcerune_failure_33:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=330 bytes=69..72\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=330 bytes=69..72\n"
 .Lcerune_failure_34:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=7 bytes=69..72\n"
-
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=7 bytes=69..72\n"
 .section .note.GNU-stack,"",@progbits

@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
+.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -9,7 +16,6 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -688,7 +694,6 @@ cerune_output_escape:
   movb $125, 5(%rcx)
   movl $6, %eax
   retq
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -705,7 +710,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $8, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -726,7 +732,7 @@ main:
   movl $61, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_2:
   movq %rax, -40(%rbp)
   movq -40(%rbp), %rax
@@ -749,7 +755,7 @@ main:
   movl $61, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_3:
   movq %rax, -64(%rbp)
   movq -64(%rbp), %rax
@@ -772,7 +778,7 @@ main:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_4:
   movq %rax, -88(%rbp)
   movq -88(%rbp), %rax
@@ -800,7 +806,7 @@ main:
   movl $63, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_division_trap_5:
   xorl %ecx, %ecx
   callq fflush
@@ -809,7 +815,7 @@ main:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_division_ok_5:
   cqto
   idivq %rcx
@@ -830,7 +836,7 @@ main:
   movl $63, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_6:
   movq %rax, -128(%rbp)
   movq -128(%rbp), %rax
@@ -838,32 +844,32 @@ main:
   leaq .Lcerune_output_origin_10(%rip), %r11
   callq cerune_output_i64
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $160, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=3 bytes=22..31\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=3 bytes=22..31\n"
 .Lcerune_output_origin_1:
-  .asciz " node=2 bytes=16..33\n"
+.asciz " node=2 bytes=16..33\n"
 .Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=7 bytes=40..49\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=7 bytes=40..49\n"
 .Lcerune_output_origin_3:
-  .asciz " node=6 bytes=34..51\n"
+.asciz " node=6 bytes=34..51\n"
 .Lcerune_failure_4:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=11 bytes=58..67\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=11 bytes=58..67\n"
 .Lcerune_output_origin_5:
-  .asciz " node=10 bytes=52..69\n"
+.asciz " node=10 bytes=52..69\n"
 .Lcerune_failure_6:
-  .asciz "cerune: runtime-v1 code=division-overflow node=15 bytes=76..85\n"
+.asciz "cerune: runtime-v1 code=division-overflow node=15 bytes=76..85\n"
 .Lcerune_failure_7:
-  .asciz "cerune: runtime-v1 code=division-by-zero node=15 bytes=76..85\n"
+.asciz "cerune: runtime-v1 code=division-by-zero node=15 bytes=76..85\n"
 .Lcerune_output_origin_8:
-  .asciz " node=14 bytes=70..87\n"
+.asciz " node=14 bytes=70..87\n"
 .Lcerune_failure_9:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=19 bytes=94..100\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=19 bytes=94..100\n"
 .Lcerune_output_origin_10:
-  .asciz " node=18 bytes=88..102\n"
+.asciz " node=18 bytes=88..102\n"

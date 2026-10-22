@@ -1,4 +1,6 @@
 use super::failure::Reporter;
+use super::machine::{Linkage, Opcode, Operand, r8, r64};
+use super::program::{NativeProgram, xmm};
 use crate::runtime::FailureCode as Failure;
 use crate::{
     codegen::{IntegerBinaryOp as Op, NumericConversion},
@@ -11,36 +13,90 @@ pub(super) fn emit_binary(
     label: usize,
     prefix: &str,
     reporter: &mut Reporter,
-    output: &mut String,
+    output: &mut NativeProgram,
 ) {
     let bad = format!(".Lcerune_{prefix}_u64_bad_{label}");
     let done = format!(".Lcerune_{prefix}_u64_done_{label}");
     match op {
-        Op::Add => output.push_str(&format!("  addq %rcx, %rax\n  jc {bad}\n")),
-        Op::Subtract => output.push_str(&format!("  subq %rcx, %rax\n  jc {bad}\n")),
-        Op::Multiply => output.push_str(&format!("  mulq %rcx\n  jc {bad}\n")),
+        Op::Add => {
+            output.emit(Opcode::Add64, [r64(1), r64(0)]);
+
+            let symbol = output.symbol(&bad, Linkage::Local);
+            output.emit(Opcode::JumpB, [Operand::Symbol(symbol)]);
+        }
+        Op::Subtract => {
+            output.emit(Opcode::Sub64, [r64(1), r64(0)]);
+
+            let symbol = output.symbol(&bad, Linkage::Local);
+            output.emit(Opcode::JumpB, [Operand::Symbol(symbol)]);
+        }
+        Op::Multiply => {
+            output.emit(Opcode::Mul64, [r64(1)]);
+
+            let symbol = output.symbol(&bad, Linkage::Local);
+            output.emit(Opcode::JumpB, [Operand::Symbol(symbol)]);
+        }
         Op::Divide | Op::Remainder => {
-            output.push_str(&format!(
-                "  testq %rcx, %rcx\n  je {bad}\n  xorq %rdx, %rdx\n  divq %rcx\n"
-            ));
+            output.emit(Opcode::Test64, [r64(1), r64(1)]);
+
+            let symbol = output.symbol(&bad, Linkage::Local);
+            output.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+            output.emit(Opcode::Xor64, [r64(2), r64(2)]);
+            output.emit(Opcode::Div64, [r64(1)]);
+
             if op == Op::Remainder {
-                output.push_str("  movq %rdx, %rax\n");
+                output.emit(Opcode::Mov64, [r64(2), r64(0)]);
             }
         }
-        Op::BitAnd => return output.push_str("  andq %rcx, %rax\n"),
-        Op::BitOr => return output.push_str("  orq %rcx, %rax\n"),
-        Op::BitXor => return output.push_str("  xorq %rcx, %rax\n"),
+        Op::BitAnd => {
+            return {
+                output.emit(Opcode::And64, [r64(1), r64(0)]);
+            };
+        }
+        Op::BitOr => {
+            return {
+                output.emit(Opcode::Or64, [r64(1), r64(0)]);
+            };
+        }
+        Op::BitXor => {
+            return {
+                output.emit(Opcode::Xor64, [r64(1), r64(0)]);
+            };
+        }
         Op::ShiftLeft | Op::ShiftRight => {
-            output.push_str(&format!("  cmpq $64, %rcx\n  jae {bad}\n"));
+            output.emit(Opcode::Cmp64, [Operand::Immediate(64), r64(1)]);
+
+            let symbol = output.symbol(&bad, Linkage::Local);
+            output.emit(Opcode::JumpAe, [Operand::Symbol(symbol)]);
+
             if op == Op::ShiftLeft {
-                output.push_str(&format!("  movq $-1, %r11\n  shrq %cl, %r11\n  cmpq %r11, %rax\n  ja {bad}_overflow\n  shlq %cl, %rax\n  jmp {done}\n{bad}_overflow:\n"));
+                output.emit(Opcode::Mov64, [Operand::Immediate(-1), r64(11)]);
+                output.emit(Opcode::ShiftRight64, [r8(1), r64(11)]);
+                output.emit(Opcode::Cmp64, [r64(11), r64(0)]);
+
+                let symbol = output.symbol(&format!("{bad}_overflow"), Linkage::Local);
+                output.emit(Opcode::JumpA, [Operand::Symbol(symbol)]);
+
+                output.emit(Opcode::ShiftLeft64, [r8(1), r64(0)]);
+
+                let symbol = output.symbol(&done, Linkage::Local);
+                output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+                output.label(&format!("{bad}_overflow"));
+
                 reporter.emit(Failure::IntegerOverflow, output);
             } else {
-                output.push_str("  shrq %cl, %rax\n");
+                output.emit(Opcode::ShiftRight64, [r8(1), r64(0)]);
             }
         }
     }
-    output.push_str(&format!("  jmp {done}\n{bad}:\n"));
+
+    let symbol = output.symbol(&done, Linkage::Local);
+    output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    output.label(&bad);
+
     reporter.emit(
         match op {
             Op::Divide => Failure::DivisionByZero,
@@ -50,7 +106,8 @@ pub(super) fn emit_binary(
         },
         output,
     );
-    output.push_str(&format!("{done}:\n"));
+
+    output.label(&done);
 }
 
 pub(super) fn emit_conversion(
@@ -58,7 +115,7 @@ pub(super) fn emit_conversion(
     label: usize,
     prefix: &str,
     reporter: &mut Reporter,
-    output: &mut String,
+    output: &mut NativeProgram,
 ) {
     let base = format!(".Lcerune_{prefix}_u64_convert_{label}");
     let bad = format!("{base}_bad");
@@ -66,45 +123,155 @@ pub(super) fn emit_conversion(
     match (c.from, c.to) {
         (N::Integer(from), N::Integer(to)) => {
             if from == IntegerType::U64 {
-                output.push_str(&format!(
-                    "  movabsq ${}, %r11\n  cmpq %r11, %rax\n  ja {bad}\n",
-                    to.maximum()
-                ));
+                output.emit(
+                    Opcode::MovAbs64,
+                    [Operand::Immediate((to.maximum()).to_owned()), r64(11)],
+                );
+                output.emit(Opcode::Cmp64, [r64(11), r64(0)]);
+
+                let symbol = output.symbol(&bad, Linkage::Local);
+                output.emit(Opcode::JumpA, [Operand::Symbol(symbol)]);
             } else if from.is_signed() {
-                output.push_str(&format!("  testq %rax, %rax\n  js {bad}\n"));
+                output.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+                let symbol = output.symbol(&bad, Linkage::Local);
+                output.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
             }
         }
         (N::Integer(_), N::F32 | N::F64) => {
             // SSE2の符号付き変換で上半分を扱うため、下位ビットを残して半分にしてから倍にします。
-            let suffix = if c.to == N::F32 { "ss" } else { "sd" };
-            output.push_str(&format!("  movq %rax, %r10\n  testq %rax, %rax\n  jns {base}_small\n  movq %rax, %r11\n  andq $1, %r11\n  shrq $1, %rax\n  orq %r11, %rax\n  cvtsi2{suffix}q %rax, %xmm0\n  add{suffix} %xmm0, %xmm0\n  jmp {base}_number\n{base}_small:\n  cvtsi2{suffix}q %rax, %xmm0\n{base}_number:\n"));
+
+            output.emit(Opcode::Mov64, [r64(0), r64(10)]);
+            output.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+            let symbol = output.symbol(&format!("{base}_small"), Linkage::Local);
+            output.emit(Opcode::JumpNs, [Operand::Symbol(symbol)]);
+
+            output.emit(Opcode::Mov64, [r64(0), r64(11)]);
+            output.emit(Opcode::And64, [Operand::Immediate(1), r64(11)]);
+            output.emit(Opcode::ShiftRight64, [Operand::Immediate(1), r64(0)]);
+            output.emit(Opcode::Or64, [r64(11), r64(0)]);
+            output.emit(
+                if c.to == N::F32 {
+                    Opcode::Cvtsi2ssq
+                } else {
+                    Opcode::Cvtsi2sdq
+                },
+                [r64(0), xmm(0)],
+            );
+            output.emit(
+                if c.to == N::F32 {
+                    Opcode::Addss
+                } else {
+                    Opcode::Addsd
+                },
+                [xmm(0), xmm(0)],
+            );
+
+            let symbol = output.symbol(&format!("{base}_number"), Linkage::Local);
+            output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+            output.label(&format!("{base}_small"));
+            output.emit(
+                if c.to == N::F32 {
+                    Opcode::Cvtsi2ssq
+                } else {
+                    Opcode::Cvtsi2sdq
+                },
+                [r64(0), xmm(0)],
+            );
+            output.label(&format!("{base}_number"));
+
             if c.to == N::F32 {
-                output.push_str("  cvtss2sd %xmm0, %xmm2\n");
+                output.emit(Opcode::Cvtss2sd, [xmm(0), xmm(2)]);
             } else {
-                output.push_str("  movapd %xmm0, %xmm2\n");
+                output.emit(Opcode::Movapd, [xmm(0), xmm(2)]);
             }
             bound(18446744073709551616.0, output);
-            output.push_str(&format!("  ucomisd %xmm1, %xmm2\n  jae {bad}\n"));
+
+            output.emit(Opcode::Ucomisd, [xmm(1), xmm(2)]);
+
+            let symbol = output.symbol(&bad, Linkage::Local);
+            output.emit(Opcode::JumpAe, [Operand::Symbol(symbol)]);
+
             bound(9223372036854775808.0, output);
-            output.push_str(&format!("  ucomisd %xmm1, %xmm2\n  jb {base}_back_small\n  movapd %xmm2, %xmm3\n  subsd %xmm1, %xmm3\n  cvttsd2siq %xmm3, %rax\n  btcq $63, %rax\n  jmp {base}_compare\n{base}_back_small:\n  cvttsd2siq %xmm2, %rax\n{base}_compare:\n  cmpq %r10, %rax\n  jne {bad}\n"));
+
+            output.emit(Opcode::Ucomisd, [xmm(1), xmm(2)]);
+
+            let symbol = output.symbol(&format!("{base}_back_small"), Linkage::Local);
+            output.emit(Opcode::JumpB, [Operand::Symbol(symbol)]);
+
+            output.emit(Opcode::Movapd, [xmm(2), xmm(3)]);
+            output.emit(Opcode::Subsd, [xmm(1), xmm(3)]);
+            output.emit(Opcode::Cvttsd2siq, [xmm(3), r64(0)]);
+            output.emit(Opcode::BitComplement64, [Operand::Immediate(63), r64(0)]);
+
+            let symbol = output.symbol(&format!("{base}_compare"), Linkage::Local);
+            output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+            output.label(&format!("{base}_back_small"));
+            output.emit(Opcode::Cvttsd2siq, [xmm(2), r64(0)]);
+            output.label(&format!("{base}_compare"));
+            output.emit(Opcode::Cmp64, [r64(10), r64(0)]);
+
+            let symbol = output.symbol(&bad, Linkage::Local);
+            output.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
         }
         (N::F32 | N::F64, N::Integer(_)) => {
             if c.from == N::F32 {
-                output.push_str("  cvtss2sd %xmm0, %xmm2\n");
+                output.emit(Opcode::Cvtss2sd, [xmm(0), xmm(2)]);
             } else {
-                output.push_str("  movapd %xmm0, %xmm2\n");
+                output.emit(Opcode::Movapd, [xmm(0), xmm(2)]);
             }
             super::conversion::check_finite_integer_input(&bad, reporter, output);
             bound(0.0, output);
-            output.push_str(&format!("  ucomisd %xmm1, %xmm2\n  jb {bad}_range\n"));
+
+            output.emit(Opcode::Ucomisd, [xmm(1), xmm(2)]);
+
+            let symbol = output.symbol(&format!("{bad}_range"), Linkage::Local);
+            output.emit(Opcode::JumpB, [Operand::Symbol(symbol)]);
+
             bound(18446744073709551616.0, output);
-            output.push_str(&format!("  ucomisd %xmm1, %xmm2\n  jae {bad}_range\n"));
+
+            output.emit(Opcode::Ucomisd, [xmm(1), xmm(2)]);
+
+            let symbol = output.symbol(&format!("{bad}_range"), Linkage::Local);
+            output.emit(Opcode::JumpAe, [Operand::Symbol(symbol)]);
+
             bound(9223372036854775808.0, output);
-            output.push_str(&format!("  ucomisd %xmm1, %xmm2\n  jb {base}_small\n  movapd %xmm2, %xmm3\n  subsd %xmm1, %xmm3\n  cvttsd2siq %xmm3, %rax\n  cvtsi2sdq %rax, %xmm3\n  addsd %xmm1, %xmm3\n  btcq $63, %rax\n  jmp {base}_compare\n{base}_small:\n  cvttsd2siq %xmm2, %rax\n  cvtsi2sdq %rax, %xmm3\n{base}_compare:\n  ucomisd %xmm3, %xmm2\n  jne {bad}\n"));
+
+            output.emit(Opcode::Ucomisd, [xmm(1), xmm(2)]);
+
+            let symbol = output.symbol(&format!("{base}_small"), Linkage::Local);
+            output.emit(Opcode::JumpB, [Operand::Symbol(symbol)]);
+
+            output.emit(Opcode::Movapd, [xmm(2), xmm(3)]);
+            output.emit(Opcode::Subsd, [xmm(1), xmm(3)]);
+            output.emit(Opcode::Cvttsd2siq, [xmm(3), r64(0)]);
+            output.emit(Opcode::Cvtsi2sdq, [r64(0), xmm(3)]);
+            output.emit(Opcode::Addsd, [xmm(1), xmm(3)]);
+            output.emit(Opcode::BitComplement64, [Operand::Immediate(63), r64(0)]);
+
+            let symbol = output.symbol(&format!("{base}_compare"), Linkage::Local);
+            output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+            output.label(&format!("{base}_small"));
+            output.emit(Opcode::Cvttsd2siq, [xmm(2), r64(0)]);
+            output.emit(Opcode::Cvtsi2sdq, [r64(0), xmm(3)]);
+            output.label(&format!("{base}_compare"));
+            output.emit(Opcode::Ucomisd, [xmm(3), xmm(2)]);
+
+            let symbol = output.symbol(&bad, Linkage::Local);
+            output.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
         }
         _ => unreachable!("u64 conversion"),
     }
-    output.push_str(&format!("  jmp {done}\n{bad}:\n"));
+
+    let symbol = output.symbol(&done, Linkage::Local);
+    output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    output.label(&bad);
+
     reporter.emit(
         if matches!((c.from, c.to), (N::Integer(_), N::Integer(_))) {
             Failure::IntegerConversionOutOfRange
@@ -114,14 +281,20 @@ pub(super) fn emit_conversion(
         output,
     );
     if matches!(c.from, N::F32 | N::F64) {
-        output.push_str(&format!("{bad}_range:\n"));
+        output.label(&format!("{bad}_range"));
+
         reporter.emit(Failure::ConversionOutOfRange, output);
     }
-    output.push_str(&format!("{done}:\n"));
+
+    output.label(&done);
 }
-fn bound(value: f64, output: &mut String) {
-    output.push_str(&format!(
-        "  movabsq ${}, %r11\n  movq %r11, %xmm1\n",
-        value.to_bits() as i64
-    ));
+fn bound(value: f64, output: &mut NativeProgram) {
+    output.emit(
+        Opcode::MovAbs64,
+        [
+            Operand::Immediate((value.to_bits() as i64).to_owned() as i128),
+            r64(11),
+        ],
+    );
+    output.emit(Opcode::Mov64, [r64(11), xmm(1)]);
 }

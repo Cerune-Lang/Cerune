@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
+.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -9,7 +16,6 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -688,7 +694,6 @@ cerune_output_escape:
   movb $125, 5(%rcx)
   movl $6, %eax
   retq
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -705,7 +710,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $-1, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -751,7 +757,7 @@ main:
   movl $61, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_u64_done_2:
   movq %rax, -72(%rbp)
   movq -72(%rbp), %rax
@@ -777,7 +783,7 @@ main:
   movl $66, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_u64_done_3:
   movq %rax, -96(%rbp)
   movq -96(%rbp), %rax
@@ -798,7 +804,7 @@ main:
   movl $79, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_u64_convert_4_done:
   movq %rax, -112(%rbp)
   movq -112(%rbp), %rax
@@ -806,26 +812,26 @@ main:
   leaq .Lcerune_output_origin_7(%rip), %r11
   callq cerune_output_u64
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $144, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_output_origin_0:
-  .asciz " node=2 bytes=37..52\n"
+.asciz " node=2 bytes=37..52\n"
 .Lcerune_output_origin_1:
-  .asciz " node=4 bytes=53..72\n"
+.asciz " node=4 bytes=53..72\n"
 .Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=division-by-zero node=9 bytes=79..90\n"
+.asciz "cerune: runtime-v1 code=division-by-zero node=9 bytes=79..90\n"
 .Lcerune_output_origin_3:
-  .asciz " node=8 bytes=73..92\n"
+.asciz " node=8 bytes=73..92\n"
 .Lcerune_failure_4:
-  .asciz "cerune: runtime-v1 code=invalid-shift-count node=13 bytes=99..112\n"
+.asciz "cerune: runtime-v1 code=invalid-shift-count node=13 bytes=99..112\n"
 .Lcerune_output_origin_5:
-  .asciz " node=12 bytes=93..114\n"
+.asciz " node=12 bytes=93..114\n"
 .Lcerune_failure_6:
-  .asciz "cerune: runtime-v1 code=integer-conversion-out-of-range node=17 bytes=121..131\n"
+.asciz "cerune: runtime-v1 code=integer-conversion-out-of-range node=17 bytes=121..131\n"
 .Lcerune_output_origin_7:
-  .asciz " node=16 bytes=115..133\n"
+.asciz " node=16 bytes=115..133\n"

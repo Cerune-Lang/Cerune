@@ -7,12 +7,12 @@
 `emit-obj` uses pinned SASHIMI in the same process to encode x86-64 instructions and write Linux ELF64 or Windows COFF objects. It does not require an external assembler or launch a JIT or executable. Linking remains the responsibility of an explicitly selected external linker.
 
 ```text
-HIR → MIR (optionally through explicit SSA) → x86-64 LIR → internal ASM
-                                                          ├→ emit-asm → external assembler
-                                                          └→ SASHIMI: restricted ASM reader → encoder → ELF/COFF
+HIR → MIR (optionally through explicit SSA) → x86-64 LIR → typed Program
+                                                          ├→ render ASM → emit-asm → external assembler
+                                                          └→ direct encoding → emit-obj → ELF/COFF
 ```
 
-Language semantics and instruction selection are shared with the existing path. This first boundary is a small assembler for internally generated ASM, rather than a public general-purpose assembler; there is no arbitrary-ASM input command. It does not repeat type inference, failure checks, evaluation order, or value-copy rules. A future typed machine-instruction IR can replace this internal text boundary.
+Language semantics and instruction selection remain shared with existing routes. Cerune constructs typed Opcode, Operand, Symbol, Section, data and alignment entries, and passes Program to SASHIMI. Object generation does not pass through ASM text. Type inference, failure checks, evaluation order and copy rules are not reimplemented; no arbitrary-ASM input command is added.
 
 The encoder covers the forms needed by all current language features: eight integer kinds, f32/f64, booleans, strings, arrays, products, functions, and control flow. General x86-64 assembly, AVX, short-branch optimization, and an internal linker are outside its scope. Newly generated unsupported instruction forms produce diagnostics; there is no automatic external-assembler fallback.
 
@@ -23,14 +23,14 @@ Object generation now calls the [SASHIMI](https://github.com/Cerune-Lang/SASHIMI
 | Owner | Responsibility |
 | --- | --- |
 | Cerune | MIR→LIR, instruction selection, ABI, startup/runtime, origin labels, CLI/observation bundles, and linked language-behavior tests |
-| SASHIMI | Restricted ASM parsing, instruction encoding, label resolution, relocations, ELF64/COFF writing |
-| Adapter | Explicit Target and diagnostic conversion; preserve diagnostic messages and object bytes |
+| SASHIMI | Typed Program validation, ASM rendering, encoding, symbol resolution, relocations, ELF64/COFF and position mappings |
+| Adapter | Explicit Target, OriginId-to-Cerune mappings and source Spans for encoding diagnostics |
 
-[SASHIMI PR #5](https://github.com/Cerune-Lang/SASHIMI/pull/5) implements ASM, Object and OriginId provenance mappings from one typed Program. [SASHIMI PR #6](https://github.com/Cerune-Lang/SASHIMI/pull/6) adds Data32/Data64; Cerune pins the [#7 terminated-string extension](https://github.com/Cerune-Lang/SASHIMI/pull/7) and verifies compatibility with the existing route. Production still passes assembly text and retains Cerune-created origin labels as ordinary symbols. [Typed construction for UTF-8, string equality, constants, allocation bookkeeping and normal output](native-typed-runtime.en.md) is implemented. Whole-program instruction selection and other runtime helpers remain to migrate; final object generation still reparses assembly. A stable public ABI remains unimplemented. The legacy text API still rejects unresolved cerune_ labels; typed Programs use explicit internal/external declarations instead of name prefixes.
+[SASHIMI PR #5](https://github.com/Cerune-Lang/SASHIMI/pull/5) implements ASM, Object and OriginId provenance mappings from one typed Program. [SASHIMI PR #6](https://github.com/Cerune-Lang/SASHIMI/pull/6) adds Data32/Data64; Cerune pins the [#7 terminated-string extension](https://github.com/Cerune-Lang/SASHIMI/pull/7) and verifies compatibility with the existing route. Production now uses [whole-program typed construction](native-typed-runtime.en.md), including startup, function ABI, input, arguments, output, flush, allocation bookkeeping, all LIR operations and failure diagnostics. Internal/external symbols are explicit; ASM and Object share Program. A stable public ABI remains separate future work.
 
 The [old encoder](../../tests/support/native_object_reference/README.en.md) is a frozen test-only migration reference, excluded from production builds and not a place to add features. [Connection tests](../../tests/support/sashimi_connection.rs) compare complete objects and diagnostics against it, covering 135 runnable examples, both targets, baseline MIR/SSA and origins on/off. Equivalence demonstrates preservation during the switch, not absence of shared defects. Retain external-assembler comparisons, independent expectations and linked execution tests.
 
-SASHIMI maps OriginId to multiple ranges, zero-byte operations and synthetic instructions. Positions are object section offsets, distinct from linked addresses. Next connect Cerune's typed construction and NodeId/SourceId/Span mappings so ASM/Object share one Program. [Porting SASHIMI to Cerune](https://github.com/Cerune-Lang/SASHIMI/issues/2) is a separate stage.
+SASHIMI maps OriginId to multiple ranges, zero-byte operations and synthetic instructions. Positions are object section offsets, distinct from linked addresses. Cerune `NativeProgram::origins()` retains NodeId/SourceId/Span and MIR/LIR identity. `assemble()` returns Object and position mappings; `render_asm()` displays the same Program. [Porting SASHIMI to Cerune](https://github.com/Cerune-Lang/SASHIMI/issues/2) is a separate stage.
 
 See the [SASHIMI Program API](https://github.com/Cerune-Lang/SASHIMI/blob/ee8f6b132aea322af3d4ff1909035c7903836cd5/docs/design/typed-program.en.md) for contracts and examples. The new API uses ELF PLT32 for external call/jmp/jcc, renders @PLT in assembly, and compares ASM/Object execution on Windows/Linux. The legacy text API retains PC32 external jumps for compatibility. Current Cerune output and failure-injection objects use ABI-compliant calls.
 

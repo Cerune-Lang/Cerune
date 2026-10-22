@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
+.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -9,7 +16,6 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -688,7 +694,6 @@ cerune_output_escape:
   movb $125, 5(%rcx)
   movl $6, %eax
   retq
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -705,7 +710,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $1, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -725,7 +731,8 @@ main:
   testq %rax, %rax
   je .Lcerune_block_2
   jmp .Lcerune_block_1
-.Lcerune_block_1: # mir_block
+.Lcerune_block_1:
+# mir_block
   movabsq $42, %rax
   movq %rax, -48(%rbp)
   movq -48(%rbp), %rax
@@ -741,7 +748,8 @@ main:
   leaq .Lcerune_output_origin_0(%rip), %r11
   callq cerune_output_bool
   jmp .Lcerune_block_3
-.Lcerune_block_2: # mir_block
+.Lcerune_block_2:
+# mir_block
   movabsq $1, %rax
   movq %rax, -80(%rbp)
   movq -80(%rbp), %rax
@@ -754,13 +762,14 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_5:
   movq %rax, -88(%rbp)
   movq -88(%rbp), %rax
   movq %rax, -16(%rbp)
   jmp .Lcerune_block_3
-.Lcerune_block_3: # mir_block
+.Lcerune_block_3:
+# mir_block
   movq -16(%rbp), %rax
   movq %rax, -96(%rbp)
   movq -96(%rbp), %rax
@@ -768,16 +777,16 @@ main:
   leaq .Lcerune_output_origin_2(%rip), %r11
   callq cerune_output_i64
   jmp .Lcerune_block_4
-.Lcerune_block_4: # main_exit
+.Lcerune_block_4:
+# main_exit
   xorl %eax, %eax
   addq $128, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_output_origin_0:
-  .asciz " node=10 bytes=80..93\n"
+.asciz " node=10 bytes=80..93\n"
 .Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=13 bytes=115..117\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=13 bytes=115..117\n"
 .Lcerune_output_origin_2:
-  .asciz " node=15 bytes=122..135\n"
+.asciz " node=15 bytes=122..135\n"

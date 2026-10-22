@@ -1,3 +1,9 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -33,7 +39,6 @@
 .p2align 2
 .Lcerune_f32_7:
 .long 0x3E4CCCCD
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -712,7 +717,6 @@ cerune_output_escape:
   movb $125, 5(%rcx)
   movl $6, %eax
   retq
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -729,7 +733,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movss .Lcerune_f32_0(%rip), %xmm0
   movss %xmm0, -8(%rbp)
   movss .Lcerune_f32_1(%rip), %xmm0
@@ -799,18 +804,18 @@ main:
   leaq .Lcerune_output_origin_3(%rip), %r11
   callq cerune_output_f32
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $192, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_output_origin_0:
-  .asciz " node=16 bytes=115..129\n"
+.asciz " node=16 bytes=115..129\n"
 .Lcerune_output_origin_1:
-  .asciz " node=18 bytes=130..144\n"
+.asciz " node=18 bytes=130..144\n"
 .Lcerune_output_origin_2:
-  .asciz " node=20 bytes=145..161\n"
+.asciz " node=20 bytes=145..161\n"
 .Lcerune_output_origin_3:
-  .asciz " node=22 bytes=162..178\n"
+.asciz " node=22 bytes=162..178\n"

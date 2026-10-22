@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
+.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -9,7 +16,6 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -688,7 +694,6 @@ cerune_output_escape:
   movb $125, 5(%rcx)
   movl $6, %eax
   retq
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -705,7 +710,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $0, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -715,7 +721,8 @@ main:
   movq -24(%rbp), %rax
   movq %rax, -32(%rbp)
   jmp .Lcerune_block_1
-.Lcerune_block_1: # mir_block
+.Lcerune_block_1:
+# mir_block
   movq -16(%rbp), %rax
   movq %rax, -40(%rbp)
   movabsq $4, %rax
@@ -731,7 +738,8 @@ main:
   testq %rax, %rax
   je .Lcerune_block_3
   jmp .Lcerune_block_2
-.Lcerune_block_2: # mir_block
+.Lcerune_block_2:
+# mir_block
   movq -32(%rbp), %rax
   movq %rax, -64(%rbp)
   movq -16(%rbp), %rax
@@ -748,7 +756,7 @@ main:
   movl $61, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_8:
   movq %rax, -80(%rbp)
   movq -80(%rbp), %rax
@@ -768,7 +776,8 @@ main:
   testq %rax, %rax
   je .Lcerune_block_5
   jmp .Lcerune_block_4
-.Lcerune_block_3: # mir_block
+.Lcerune_block_3:
+# mir_block
   movq -32(%rbp), %rax
   movq %rax, -160(%rbp)
   movq -160(%rbp), %rax
@@ -776,7 +785,8 @@ main:
   leaq .Lcerune_output_origin_1(%rip), %r11
   callq cerune_output_i64
   jmp .Lcerune_block_7
-.Lcerune_block_4: # mir_block
+.Lcerune_block_4:
+# mir_block
   movabsq $1, %rax
   movq %rax, -112(%rbp)
   movq -112(%rbp), %rax
@@ -788,9 +798,11 @@ main:
   leaq .Lcerune_output_origin_2(%rip), %r11
   callq cerune_output_bool
   jmp .Lcerune_block_6
-.Lcerune_block_5: # mir_block
+.Lcerune_block_5:
+# mir_block
   jmp .Lcerune_block_6
-.Lcerune_block_6: # mir_block
+.Lcerune_block_6:
+# mir_block
   movq -16(%rbp), %rax
   movq %rax, -136(%rbp)
   movabsq $1, %rax
@@ -807,24 +819,24 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_9:
   movq %rax, -152(%rbp)
   movq -152(%rbp), %rax
   movq %rax, -16(%rbp)
   jmp .Lcerune_block_1
-.Lcerune_block_7: # main_exit
+.Lcerune_block_7:
+# main_exit
   xorl %eax, %eax
   addq $192, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=9 bytes=67..78\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=9 bytes=67..78\n"
 .Lcerune_output_origin_1:
-  .asciz " node=24 bytes=186..197\n"
+.asciz " node=24 bytes=186..197\n"
 .Lcerune_output_origin_2:
-  .asciz " node=18 bytes=138..152\n"
+.asciz " node=18 bytes=138..152\n"
 .Lcerune_failure_3:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=21 bytes=172..181\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=21 bytes=172..181\n"

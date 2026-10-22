@@ -1,4 +1,5 @@
 //! 同じ確保処理を、明示ターゲットの呼出規約で出力します。
+#[cfg(test)]
 pub(super) fn support(limit: u64, linux: bool) -> String {
     let target = if linux {
         super::Target::X86_64UnknownLinuxGnu

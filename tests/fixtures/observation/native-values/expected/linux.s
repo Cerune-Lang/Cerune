@@ -1,6 +1,12 @@
 # cerune-asm-origins v1: UTF-8 byte ranges, end exclusive
 # cerune-origin: synthetic
 # target: x86_64-unknown-linux-gnu
+.extern write
+.extern __errno_location
+.extern snprintf
+.extern _Exit
+.extern signal
+.globl main
 .section .rodata
 .p2align 4
 .Lcerune_sign_f32:
@@ -19,7 +25,6 @@
 .byte 151
 .byte 165
 .byte 0
-
 .text
 .section .rodata
 .Loutput_record:
@@ -48,7 +53,7 @@ cerune_output_write:
   movq %rsi, %rdx
   movq %rdi, %rsi
   movl $1, %edi
-  callq write
+  callq write@PLT
   addq $40, %rsp
   retq
 cerune_output_part:
@@ -71,7 +76,7 @@ cerune_output_part:
   callq cerune_output_write
   testq %rax, %rax
   jns .Loutput_part_check
-  callq __errno_location
+  callq __errno_location@PLT
   cmpl $4, 0(%rax)
   je .Loutput_part_write
   jmp .Loutput_part_failed
@@ -101,7 +106,7 @@ cerune_output_failed:
   movq 8(%r10), %r8
   movq 16(%r10), %r9
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   leaq 64(%rsp), %r10
   callq cerune_output_diagnostic
   ud2
@@ -116,10 +121,10 @@ cerune_output_diagnostic:
   movl %eax, %edx
   movq %r10, %rsi
   movl $2, %edi
-  callq write
+  callq write@PLT
 .Loutput_exit:
   movl $1, %edi
-  callq _Exit
+  callq _Exit@PLT
   ud2
 cerune_output_i64:
   subq $936, %rsp
@@ -132,7 +137,7 @@ cerune_output_i64:
   leaq .Loutput_i64(%rip), %rdx
   movq %rax, %rcx
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -152,7 +157,7 @@ cerune_output_u64:
   leaq .Loutput_u64(%rip), %rdx
   movq %rax, %rcx
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -173,7 +178,7 @@ cerune_output_f32:
   movl $128, %esi
   leaq .Loutput_f32(%rip), %rdx
   movl $1, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -193,7 +198,7 @@ cerune_output_f64:
   movl $128, %esi
   leaq .Loutput_f64(%rip), %rdx
   movl $1, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -258,7 +263,7 @@ cerune_output_quoted:
   leaq .Loutput_format_error(%rip), %rdx
   movq 80(%rsp), %rcx
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   leaq 416(%rsp), %r10
   callq cerune_output_diagnostic
   ud2
@@ -266,7 +271,7 @@ cerune_output_quoted:
   movq $0, 72(%rsp)
   movl $13, %edi
   movl $1, %esi
-  callq signal
+  callq signal@PLT
   cmpq $-1, %rax
   je .Loutput_failed
   movq %rax, 88(%rsp)
@@ -333,7 +338,7 @@ cerune_output_quoted:
 .Loutput_end:
   movl $13, %edi
   movq 88(%rsp), %rsi
-  callq signal
+  callq signal@PLT
   cmpq $-1, %rax
   je .Loutput_failed
   addq $936, %rsp
@@ -743,7 +748,8 @@ cerune_fn_echo_0:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_0_bb0_block_lir2:
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
 # cerune-origin: #1 bytes 36..41
 cerune_origin_n1_fn_0_3:
 # cerune-mir: v1 fn_0 bb0 i0 -> lir 3 (source)
@@ -770,14 +776,13 @@ cerune_origin_mir_fn_0_bb0_i1_lir6:
 cerune_origin_n0_fn_0_7:
 # cerune-mir: v1 fn_0 bb1 block -> lir 7 (after-return)
 cerune_origin_mir_fn_0_bb1_block_lir7:
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb1 i2 -> lir 8 (function-end)
 cerune_origin_mir_fn_0_bb1_i2_lir8:
   ud2
-
 # cerune-origin: synthetic
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -789,7 +794,8 @@ main:
 # cerune-origin: synthetic
 # cerune-mir: v1 main bb0 block -> lir 1 (function-entry)
 cerune_origin_mir_main_bb0_block_lir1:
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
 # cerune-origin: #3 bytes 51..58
 cerune_origin_n3_main_2:
 # cerune-mir: v1 main bb0 i0 -> lir 2 (source)
@@ -851,17 +857,16 @@ cerune_origin_mir_main_bb0_i5_lir12:
   jmp .Lcerune_block_1
 # cerune-origin: synthetic
 # cerune-mir: v1 synthetic ABI setup/exit
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
 # cerune-origin: synthetic
   xorl %eax, %eax
   addq $32, %rsp
   popq %rbp
   retq
-
 .section .rodata
 .Lcerune_output_origin_0:
-  .asciz " node=2 bytes=45..60\n"
+.asciz " node=2 bytes=45..60\n"
 .Lcerune_output_origin_1:
-  .asciz " node=4 bytes=61..95\n"
-
+.asciz " node=4 bytes=61..95\n"
 .section .note.GNU-stack,"",@progbits

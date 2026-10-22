@@ -27,6 +27,7 @@ const expected = [
   "native_assembly",
   "native_mir",
   "native_output",
+  "native_program",
   "observation_bundle",
   "product_updates",
   "rounding_conversions",

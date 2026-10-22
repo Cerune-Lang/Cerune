@@ -2,6 +2,8 @@ use super::failure::Reporter;
 use super::ir::{
     Argument, ArgumentLocation, BinaryOp, CompareOp, Function, Instruction, Module, Type,
 };
+use super::machine::{EntryKind, Linkage, Opcode, Operand, Scale, Section, r8, r32, r64};
+use super::program::{NativeProgram, address, xmm};
 use crate::runtime::FailureCode as Failure;
 
 pub fn emit(module: &Module) -> String {
@@ -9,80 +11,100 @@ pub fn emit(module: &Module) -> String {
 }
 
 pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
+    build(module, annotate)
+        .render_asm()
+        .expect("compiler-generated Native Program")
+}
+pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
     let mut reporter = Reporter::new(module.target);
-    let mut output = super::data::render(module);
+    let mut output = NativeProgram::new(module.target);
     if annotate {
-        output.insert_str(0, "# cerune-asm-origins v1: UTF-8 byte ranges, end exclusive\n# cerune-origin: synthetic\n");
+        output.comment("cerune-asm-origins v1: UTF-8 byte ranges, end exclusive");
+        output.comment("cerune-origin: synthetic");
     }
-
-    output.push_str("\n.text\n");
+    if module.target.is_linux() {
+        output.comment("target: x86_64-unknown-linux-gnu");
+    }
+    super::data::append(&mut output.program, module);
+    output.push(EntryKind::Section(Section::Text));
     if module.uses_write {
-        output.push_str(&super::output::support(module.target.is_linux()));
+        super::output::append(&mut output.program);
     }
     if module.uses_strings {
-        output.push_str(&super::machine::render_support(
-            module.target,
-            super::string::append,
-        ));
+        super::string::append(&mut output.program);
     }
-
     if let Some(limit) = module.string_heap_limit {
-        output.push_str(&super::heap::support(limit, module.target.is_linux()));
+        super::heap::append(&mut output.program, limit);
     }
-
     if let Some(limit) = module.array_heap_limit {
-        output.push_str(&super::array::support(limit, module.target.is_linux()));
+        super::array::append(&mut output.program, limit);
     }
-
     if super::input::used(module) || super::arguments::used(module) {
-        output.push_str(&super::machine::render_support(
-            module.target,
-            super::utf8::append,
-        ));
+        super::utf8::append(&mut output.program);
     }
     if super::arguments::used(module) {
-        output.push_str(&super::arguments::support(module));
+        super::arguments::append(&mut output, module);
     }
     if super::input::used(module) {
-        output.push_str(&super::input::support(module.target.is_linux()));
+        super::input::append(&mut output);
     }
-
     for function in &module.functions {
         emit_function(function, module, annotate, &mut reporter, &mut output);
-        output.push('\n');
     }
 
+    output.synthetic();
     if annotate {
-        output.push_str("# cerune-origin: synthetic\n");
+        output.comment("cerune-origin: synthetic");
     }
     let entry = if super::arguments::used(module) {
         "cerune_program"
     } else {
         "main"
     };
+
+    output.push(EntryKind::Align(4));
+
     if entry == "main" {
-        output.push_str(".globl main\n");
+        output.global_label(entry);
+    } else {
+        output.label(entry);
     }
 
-    output.push_str(".p2align 4\n");
+    output.emit(Opcode::Push, [r64(5)]);
 
-    output.push_str(&format!("{entry}:\n"));
-
-    output.push_str("  pushq %rbp\n");
-
-    output.push_str("  movq %rsp, %rbp\n");
+    output.emit(Opcode::Mov64, [r64(4), r64(5)]);
 
     emit_stack_allocation(module.frame_size, module.target, &mut output);
     if (module.uses_strings || module.uses_write) && !module.target.is_linux() {
         // 固定ターゲットのWindows CRTで、最初のCerune処理より前にLF変換を止めます。
-        output.push_str("  movl $1, %ecx\n  movl $32768, %edx\n  callq _setmode\n  cmpl $-1, %eax\n  jne .Lstdout_ready\n  movl $1, %eax\n");
+
+        output.emit(Opcode::Mov32, [Operand::Immediate(1), r32(1)]);
+        output.emit(Opcode::Mov32, [Operand::Immediate(32768), r32(2)]);
+
+        let symbol = output.symbol("_setmode", Linkage::External);
+        output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+        output.emit(Opcode::Cmp32, [Operand::Immediate(-1), r32(0)]);
+
+        let symbol = output.symbol(".Lstdout_ready", Linkage::Local);
+        output.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
+
+        output.emit(Opcode::Mov32, [Operand::Immediate(1), r32(0)]);
+
         emit_epilogue(module.frame_size, false, &mut output);
-        output.push_str(".Lstdout_ready:\n");
+
+        output.label(".Lstdout_ready");
     }
 
     assert_eq!(module.instructions.len(), module.origins.len());
     assert_eq!(module.instructions.len(), module.mir_origins.len());
     for (index, instruction) in module.instructions.iter().enumerate() {
+        output.source(super::program::Origin {
+            source: module.origins[index],
+            mir: module.mir_origins[index],
+            function: None,
+            instruction: index,
+        });
         reporter.origin = module.origins[index];
         emit_origin(module.origins[index], "main", index, annotate, &mut output);
         emit_mir_origin(
@@ -102,26 +124,25 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
         );
     }
 
+    output.synthetic();
     if annotate {
-        output.push_str("# cerune-origin: synthetic\n");
+        output.comment("cerune-origin: synthetic");
     }
 
     emit_epilogue(module.frame_size, true, &mut output);
 
     if super::arguments::used(module) {
-        output.push_str(&super::arguments::entry(module.target.is_linux()));
+        super::arguments::append_entry(&mut output);
     }
     if !reporter.data.is_empty() {
-        output.push_str(if module.target.is_linux() {
-            "\n.section .rodata\n"
-        } else {
-            "\n.section .rdata,\"dr\"\n"
-        });
-        output.push_str(&reporter.data);
-    }
-
-    if module.target.is_linux() {
-        output.push_str("\n.section .note.GNU-stack,\"\",@progbits\n");
+        output.push(EntryKind::Section(Section::ReadOnlyData));
+        for (name, value, provenance) in reporter.data {
+            let symbol = output.symbol(&name, Linkage::Local);
+            output
+                .program
+                .push(EntryKind::Label(symbol), provenance.clone());
+            output.program.push(EntryKind::CString(value), provenance);
+        }
     }
     output
 }
@@ -131,15 +152,21 @@ fn emit_function(
     module: &Module,
     annotate: bool,
     reporter: &mut Reporter,
-    output: &mut String,
+    output: &mut NativeProgram,
 ) {
+    output.synthetic();
     if annotate {
-        output.push_str("# cerune-origin: synthetic\n");
+        output.comment("cerune-origin: synthetic");
     }
-    output.push_str(".p2align 4\n");
-    output.push_str(&format!("{}:\n", function_name(function)));
-    output.push_str("  pushq %rbp\n");
-    output.push_str("  movq %rsp, %rbp\n");
+
+    output.push(EntryKind::Align(4));
+
+    output.label(&function_name(function).to_string());
+
+    output.emit(Opcode::Push, [r64(5)]);
+
+    output.emit(Opcode::Mov64, [r64(4), r64(5)]);
+
     // 大きなフレームでは__chkstkの引数にRAXを使うため、集約戻り値の保存先を退避します。
     // 一時領域は16バイトとし、呼び出し時のスタック整列を保ちます。
     let save_result_pointer = !module.target.is_linux()
@@ -149,18 +176,29 @@ fn emit_function(
             .iter()
             .any(|i| matches!(i, Instruction::StoreAggregateReturnPointer { .. }));
     if save_result_pointer {
-        output.push_str("  subq $16, %rsp\n  movq %rax, (%rsp)\n");
+        output.emit(Opcode::Sub64, [Operand::Immediate(16), r64(4)]);
+        output.emit(Opcode::Mov64, [r64(0), address(4, None, 0)]);
     }
     emit_stack_allocation(function.frame_size, module.target, output);
     if save_result_pointer {
-        output.push_str(&format!(
-            "  movq {}(%rsp), %rax\n  addq $16, %rsp\n",
-            function.frame_size
-        ));
+        output.emit(
+            Opcode::Mov64,
+            [
+                address(4, None, (function.frame_size).to_owned() as i128),
+                r64(0),
+            ],
+        );
+        output.emit(Opcode::Add64, [Operand::Immediate(16), r64(4)]);
     }
     assert_eq!(function.instructions.len(), function.origins.len());
     assert_eq!(function.instructions.len(), function.mir_origins.len());
     for (index, instruction) in function.instructions.iter().enumerate() {
+        output.source(super::program::Origin {
+            source: function.origins[index],
+            mir: function.mir_origins[index],
+            function: Some(function.id),
+            instruction: index,
+        });
         reporter.origin = function.origins[index];
         emit_origin(
             function.origins[index],
@@ -189,21 +227,39 @@ fn emit_function(
 
 // Windowsのガードページを飛び越さないよう、確保前に各ページを検査します。
 // __chkstkは引数レジスタとraxを保持するため、引数を保存する前でも呼び出せます。
-fn emit_stack_allocation(frame_size: usize, target: super::Target, output: &mut String) {
+fn emit_stack_allocation(frame_size: usize, target: super::Target, output: &mut NativeProgram) {
     if target.is_linux() {
         // ガード領域を飛び越さず、引数レジスタを保持して各ページへ触れます。
         for _ in 0..frame_size / 4096 {
-            output.push_str("  subq $4096, %rsp\n  testb $0, (%rsp)\n");
+            output.emit(Opcode::Sub64, [Operand::Immediate(4096), r64(4)]);
+            output.emit(Opcode::Test8, [Operand::Immediate(0), address(4, None, 0)]);
         }
-        output.push_str(&format!("  subq ${}, %rsp\n", frame_size % 4096));
+
+        output.emit(
+            Opcode::Sub64,
+            [
+                Operand::Immediate((frame_size % 4096).to_owned() as i128),
+                r64(4),
+            ],
+        );
+
         return;
     }
     if frame_size >= 4096 {
-        output.push_str(&format!(
-            "  movq ${frame_size}, %rax\n  callq __chkstk\n  subq %rax, %rsp\n"
-        ));
+        output.emit(
+            Opcode::Mov64,
+            [Operand::Immediate((frame_size).to_owned() as i128), r64(0)],
+        );
+
+        let symbol = output.symbol("__chkstk", Linkage::External);
+        output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+        output.emit(Opcode::Sub64, [r64(0), r64(4)]);
     } else {
-        output.push_str(&format!("  subq ${frame_size}, %rsp\n"));
+        output.emit(
+            Opcode::Sub64,
+            [Operand::Immediate((frame_size).to_owned() as i128), r64(4)],
+        );
     }
 }
 
@@ -215,13 +271,19 @@ fn function_name(function: &Function) -> String {
     )
 }
 
-fn emit_epilogue(frame_size: usize, zero_result: bool, output: &mut String) {
+fn emit_epilogue(frame_size: usize, zero_result: bool, output: &mut NativeProgram) {
     if zero_result {
-        output.push_str("  xorl %eax, %eax\n");
+        output.emit(Opcode::Xor32, [r32(0), r32(0)]);
     }
-    output.push_str(&format!("  addq ${frame_size}, %rsp\n"));
-    output.push_str("  popq %rbp\n");
-    output.push_str("  retq\n");
+
+    output.emit(
+        Opcode::Add64,
+        [Operand::Immediate((frame_size).to_owned() as i128), r64(4)],
+    );
+
+    output.emit(Opcode::Pop, [r64(5)]);
+
+    output.emit(Opcode::Ret, []);
 }
 
 fn emit_instruction(
@@ -230,7 +292,7 @@ fn emit_instruction(
     label_prefix: &str,
     module: &Module,
     reporter: &mut Reporter,
-    output: &mut String,
+    output: &mut NativeProgram,
 ) {
     if super::array::emit(instruction, label_prefix, module.target, reporter, output) {
         return;
@@ -253,64 +315,134 @@ fn emit_instruction(
         | Instruction::CopyFromPointer { .. } => unreachable!(),
         Instruction::Output { kind, newline } => reporter.output(kind, *newline, output),
         Instruction::StringManage { retain } => {
-            output.push_str(if module.target.is_linux() {
-                "  movq %rax, %rdi\n"
+            if module.target.is_linux() {
+                output.emit(Opcode::Mov64, [r64(0), r64(7)]);
             } else {
-                "  movq %rax, %rcx\n"
-            });
-            output.push_str(if *retain {
-                "  callq cerune_string_retain\n"
+                output.emit(Opcode::Mov64, [r64(0), r64(1)]);
+            };
+            if *retain {
+                let symbol = output.symbol("cerune_string_retain", Linkage::Local);
+                output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
             } else {
-                "  callq cerune_string_release\n"
-            });
+                let symbol = output.symbol("cerune_string_release", Linkage::Local);
+                output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+            };
         }
         Instruction::StringConcat { left_offset, label } => {
             if module.target.is_linux() {
-                output.push_str(&format!(
-                    "  movq %rax, %rsi\n  movq {left_offset}(%rbp), %rdi\n"
-                ));
+                output.emit(Opcode::Mov64, [r64(0), r64(6)]);
+                output.emit(
+                    Opcode::Mov64,
+                    [address(5, None, (left_offset).to_owned() as i128), r64(7)],
+                );
             } else {
-                output.push_str(&format!(
-                    "  movq %rax, %rdx\n  movq {left_offset}(%rbp), %rcx\n"
-                ));
+                output.emit(Opcode::Mov64, [r64(0), r64(2)]);
+                output.emit(
+                    Opcode::Mov64,
+                    [address(5, None, (left_offset).to_owned() as i128), r64(1)],
+                );
             }
-            output.push_str(&format!("  callq cerune_string_concat\n  testq %rdx, %rdx\n  je .L{label_prefix}_concat_ok_{label}\n  cmpq $1, %rdx\n  jne .L{label_prefix}_concat_limit_{label}\n"));
+
+            let symbol = output.symbol("cerune_string_concat", Linkage::Local);
+            output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+            output.emit(Opcode::Test64, [r64(2), r64(2)]);
+
+            let symbol = output.symbol(
+                &format!(".L{label_prefix}_concat_ok_{label}"),
+                Linkage::Local,
+            );
+            output.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+            output.emit(Opcode::Cmp64, [Operand::Immediate(1), r64(2)]);
+
+            let symbol = output.symbol(
+                &format!(".L{label_prefix}_concat_limit_{label}"),
+                Linkage::Local,
+            );
+            output.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
+
             reporter.emit(Failure::AllocationSizeOverflow, output);
-            output.push_str(&format!(".L{label_prefix}_concat_limit_{label}:\n  cmpq $2, %rdx\n  jne .L{label_prefix}_concat_failed_{label}\n"));
+
+            output.label(&format!(".L{label_prefix}_concat_limit_{label}"));
+            output.emit(Opcode::Cmp64, [Operand::Immediate(2), r64(2)]);
+
+            let symbol = output.symbol(
+                &format!(".L{label_prefix}_concat_failed_{label}"),
+                Linkage::Local,
+            );
+            output.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
+
             reporter.emit(Failure::AllocationLimitExceeded, output);
-            output.push_str(&format!(".L{label_prefix}_concat_failed_{label}:\n"));
+
+            output.label(&format!(".L{label_prefix}_concat_failed_{label}"));
+
             reporter.emit(Failure::AllocationFailed, output);
-            output.push_str(&format!(".L{label_prefix}_concat_ok_{label}:\n"));
+
+            output.label(&format!(".L{label_prefix}_concat_ok_{label}"));
         }
         Instruction::CompareU64(op) => {
-            output.push_str("  cmpq %rcx, %rax\n");
-            output.push_str(match op {
-                CompareOp::Equal => "  sete %al\n",
-                CompareOp::NotEqual => "  setne %al\n",
-                CompareOp::Less => "  setb %al\n",
-                CompareOp::LessEqual => "  setbe %al\n",
-                CompareOp::Greater => "  seta %al\n",
-                CompareOp::GreaterEqual => "  setae %al\n",
-            });
-            output.push_str("  movzbq %al, %rax\n");
+            output.emit(Opcode::Cmp64, [r64(1), r64(0)]);
+
+            match op {
+                CompareOp::Equal => {
+                    output.emit(Opcode::SetE, [r8(0)]);
+                }
+                CompareOp::NotEqual => {
+                    output.emit(Opcode::SetNe, [r8(0)]);
+                }
+                CompareOp::Less => {
+                    output.emit(Opcode::SetB, [r8(0)]);
+                }
+                CompareOp::LessEqual => {
+                    output.emit(Opcode::SetBe, [r8(0)]);
+                }
+                CompareOp::Greater => {
+                    output.emit(Opcode::SetA, [r8(0)]);
+                }
+                CompareOp::GreaterEqual => {
+                    output.emit(Opcode::SetAe, [r8(0)]);
+                }
+            };
+
+            output.emit(Opcode::ZeroExtend8To64, [r8(0), r64(0)]);
         }
-        Instruction::LoadStringLength => output.push_str("  movq (%rax), %rax\n"),
+        Instruction::LoadStringLength => {
+            output.emit(Opcode::Mov64, [address(0, None, 0), r64(0)]);
+        }
         Instruction::LoadStringConstant(id) => {
-            output.push_str(&format!("  leaq .Lcerune_string_{id}(%rip), %rax\n"))
+            let symbol = output.symbol(&format!(".Lcerune_string_{id}"), Linkage::Local);
+            output.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
         }
         Instruction::CompareString { left_offset, equal } => {
             let left = integer_argument_register(0, module.target);
             let right = integer_argument_register(1, module.target);
-            output.push_str(&format!("  movq %rax, {right}\n  movq {left_offset}(%rbp), {left}\n  callq cerune_string_equal\n"));
+
+            output.emit(Opcode::Mov64, [r64(0), r64(right)]);
+            output.emit(
+                Opcode::Mov64,
+                [
+                    address(5, None, (left_offset).to_owned() as i128),
+                    r64(left),
+                ],
+            );
+
+            let symbol = output.symbol("cerune_string_equal", Linkage::Local);
+            output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
             if !equal {
-                output.push_str("  xorl $1, %eax\n");
+                output.emit(Opcode::Xor32, [Operand::Immediate(1), r32(0)]);
             }
         }
         Instruction::ConvertNumeric { conversion, label } => {
             super::conversion::emit(*conversion, *label, label_prefix, reporter, output)
         }
         Instruction::BitNot { mask } => {
-            output.push_str(&format!("  movabsq ${mask}, %r11\n  xorq %r11, %rax\n"));
+            output.emit(
+                Opcode::MovAbs64,
+                [Operand::Immediate((mask).to_owned() as i128), r64(11)],
+            );
+            output.emit(Opcode::Xor64, [r64(11), r64(0)]);
         }
         Instruction::IntegerBinary { op, ty, label } => {
             if *ty == crate::types::IntegerType::U64 {
@@ -324,78 +456,207 @@ fn emit_instruction(
                 | IntegerBinaryOp::Subtract
                 | IntegerBinaryOp::Multiply
                 | IntegerBinaryOp::Divide => unreachable!("u64 operations are emitted above"),
-                IntegerBinaryOp::BitAnd => output.push_str("  andq %rcx, %rax\n"),
-                IntegerBinaryOp::BitOr => output.push_str("  orq %rcx, %rax\n"),
-                IntegerBinaryOp::BitXor => output.push_str("  xorq %rcx, %rax\n"),
+                IntegerBinaryOp::BitAnd => {
+                    output.emit(Opcode::And64, [r64(1), r64(0)]);
+                }
+                IntegerBinaryOp::BitOr => {
+                    output.emit(Opcode::Or64, [r64(1), r64(0)]);
+                }
+                IntegerBinaryOp::BitXor => {
+                    output.emit(Opcode::Xor64, [r64(1), r64(0)]);
+                }
                 IntegerBinaryOp::Remainder => {
                     let divide = format!(".Lcerune_{label_prefix}_integer_rem_{label}");
-                    output.push_str(&format!("  testq %rcx, %rcx\n  je {bad}\n  cmpq $-1, %rcx\n  jne {divide}\n  xorq %rax, %rax\n  jmp {done}\n{divide}:\n  cqto\n  idivq %rcx\n  movq %rdx, %rax\n  jmp {done}\n{bad}:\n"));
+
+                    output.emit(Opcode::Test64, [r64(1), r64(1)]);
+
+                    let symbol = output.symbol(&bad, Linkage::Local);
+                    output.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+                    output.emit(Opcode::Cmp64, [Operand::Immediate(-1), r64(1)]);
+
+                    let symbol = output.symbol(&divide, Linkage::Local);
+                    output.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
+
+                    output.emit(Opcode::Xor64, [r64(0), r64(0)]);
+
+                    let symbol = output.symbol(&done, Linkage::Local);
+                    output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+                    output.label(&divide);
+                    output.emit(Opcode::SignExtendRax, []);
+                    output.emit(Opcode::SignedDiv64, [r64(1)]);
+                    output.emit(Opcode::Mov64, [r64(2), r64(0)]);
+
+                    let symbol = output.symbol(&done, Linkage::Local);
+                    output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+                    output.label(&bad);
+
                     reporter.emit(Failure::RemainderByZero, output);
-                    output.push_str(&format!("{done}:\n"));
+
+                    output.label(&done);
                 }
                 IntegerBinaryOp::ShiftLeft | IntegerBinaryOp::ShiftRight => {
-                    output.push_str(&format!(
-                        "  testq %rcx, %rcx\n  js {bad}\n  cmpq ${}, %rcx\n  jge {bad}\n",
-                        ty.bit_width()
-                    ));
+                    output.emit(Opcode::Test64, [r64(1), r64(1)]);
+
+                    let symbol = output.symbol(&bad, Linkage::Local);
+                    output.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+                    output.emit(
+                        Opcode::Cmp64,
+                        [
+                            Operand::Immediate((ty.bit_width()).to_owned() as i128),
+                            r64(1),
+                        ],
+                    );
+
+                    let symbol = output.symbol(&bad, Linkage::Local);
+                    output.emit(Opcode::JumpGe, [Operand::Symbol(symbol)]);
+
                     if *op == IntegerBinaryOp::ShiftLeft {
-                        output.push_str(&format!("  movabsq ${}, %r11\n  sarq %cl, %r11\n  cmpq %r11, %rax\n  jl {bad}_overflow\n  movabsq ${}, %r11\n  shrq %cl, %r11\n  cmpq %r11, %rax\n  jg {bad}_overflow\n  shlq %cl, %rax\n  jmp {done}\n{bad}_overflow:\n", ty.minimum(), ty.maximum()));
+                        output.emit(
+                            Opcode::MovAbs64,
+                            [Operand::Immediate((ty.minimum()).to_owned()), r64(11)],
+                        );
+                        output.emit(Opcode::ShiftArithmeticRight64, [r8(1), r64(11)]);
+                        output.emit(Opcode::Cmp64, [r64(11), r64(0)]);
+
+                        let symbol = output.symbol(&format!("{bad}_overflow"), Linkage::Local);
+                        output.emit(Opcode::JumpL, [Operand::Symbol(symbol)]);
+
+                        output.emit(
+                            Opcode::MovAbs64,
+                            [Operand::Immediate((ty.maximum()).to_owned()), r64(11)],
+                        );
+                        output.emit(Opcode::ShiftRight64, [r8(1), r64(11)]);
+                        output.emit(Opcode::Cmp64, [r64(11), r64(0)]);
+
+                        let symbol = output.symbol(&format!("{bad}_overflow"), Linkage::Local);
+                        output.emit(Opcode::JumpG, [Operand::Symbol(symbol)]);
+
+                        output.emit(Opcode::ShiftLeft64, [r8(1), r64(0)]);
+
+                        let symbol = output.symbol(&done, Linkage::Local);
+                        output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+                        output.label(&format!("{bad}_overflow"));
+
                         reporter.emit(Failure::IntegerOverflow, output);
                     } else {
-                        output.push_str("  sarq %cl, %rax\n");
+                        output.emit(Opcode::ShiftArithmeticRight64, [r8(1), r64(0)]);
                     }
-                    output.push_str(&format!("  jmp {done}\n{bad}:\n"));
+
+                    let symbol = output.symbol(&done, Linkage::Local);
+                    output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+                    output.label(&bad);
+
                     reporter.emit(Failure::InvalidShiftCount, output);
-                    output.push_str(&format!("{done}:\n"));
+
+                    output.label(&done);
                 }
             }
         }
         Instruction::CheckIntegerRange { ty, label, failure } => {
             let bad = format!(".Lcerune_{label_prefix}_range_bad_{label}");
             let done = format!(".Lcerune_{label_prefix}_range_ok_{label}");
-            output.push_str(&format!("  # semantic {}, storage i64\n  movabsq ${}, %r11\n  cmpq %r11, %rax\n  jl {bad}\n  movabsq ${}, %r11\n  cmpq %r11, %rax\n  jle {done}\n{bad}:\n", ty.name(), ty.minimum(), ty.maximum()));
+
+            output.comment(&format!("semantic {}, storage i64", ty.name()));
+            output.emit(
+                Opcode::MovAbs64,
+                [Operand::Immediate((ty.minimum()).to_owned()), r64(11)],
+            );
+            output.emit(Opcode::Cmp64, [r64(11), r64(0)]);
+
+            let symbol = output.symbol(&bad, Linkage::Local);
+            output.emit(Opcode::JumpL, [Operand::Symbol(symbol)]);
+
+            output.emit(
+                Opcode::MovAbs64,
+                [Operand::Immediate((ty.maximum()).to_owned()), r64(11)],
+            );
+            output.emit(Opcode::Cmp64, [r64(11), r64(0)]);
+
+            let symbol = output.symbol(&done, Linkage::Local);
+            output.emit(Opcode::JumpLe, [Operand::Symbol(symbol)]);
+
+            output.label(&bad);
+
             reporter.emit(*failure, output);
-            output.push_str(&format!("{done}:\n"));
+
+            output.label(&done);
         }
         Instruction::Label { id, name } => {
-            output.push_str(&format!("{}: # {name}\n", block_label(label_prefix, *id)));
+            output.label(&block_label(label_prefix, *id).to_string());
+            output.comment(name.as_ref());
         }
 
         Instruction::JumpIfZero(label) => {
-            output.push_str("  testq %rax, %rax\n");
-            output.push_str(&format!("  je {}\n", block_label(label_prefix, *label)));
+            output.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+            let symbol = output.symbol(
+                &block_label(label_prefix, *label).to_string(),
+                Linkage::Local,
+            );
+            output.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
         }
 
         Instruction::Jump(label) => {
-            output.push_str(&format!("  jmp {}\n", block_label(label_prefix, *label)));
+            let symbol = output.symbol(
+                &block_label(label_prefix, *label).to_string(),
+                Linkage::Local,
+            );
+            output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
         }
 
         Instruction::MovI64ImmediateToRax(value) => {
-            output.push_str(&format!("  movabsq ${value}, %rax\n"));
+            output.emit(
+                Opcode::MovAbs64,
+                [Operand::Immediate((value).to_owned() as i128), r64(0)],
+            );
         }
 
         Instruction::LoadI64FromStack(offset) | Instruction::LoadI64ScratchToRax(offset) => {
-            output.push_str(&format!("  movq {offset}(%rbp), %rax\n"));
+            output.emit(
+                Opcode::Mov64,
+                [address(5, None, (offset).to_owned() as i128), r64(0)],
+            );
         }
 
         Instruction::StoreI64ToStack(offset) => {
-            output.push_str(&format!("  movq %rax, {offset}(%rbp)\n"));
+            output.emit(
+                Opcode::Mov64,
+                [r64(0), address(5, None, (offset).to_owned() as i128)],
+            );
         }
 
         Instruction::LoadF32FromStack(offset) | Instruction::LoadF32ScratchToXmm0(offset) => {
-            output.push_str(&format!("  movss {offset}(%rbp), %xmm0\n"));
+            output.emit(
+                Opcode::Movss,
+                [address(5, None, (offset).to_owned() as i128), xmm(0)],
+            );
         }
 
         Instruction::StoreF32ToStack(offset) => {
-            output.push_str(&format!("  movss %xmm0, {offset}(%rbp)\n"));
+            output.emit(
+                Opcode::Movss,
+                [xmm(0), address(5, None, (offset).to_owned() as i128)],
+            );
         }
 
         Instruction::LoadF64FromStack(offset) | Instruction::LoadF64ScratchToXmm0(offset) => {
-            output.push_str(&format!("  movsd {offset}(%rbp), %xmm0\n"));
+            output.emit(
+                Opcode::Movsd,
+                [address(5, None, (offset).to_owned() as i128), xmm(0)],
+            );
         }
 
         Instruction::StoreF64ToStack(offset) => {
-            output.push_str(&format!("  movsd %xmm0, {offset}(%rbp)\n"));
+            output.emit(
+                Opcode::Movsd,
+                [xmm(0), address(5, None, (offset).to_owned() as i128)],
+            );
         }
 
         Instruction::CheckedArrayLoad {
@@ -406,26 +667,60 @@ fn emit_instruction(
         } => {
             let trap = format!(".Lcerune_{label_prefix}_array_oob_{label}");
             let done = format!(".Lcerune_{label_prefix}_array_done_{label}");
-            output.push_str("  testq %rax, %rax\n");
-            output.push_str(&format!("  js {trap}\n"));
-            output.push_str(&format!("  cmpq ${length}, %rax\n"));
-            output.push_str(&format!("  jge {trap}\n"));
-            output.push_str("  negq %rax\n");
+
+            output.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+            let symbol = output.symbol(&trap, Linkage::Local);
+            output.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+            output.emit(
+                Opcode::Cmp64,
+                [Operand::Immediate((length).to_owned() as i128), r64(0)],
+            );
+
+            let symbol = output.symbol(&trap, Linkage::Local);
+            output.emit(Opcode::JumpGe, [Operand::Symbol(symbol)]);
+
+            output.emit(Opcode::Neg64, [r64(0)]);
+
             match ty {
                 Type::DynamicArray | Type::String | Type::Bool | Type::I64 => {
-                    output.push_str(&format!("  movq {base_offset}(%rbp,%rax,8), %rax\n"));
+                    output.emit(
+                        Opcode::Mov64,
+                        [
+                            address(5, Some((0, Scale::Eight)), (base_offset).to_owned() as i128),
+                            r64(0),
+                        ],
+                    );
                 }
                 Type::F32 => {
-                    output.push_str(&format!("  movss {base_offset}(%rbp,%rax,8), %xmm0\n"));
+                    output.emit(
+                        Opcode::Movss,
+                        [
+                            address(5, Some((0, Scale::Eight)), (base_offset).to_owned() as i128),
+                            xmm(0),
+                        ],
+                    );
                 }
                 Type::F64 => {
-                    output.push_str(&format!("  movsd {base_offset}(%rbp,%rax,8), %xmm0\n"));
+                    output.emit(
+                        Opcode::Movsd,
+                        [
+                            address(5, Some((0, Scale::Eight)), (base_offset).to_owned() as i128),
+                            xmm(0),
+                        ],
+                    );
                 }
             }
-            output.push_str(&format!("  jmp {done}\n"));
-            output.push_str(&format!("{trap}:\n"));
+
+            let symbol = output.symbol(&done, Linkage::Local);
+            output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+            output.label(&trap);
+
             reporter.emit(Failure::ArrayIndexOutOfBounds, output);
-            output.push_str(&format!("{done}:\n"));
+
+            output.label(&done);
         }
 
         Instruction::CheckedArrayCopy {
@@ -437,21 +732,54 @@ fn emit_instruction(
         } => {
             let trap = format!(".Lcerune_{label_prefix}_array_oob_{label}");
             let done = format!(".Lcerune_{label_prefix}_array_done_{label}");
-            output.push_str("  testq %rax, %rax\n");
-            output.push_str(&format!("  js {trap}\n"));
-            output.push_str(&format!("  cmpq ${length}, %rax\n"));
-            output.push_str(&format!("  jge {trap}\n"));
-            output.push_str(&format!("  imulq $-{}, %rax\n", element_slots));
+
+            output.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+            let symbol = output.symbol(&trap, Linkage::Local);
+            output.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+            output.emit(
+                Opcode::Cmp64,
+                [Operand::Immediate((length).to_owned() as i128), r64(0)],
+            );
+
+            let symbol = output.symbol(&trap, Linkage::Local);
+            output.emit(Opcode::JumpGe, [Operand::Symbol(symbol)]);
+
+            output.emit(
+                Opcode::SignedMul64,
+                [
+                    Operand::Immediate(-((element_slots).to_owned() as i128)),
+                    r64(0),
+                ],
+            );
+
             for slot in 0..*element_slots {
                 let source = base_offset - 8 * slot as isize;
                 let destination = destination_offset - 8 * slot as isize;
-                output.push_str(&format!("  movq {source}(%rbp,%rax,8), %rcx\n"));
-                output.push_str(&format!("  movq %rcx, {destination}(%rbp)\n"));
+
+                output.emit(
+                    Opcode::Mov64,
+                    [
+                        address(5, Some((0, Scale::Eight)), (source).to_owned() as i128),
+                        r64(1),
+                    ],
+                );
+
+                output.emit(
+                    Opcode::Mov64,
+                    [r64(1), address(5, None, (destination).to_owned() as i128)],
+                );
             }
-            output.push_str(&format!("  jmp {done}\n"));
-            output.push_str(&format!("{trap}:\n"));
+
+            let symbol = output.symbol(&done, Linkage::Local);
+            output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+            output.label(&trap);
+
             reporter.emit(Failure::ArrayIndexOutOfBounds, output);
-            output.push_str(&format!("{done}:\n"));
+
+            output.label(&done);
         }
 
         Instruction::CheckedArrayAddress {
@@ -464,47 +792,125 @@ fn emit_instruction(
         } => {
             let trap = format!(".Lcerune_{label_prefix}_array_oob_{label}");
             let done = format!(".Lcerune_{label_prefix}_array_done_{label}");
-            output.push_str("  testq %rax, %rax\n");
-            output.push_str(&format!("  js {trap}\n"));
-            output.push_str(&format!("  cmpq ${length}, %rax\n"));
-            output.push_str(&format!("  jge {trap}\n"));
-            output.push_str(&format!("  imulq $-{}, %rax\n", element_slots));
+
+            output.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+            let symbol = output.symbol(&trap, Linkage::Local);
+            output.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+            output.emit(
+                Opcode::Cmp64,
+                [Operand::Immediate((length).to_owned() as i128), r64(0)],
+            );
+
+            let symbol = output.symbol(&trap, Linkage::Local);
+            output.emit(Opcode::JumpGe, [Operand::Symbol(symbol)]);
+
+            output.emit(
+                Opcode::SignedMul64,
+                [
+                    Operand::Immediate(-((element_slots).to_owned() as i128)),
+                    r64(0),
+                ],
+            );
+
             if *base_is_pointer {
-                output.push_str(&format!("  movq {base_offset}(%rbp), %rcx\n"));
-                output.push_str("  leaq (%rcx,%rax,8), %rcx\n");
+                output.emit(
+                    Opcode::Mov64,
+                    [address(5, None, (base_offset).to_owned() as i128), r64(1)],
+                );
+
+                output.emit(
+                    Opcode::Lea64,
+                    [address(1, Some((0, Scale::Eight)), 0), r64(1)],
+                );
             } else {
-                output.push_str(&format!("  leaq {base_offset}(%rbp,%rax,8), %rcx\n"));
+                output.emit(
+                    Opcode::Lea64,
+                    [
+                        address(5, Some((0, Scale::Eight)), (base_offset).to_owned() as i128),
+                        r64(1),
+                    ],
+                );
             }
-            output.push_str(&format!("  movq %rcx, {destination_offset}(%rbp)\n"));
-            output.push_str(&format!("  jmp {done}\n"));
-            output.push_str(&format!("{trap}:\n"));
+
+            output.emit(
+                Opcode::Mov64,
+                [
+                    r64(1),
+                    address(5, None, (destination_offset).to_owned() as i128),
+                ],
+            );
+
+            let symbol = output.symbol(&done, Linkage::Local);
+            output.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+            output.label(&trap);
+
             reporter.emit(Failure::ArrayIndexOutOfBounds, output);
-            output.push_str(&format!("{done}:\n"));
+
+            output.label(&done);
         }
 
         Instruction::StoreI64ToPointer(pointer_offset) => {
-            output.push_str(&format!("  movq {pointer_offset}(%rbp), %rcx\n"));
-            output.push_str("  movq %rax, (%rcx)\n");
+            output.emit(
+                Opcode::Mov64,
+                [
+                    address(5, None, (pointer_offset).to_owned() as i128),
+                    r64(1),
+                ],
+            );
+
+            output.emit(Opcode::Mov64, [r64(0), address(1, None, 0)]);
         }
         Instruction::StoreF32ToPointer(pointer_offset) => {
-            output.push_str(&format!("  movq {pointer_offset}(%rbp), %rcx\n"));
-            output.push_str("  movss %xmm0, (%rcx)\n");
+            output.emit(
+                Opcode::Mov64,
+                [
+                    address(5, None, (pointer_offset).to_owned() as i128),
+                    r64(1),
+                ],
+            );
+
+            output.emit(Opcode::Movss, [xmm(0), address(1, None, 0)]);
         }
         Instruction::StoreF64ToPointer(pointer_offset) => {
-            output.push_str(&format!("  movq {pointer_offset}(%rbp), %rcx\n"));
-            output.push_str("  movsd %xmm0, (%rcx)\n");
+            output.emit(
+                Opcode::Mov64,
+                [
+                    address(5, None, (pointer_offset).to_owned() as i128),
+                    r64(1),
+                ],
+            );
+
+            output.emit(Opcode::Movsd, [xmm(0), address(1, None, 0)]);
         }
         Instruction::CopyToPointer {
             source_offset,
             slots,
             pointer_offset,
         } => {
-            output.push_str(&format!("  movq {pointer_offset}(%rbp), %r11\n"));
+            output.emit(
+                Opcode::Mov64,
+                [
+                    address(5, None, (pointer_offset).to_owned() as i128),
+                    r64(11),
+                ],
+            );
+
             for slot in 0..*slots {
                 let source = source_offset - 8 * slot as isize;
                 let destination = -8 * slot as isize;
-                output.push_str(&format!("  movq {source}(%rbp), %r10\n"));
-                output.push_str(&format!("  movq %r10, {destination}(%r11)\n"));
+
+                output.emit(
+                    Opcode::Mov64,
+                    [address(5, None, (source).to_owned() as i128), r64(10)],
+                );
+
+                output.emit(
+                    Opcode::Mov64,
+                    [r64(10), address(11, None, (destination).to_owned() as i128)],
+                );
             }
         }
 
@@ -526,20 +932,38 @@ fn emit_instruction(
                     integer_argument_register(*index, module.target)
                 }
                 ArgumentLocation::Stack(offset) => {
-                    output.push_str(&format!("  movq {}(%rbp), %r11\n", offset + 16));
-                    "%r11"
+                    output.emit(
+                        Opcode::Mov64,
+                        [address(5, None, (offset + 16).to_owned() as i128), r64(11)],
+                    );
+
+                    11
                 }
             };
             for slot in 0..*slots {
                 let source = -8 * slot as isize;
                 let destination = destination_offset - 8 * slot as isize;
-                output.push_str(&format!("  movq {source}({register}), %r10\n"));
-                output.push_str(&format!("  movq %r10, {destination}(%rbp)\n"));
+
+                output.emit(
+                    Opcode::Mov64,
+                    [
+                        address(register, None, (source).to_owned() as i128),
+                        r64(10),
+                    ],
+                );
+
+                output.emit(
+                    Opcode::Mov64,
+                    [r64(10), address(5, None, (destination).to_owned() as i128)],
+                );
             }
         }
 
         Instruction::StoreAggregateReturnPointer { offset } => {
-            output.push_str(&format!("  movq %rax, {offset}(%rbp)\n"));
+            output.emit(
+                Opcode::Mov64,
+                [r64(0), address(5, None, (offset).to_owned() as i128)],
+            );
         }
 
         Instruction::CopyToAggregateReturn {
@@ -547,12 +971,27 @@ fn emit_instruction(
             slots,
             pointer_offset,
         } => {
-            output.push_str(&format!("  movq {pointer_offset}(%rbp), %r11\n"));
+            output.emit(
+                Opcode::Mov64,
+                [
+                    address(5, None, (pointer_offset).to_owned() as i128),
+                    r64(11),
+                ],
+            );
+
             for slot in 0..*slots {
                 let source = source_offset - 8 * slot as isize;
                 let destination = -8 * slot as isize;
-                output.push_str(&format!("  movq {source}(%rbp), %r10\n"));
-                output.push_str(&format!("  movq %r10, {destination}(%r11)\n"));
+
+                output.emit(
+                    Opcode::Mov64,
+                    [address(5, None, (source).to_owned() as i128), r64(10)],
+                );
+
+                output.emit(
+                    Opcode::Mov64,
+                    [r64(10), address(11, None, (destination).to_owned() as i128)],
+                );
             }
         }
 
@@ -574,141 +1013,208 @@ fn emit_instruction(
                     Argument::Scalar { ty, offset } => {
                         emit_load_argument(location, *ty, *offset, module.target, output)
                     }
-                    Argument::Aggregate { offset } => {
-                        match location {
-                            ArgumentLocation::Register(index) => {
-                                let register = integer_argument_register(index, module.target);
-                                output.push_str(&format!("  leaq {offset}(%rbp), {register}\n"));
-                            }
-                            ArgumentLocation::Stack(destination) => {
-                                output.push_str(&format!("  leaq {offset}(%rbp), %r10\n  movq %r10, {destination}(%rsp)\n"));
-                            }
+                    Argument::Aggregate { offset } => match location {
+                        ArgumentLocation::Register(index) => {
+                            let register = integer_argument_register(index, module.target);
+
+                            output.emit(
+                                Opcode::Lea64,
+                                [address(5, None, (offset).to_owned() as i128), r64(register)],
+                            );
                         }
-                    }
+                        ArgumentLocation::Stack(destination) => {
+                            output.emit(
+                                Opcode::Lea64,
+                                [address(5, None, (offset).to_owned() as i128), r64(10)],
+                            );
+                            output.emit(
+                                Opcode::Mov64,
+                                [r64(10), address(4, None, (destination).to_owned() as i128)],
+                            );
+                        }
+                    },
                 }
             }
             if let Some(offset) = aggregate_result_offset {
-                output.push_str(&format!("  leaq {offset}(%rbp), %rax\n"));
+                output.emit(
+                    Opcode::Lea64,
+                    [address(5, None, (offset).to_owned() as i128), r64(0)],
+                );
             }
-            output.push_str(&format!(
-                "  callq {}\n",
-                function_name(&module.functions[*function_id])
-            ));
+
+            let symbol = output.symbol(
+                &function_name(&module.functions[*function_id]).to_string(),
+                Linkage::Local,
+            );
+            output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
         }
 
         Instruction::ObserveOnly => {}
-        Instruction::Unreachable => output.push_str("  ud2\n"),
+        Instruction::Unreachable => {
+            output.emit(Opcode::Undefined, []);
+        }
         Instruction::Return => emit_epilogue(frame_size, false, output),
 
         Instruction::LoadF32Constant(id) => {
-            output.push_str(&format!("  movss .Lcerune_f32_{id}(%rip), %xmm0\n"));
+            let symbol = output.symbol(&format!(".Lcerune_f32_{id}"), Linkage::Local);
+            output.emit(Opcode::Movss, [Operand::RipRelative(symbol), xmm(0)]);
         }
 
         Instruction::LoadF64Constant(id) => {
-            output.push_str(&format!("  movsd .Lcerune_f64_{id}(%rip), %xmm0\n"));
+            let symbol = output.symbol(&format!(".Lcerune_f64_{id}"), Linkage::Local);
+            output.emit(Opcode::Movsd, [Operand::RipRelative(symbol), xmm(0)]);
         }
 
         Instruction::NegI64 => {
-            output.push_str("  negq %rax\n");
+            output.emit(Opcode::Neg64, [r64(0)]);
         }
 
         Instruction::TrapIfOverflow(label) => {
             let done = format!(".Lcerune_{label_prefix}_integer_ok_{label}");
-            output.push_str(&format!("  jno {done}\n"));
+
+            let symbol = output.symbol(&done, Linkage::Local);
+            output.emit(Opcode::JumpNo, [Operand::Symbol(symbol)]);
+
             reporter.emit(Failure::IntegerOverflow, output);
-            output.push_str(&format!("{done}:\n"));
+
+            output.label(&done);
         }
 
         Instruction::NotBool => {
-            output.push_str("  xorq $1, %rax\n");
+            output.emit(Opcode::Xor64, [Operand::Immediate(1), r64(0)]);
         }
 
         Instruction::NegF32 => {
-            output.push_str("  xorps .Lcerune_sign_f32(%rip), %xmm0\n");
+            let symbol = output.symbol(".Lcerune_sign_f32", Linkage::Local);
+            output.emit(Opcode::Xorps, [Operand::RipRelative(symbol), xmm(0)]);
         }
 
         Instruction::NegF64 => {
-            output.push_str("  xorpd .Lcerune_sign_f64(%rip), %xmm0\n");
+            let symbol = output.symbol(".Lcerune_sign_f64", Linkage::Local);
+            output.emit(Opcode::Xorpd, [Operand::RipRelative(symbol), xmm(0)]);
         }
 
         Instruction::MoveRaxToRcx => {
-            output.push_str("  movq %rax, %rcx\n");
+            output.emit(Opcode::Mov64, [r64(0), r64(1)]);
         }
 
         Instruction::I64Binary(op) => {
-            output.push_str(match op {
-                BinaryOp::Add => "  addq %rcx, %rax\n",
-                BinaryOp::Subtract => "  subq %rcx, %rax\n",
-                BinaryOp::Multiply => "  imulq %rcx, %rax\n",
+            match op {
+                BinaryOp::Add => {
+                    output.emit(Opcode::Add64, [r64(1), r64(0)]);
+                }
+                BinaryOp::Subtract => {
+                    output.emit(Opcode::Sub64, [r64(1), r64(0)]);
+                }
+                BinaryOp::Multiply => {
+                    output.emit(Opcode::SignedMul64, [r64(1), r64(0)]);
+                }
                 BinaryOp::Divide => {
                     unreachable!("i64 division is lowered to sign-extend + divide")
                 }
-            });
+            };
         }
 
         Instruction::CompareI64(op) => {
-            output.push_str("  cmpq %rcx, %rax\n");
-            output.push_str(compare_setcc(*op));
-            output.push_str("  movzbq %al, %rax\n");
+            output.emit(Opcode::Cmp64, [r64(1), r64(0)]);
+
+            output.emit(compare_setcc(*op), [r8(0)]);
+
+            output.emit(Opcode::ZeroExtend8To64, [r8(0), r64(0)]);
         }
 
         Instruction::SignExtendRax => {
-            output.push_str("  cqto\n");
+            output.emit(Opcode::SignExtendRax, []);
         }
 
         Instruction::TrapIfInvalidI64Division(label) => {
             let trap = format!(".Lcerune_{label_prefix}_division_trap_{label}");
             let done = format!(".Lcerune_{label_prefix}_division_ok_{label}");
-            output.push_str("  testq %rcx, %rcx\n");
-            output.push_str(&format!("  je {trap}\n"));
-            output.push_str("  cmpq $-1, %rcx\n");
-            output.push_str(&format!("  jne {done}\n"));
-            output.push_str("  movabsq $-9223372036854775808, %rdx\n");
-            output.push_str("  cmpq %rdx, %rax\n");
-            output.push_str(&format!("  jne {done}\n"));
+
+            output.emit(Opcode::Test64, [r64(1), r64(1)]);
+
+            let symbol = output.symbol(&trap, Linkage::Local);
+            output.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+            output.emit(Opcode::Cmp64, [Operand::Immediate(-1), r64(1)]);
+
+            let symbol = output.symbol(&done, Linkage::Local);
+            output.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
+
+            output.emit(
+                Opcode::MovAbs64,
+                [Operand::Immediate(-9223372036854775808), r64(2)],
+            );
+
+            output.emit(Opcode::Cmp64, [r64(2), r64(0)]);
+
+            let symbol = output.symbol(&done, Linkage::Local);
+            output.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
+
             reporter.emit(Failure::DivisionOverflow, output);
-            output.push_str(&format!("{trap}:\n"));
+
+            output.label(&trap);
+
             reporter.emit(Failure::DivisionByZero, output);
-            output.push_str(&format!("{done}:\n"));
+
+            output.label(&done);
         }
 
         Instruction::DivideRaxByRcx => {
-            output.push_str("  idivq %rcx\n");
+            output.emit(Opcode::SignedDiv64, [r64(1)]);
         }
 
         Instruction::CopyXmm0ToXmm1F32 => {
-            output.push_str("  movaps %xmm0, %xmm1\n");
+            output.emit(Opcode::Movaps, [xmm(0), xmm(1)]);
         }
 
         Instruction::CopyXmm0ToXmm1F64 => {
-            output.push_str("  movapd %xmm0, %xmm1\n");
+            output.emit(Opcode::Movapd, [xmm(0), xmm(1)]);
         }
 
         Instruction::F32Binary(op) => {
-            output.push_str(match op {
-                BinaryOp::Add => "  addss %xmm1, %xmm0\n",
-                BinaryOp::Subtract => "  subss %xmm1, %xmm0\n",
-                BinaryOp::Multiply => "  mulss %xmm1, %xmm0\n",
-                BinaryOp::Divide => "  divss %xmm1, %xmm0\n",
-            });
+            match op {
+                BinaryOp::Add => {
+                    output.emit(Opcode::Addss, [xmm(1), xmm(0)]);
+                }
+                BinaryOp::Subtract => {
+                    output.emit(Opcode::Subss, [xmm(1), xmm(0)]);
+                }
+                BinaryOp::Multiply => {
+                    output.emit(Opcode::Mulss, [xmm(1), xmm(0)]);
+                }
+                BinaryOp::Divide => {
+                    output.emit(Opcode::Divss, [xmm(1), xmm(0)]);
+                }
+            };
         }
 
         Instruction::F64Binary(op) => {
-            output.push_str(match op {
-                BinaryOp::Add => "  addsd %xmm1, %xmm0\n",
-                BinaryOp::Subtract => "  subsd %xmm1, %xmm0\n",
-                BinaryOp::Multiply => "  mulsd %xmm1, %xmm0\n",
-                BinaryOp::Divide => "  divsd %xmm1, %xmm0\n",
-            });
+            match op {
+                BinaryOp::Add => {
+                    output.emit(Opcode::Addsd, [xmm(1), xmm(0)]);
+                }
+                BinaryOp::Subtract => {
+                    output.emit(Opcode::Subsd, [xmm(1), xmm(0)]);
+                }
+                BinaryOp::Multiply => {
+                    output.emit(Opcode::Mulsd, [xmm(1), xmm(0)]);
+                }
+                BinaryOp::Divide => {
+                    output.emit(Opcode::Divsd, [xmm(1), xmm(0)]);
+                }
+            };
         }
 
         Instruction::CompareF32(op) => {
-            output.push_str("  ucomiss %xmm1, %xmm0\n");
+            output.emit(Opcode::Ucomiss, [xmm(1), xmm(0)]);
+
             emit_float_comparison(*op, output);
         }
 
         Instruction::CompareF64(op) => {
-            output.push_str("  ucomisd %xmm1, %xmm0\n");
+            output.emit(Opcode::Ucomisd, [xmm(1), xmm(0)]);
+
             emit_float_comparison(*op, output);
         }
     }
@@ -727,7 +1233,7 @@ fn emit_store_parameter(
     ty: Type,
     offset: isize,
     target: super::Target,
-    output: &mut String,
+    output: &mut NativeProgram,
 ) {
     let ArgumentLocation::Register(index) = location else {
         let ArgumentLocation::Stack(source) = location else {
@@ -735,8 +1241,8 @@ fn emit_store_parameter(
         };
         emit_stack_argument_copy(
             ty,
-            &format!("{}(%rbp)", source + 16),
-            &format!("{offset}(%rbp)"),
+            address(5, None, (source + 16) as i128),
+            address(5, None, offset as i128),
             output,
         );
         return;
@@ -744,13 +1250,23 @@ fn emit_store_parameter(
     match ty {
         Type::DynamicArray | Type::String | Type::Bool | Type::I64 => {
             let register = integer_argument_register(index, target);
-            output.push_str(&format!("  movq {register}, {offset}(%rbp)\n"));
+
+            output.emit(
+                Opcode::Mov64,
+                [r64(register), address(5, None, (offset).to_owned() as i128)],
+            );
         }
         Type::F32 => {
-            output.push_str(&format!("  movss %xmm{index}, {offset}(%rbp)\n"));
+            output.emit(
+                Opcode::Movss,
+                [xmm(index), address(5, None, (offset).to_owned() as i128)],
+            );
         }
         Type::F64 => {
-            output.push_str(&format!("  movsd %xmm{index}, {offset}(%rbp)\n"));
+            output.emit(
+                Opcode::Movsd,
+                [xmm(index), address(5, None, (offset).to_owned() as i128)],
+            );
         }
     }
 }
@@ -760,7 +1276,7 @@ fn emit_load_argument(
     ty: Type,
     offset: isize,
     target: super::Target,
-    output: &mut String,
+    output: &mut NativeProgram,
 ) {
     let ArgumentLocation::Register(index) = location else {
         let ArgumentLocation::Stack(destination) = location else {
@@ -768,8 +1284,8 @@ fn emit_load_argument(
         };
         emit_stack_argument_copy(
             ty,
-            &format!("{offset}(%rbp)"),
-            &format!("{destination}(%rsp)"),
+            address(5, None, offset as i128),
+            address(4, None, destination as i128),
             output,
         );
         return;
@@ -777,75 +1293,101 @@ fn emit_load_argument(
     match ty {
         Type::DynamicArray | Type::String | Type::Bool | Type::I64 => {
             let register = integer_argument_register(index, target);
-            output.push_str(&format!("  movq {offset}(%rbp), {register}\n"));
+
+            output.emit(
+                Opcode::Mov64,
+                [address(5, None, (offset).to_owned() as i128), r64(register)],
+            );
         }
         Type::F32 => {
-            output.push_str(&format!("  movss {offset}(%rbp), %xmm{index}\n"));
+            output.emit(
+                Opcode::Movss,
+                [address(5, None, (offset).to_owned() as i128), xmm(index)],
+            );
         }
         Type::F64 => {
-            output.push_str(&format!("  movsd {offset}(%rbp), %xmm{index}\n"));
+            output.emit(
+                Opcode::Movsd,
+                [address(5, None, (offset).to_owned() as i128), xmm(index)],
+            );
         }
     }
 }
 
 // XMMや引数レジスタを壊さず、f32も数値変換せずにビットをコピーします。
-fn emit_stack_argument_copy(ty: Type, source: &str, destination: &str, output: &mut String) {
+fn emit_stack_argument_copy(
+    ty: Type,
+    source: Operand,
+    destination: Operand,
+    output: &mut NativeProgram,
+) {
     let (instruction, register) = if ty == Type::F32 {
-        ("movl", "%r10d")
+        (Opcode::Mov32, r32(10))
     } else {
-        ("movq", "%r10")
+        (Opcode::Mov64, r64(10))
     };
-    output.push_str(&format!(
-        "  {instruction} {source}, {register}\n  {instruction} {register}, {destination}\n"
-    ));
+    output.emit(instruction, [source, register.clone()]);
+    output.emit(instruction, [register, destination]);
 }
 
-fn integer_argument_register(index: usize, target: super::Target) -> &'static str {
+fn integer_argument_register(index: usize, target: super::Target) -> u8 {
     if target.is_linux() {
-        ["%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"][index]
+        [7, 6, 2, 1, 8, 9][index]
     } else {
-        ["%rcx", "%rdx", "%r8", "%r9"][index]
+        [1, 2, 8, 9][index]
     }
 }
 
-fn compare_setcc(op: CompareOp) -> &'static str {
+fn compare_setcc(op: CompareOp) -> Opcode {
     match op {
-        CompareOp::Equal => "  sete %al\n",
-        CompareOp::NotEqual => "  setne %al\n",
-        CompareOp::Less => "  setl %al\n",
-        CompareOp::LessEqual => "  setle %al\n",
-        CompareOp::Greater => "  setg %al\n",
-        CompareOp::GreaterEqual => "  setge %al\n",
+        CompareOp::Equal => Opcode::SetE,
+        CompareOp::NotEqual => Opcode::SetNe,
+        CompareOp::Less => Opcode::SetL,
+        CompareOp::LessEqual => Opcode::SetLe,
+        CompareOp::Greater => Opcode::SetG,
+        CompareOp::GreaterEqual => Opcode::SetGe,
     }
 }
 
-fn emit_float_comparison(op: CompareOp, output: &mut String) {
+fn emit_float_comparison(op: CompareOp, output: &mut NativeProgram) {
     match op {
         CompareOp::Equal => {
-            output.push_str("  sete %al\n");
-            output.push_str("  setnp %cl\n");
-            output.push_str("  andb %cl, %al\n");
+            output.emit(Opcode::SetE, [r8(0)]);
+
+            output.emit(Opcode::SetNp, [r8(1)]);
+
+            output.emit(Opcode::And8, [r8(1), r8(0)]);
         }
         CompareOp::NotEqual => {
-            output.push_str("  setne %al\n");
-            output.push_str("  setp %cl\n");
-            output.push_str("  orb %cl, %al\n");
+            output.emit(Opcode::SetNe, [r8(0)]);
+
+            output.emit(Opcode::SetP, [r8(1)]);
+
+            output.emit(Opcode::Or8, [r8(1), r8(0)]);
         }
         CompareOp::Less => {
-            output.push_str("  setb %al\n");
-            output.push_str("  setnp %cl\n");
-            output.push_str("  andb %cl, %al\n");
+            output.emit(Opcode::SetB, [r8(0)]);
+
+            output.emit(Opcode::SetNp, [r8(1)]);
+
+            output.emit(Opcode::And8, [r8(1), r8(0)]);
         }
         CompareOp::LessEqual => {
-            output.push_str("  setbe %al\n");
-            output.push_str("  setnp %cl\n");
-            output.push_str("  andb %cl, %al\n");
+            output.emit(Opcode::SetBe, [r8(0)]);
+
+            output.emit(Opcode::SetNp, [r8(1)]);
+
+            output.emit(Opcode::And8, [r8(1), r8(0)]);
         }
-        CompareOp::Greater => output.push_str("  seta %al\n"),
-        CompareOp::GreaterEqual => output.push_str("  setae %al\n"),
+        CompareOp::Greater => {
+            output.emit(Opcode::SetA, [r8(0)]);
+        }
+        CompareOp::GreaterEqual => {
+            output.emit(Opcode::SetAe, [r8(0)]);
+        }
     }
 
-    output.push_str("  movzbq %al, %rax\n");
+    output.emit(Opcode::ZeroExtend8To64, [r8(0), r64(0)]);
 }
 
 fn emit_mir_origin(
@@ -853,7 +1395,7 @@ fn emit_mir_origin(
     prefix: &str,
     index: usize,
     annotate: bool,
-    output: &mut String,
+    output: &mut NativeProgram,
 ) {
     if !annotate {
         return;
@@ -867,9 +1409,17 @@ fn emit_mir_origin(
             crate::mir::Origin::Derived { reason, .. }
             | crate::mir::Origin::Synthetic { reason } => reason,
         };
-        output.push_str(&format!("# cerune-mir: v1 {prefix} bb{} {item} -> lir {index} ({reason})\ncerune_origin_mir_{prefix}_bb{}_{item}_lir{index}:\n", o.block.0, o.block.0));
+
+        output.comment(&format!(
+            "cerune-mir: v1 {prefix} bb{} {item} -> lir {index} ({reason})",
+            o.block.0
+        ));
+        output.label(&format!(
+            "cerune_origin_mir_{prefix}_bb{}_{item}_lir{index}",
+            o.block.0
+        ));
     } else {
-        output.push_str("# cerune-mir: v1 synthetic ABI setup/exit\n");
+        output.comment("cerune-mir: v1 synthetic ABI setup/exit");
     }
 }
 
@@ -878,22 +1428,24 @@ fn emit_origin(
     prefix: &str,
     index: usize,
     annotate: bool,
-    output: &mut String,
+    output: &mut NativeProgram,
 ) {
     if !annotate {
         return;
     }
     match origin {
-        super::ir::Origin::Synthetic => output.push_str("# cerune-origin: synthetic\n"),
+        super::ir::Origin::Synthetic => {
+            output.comment("cerune-origin: synthetic");
+        }
         super::ir::Origin::Source { node_id, span } => {
-            output.push_str(&format!(
-                "# cerune-origin: #{}{} bytes {}..{}\ncerune_origin_n{}_{prefix}_{index}:\n",
+            output.comment(&format!(
+                "cerune-origin: #{}{} bytes {}..{}",
                 node_id.0,
                 span.source_id().record_field(),
                 span.start(),
-                span.end(),
-                node_id.0
+                span.end()
             ));
+            output.label(&format!("cerune_origin_n{}_{prefix}_{index}", node_id.0));
         }
     }
 }

@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.extern fflush
+.globl main
+.extern _setmode
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -9,7 +16,6 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -700,7 +706,8 @@ cerune_fn_move_x_0:
   movq %rdx, -24(%rbp)
   movq %rax, -112(%rbp)
   jmp .Lcerune_fn_0_block_0
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -32(%rbp)
   movq -16(%rbp), %rax
@@ -721,7 +728,7 @@ cerune_fn_move_x_0:
   movl $63, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_0_integer_ok_3:
   movq %rax, -64(%rbp)
   movq -8(%rbp), %rax
@@ -742,9 +749,9 @@ cerune_fn_move_x_0:
   addq $144, %rsp
   popq %rbp
   retq
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn_move_twice_1:
   pushq %rbp
@@ -757,7 +764,8 @@ cerune_fn_move_twice_1:
   movq %rdx, -24(%rbp)
   movq %rax, -96(%rbp)
   jmp .Lcerune_fn_1_block_0
-.Lcerune_fn_1_block_0: # mir_block
+.Lcerune_fn_1_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -32(%rbp)
   movq -16(%rbp), %rax
@@ -782,9 +790,9 @@ cerune_fn_move_twice_1:
   addq $128, %rsp
   popq %rbp
   retq
-.Lcerune_fn_1_block_1: # mir_block
+.Lcerune_fn_1_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn_first_row_2:
   pushq %rbp
@@ -800,7 +808,8 @@ cerune_fn_first_row_2:
   movq %r10, -32(%rbp)
   movq %rax, -96(%rbp)
   jmp .Lcerune_fn_2_block_0
-.Lcerune_fn_2_block_0: # mir_block
+.Lcerune_fn_2_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -40(%rbp)
   movq -16(%rbp), %rax
@@ -828,7 +837,7 @@ cerune_fn_first_row_2:
   movl $73, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_2_array_done_3:
   movq -104(%rbp), %r11
   movq 0(%r11), %r10
@@ -843,9 +852,9 @@ cerune_fn_first_row_2:
   addq $144, %rsp
   popq %rbp
   retq
-.Lcerune_fn_2_block_1: # mir_block
+.Lcerune_fn_2_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn_duplicate_3:
   pushq %rbp
@@ -857,7 +866,8 @@ cerune_fn_duplicate_3:
   movq %r10, -16(%rbp)
   movq %rax, -88(%rbp)
   jmp .Lcerune_fn_3_block_0
-.Lcerune_fn_3_block_0: # mir_block
+.Lcerune_fn_3_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -24(%rbp)
   movq -16(%rbp), %rax
@@ -886,9 +896,9 @@ cerune_fn_duplicate_3:
   addq $128, %rsp
   popq %rbp
   retq
-.Lcerune_fn_3_block_1: # mir_block
+.Lcerune_fn_3_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn_duplicate_first_row_4:
   pushq %rbp
@@ -904,7 +914,8 @@ cerune_fn_duplicate_first_row_4:
   movq %r10, -32(%rbp)
   movq %rax, -120(%rbp)
   jmp .Lcerune_fn_4_block_0
-.Lcerune_fn_4_block_0: # mir_block
+.Lcerune_fn_4_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -40(%rbp)
   movq -16(%rbp), %rax
@@ -931,10 +942,9 @@ cerune_fn_duplicate_first_row_4:
   addq $160, %rsp
   popq %rbp
   retq
-.Lcerune_fn_4_block_1: # mir_block
+.Lcerune_fn_4_block_1:
+# mir_block
   ud2
-
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -951,7 +961,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $2, %rax
   movq %rax, -8(%rbp)
   movabsq $3, %rax
@@ -1086,7 +1097,7 @@ main:
   movl $73, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_array_done_2:
   movq -624(%rbp), %r11
   movq 0(%r11), %r10
@@ -1112,10 +1123,10 @@ main:
   movl $73, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_array_done_3:
   movq -632(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -472(%rbp)
   movq -472(%rbp), %rax
   movl $1, %r10d
@@ -1148,7 +1159,7 @@ main:
   movl $73, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_array_done_4:
   movq -640(%rbp), %r11
   movq 0(%r11), %r10
@@ -1174,10 +1185,10 @@ main:
   movl $73, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_array_done_5:
   movq -648(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -544(%rbp)
   movq -544(%rbp), %rax
   movl $1, %r10d
@@ -1210,7 +1221,7 @@ main:
   movl $73, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_array_done_6:
   movq -656(%rbp), %r11
   movq 0(%r11), %r10
@@ -1236,48 +1247,48 @@ main:
   movl $73, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_array_done_7:
   movq -664(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -616(%rbp)
   movq -616(%rbp), %rax
   movl $1, %r10d
   leaq .Lcerune_output_origin_13(%rip), %r11
   callq cerune_output_i64
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $704, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=2 bytes=118..134\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=2 bytes=118..134\n"
 .Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=15 bytes=332..341\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=15 bytes=332..341\n"
 .Lcerune_output_origin_2:
-  .asciz " node=45 bytes=703..721\n"
+.asciz " node=45 bytes=703..721\n"
 .Lcerune_output_origin_3:
-  .asciz " node=48 bytes=722..737\n"
+.asciz " node=48 bytes=722..737\n"
 .Lcerune_output_origin_4:
-  .asciz " node=51 bytes=738..753\n"
+.asciz " node=51 bytes=738..753\n"
 .Lcerune_failure_5:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=56 bytes=760..769\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=56 bytes=760..769\n"
 .Lcerune_failure_6:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=55 bytes=760..772\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=55 bytes=760..772\n"
 .Lcerune_output_origin_7:
-  .asciz " node=54 bytes=754..774\n"
+.asciz " node=54 bytes=754..774\n"
 .Lcerune_failure_8:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=62 bytes=781..788\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=62 bytes=781..788\n"
 .Lcerune_failure_9:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=61 bytes=781..791\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=61 bytes=781..791\n"
 .Lcerune_output_origin_10:
-  .asciz " node=60 bytes=775..793\n"
+.asciz " node=60 bytes=775..793\n"
 .Lcerune_failure_11:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=68 bytes=800..807\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=68 bytes=800..807\n"
 .Lcerune_failure_12:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=67 bytes=800..810\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=67 bytes=800..810\n"
 .Lcerune_output_origin_13:
-  .asciz " node=66 bytes=794..812\n"
+.asciz " node=66 bytes=794..812\n"

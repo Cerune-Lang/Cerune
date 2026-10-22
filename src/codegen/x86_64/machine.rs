@@ -83,8 +83,9 @@ pub(super) fn memory(base: u8, index: Option<u8>, displacement: i32) -> Operand 
     .into()
 }
 
-/// Temporary rendering adapter while other runtime helpers still emit assembly.
+/// Test-only rendering adapter for frozen pre-migration emitters.
 /// It only formats validated Program output; it never parses instructions or operands.
+#[cfg(test)]
 pub(super) fn render_support(target: super::Target, emit: impl FnOnce(&mut Program)) -> String {
     let mut program = Program::new(self::target(target));
     emit(&mut program);

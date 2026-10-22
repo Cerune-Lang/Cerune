@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.extern fflush
+.globl main
+.extern _setmode
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -50,7 +57,6 @@
 .p2align 3
 .Lcerune_string_7:
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -764,13 +770,15 @@ cerune_fn__equal0_0:
   movq -8(%rdx), %r10
   movq %r10, -32(%rbp)
   jmp .Lcerune_fn_0_block_0
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
   movabsq $0, %rax
   movq %rax, -40(%rbp)
   movq -40(%rbp), %rax
   movq %rax, -48(%rbp)
   jmp .Lcerune_fn_0_block_1
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -56(%rbp)
   movabsq $2, %rax
@@ -786,7 +794,8 @@ cerune_fn__equal0_0:
   testq %rax, %rax
   je .Lcerune_fn_0_block_3
   jmp .Lcerune_fn_0_block_2
-.Lcerune_fn_0_block_2: # mir_block
+.Lcerune_fn_0_block_2:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -80(%rbp)
   movq -16(%rbp), %rax
@@ -810,10 +819,10 @@ cerune_fn__equal0_0:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_0_array_done_11:
   movq -200(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -104(%rbp)
   movq -24(%rbp), %rax
   movq %rax, -112(%rbp)
@@ -838,10 +847,10 @@ cerune_fn__equal0_0:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_0_array_done_12:
   movq -208(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -136(%rbp)
   movq -136(%rbp), %rax
   movq %rax, %rcx
@@ -857,14 +866,16 @@ cerune_fn__equal0_0:
   testq %rax, %rax
   je .Lcerune_fn_0_block_6
   jmp .Lcerune_fn_0_block_5
-.Lcerune_fn_0_block_3: # mir_block
+.Lcerune_fn_0_block_3:
+# mir_block
   movabsq $1, %rax
   movq %rax, -192(%rbp)
   movq -192(%rbp), %rax
   addq $240, %rsp
   popq %rbp
   retq
-.Lcerune_fn_0_block_4: # mir_block
+.Lcerune_fn_0_block_4:
+# mir_block
   movq -48(%rbp), %rax
   movq %rax, -168(%rbp)
   movabsq $1, %rax
@@ -881,28 +892,32 @@ cerune_fn__equal0_0:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_0_integer_ok_13:
   movq %rax, -184(%rbp)
   movq -184(%rbp), %rax
   movq %rax, -48(%rbp)
   jmp .Lcerune_fn_0_block_1
-.Lcerune_fn_0_block_5: # mir_block
+.Lcerune_fn_0_block_5:
+# mir_block
   movabsq $0, %rax
   movq %rax, -160(%rbp)
   movq -160(%rbp), %rax
   addq $240, %rsp
   popq %rbp
   retq
-.Lcerune_fn_0_block_6: # mir_block
+.Lcerune_fn_0_block_6:
+# mir_block
   jmp .Lcerune_fn_0_block_7
-.Lcerune_fn_0_block_7: # mir_block
+.Lcerune_fn_0_block_7:
+# mir_block
   jmp .Lcerune_fn_0_block_4
-.Lcerune_fn_0_block_8: # mir_block
+.Lcerune_fn_0_block_8:
+# mir_block
   jmp .Lcerune_fn_0_block_7
-.Lcerune_fn_0_block_9: # mir_block
+.Lcerune_fn_0_block_9:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__match_bind1_1:
   pushq %rbp
@@ -913,7 +928,8 @@ cerune_fn__match_bind1_1:
   movq -8(%rcx), %r10
   movq %r10, -16(%rbp)
   jmp .Lcerune_fn_1_block_0
-.Lcerune_fn_1_block_0: # mir_block
+.Lcerune_fn_1_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -24(%rbp)
   movq -16(%rbp), %rax
@@ -937,9 +953,9 @@ cerune_fn__match_bind1_1:
   addq $112, %rsp
   popq %rbp
   retq
-.Lcerune_fn_1_block_1: # mir_block
+.Lcerune_fn_1_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__match_bind2_2:
   pushq %rbp
@@ -950,7 +966,8 @@ cerune_fn__match_bind2_2:
   movq -8(%rcx), %r10
   movq %r10, -16(%rbp)
   jmp .Lcerune_fn_2_block_0
-.Lcerune_fn_2_block_0: # mir_block
+.Lcerune_fn_2_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -24(%rbp)
   movq -16(%rbp), %rax
@@ -965,9 +982,9 @@ cerune_fn__match_bind2_2:
   addq $96, %rsp
   popq %rbp
   retq
-.Lcerune_fn_2_block_1: # mir_block
+.Lcerune_fn_2_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__match_select3_3:
   pushq %rbp
@@ -978,7 +995,8 @@ cerune_fn__match_select3_3:
   movq -8(%rcx), %r10
   movq %r10, -16(%rbp)
   jmp .Lcerune_fn_3_block_0
-.Lcerune_fn_3_block_0: # mir_block
+.Lcerune_fn_3_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -24(%rbp)
   movq -16(%rbp), %rax
@@ -998,14 +1016,16 @@ cerune_fn__match_select3_3:
   testq %rax, %rax
   je .Lcerune_fn_3_block_2
   jmp .Lcerune_fn_3_block_1
-.Lcerune_fn_3_block_1: # mir_block
+.Lcerune_fn_3_block_1:
+# mir_block
   movabsq $0, %rax
   movq %rax, -64(%rbp)
   movq -64(%rbp), %rax
   addq $112, %rsp
   popq %rbp
   retq
-.Lcerune_fn_3_block_2: # mir_block
+.Lcerune_fn_3_block_2:
+# mir_block
   movabsq $1, %rax
   movq %rax, -72(%rbp)
   movq -72(%rbp), %rax
@@ -1018,20 +1038,22 @@ cerune_fn__match_select3_3:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_3_integer_ok_7:
   movq %rax, -80(%rbp)
   movq -80(%rbp), %rax
   addq $112, %rsp
   popq %rbp
   retq
-.Lcerune_fn_3_block_3: # mir_block
+.Lcerune_fn_3_block_3:
+# mir_block
   ud2
-.Lcerune_fn_3_block_4: # mir_block
+.Lcerune_fn_3_block_4:
+# mir_block
   jmp .Lcerune_fn_3_block_3
-.Lcerune_fn_3_block_5: # mir_block
+.Lcerune_fn_3_block_5:
+# mir_block
   jmp .Lcerune_fn_3_block_3
-
 .p2align 4
 cerune_fn__match_select4_4:
   pushq %rbp
@@ -1042,7 +1064,8 @@ cerune_fn__match_select4_4:
   movq -8(%rcx), %r10
   movq %r10, -16(%rbp)
   jmp .Lcerune_fn_4_block_0
-.Lcerune_fn_4_block_0: # mir_block
+.Lcerune_fn_4_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -24(%rbp)
   movq -16(%rbp), %rax
@@ -1064,7 +1087,8 @@ cerune_fn__match_select4_4:
   testq %rax, %rax
   je .Lcerune_fn_4_block_2
   jmp .Lcerune_fn_4_block_1
-.Lcerune_fn_4_block_1: # mir_block
+.Lcerune_fn_4_block_1:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -72(%rbp)
   movq -16(%rbp), %rax
@@ -1075,12 +1099,14 @@ cerune_fn__match_select4_4:
   movq -88(%rbp), %rax
   movq %rax, -64(%rbp)
   jmp .Lcerune_fn_4_block_2
-.Lcerune_fn_4_block_2: # mir_block
+.Lcerune_fn_4_block_2:
+# mir_block
   movq -64(%rbp), %rax
   testq %rax, %rax
   je .Lcerune_fn_4_block_4
   jmp .Lcerune_fn_4_block_3
-.Lcerune_fn_4_block_3: # mir_block
+.Lcerune_fn_4_block_3:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -96(%rbp)
   movq -16(%rbp), %rax
@@ -1092,7 +1118,8 @@ cerune_fn__match_select4_4:
   addq $176, %rsp
   popq %rbp
   retq
-.Lcerune_fn_4_block_4: # mir_block
+.Lcerune_fn_4_block_4:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -120(%rbp)
   movq -16(%rbp), %rax
@@ -1104,20 +1131,23 @@ cerune_fn__match_select4_4:
   addq $176, %rsp
   popq %rbp
   retq
-.Lcerune_fn_4_block_5: # mir_block
+.Lcerune_fn_4_block_5:
+# mir_block
   ud2
-.Lcerune_fn_4_block_6: # mir_block
+.Lcerune_fn_4_block_6:
+# mir_block
   jmp .Lcerune_fn_4_block_5
-.Lcerune_fn_4_block_7: # mir_block
+.Lcerune_fn_4_block_7:
+# mir_block
   jmp .Lcerune_fn_4_block_5
-
 .p2align 4
 cerune_fn__match_bind5_5:
   pushq %rbp
   movq %rsp, %rbp
   subq $112, %rsp
   jmp .Lcerune_fn_5_block_0
-.Lcerune_fn_5_block_0: # mir_block
+.Lcerune_fn_5_block_0:
+# mir_block
   movabsq $0, %rax
   movq %rax, -8(%rbp)
   movabsq $7, %rax
@@ -1141,9 +1171,9 @@ cerune_fn__match_bind5_5:
   addq $112, %rsp
   popq %rbp
   retq
-.Lcerune_fn_5_block_1: # mir_block
+.Lcerune_fn_5_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__display6_6:
   pushq %rbp
@@ -1154,7 +1184,8 @@ cerune_fn__display6_6:
   movq -8(%rcx), %r10
   movq %r10, -16(%rbp)
   jmp .Lcerune_fn_6_block_0
-.Lcerune_fn_6_block_0: # mir_block
+.Lcerune_fn_6_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -24(%rbp)
   movq -16(%rbp), %rax
@@ -1174,7 +1205,8 @@ cerune_fn__display6_6:
   testq %rax, %rax
   je .Lcerune_fn_6_block_2
   jmp .Lcerune_fn_6_block_1
-.Lcerune_fn_6_block_1: # mir_block
+.Lcerune_fn_6_block_1:
+# mir_block
   leaq .Lcerune_string_0(%rip), %rax
   movq %rax, -64(%rbp)
   movq -64(%rbp), %rax
@@ -1210,9 +1242,11 @@ cerune_fn__display6_6:
   leaq .Lcerune_output_origin_8(%rip), %r11
   callq cerune_output_string
   jmp .Lcerune_fn_6_block_3
-.Lcerune_fn_6_block_2: # mir_block
+.Lcerune_fn_6_block_2:
+# mir_block
   jmp .Lcerune_fn_6_block_3
-.Lcerune_fn_6_block_3: # mir_block
+.Lcerune_fn_6_block_3:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -120(%rbp)
   movq -16(%rbp), %rax
@@ -1232,7 +1266,8 @@ cerune_fn__display6_6:
   testq %rax, %rax
   je .Lcerune_fn_6_block_5
   jmp .Lcerune_fn_6_block_4
-.Lcerune_fn_6_block_4: # mir_block
+.Lcerune_fn_6_block_4:
+# mir_block
   leaq .Lcerune_string_4(%rip), %rax
   movq %rax, -160(%rbp)
   movq -160(%rbp), %rax
@@ -1252,9 +1287,11 @@ cerune_fn__display6_6:
   leaq .Lcerune_output_origin_11(%rip), %r11
   callq cerune_output_string
   jmp .Lcerune_fn_6_block_6
-.Lcerune_fn_6_block_5: # mir_block
+.Lcerune_fn_6_block_5:
+# mir_block
   jmp .Lcerune_fn_6_block_6
-.Lcerune_fn_6_block_6: # mir_block
+.Lcerune_fn_6_block_6:
+# mir_block
   leaq .Lcerune_string_7(%rip), %rax
   movq %rax, -184(%rbp)
   movq -184(%rbp), %rax
@@ -1264,12 +1301,11 @@ cerune_fn__display6_6:
   addq $224, %rsp
   popq %rbp
   retq
-.Lcerune_fn_6_block_7: # mir_block
+.Lcerune_fn_6_block_7:
+# mir_block
   addq $224, %rsp
   popq %rbp
   retq
-
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -1286,7 +1322,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $1, %rax
   movq %rax, -8(%rbp)
   movabsq $2, %rax
@@ -1340,40 +1377,40 @@ main:
   leaq .Lcerune_output_origin_14(%rip), %r11
   callq cerune_output_i64
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $192, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=52 bytes=70..84\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=52 bytes=70..84\n"
 .Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=55 bytes=70..84\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=55 bytes=70..84\n"
 .Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=63 bytes=70..84\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=63 bytes=70..84\n"
 .Lcerune_failure_3:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=41 bytes=254..256\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=41 bytes=254..256\n"
 .Lcerune_output_origin_4:
-  .asciz " node=95 bytes=87..115\n"
+.asciz " node=95 bytes=87..115\n"
 .Lcerune_output_origin_5:
-  .asciz " node=97 bytes=87..115\n"
+.asciz " node=97 bytes=87..115\n"
 .Lcerune_output_origin_6:
-  .asciz " node=99 bytes=87..115\n"
+.asciz " node=99 bytes=87..115\n"
 .Lcerune_output_origin_7:
-  .asciz " node=102 bytes=87..115\n"
+.asciz " node=102 bytes=87..115\n"
 .Lcerune_output_origin_8:
-  .asciz " node=104 bytes=87..115\n"
+.asciz " node=104 bytes=87..115\n"
 .Lcerune_output_origin_9:
-  .asciz " node=111 bytes=87..115\n"
+.asciz " node=111 bytes=87..115\n"
 .Lcerune_output_origin_10:
-  .asciz " node=113 bytes=87..115\n"
+.asciz " node=113 bytes=87..115\n"
 .Lcerune_output_origin_11:
-  .asciz " node=115 bytes=87..115\n"
+.asciz " node=115 bytes=87..115\n"
 .Lcerune_output_origin_12:
-  .asciz " node=118 bytes=87..115\n"
+.asciz " node=118 bytes=87..115\n"
 .Lcerune_output_origin_13:
-  .asciz " node=4 bytes=64..86\n"
+.asciz " node=4 bytes=64..86\n"
 .Lcerune_output_origin_14:
-  .asciz " node=43 bytes=261..275\n"
+.asciz " node=43 bytes=261..275\n"
