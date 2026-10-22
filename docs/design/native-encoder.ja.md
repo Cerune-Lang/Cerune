@@ -18,7 +18,7 @@ HIR → MIR（明示SSA経由も可）→ x86-64 LIR → 内部ASM
 
 ## SASHIMIへの接続（2026-10-23）
 
-Object生成は[SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/9bb85b60d0967c4d1f3a2881e6b907fa3269229d)のRustライブラリへ接続しました。Cargo.tomlの完全なコミットIDとCargo.lockで版を固定します。隣のSASHIMI cloneは調査・開発用で、Ceruneのビルドにローカルpath依存はありません。初回ビルドには依存ソースの取得が必要ですが、生成した実行ファイルにSASHIMIの別プロセスや動的ライブラリは不要です。
+Object生成は[SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/68edab5badc905c84ad74754f6fa1aed2be5b808)のRustライブラリへ接続しました。Cargo.tomlの完全なコミットIDとCargo.lockで版を固定します。隣のSASHIMI cloneは調査・開発用で、Ceruneのビルドにローカルpath依存はありません。初回ビルドには依存ソースの取得が必要ですが、生成した実行ファイルにSASHIMIの別プロセスや動的ライブラリは不要です。
 
 | 担当 | 責務 |
 | --- | --- |
@@ -26,7 +26,7 @@ Object生成は[SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/9bb85b60d09
 | SASHIMI | 制限されたASMの解析、命令符号化、ラベル解決、再配置、ELF64/COFF出力 |
 | 接続コード | 明示Targetと診断の変換。本文・診断文字列・生成Objectを変えずに返す |
 
-型付き機械命令入力、任意OriginIdからセクション内バイト範囲への対応、安定した公開ABIは未実装です。現段階ではASM文字列を渡し、Ceruneが作った出自ラベルを通常のシンボルとして保持します。固定版には未解決のcerune_ラベルを拒否する既存規則が残ります。これを黙って変更せず、[#183](https://github.com/Cerune-Lang/Cerune/issues/183)で内部／外部シンボルを明示する型付きAPIと合わせて整理します。
+[SASHIMI PR #4](https://github.com/Cerune-Lang/SASHIMI/pull/4)で、シンボル参照を持たない81Opcodeの型付き単一命令APIを実装しました。Ceruneは同PRのコミットへ固定して互換性を検証しています。型付きProgram/Object生成、任意OriginIdからセクション内バイト範囲への対応、安定した公開ABIは未実装です。現段階ではASM文字列を渡し、Ceruneが作った出自ラベルを通常のシンボルとして保持します。固定版には未解決のcerune_ラベルを拒否する既存規則が残ります。これを黙って変更せず、[#183](https://github.com/Cerune-Lang/Cerune/issues/183)で内部／外部シンボルを明示する型付きAPIと合わせて整理します。
 
 [旧エンコーダ](../../tests/support/native_object_reference/README.md)は移行比較用にテスト専用へ移し、本番ビルドには含めません。新機能の追加先にはしません。[接続テスト](../../tests/support/sashimi_connection.rs)は135個の実行用exampleについて、両ターゲット・通常MIR/SSA・出自注釈の有無を組み合わせ、Object全体と失敗診断を旧実装に照合します。この一致は切替前後の同等性であり、双方に共通する不具合を否定する証明ではありません。外部アセンブラとの比較・既知の期待値・リンク後実行も維持します。
 
