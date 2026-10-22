@@ -1,15 +1,25 @@
-//! Nativeの出力操作。ASMと自前Objectは同じ命令列を使います。
-use std::fmt::Write;
-
-// 内部入口: 値はrax/xmm0、改行はr10、出自はr11。
-// フレームの0..48は外部呼出し用、64..96は要求/受理/出自/SIGPIPE、
-// 96..160は作業状態、160..416は本文、416..928は診断。呼出し時は16バイト整列。
+//! Native output construction; ABI, formatting and write semantics remain in Cerune.
+use super::machine::*;
+use Opcode::*;
+use Operand::{Immediate as imm, RipRelative as rip, Symbol as sym};
 pub(super) fn support(linux: bool) -> String {
-    let mut o = String::from(if linux {
-        ".section .rodata\n"
+    let target = if linux {
+        super::Target::X86_64UnknownLinuxGnu
     } else {
-        ".section .rdata,\"dr\"\n"
-    });
+        super::Target::X86_64PcWindowsMsvc
+    };
+    super::machine::render_support(target, append)
+}
+fn label(program: &mut Program, name: &str) {
+    let id = local(program, name);
+    push(program, EntryKind::Label(id));
+}
+// Internal entry: rax/xmm0=value, r10=newline, r11=origin.
+// Frame: 0..48 external arguments, 64..96 requested/accepted/origin/SIGPIPE,
+// 96..160 state, 160..416 body, 416..928 diagnostic. Calls are aligned to 16 bytes.
+pub(super) fn append(program: &mut Program) {
+    let linux = program.target == sashimi_assembler::Target::X86_64UnknownLinuxGnu;
+    push(program, EntryKind::Section(Section::ReadOnlyData));
     for (name, value) in [
         (
             "record",
@@ -20,104 +30,278 @@ pub(super) fn support(linux: bool) -> String {
         ("u64", "%llu"),
         ("f32", "%.9g"),
         ("f64", "%.17g"),
-        ("true", "true\\n"),
-        ("false", "false\\n"),
-        ("lf", "\\n"),
-        ("quote", "\\\""),
+        ("true", "true\n"),
+        ("false", "false\n"),
+        ("lf", "\n"),
+        ("quote", "\""),
     ] {
-        writeln!(o, ".Loutput_{name}:\n  .asciz \"{value}\"").unwrap();
+        label(program, &format!(".Loutput_{name}"));
+        push(program, EntryKind::CString(value.to_owned()));
     }
-    o.push_str(".text\n");
+    push(program, EntryKind::Section(Section::Text));
+
     // 接続のみ通常ABI。比較テストはこの関数の接続先を置換します。
-    o.push_str("cerune_output_write:\n  subq $40, %rsp\n");
-    o.push_str(if linux {
-        "  movq %rsi, %rdx\n  movq %rdi, %rsi\n  movl $1, %edi\n  callq write\n"
+    label(program, "cerune_output_write");
+    instruction(program, Sub64, [imm(40), r64(4)]);
+
+    if linux {
+        instruction(program, Mov64, [r64(6), r64(2)]);
+        instruction(program, Mov64, [r64(7), r64(6)]);
+        instruction(program, Mov32, [imm(1), r32(7)]);
+        let symbol = external(program, "write");
+        instruction(program, Call, [sym(symbol)]);
     } else {
-        "  movl %edx, %r8d\n  movq %rcx, %rdx\n  movl $1, %ecx\n  callq _write\n  shlq $32, %rax\n  sarq $32, %rax\n"
-    });
-    o.push_str("  addq $40, %rsp\n  retq\n");
-    o.push_str(PART_START);
-    o.push_str(if linux {
-        "  movq 56(%rsp), %rdi\n  movq 72(%rsp), %rsi\n"
+        instruction(program, Mov32, [r32(2), r32(8)]);
+        instruction(program, Mov64, [r64(1), r64(2)]);
+        instruction(program, Mov32, [imm(1), r32(1)]);
+        let symbol = external(program, "_write");
+        instruction(program, Call, [sym(symbol)]);
+        instruction(program, ShiftLeft64, [imm(32), r64(0)]);
+        instruction(program, ShiftArithmeticRight64, [imm(32), r64(0)]);
+    }
+    instruction(program, Add64, [imm(40), r64(4)]);
+    instruction(program, Ret, []);
+
+    append_part_start(program);
+    if linux {
+        instruction(program, Mov64, [memory(4, None, 56), r64(7)]);
+        instruction(program, Mov64, [memory(4, None, 72), r64(6)]);
     } else {
-        "  movq 56(%rsp), %rcx\n  movq 72(%rsp), %rdx\n"
-    });
-    o.push_str("  callq cerune_output_write\n  testq %rax, %rax\n  jns .Loutput_part_check\n");
-    o.push_str(if linux {
-        "  callq __errno_location\n"
+        instruction(program, Mov64, [memory(4, None, 56), r64(1)]);
+        instruction(program, Mov64, [memory(4, None, 72), r64(2)]);
+    }
+    let symbol = local(program, "cerune_output_write");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Test64, [r64(0), r64(0)]);
+    let symbol = local(program, ".Loutput_part_check");
+    instruction(program, JumpNs, [sym(symbol)]);
+
+    if linux {
+        let symbol = external(program, "__errno_location");
+        instruction(program, Call, [sym(symbol)]);
     } else {
-        "  callq _errno\n"
-    });
-    o.push_str("  cmpl $4, (%rax)\n  je .Loutput_part_write\n  jmp .Loutput_part_failed\n");
-    o.push_str(PART_END);
-    o.push_str("cerune_output_failed:\n  subq $584, %rsp\n");
-    o.push_str(if linux {
-        "  leaq 64(%rsp), %rdi\n  movl $512, %esi\n  leaq .Loutput_record(%rip), %rdx\n  movq (%r10), %rcx\n  movq 8(%r10), %r8\n  movq 16(%r10), %r9\n  xorl %eax, %eax\n"
+        let symbol = external(program, "_errno");
+        instruction(program, Call, [sym(symbol)]);
+    }
+    instruction(program, Cmp32, [imm(4), memory(0, None, 0)]);
+    let symbol = local(program, ".Loutput_part_write");
+    instruction(program, JumpE, [sym(symbol)]);
+    let symbol = local(program, ".Loutput_part_failed");
+    instruction(program, Jump, [sym(symbol)]);
+
+    append_part_end(program);
+    label(program, "cerune_output_failed");
+    instruction(program, Sub64, [imm(584), r64(4)]);
+
+    if linux {
+        instruction(program, Lea64, [memory(4, None, 64), r64(7)]);
+        instruction(program, Mov32, [imm(512), r32(6)]);
+        let symbol = local(program, ".Loutput_record");
+        instruction(program, Lea64, [rip(symbol), r64(2)]);
+        instruction(program, Mov64, [memory(10, None, 0), r64(1)]);
+        instruction(program, Mov64, [memory(10, None, 8), r64(8)]);
+        instruction(program, Mov64, [memory(10, None, 16), r64(9)]);
+        instruction(program, Xor32, [r32(0), r32(0)]);
     } else {
-        "  leaq 64(%rsp), %rcx\n  movl $512, %edx\n  leaq .Loutput_record(%rip), %r8\n  movq (%r10), %r9\n  movq 8(%r10), %rax\n  movq %rax, 32(%rsp)\n  movq 16(%r10), %rax\n  movq %rax, 40(%rsp)\n"
-    });
-    o.push_str(
-        "  callq snprintf\n  leaq 64(%rsp), %r10\n  callq cerune_output_diagnostic\n  ud2\n",
-    );
+        instruction(program, Lea64, [memory(4, None, 64), r64(1)]);
+        instruction(program, Mov32, [imm(512), r32(2)]);
+        let symbol = local(program, ".Loutput_record");
+        instruction(program, Lea64, [rip(symbol), r64(8)]);
+        instruction(program, Mov64, [memory(10, None, 0), r64(9)]);
+        instruction(program, Mov64, [memory(10, None, 8), r64(0)]);
+        instruction(program, Mov64, [r64(0), memory(4, None, 32)]);
+        instruction(program, Mov64, [memory(10, None, 16), r64(0)]);
+        instruction(program, Mov64, [r64(0), memory(4, None, 40)]);
+    }
+    let symbol = external(program, "snprintf");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Lea64, [memory(4, None, 64), r64(10)]);
+    let symbol = local(program, "cerune_output_diagnostic");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Undefined, []);
+
     // 診断配送の失敗でも停止します。stdioの終了時flushは行いません。
-    o.push_str("cerune_output_diagnostic:\n  subq $40, %rsp\n  testl %eax, %eax\n  jle .Loutput_exit\n  cmpl $512, %eax\n  jb .Loutput_diag_write\n  movl $511, %eax\n.Loutput_diag_write:\n");
-    o.push_str(if linux {
-        "  movl %eax, %edx\n  movq %r10, %rsi\n  movl $2, %edi\n  callq write\n.Loutput_exit:\n  movl $1, %edi\n"
+    label(program, "cerune_output_diagnostic");
+    instruction(program, Sub64, [imm(40), r64(4)]);
+    instruction(program, Test32, [r32(0), r32(0)]);
+    let symbol = local(program, ".Loutput_exit");
+    instruction(program, JumpLe, [sym(symbol)]);
+    instruction(program, Cmp32, [imm(512), r32(0)]);
+    let symbol = local(program, ".Loutput_diag_write");
+    instruction(program, JumpB, [sym(symbol)]);
+    instruction(program, Mov32, [imm(511), r32(0)]);
+    label(program, ".Loutput_diag_write");
+
+    if linux {
+        instruction(program, Mov32, [r32(0), r32(2)]);
+        instruction(program, Mov64, [r64(10), r64(6)]);
+        instruction(program, Mov32, [imm(2), r32(7)]);
+        let symbol = external(program, "write");
+        instruction(program, Call, [sym(symbol)]);
+        label(program, ".Loutput_exit");
+        instruction(program, Mov32, [imm(1), r32(7)]);
     } else {
-        "  movl %eax, %r8d\n  movq %r10, %rdx\n  movl $2, %ecx\n  callq _write\n.Loutput_exit:\n  movl $1, %ecx\n"
-    });
-    o.push_str("  callq _Exit\n  ud2\n");
+        instruction(program, Mov32, [r32(0), r32(8)]);
+        instruction(program, Mov64, [r64(10), r64(2)]);
+        instruction(program, Mov32, [imm(2), r32(1)]);
+        let symbol = external(program, "_write");
+        instruction(program, Call, [sym(symbol)]);
+        label(program, ".Loutput_exit");
+        instruction(program, Mov32, [imm(1), r32(1)]);
+    }
+    let symbol = external(program, "_Exit");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Undefined, []);
+
     for kind in ["i64", "u64", "f32", "f64", "bool", "string", "quoted"] {
-        writeln!(o, "cerune_output_{kind}:").unwrap();
+        label(program, &format!("cerune_output_{kind}"));
+
         if kind == "f32" {
-            o.push_str("  cvtss2sd %xmm0, %xmm0\n");
+            instruction(
+                program,
+                Cvtss2sd,
+                [
+                    Register::xmm(0).expect("fixed output register").into(),
+                    Register::xmm(0).expect("fixed output register").into(),
+                ],
+            );
         }
         if matches!(kind, "f32" | "f64") {
-            o.push_str("  movq %xmm0, %rax\n");
+            instruction(
+                program,
+                Mov64,
+                [
+                    Register::xmm(0).expect("fixed output register").into(),
+                    r64(0),
+                ],
+            );
         }
-        o.push_str("  subq $936, %rsp\n  movq %rax, 96(%rsp)\n  movq %r10, 104(%rsp)\n  movq %r11, 80(%rsp)\n");
+        instruction(program, Sub64, [imm(936), r64(4)]);
+        instruction(program, Mov64, [r64(0), memory(4, None, 96)]);
+        instruction(program, Mov64, [r64(10), memory(4, None, 104)]);
+        instruction(program, Mov64, [r64(11), memory(4, None, 80)]);
+
         let mode = match kind {
             "string" => 1,
             "quoted" => 2,
             _ => 0,
         };
-        writeln!(o, "  movq ${mode}, 152(%rsp)").unwrap();
+        instruction(program, Mov64, [imm(mode), memory(4, None, 152)]);
+
         match kind {
-            "bool" => o.push_str(BOOL),
-            "string" => o.push_str("  movq (%rax), %rax\n  addq 104(%rsp), %rax\n  movq %rax, 64(%rsp)\n  jmp .Loutput_begin\n"),
-            "quoted" => o.push_str(COUNT),
+            "bool" => append_bool(program),
+            "string" => {
+                instruction(program, Mov64, [memory(0, None, 0), r64(0)]);
+                instruction(program, Add64, [memory(4, None, 104), r64(0)]);
+                instruction(program, Mov64, [r64(0), memory(4, None, 64)]);
+                let symbol = local(program, ".Loutput_begin");
+                instruction(program, Jump, [sym(symbol)]);
+            }
+            "quoted" => append_count(program),
             _ => {
                 if linux {
-                    writeln!(o, "  leaq 160(%rsp), %rdi\n  movl $128, %esi\n  leaq .Loutput_{kind}(%rip), %rdx").unwrap();
-                    o.push_str(if matches!(kind, "f32" | "f64") {
-                        "  movl $1, %eax\n"
-                    } else { "  movq %rax, %rcx\n  xorl %eax, %eax\n" });
+                    instruction(program, Lea64, [memory(4, None, 160), r64(7)]);
+                    instruction(program, Mov32, [imm(128), r32(6)]);
+                    let symbol = local(program, &format!(".Loutput_{kind}"));
+                    instruction(program, Lea64, [rip(symbol), r64(2)]);
+
+                    if matches!(kind, "f32" | "f64") {
+                        instruction(program, Mov32, [imm(1), r32(0)]);
+                    } else {
+                        instruction(program, Mov64, [r64(0), r64(1)]);
+                        instruction(program, Xor32, [r32(0), r32(0)]);
+                    }
                 } else {
-                    writeln!(o, "  leaq 160(%rsp), %rcx\n  movl $128, %edx\n  leaq .Loutput_{kind}(%rip), %r8\n  movq %rax, %r9").unwrap();
-                    if matches!(kind, "f32" | "f64") { o.push_str("  movapd %xmm0, %xmm3\n"); }
+                    instruction(program, Lea64, [memory(4, None, 160), r64(1)]);
+                    instruction(program, Mov32, [imm(128), r32(2)]);
+                    let symbol = local(program, &format!(".Loutput_{kind}"));
+                    instruction(program, Lea64, [rip(symbol), r64(8)]);
+                    instruction(program, Mov64, [r64(0), r64(9)]);
+
+                    if matches!(kind, "f32" | "f64") {
+                        instruction(
+                            program,
+                            Movapd,
+                            [
+                                Register::xmm(0).expect("fixed output register").into(),
+                                Register::xmm(3).expect("fixed output register").into(),
+                            ],
+                        );
+                    }
                 }
-                o.push_str("  callq snprintf\n  cmpl $127, %eax\n  jae .Loutput_format_failed\n  leaq 160(%rsp), %rcx\n  movb $10, (%rcx,%rax)\n  addq 104(%rsp), %rax\n  movq %rax, 64(%rsp)\n  movq %rcx, 96(%rsp)\n  jmp .Loutput_begin\n");
+                let symbol = external(program, "snprintf");
+                instruction(program, Call, [sym(symbol)]);
+                instruction(program, Cmp32, [imm(127), r32(0)]);
+                let symbol = local(program, ".Loutput_format_failed");
+                instruction(program, JumpAe, [sym(symbol)]);
+                instruction(program, Lea64, [memory(4, None, 160), r64(1)]);
+                instruction(program, Mov8, [imm(10), memory(1, Some(0), 0)]);
+                instruction(program, Add64, [memory(4, None, 104), r64(0)]);
+                instruction(program, Mov64, [r64(0), memory(4, None, 64)]);
+                instruction(program, Mov64, [r64(1), memory(4, None, 96)]);
+                let symbol = local(program, ".Loutput_begin");
+                instruction(program, Jump, [sym(symbol)]);
             }
         }
     }
-    o.push_str(".Loutput_format_failed:\n");
-    o.push_str(if linux {
-        "  leaq 416(%rsp), %rdi\n  movl $512, %esi\n  leaq .Loutput_format_error(%rip), %rdx\n  movq 80(%rsp), %rcx\n  xorl %eax, %eax\n"
+    label(program, ".Loutput_format_failed");
+
+    if linux {
+        instruction(program, Lea64, [memory(4, None, 416), r64(7)]);
+        instruction(program, Mov32, [imm(512), r32(6)]);
+        let symbol = local(program, ".Loutput_format_error");
+        instruction(program, Lea64, [rip(symbol), r64(2)]);
+        instruction(program, Mov64, [memory(4, None, 80), r64(1)]);
+        instruction(program, Xor32, [r32(0), r32(0)]);
     } else {
-        "  leaq 416(%rsp), %rcx\n  movl $512, %edx\n  leaq .Loutput_format_error(%rip), %r8\n  movq 80(%rsp), %r9\n"
-    });
-    o.push_str("  callq snprintf\n  leaq 416(%rsp), %r10\n  callq cerune_output_diagnostic\n  ud2\n.Loutput_begin:\n  movq $0, 72(%rsp)\n");
-    if linux {
-        o.push_str("  movl $13, %edi\n  movl $1, %esi\n  callq signal\n  cmpq $-1, %rax\n  je .Loutput_failed\n  movq %rax, 88(%rsp)\n");
+        instruction(program, Lea64, [memory(4, None, 416), r64(1)]);
+        instruction(program, Mov32, [imm(512), r32(2)]);
+        let symbol = local(program, ".Loutput_format_error");
+        instruction(program, Lea64, [rip(symbol), r64(8)]);
+        instruction(program, Mov64, [memory(4, None, 80), r64(9)]);
     }
-    o.push_str(DISPATCH);
-    o.push_str(".Loutput_end:\n");
+    let symbol = external(program, "snprintf");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Lea64, [memory(4, None, 416), r64(10)]);
+    let symbol = local(program, "cerune_output_diagnostic");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Undefined, []);
+    label(program, ".Loutput_begin");
+    instruction(program, Mov64, [imm(0), memory(4, None, 72)]);
+
     if linux {
-        o.push_str("  movl $13, %edi\n  movq 88(%rsp), %rsi\n  callq signal\n  cmpq $-1, %rax\n  je .Loutput_failed\n");
+        instruction(program, Mov32, [imm(13), r32(7)]);
+        instruction(program, Mov32, [imm(1), r32(6)]);
+        let symbol = external(program, "signal");
+        instruction(program, Call, [sym(symbol)]);
+        instruction(program, Cmp64, [imm(-1), r64(0)]);
+        let symbol = local(program, ".Loutput_failed");
+        instruction(program, JumpE, [sym(symbol)]);
+        instruction(program, Mov64, [r64(0), memory(4, None, 88)]);
     }
-    o.push_str("  addq $936, %rsp\n  retq\n.Loutput_failed:\n  leaq 64(%rsp), %r10\n  callq cerune_output_failed\n  ud2\n");
+    append_dispatch(program);
+    label(program, ".Loutput_end");
+
+    if linux {
+        instruction(program, Mov32, [imm(13), r32(7)]);
+        instruction(program, Mov64, [memory(4, None, 88), r64(6)]);
+        let symbol = external(program, "signal");
+        instruction(program, Call, [sym(symbol)]);
+        instruction(program, Cmp64, [imm(-1), r64(0)]);
+        let symbol = local(program, ".Loutput_failed");
+        instruction(program, JumpE, [sym(symbol)]);
+    }
+    instruction(program, Add64, [imm(936), r64(4)]);
+    instruction(program, Ret, []);
+    label(program, ".Loutput_failed");
+    instruction(program, Lea64, [memory(4, None, 64), r64(10)]);
+    let symbol = local(program, "cerune_output_failed");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Undefined, []);
+
     // バイトの変換のみ。OS接続やプログラム状態へアクセスしません。
-    o.push_str("cerune_output_escape:\n");
+    label(program, "cerune_output_escape");
+
     let escapes: Vec<_> = (0..=127u8)
         .filter_map(|b| {
             let text = match b {
@@ -134,148 +318,191 @@ pub(super) fn support(linux: bool) -> String {
         })
         .collect();
     for (b, _) in &escapes {
-        writeln!(o, "  cmpl ${b}, %eax\n  je .Loutput_escape_{b}").unwrap();
+        instruction(program, Cmp32, [imm(i128::from(*b)), r32(0)]);
+        let symbol = local(program, &format!(".Loutput_escape_{b}"));
+        instruction(program, JumpE, [sym(symbol)]);
     }
-    o.push_str("  movb %al, (%rcx)\n  movl $1, %eax\n  retq\n");
+    instruction(program, Mov8, [r8(0), memory(1, None, 0)]);
+    instruction(program, Mov32, [imm(1), r32(0)]);
+    instruction(program, Ret, []);
+
     for (b, text) in escapes {
-        writeln!(o, ".Loutput_escape_{b}:").unwrap();
+        label(program, &format!(".Loutput_escape_{b}"));
+
         for (i, c) in text.bytes().enumerate() {
-            writeln!(o, "  movb ${c}, {i}(%rcx)").unwrap();
+            instruction(
+                program,
+                Mov8,
+                [imm(i128::from(c)), memory(1, None, i as i32)],
+            );
         }
-        writeln!(o, "  movl ${}, %eax\n  retq", text.len()).unwrap();
+        instruction(program, Mov32, [imm(text.len() as i128), r32(0)]);
+        instruction(program, Ret, []);
     }
-    o
 }
-const PART_START: &str = r#"
-cerune_output_part:
-  subq $88, %rsp
-  movq %r10, 48(%rsp)
-  movq %rax, 56(%rsp)
-  movq %rdx, 64(%rsp)
-.Loutput_part_loop:
-  cmpq $0, 64(%rsp)
-  je .Loutput_part_done
-  movq 64(%rsp), %rax
-  cmpq $65536, %rax
-  jbe .Loutput_part_bound
-  movl $65536, %eax
-.Loutput_part_bound:
-  movq %rax, 72(%rsp)
-.Loutput_part_write:
-"#;
-const PART_END: &str = r#"
-.Loutput_part_check:
-  testq %rax, %rax
-  je .Loutput_part_failed
-  cmpq 72(%rsp), %rax
-  ja .Loutput_part_failed
-  movq 48(%rsp), %r10
-  addq %rax, 8(%r10)
-  addq %rax, 56(%rsp)
-  subq %rax, 64(%rsp)
-  jmp .Loutput_part_loop
-.Loutput_part_done:
-  addq $88, %rsp
-  retq
-.Loutput_part_failed:
-  movq 48(%rsp), %r10
-  callq cerune_output_failed
-  ud2
-"#;
-const BOOL: &str = r#"
-  testq %rax, %rax
-  je .Loutput_bool_false
-  leaq .Loutput_true(%rip), %rax
-  movq $4, 64(%rsp)
-  jmp .Loutput_bool_ready
-.Loutput_bool_false:
-  leaq .Loutput_false(%rip), %rax
-  movq $5, 64(%rsp)
-.Loutput_bool_ready:
-  movq %rax, 96(%rsp)
-  movq 104(%rsp), %rax
-  addq %rax, 64(%rsp)
-  jmp .Loutput_begin
-"#;
-const COUNT: &str = r#"
-  movq $0, 112(%rsp)
-  movq 104(%rsp), %rax
-  addq $2, %rax
-  movq %rax, 64(%rsp)
-.Loutput_count:
-  movq 96(%rsp), %rdx
-  movq 112(%rsp), %rax
-  cmpq (%rdx), %rax
-  je .Loutput_begin
-  movzbl 8(%rdx,%rax), %eax
-  leaq 160(%rsp), %rcx
-  callq cerune_output_escape
-  addq %rax, 64(%rsp)
-  incq 112(%rsp)
-  jmp .Loutput_count
-"#;
-const DISPATCH: &str = r#"
-  cmpq $2, 152(%rsp)
-  je .Loutput_quoted
-  cmpq $1, 152(%rsp)
-  je .Loutput_raw
-  movq 96(%rsp), %rax
-  movq 64(%rsp), %rdx
-  leaq 64(%rsp), %r10
-  callq cerune_output_part
-  jmp .Loutput_end
-.Loutput_raw:
-  movq 96(%rsp), %rax
-  movq (%rax), %rdx
-  addq $8, %rax
-  leaq 64(%rsp), %r10
-  callq cerune_output_part
-  jmp .Loutput_newline
-.Loutput_quoted:
-  leaq .Loutput_quote(%rip), %rax
-  movl $1, %edx
-  leaq 64(%rsp), %r10
-  callq cerune_output_part
-  movq $0, 112(%rsp)
-  movq $0, 120(%rsp)
-.Loutput_quote_loop:
-  movq 96(%rsp), %rdx
-  movq 112(%rsp), %rax
-  cmpq (%rdx), %rax
-  je .Loutput_quote_tail
-  cmpq $250, 120(%rsp)
-  jbe .Loutput_quote_byte
-  leaq 160(%rsp), %rax
-  movq 120(%rsp), %rdx
-  leaq 64(%rsp), %r10
-  callq cerune_output_part
-  movq $0, 120(%rsp)
-.Loutput_quote_byte:
-  movq 96(%rsp), %rdx
-  movq 112(%rsp), %rax
-  movzbl 8(%rdx,%rax), %eax
-  leaq 160(%rsp), %rcx
-  addq 120(%rsp), %rcx
-  callq cerune_output_escape
-  addq %rax, 120(%rsp)
-  incq 112(%rsp)
-  jmp .Loutput_quote_loop
-.Loutput_quote_tail:
-  leaq 160(%rsp), %rax
-  movq 120(%rsp), %rdx
-  leaq 64(%rsp), %r10
-  callq cerune_output_part
-  leaq .Loutput_quote(%rip), %rax
-  movl $1, %edx
-  leaq 64(%rsp), %r10
-  callq cerune_output_part
-.Loutput_newline:
-  leaq .Loutput_lf(%rip), %rax
-  movq 104(%rsp), %rdx
-  leaq 64(%rsp), %r10
-  callq cerune_output_part
-  jmp .Loutput_end
-"#;
+fn append_part_start(program: &mut Program) {
+    label(program, "cerune_output_part");
+    instruction(program, Sub64, [imm(88), r64(4)]);
+    instruction(program, Mov64, [r64(10), memory(4, None, 48)]);
+    instruction(program, Mov64, [r64(0), memory(4, None, 56)]);
+    instruction(program, Mov64, [r64(2), memory(4, None, 64)]);
+    label(program, ".Loutput_part_loop");
+    instruction(program, Cmp64, [imm(0), memory(4, None, 64)]);
+    let symbol = local(program, ".Loutput_part_done");
+    instruction(program, JumpE, [sym(symbol)]);
+    instruction(program, Mov64, [memory(4, None, 64), r64(0)]);
+    instruction(program, Cmp64, [imm(65536), r64(0)]);
+    let symbol = local(program, ".Loutput_part_bound");
+    instruction(program, JumpBe, [sym(symbol)]);
+    instruction(program, Mov32, [imm(65536), r32(0)]);
+    label(program, ".Loutput_part_bound");
+    instruction(program, Mov64, [r64(0), memory(4, None, 72)]);
+    label(program, ".Loutput_part_write");
+}
+fn append_part_end(program: &mut Program) {
+    label(program, ".Loutput_part_check");
+    instruction(program, Test64, [r64(0), r64(0)]);
+    let symbol = local(program, ".Loutput_part_failed");
+    instruction(program, JumpE, [sym(symbol)]);
+    instruction(program, Cmp64, [memory(4, None, 72), r64(0)]);
+    let symbol = local(program, ".Loutput_part_failed");
+    instruction(program, JumpA, [sym(symbol)]);
+    instruction(program, Mov64, [memory(4, None, 48), r64(10)]);
+    instruction(program, Add64, [r64(0), memory(10, None, 8)]);
+    instruction(program, Add64, [r64(0), memory(4, None, 56)]);
+    instruction(program, Sub64, [r64(0), memory(4, None, 64)]);
+    let symbol = local(program, ".Loutput_part_loop");
+    instruction(program, Jump, [sym(symbol)]);
+    label(program, ".Loutput_part_done");
+    instruction(program, Add64, [imm(88), r64(4)]);
+    instruction(program, Ret, []);
+    label(program, ".Loutput_part_failed");
+    instruction(program, Mov64, [memory(4, None, 48), r64(10)]);
+    let symbol = local(program, "cerune_output_failed");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Undefined, []);
+}
+fn append_bool(program: &mut Program) {
+    instruction(program, Test64, [r64(0), r64(0)]);
+    let symbol = local(program, ".Loutput_bool_false");
+    instruction(program, JumpE, [sym(symbol)]);
+    let symbol = local(program, ".Loutput_true");
+    instruction(program, Lea64, [rip(symbol), r64(0)]);
+    instruction(program, Mov64, [imm(4), memory(4, None, 64)]);
+    let symbol = local(program, ".Loutput_bool_ready");
+    instruction(program, Jump, [sym(symbol)]);
+    label(program, ".Loutput_bool_false");
+    let symbol = local(program, ".Loutput_false");
+    instruction(program, Lea64, [rip(symbol), r64(0)]);
+    instruction(program, Mov64, [imm(5), memory(4, None, 64)]);
+    label(program, ".Loutput_bool_ready");
+    instruction(program, Mov64, [r64(0), memory(4, None, 96)]);
+    instruction(program, Mov64, [memory(4, None, 104), r64(0)]);
+    instruction(program, Add64, [r64(0), memory(4, None, 64)]);
+    let symbol = local(program, ".Loutput_begin");
+    instruction(program, Jump, [sym(symbol)]);
+}
+fn append_count(program: &mut Program) {
+    instruction(program, Mov64, [imm(0), memory(4, None, 112)]);
+    instruction(program, Mov64, [memory(4, None, 104), r64(0)]);
+    instruction(program, Add64, [imm(2), r64(0)]);
+    instruction(program, Mov64, [r64(0), memory(4, None, 64)]);
+    label(program, ".Loutput_count");
+    instruction(program, Mov64, [memory(4, None, 96), r64(2)]);
+    instruction(program, Mov64, [memory(4, None, 112), r64(0)]);
+    instruction(program, Cmp64, [memory(2, None, 0), r64(0)]);
+    let symbol = local(program, ".Loutput_begin");
+    instruction(program, JumpE, [sym(symbol)]);
+    instruction(program, ZeroExtend8To32, [memory(2, Some(0), 8), r32(0)]);
+    instruction(program, Lea64, [memory(4, None, 160), r64(1)]);
+    let symbol = local(program, "cerune_output_escape");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Add64, [r64(0), memory(4, None, 64)]);
+    instruction(program, Inc64, [memory(4, None, 112)]);
+    let symbol = local(program, ".Loutput_count");
+    instruction(program, Jump, [sym(symbol)]);
+}
+fn append_dispatch(program: &mut Program) {
+    instruction(program, Cmp64, [imm(2), memory(4, None, 152)]);
+    let symbol = local(program, ".Loutput_quoted");
+    instruction(program, JumpE, [sym(symbol)]);
+    instruction(program, Cmp64, [imm(1), memory(4, None, 152)]);
+    let symbol = local(program, ".Loutput_raw");
+    instruction(program, JumpE, [sym(symbol)]);
+    instruction(program, Mov64, [memory(4, None, 96), r64(0)]);
+    instruction(program, Mov64, [memory(4, None, 64), r64(2)]);
+    instruction(program, Lea64, [memory(4, None, 64), r64(10)]);
+    let symbol = local(program, "cerune_output_part");
+    instruction(program, Call, [sym(symbol)]);
+    let symbol = local(program, ".Loutput_end");
+    instruction(program, Jump, [sym(symbol)]);
+    label(program, ".Loutput_raw");
+    instruction(program, Mov64, [memory(4, None, 96), r64(0)]);
+    instruction(program, Mov64, [memory(0, None, 0), r64(2)]);
+    instruction(program, Add64, [imm(8), r64(0)]);
+    instruction(program, Lea64, [memory(4, None, 64), r64(10)]);
+    let symbol = local(program, "cerune_output_part");
+    instruction(program, Call, [sym(symbol)]);
+    let symbol = local(program, ".Loutput_newline");
+    instruction(program, Jump, [sym(symbol)]);
+    label(program, ".Loutput_quoted");
+    let symbol = local(program, ".Loutput_quote");
+    instruction(program, Lea64, [rip(symbol), r64(0)]);
+    instruction(program, Mov32, [imm(1), r32(2)]);
+    instruction(program, Lea64, [memory(4, None, 64), r64(10)]);
+    let symbol = local(program, "cerune_output_part");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Mov64, [imm(0), memory(4, None, 112)]);
+    instruction(program, Mov64, [imm(0), memory(4, None, 120)]);
+    label(program, ".Loutput_quote_loop");
+    instruction(program, Mov64, [memory(4, None, 96), r64(2)]);
+    instruction(program, Mov64, [memory(4, None, 112), r64(0)]);
+    instruction(program, Cmp64, [memory(2, None, 0), r64(0)]);
+    let symbol = local(program, ".Loutput_quote_tail");
+    instruction(program, JumpE, [sym(symbol)]);
+    instruction(program, Cmp64, [imm(250), memory(4, None, 120)]);
+    let symbol = local(program, ".Loutput_quote_byte");
+    instruction(program, JumpBe, [sym(symbol)]);
+    instruction(program, Lea64, [memory(4, None, 160), r64(0)]);
+    instruction(program, Mov64, [memory(4, None, 120), r64(2)]);
+    instruction(program, Lea64, [memory(4, None, 64), r64(10)]);
+    let symbol = local(program, "cerune_output_part");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Mov64, [imm(0), memory(4, None, 120)]);
+    label(program, ".Loutput_quote_byte");
+    instruction(program, Mov64, [memory(4, None, 96), r64(2)]);
+    instruction(program, Mov64, [memory(4, None, 112), r64(0)]);
+    instruction(program, ZeroExtend8To32, [memory(2, Some(0), 8), r32(0)]);
+    instruction(program, Lea64, [memory(4, None, 160), r64(1)]);
+    instruction(program, Add64, [memory(4, None, 120), r64(1)]);
+    let symbol = local(program, "cerune_output_escape");
+    instruction(program, Call, [sym(symbol)]);
+    instruction(program, Add64, [r64(0), memory(4, None, 120)]);
+    instruction(program, Inc64, [memory(4, None, 112)]);
+    let symbol = local(program, ".Loutput_quote_loop");
+    instruction(program, Jump, [sym(symbol)]);
+    label(program, ".Loutput_quote_tail");
+    instruction(program, Lea64, [memory(4, None, 160), r64(0)]);
+    instruction(program, Mov64, [memory(4, None, 120), r64(2)]);
+    instruction(program, Lea64, [memory(4, None, 64), r64(10)]);
+    let symbol = local(program, "cerune_output_part");
+    instruction(program, Call, [sym(symbol)]);
+    let symbol = local(program, ".Loutput_quote");
+    instruction(program, Lea64, [rip(symbol), r64(0)]);
+    instruction(program, Mov32, [imm(1), r32(2)]);
+    instruction(program, Lea64, [memory(4, None, 64), r64(10)]);
+    let symbol = local(program, "cerune_output_part");
+    instruction(program, Call, [sym(symbol)]);
+    label(program, ".Loutput_newline");
+    let symbol = local(program, ".Loutput_lf");
+    instruction(program, Lea64, [rip(symbol), r64(0)]);
+    instruction(program, Mov64, [memory(4, None, 104), r64(2)]);
+    instruction(program, Lea64, [memory(4, None, 64), r64(10)]);
+    let symbol = local(program, "cerune_output_part");
+    instruction(program, Call, [sym(symbol)]);
+    let symbol = local(program, ".Loutput_end");
+    instruction(program, Jump, [sym(symbol)]);
+}
 
 // Generated native objects are ELF/COFF; Darwin Mach-O support is separate.
 #[cfg(all(test, any(target_os = "linux", target_os = "windows")))]
@@ -299,3 +526,7 @@ mod native_object_output {
     }
     include!("../../../tests/support/generated_output.rs");
 }
+
+#[cfg(test)]
+#[path = "../../../tests/support/typed_native_output.rs"]
+pub(super) mod tests;

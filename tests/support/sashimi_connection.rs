@@ -54,6 +54,7 @@ fn all_examples_keep_exact_objects_with_both_targets_ssa_and_origins() {
                     let asm = emit_asm_from_lir(&lir, origins).unwrap();
                     let baseline = super::super::data::tests::with_frozen_data(&asm, &lir);
                     let baseline = super::super::heap::tests::with_frozen_owners(&baseline, &lir);
+                    let baseline = super::super::output::tests::with_frozen_output(&baseline, &lir);
                     assert!(
                         compare(&asm, &baseline, target, &file.display().to_string()),
                         "{} must assemble",

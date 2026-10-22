@@ -19,25 +19,25 @@
 .text
 .section .rdata,"dr"
 .Loutput_record:
-  .asciz "cerune: io-v1 operation=write requested=%llu accepted=%llu%s"
+.asciz "cerune: io-v1 operation=write requested=%llu accepted=%llu%s"
 .Loutput_format_error:
-  .asciz "cerune: output formatting failed%s"
+.asciz "cerune: output formatting failed%s"
 .Loutput_i64:
-  .asciz "%lld"
+.asciz "%lld"
 .Loutput_u64:
-  .asciz "%llu"
+.asciz "%llu"
 .Loutput_f32:
-  .asciz "%.9g"
+.asciz "%.9g"
 .Loutput_f64:
-  .asciz "%.17g"
+.asciz "%.17g"
 .Loutput_true:
-  .asciz "true\n"
+.asciz "true\n"
 .Loutput_false:
-  .asciz "false\n"
+.asciz "false\n"
 .Loutput_lf:
-  .asciz "\n"
+.asciz "\n"
 .Loutput_quote:
-  .asciz "\""
+.asciz "\""
 .text
 cerune_output_write:
   subq $40, %rsp
@@ -49,7 +49,6 @@ cerune_output_write:
   sarq $32, %rax
   addq $40, %rsp
   retq
-
 cerune_output_part:
   subq $88, %rsp
   movq %r10, 48(%rsp)
@@ -71,10 +70,9 @@ cerune_output_part:
   testq %rax, %rax
   jns .Loutput_part_check
   callq _errno
-  cmpl $4, (%rax)
+  cmpl $4, 0(%rax)
   je .Loutput_part_write
   jmp .Loutput_part_failed
-
 .Loutput_part_check:
   testq %rax, %rax
   je .Loutput_part_failed
@@ -97,7 +95,7 @@ cerune_output_failed:
   leaq 64(%rsp), %rcx
   movl $512, %edx
   leaq .Loutput_record(%rip), %r8
-  movq (%r10), %r9
+  movq 0(%r10), %r9
   movq 8(%r10), %rax
   movq %rax, 32(%rsp)
   movq 16(%r10), %rax
@@ -136,7 +134,7 @@ cerune_output_i64:
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
-  movb $10, (%rcx,%rax)
+  movb $10, 0(%rcx,%rax,1)
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   movq %rcx, 96(%rsp)
@@ -155,7 +153,7 @@ cerune_output_u64:
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
-  movb $10, (%rcx,%rax)
+  movb $10, 0(%rcx,%rax,1)
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   movq %rcx, 96(%rsp)
@@ -177,7 +175,7 @@ cerune_output_f32:
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
-  movb $10, (%rcx,%rax)
+  movb $10, 0(%rcx,%rax,1)
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   movq %rcx, 96(%rsp)
@@ -198,7 +196,7 @@ cerune_output_f64:
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
-  movb $10, (%rcx,%rax)
+  movb $10, 0(%rcx,%rax,1)
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   movq %rcx, 96(%rsp)
@@ -209,7 +207,6 @@ cerune_output_bool:
   movq %r10, 104(%rsp)
   movq %r11, 80(%rsp)
   movq $0, 152(%rsp)
-
   testq %rax, %rax
   je .Loutput_bool_false
   leaq .Loutput_true(%rip), %rax
@@ -229,7 +226,7 @@ cerune_output_string:
   movq %r10, 104(%rsp)
   movq %r11, 80(%rsp)
   movq $1, 152(%rsp)
-  movq (%rax), %rax
+  movq 0(%rax), %rax
   addq 104(%rsp), %rax
   movq %rax, 64(%rsp)
   jmp .Loutput_begin
@@ -239,7 +236,6 @@ cerune_output_quoted:
   movq %r10, 104(%rsp)
   movq %r11, 80(%rsp)
   movq $2, 152(%rsp)
-
   movq $0, 112(%rsp)
   movq 104(%rsp), %rax
   addq $2, %rax
@@ -247,9 +243,9 @@ cerune_output_quoted:
 .Loutput_count:
   movq 96(%rsp), %rdx
   movq 112(%rsp), %rax
-  cmpq (%rdx), %rax
+  cmpq 0(%rdx), %rax
   je .Loutput_begin
-  movzbl 8(%rdx,%rax), %eax
+  movzbl 8(%rdx,%rax,1), %eax
   leaq 160(%rsp), %rcx
   callq cerune_output_escape
   addq %rax, 64(%rsp)
@@ -266,7 +262,6 @@ cerune_output_quoted:
   ud2
 .Loutput_begin:
   movq $0, 72(%rsp)
-
   cmpq $2, 152(%rsp)
   je .Loutput_quoted
   cmpq $1, 152(%rsp)
@@ -278,7 +273,7 @@ cerune_output_quoted:
   jmp .Loutput_end
 .Loutput_raw:
   movq 96(%rsp), %rax
-  movq (%rax), %rdx
+  movq 0(%rax), %rdx
   addq $8, %rax
   leaq 64(%rsp), %r10
   callq cerune_output_part
@@ -293,7 +288,7 @@ cerune_output_quoted:
 .Loutput_quote_loop:
   movq 96(%rsp), %rdx
   movq 112(%rsp), %rax
-  cmpq (%rdx), %rax
+  cmpq 0(%rdx), %rax
   je .Loutput_quote_tail
   cmpq $250, 120(%rsp)
   jbe .Loutput_quote_byte
@@ -305,7 +300,7 @@ cerune_output_quoted:
 .Loutput_quote_byte:
   movq 96(%rsp), %rdx
   movq 112(%rsp), %rax
-  movzbl 8(%rdx,%rax), %eax
+  movzbl 8(%rdx,%rax,1), %eax
   leaq 160(%rsp), %rcx
   addq 120(%rsp), %rcx
   callq cerune_output_escape
@@ -405,7 +400,7 @@ cerune_output_escape:
   je .Loutput_escape_92
   cmpl $127, %eax
   je .Loutput_escape_127
-  movb %al, (%rcx)
+  movb %al, 0(%rcx)
   movl $1, %eax
   retq
 .Loutput_escape_0:
