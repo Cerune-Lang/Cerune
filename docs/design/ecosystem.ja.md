@@ -7,6 +7,7 @@
 | 担当 | プロジェクト | 現在地 |
 | --- | --- | --- |
 | 言語・意味・実行 | [Cerune](https://github.com/Cerune-Lang/Cerune) | 共通IR、実行器、生成経路、所有・停止・観測の契約 |
+| 命令符号化・Object生成 | [SASHIMI](https://github.com/Cerune-Lang/SASHIMI) | 2026-10-23追記：Rust版を固定コミットでCeruneへ接続。型付き入力・出自範囲API・Cerune言語への移植は後続 |
 | 観測UI | [Tint-St](https://github.com/Cerune-Lang/Tint-St) | CLI経由の表示・実行とブラウザー用Wasm実験。言語意味論の複製はしない |
 | 編集支援 | [Cerune-vscode](https://github.com/Cerune-Lang/Cerune-vscode) | 構文色分け・snippet。処理系やLSPの完成とは区別 |
 | 差分検証 | [Parallax](https://github.com/Cerune-Lang/Parallax) | IR/MIR/VM、固定seed、有限の式・分岐・反復・配列の生成、期待値と停止の比較 |
@@ -41,6 +42,6 @@ WhitebaseはこのOrganizationの一覧には含まれません。外部の計�
 
 ## 次の本体作業
 
-#171のWAT i32/f64公開・JS/TS生成・HTML例は統合済みで、初版を一区切りにします。次は[引数と数値の読取りの設計](dogfooding-inputs.ja.md)、その後に限定的なファイルI/O・子プロセス操作です。Native buildは独立して着手でき、これらの前提ではありません。
+#171のWAT i32/f64公開・JS/TS生成・HTML例は統合済みで、初版を一区切りにします。引数取得は全経路へ統合済みです。次は[SASHIMI接続とアセンブラ分離](native-encoder.ja.md)を優先し、整数読取り・optional let＋fmt・配布・再帰へ[本体ロードマップ](language-roadmap.ja.md)の順で進みます。Native buildは独立して着手でき、これらの前提ではありません。
 
 コンパイラ配布版v0.1.0とmasterは異なります。#163の丸め修正、#164の入力上限、#170/#171のライブラリ公開などはv0.1.0より後です。例・サイト・周辺CIで使用版を区別し、masterの機能を配布済みと記載しません。

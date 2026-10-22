@@ -63,6 +63,8 @@ Responsibilities and identifier meanings remain explicit.
 6. HIR retains `if`, `while`, `for`, `break`, and `continue`, including separate for initializer/condition/body/update. MIR, bytecode, and backend lowering introduce branches, merges, updates, back edges, and exits.
 7. HIR statement/expression `NodeId` values are unique within a compilation. Element identity is distinct from source-location `Span`; MIR block/instruction IDs use separate namespaces.
 
+Object encoding and ELF/COFF writing use pinned [SASHIMI](native-encoder.en.md); Cerune owns instruction selection, ABI, runtime and source correspondence.
+
 Rust module layout varies by route. Native uses MIR→LIR→ASM; other generating backends use HIR→backend IR→artifact.
 
 ## Cerune IR

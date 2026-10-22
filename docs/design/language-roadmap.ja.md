@@ -2,16 +2,17 @@
 
 [English](language-roadmap.en.md)
 
-2026-10-21時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
+2026-10-23時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
 
 [以前の監査記録](development-status.ja.md)は2026-10-11時点の履歴です。現在の状態はこのページで管理します。
 
 ## 本体の開発順
 
-**現在はプログラム引数の取得を実装中（[#174](https://github.com/Cerune-Lang/Cerune/issues/174)）です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
+**引数取得は全既存経路へ統合済みです。整数読取りの前に、[#183](https://github.com/Cerune-Lang/Cerune/issues/183)のアセンブラ分離を進めます。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
+| 先行整理 | [SASHIMI接続・アセンブラ分離](native-encoder.ja.md)（#183） | 固定版のObject同等性を維持し、型付き機械命令と出自範囲の責務を整理 | Rust版接続と移行比較を実装。型付き入力・OriginId対応は後続 |
 | 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) → [整数読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 空・欠落・書式・範囲外を区別し、引数でseedを指定するexampleを全経路で比較 | 引数取得は4実行器・CLI・生成C・LLVM・QBE・WAT・Nativeに対応。次は整数読取り |
 | 2 | [optional let＋fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | letの保持・表示・非表示、コメント保持、整形の冪等性と意味の一致。[infer省略等](https://github.com/Cerune-Lang/Cerune/issues/105)との整合を確認 | 同時に設計・実装する。未実装 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | 責務整理済み・未実装 |

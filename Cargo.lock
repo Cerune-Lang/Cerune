@@ -5,3 +5,11 @@ version = 4
 [[package]]
 name = "cerune-lang"
 version = "0.1.0"
+dependencies = [
+ "sashimi-assembler",
+]
+
+[[package]]
+name = "sashimi-assembler"
+version = "0.1.0"
+source = "git+https://github.com/Cerune-Lang/SASHIMI.git?rev=9bb85b60d0967c4d1f3a2881e6b907fa3269229d#9bb85b60d0967c4d1f3a2881e6b907fa3269229d"

@@ -7,6 +7,7 @@ Inventory of the [Organization](https://github.com/Cerune-Lang) on 2026-10-20. T
 | Responsibility | Project | Current scope |
 | --- | --- | --- |
 | Language, semantics, execution | [Cerune](https://github.com/Cerune-Lang/Cerune) | Common IR, executors, generated routes, ownership/failure/observation contracts |
+| Instruction encoding / object generation | [SASHIMI](https://github.com/Cerune-Lang/SASHIMI) | Added 2026-10-23: pinned Rust connection in Cerune; typed input, origin-range API and porting to Cerune remain future work |
 | Observation UI | [Tint-St](https://github.com/Cerune-Lang/Tint-St) | CLI-backed display/execution and browser Wasm experiment; no duplicated language semantics |
 | Editing | [Cerune-vscode](https://github.com/Cerune-Lang/Cerune-vscode) | Syntax highlighting/snippets, not a completed compiler or LSP |
 | Differential tests | [Parallax](https://github.com/Cerune-Lang/Parallax) | IR/MIR/VM, fixed seeds, bounded expression/control-flow/loop/array generation, expectations and stops |
@@ -41,6 +42,6 @@ Core [#131](https://github.com/Cerune-Lang/Cerune/issues/131) tracks generation/
 
 ## Next core work
 
-#171 merged WAT i32/f64 exports, JS/TS generation and HTML examples, completing the initial scope. Next is [argument/integer parsing design](dogfooding-inputs.en.md), followed by limited file I/O and subprocesses. Native build can proceed independently and is not a prerequisite.
+#171 merged WAT i32/f64 exports, JS/TS generation and HTML examples, completing the initial scope. Arguments are merged across routes. Prioritize [SASHIMI connection and assembler separation](native-encoder.en.md), then follow the [core roadmap](language-roadmap.en.md) through integer parsing, optional let + fmt, distribution and recursion. Native build can proceed independently and is not a prerequisite.
 
 Compiler release v0.1.0 differs from master. #163 rounding fixes, #164 input limits and #170/#171 library exports arrived after v0.1.0. Examples, sites and surrounding CI must distinguish their tested versions rather than describe master-only features as released.

@@ -63,6 +63,8 @@ frontendは名前・型・文脈上の浮動小数点型を解決し、generic�
 6. HIRは`if`・`while`・`for`・`break`・`continue`を保持し、forの初期化・条件・本文・更新を分けます。MIR・bytecodeや各backendへの変換が分岐・合流・更新・後方辺・出口を具体化します。
 7. HIRの文・式の`NodeId`はコンパイル内で一意です。要素の同一性を示すIDと、ソース位置を示す`Span`を混同しません。MIRのblock・命令IDは別の番号空間です。
 
+Objectの符号化・ELF/COFF出力は固定版[SASHIMI](native-encoder.ja.md)へ接続し、命令選択・ABI・runtime・出自対応はCeruneが担当します。
+
 Rustモジュールの配置は経路ごとに異なります。NativeはMIR→LIR→ASM、他の生成backendはHIR→backend IR→成果物へ変換します。
 
 ## Cerune IR

@@ -4,17 +4,35 @@
 
 ## Scope
 
-`emit-obj` encodes x86-64 instructions and writes Linux ELF64 or Windows COFF objects entirely within Cerune. It does not require an external assembler or launch a JIT or executable. Linking remains the responsibility of an explicitly selected external linker.
+`emit-obj` uses pinned SASHIMI in the same process to encode x86-64 instructions and write Linux ELF64 or Windows COFF objects. It does not require an external assembler or launch a JIT or executable. Linking remains the responsibility of an explicitly selected external linker.
 
 ```text
 HIR → MIR (optionally through explicit SSA) → x86-64 LIR → internal ASM
                                                           ├→ emit-asm → external assembler
-                                                          └→ restricted ASM reader → encoder → ELF/COFF
+                                                          └→ SASHIMI: restricted ASM reader → encoder → ELF/COFF
 ```
 
 Language semantics and instruction selection are shared with the existing path. This first boundary is a small assembler for internally generated ASM, rather than a public general-purpose assembler; there is no arbitrary-ASM input command. It does not repeat type inference, failure checks, evaluation order, or value-copy rules. A future typed machine-instruction IR can replace this internal text boundary.
 
 The encoder covers the forms needed by all current language features: eight integer kinds, f32/f64, booleans, strings, arrays, products, functions, and control flow. General x86-64 assembly, AVX, short-branch optimization, and an internal linker are outside its scope. Newly generated unsupported instruction forms produce diagnostics; there is no automatic external-assembler fallback.
+
+## SASHIMI connection (2026-10-23)
+
+Object generation now calls the [SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/9bb85b60d0967c4d1f3a2881e6b907fa3269229d) Rust library. Cargo.toml pins the full commit, and Cargo.lock records it. A neighboring SASHIMI clone is for development/review; building Cerune has no local path dependency. The initial build needs dependency sources, but generated executables require no separate SASHIMI process or dynamic library.
+
+| Owner | Responsibility |
+| --- | --- |
+| Cerune | MIR→LIR, instruction selection, ABI, startup/runtime, origin labels, CLI/observation bundles, and linked language-behavior tests |
+| SASHIMI | Restricted ASM parsing, instruction encoding, label resolution, relocations, ELF64/COFF writing |
+| Adapter | Explicit Target and diagnostic conversion; preserve diagnostic messages and object bytes |
+
+Typed machine-instruction input, arbitrary OriginId-to-section-byte-range mappings and a stable public ABI remain unimplemented. The current connection passes ASM text and retains Cerune-created origin labels as ordinary symbols. The pinned version retains the existing rule rejecting unresolved cerune_ labels. Do not silently change it; [#183](https://github.com/Cerune-Lang/Cerune/issues/183) will address explicit internal/external symbols together with the typed API.
+
+The [old encoder](../../tests/support/native_object_reference/README.en.md) is a frozen test-only migration reference, excluded from production builds and not a place to add features. [Connection tests](../../tests/support/sashimi_connection.rs) compare complete objects and diagnostics against it, covering 135 runnable examples, both targets, baseline MIR/SSA and origins on/off. Equivalence demonstrates preservation during the switch, not absence of shared defects. Retain external-assembler comparisons, independent expectations and linked execution tests.
+
+Next design a shared typed instruction/label/data input for ASM and Object emission, mapping OriginId to multiple ranges, zero-byte operations and synthetic instructions. Positions are object section offsets, distinct from linked addresses. [Porting SASHIMI to Cerune](https://github.com/Cerune-Lang/SASHIMI/issues/2) is a separate stage after this Rust connection.
+
+The concrete typed-input and provenance proposal is in [SASHIMI PR #3](https://github.com/Cerune-Lang/SASHIMI/pull/3). The current connection still uses assembly text. In the pinned encoder, jumps to external symbols use ELF PC32 relocations and can fail Linux PIE linking. Normal Cerune output uses calls for external functions; allocation-failure fixtures shared by ASM/object tests also use ABI-compliant calls. Resolving this limitation belongs to SASHIMI relocation validation.
 
 ## Encoding and relocations
 

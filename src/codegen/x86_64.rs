@@ -10,6 +10,9 @@ pub mod ir;
 pub mod lir;
 mod lower;
 mod object;
+#[cfg(test)]
+#[path = "../../tests/support/native_object_reference/mod.rs"]
+mod object_reference;
 mod output;
 mod rounding;
 mod string;
