@@ -43,149 +43,25 @@
 .text
 .section .rodata
 .Loutput_record:
-.byte 99
-.byte 101
-.byte 114
-.byte 117
-.byte 110
-.byte 101
-.byte 58
-.byte 32
-.byte 105
-.byte 111
-.byte 45
-.byte 118
-.byte 49
-.byte 32
-.byte 111
-.byte 112
-.byte 101
-.byte 114
-.byte 97
-.byte 116
-.byte 105
-.byte 111
-.byte 110
-.byte 61
-.byte 119
-.byte 114
-.byte 105
-.byte 116
-.byte 101
-.byte 32
-.byte 114
-.byte 101
-.byte 113
-.byte 117
-.byte 101
-.byte 115
-.byte 116
-.byte 101
-.byte 100
-.byte 61
-.byte 37
-.byte 108
-.byte 108
-.byte 117
-.byte 32
-.byte 97
-.byte 99
-.byte 99
-.byte 101
-.byte 112
-.byte 116
-.byte 101
-.byte 100
-.byte 61
-.byte 37
-.byte 108
-.byte 108
-.byte 117
-.byte 37
-.byte 115
-.byte 0
+.asciz "cerune: io-v1 operation=write requested=%llu accepted=%llu%s"
 .Loutput_format_error:
-.byte 99
-.byte 101
-.byte 114
-.byte 117
-.byte 110
-.byte 101
-.byte 58
-.byte 32
-.byte 111
-.byte 117
-.byte 116
-.byte 112
-.byte 117
-.byte 116
-.byte 32
-.byte 102
-.byte 111
-.byte 114
-.byte 109
-.byte 97
-.byte 116
-.byte 116
-.byte 105
-.byte 110
-.byte 103
-.byte 32
-.byte 102
-.byte 97
-.byte 105
-.byte 108
-.byte 101
-.byte 100
-.byte 37
-.byte 115
-.byte 0
+.asciz "cerune: output formatting failed%s"
 .Loutput_i64:
-.byte 37
-.byte 108
-.byte 108
-.byte 100
-.byte 0
+.asciz "%lld"
 .Loutput_u64:
-.byte 37
-.byte 108
-.byte 108
-.byte 117
-.byte 0
+.asciz "%llu"
 .Loutput_f32:
-.byte 37
-.byte 46
-.byte 57
-.byte 103
-.byte 0
+.asciz "%.9g"
 .Loutput_f64:
-.byte 37
-.byte 46
-.byte 49
-.byte 55
-.byte 103
-.byte 0
+.asciz "%.17g"
 .Loutput_true:
-.byte 116
-.byte 114
-.byte 117
-.byte 101
-.byte 10
-.byte 0
+.asciz "true\n"
 .Loutput_false:
-.byte 102
-.byte 97
-.byte 108
-.byte 115
-.byte 101
-.byte 10
-.byte 0
+.asciz "false\n"
 .Loutput_lf:
-.byte 10
-.byte 0
+.asciz "\n"
 .Loutput_quote:
-.byte 34
-.byte 0
+.asciz "\""
 .text
 cerune_output_write:
   subq $40, %rsp

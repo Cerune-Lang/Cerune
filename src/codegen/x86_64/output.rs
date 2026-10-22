@@ -36,9 +36,7 @@ pub(super) fn append(program: &mut Program) {
         ("quote", "\""),
     ] {
         label(program, &format!(".Loutput_{name}"));
-        let mut bytes = value.as_bytes().to_vec();
-        bytes.push(0);
-        push(program, EntryKind::Data(bytes));
+        push(program, EntryKind::CString(value.to_owned()));
     }
     push(program, EntryKind::Section(Section::Text));
 

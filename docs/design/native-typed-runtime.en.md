@@ -29,7 +29,7 @@ This does not complete removal of assembly reparsing. The temporary `machine::re
 
 String heap and array owners preserve capacity accounting, reference counts, final release, error values and Windows/Linux trap behavior. `malloc` / `free` / `memcpy` share explicit external declarations. Bookkeeping data and helper instructions remain Synthetic; public I/O contracts and limits do not change.
 
-Normal output retains requested/accepted byte counts and call-site origins. Short writes continue, EINTR retries, and zero progress, invalid accepted counts or write failures emit io-v1 diagnostics and stop. Linux SIGPIPE handling, numeric formats and escape ordering are preserved. Formatting/diagnostic C strings are built as `Data` including the terminating NUL and rendered as `.byte` in ASM; user strings retain their existing length-prefixed representation.
+Normal output retains requested/accepted byte counts and call-site origins. Short writes continue, EINTR retries, and zero progress, invalid accepted counts or write failures emit io-v1 diagnostics and stop. Linux SIGPIPE handling, numeric formats and escape ordering are preserved. Formatting/diagnostic C strings are built as `CString` and render as readable `.asciz` in ASM; user strings retain their existing length-prefixed representation.
 
 ## Constant representation and provenance
 

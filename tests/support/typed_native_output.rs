@@ -33,11 +33,10 @@ fn typed_output_matches_frozen_objects_and_observation_is_read_only() {
         );
         for (entry, mapping) in p.entries.iter().zip(&artifact.entries) {
             assert!(mapping.provenance.synthetic && mapping.provenance.origins.is_empty());
-            if let EntryKind::Data(bytes) = &entry.kind {
+            if let EntryKind::CString(value) = &entry.kind {
                 let range = mapping.range.unwrap();
                 assert_eq!(range.section, Section::ReadOnlyData);
-                assert_eq!((range.end - range.start) as usize, bytes.len());
-                assert_eq!(bytes.last(), Some(&0));
+                assert_eq!((range.end - range.start) as usize, value.len() + 1);
             }
         }
         let asm = render_asm(&p).unwrap();
