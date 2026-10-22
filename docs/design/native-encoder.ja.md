@@ -32,6 +32,8 @@ Object生成は[SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/9bb85b60d09
 
 次は同じ型付きの機械命令・ラベル・データからASM/Objectを分岐生成し、OriginIdに複数範囲・0バイトの操作・合成命令を対応させる設計です。位置はObjectのセクション内オフセットとし、リンク後アドレスと区別します。[Cerune言語へのSASHIMI移植](https://github.com/Cerune-Lang/SASHIMI/issues/2)は、このRust版接続の後の別段階です。
 
+型付き入力と出自対応の具体案は[SASHIMI PR #3](https://github.com/Cerune-Lang/SASHIMI/pull/3)にまとめています。現在の接続はASM文字列のままです。固定版の外部シンボルへのjmpはELFのPC32になるため、LinuxのPIEリンクでは利用できない場合があります。通常のCerune生成は外部呼出しにcallを使います。失敗注入テストもABIに従うcallとし、この制約の解消はSASHIMI側の再配置検証で扱います。
+
 ## 符号化と再配置
 
 - レガシープレフィックス、REX、ModR/M、SIB、変位、即値を命令形式に従って書きます。レジスタの種別・幅、アドレスの倍率、即値の範囲を検査します。

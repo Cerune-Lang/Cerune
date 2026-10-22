@@ -480,9 +480,11 @@ fn native_cli_limits_are_visible_and_emission_does_not_capture_arguments() {
 fn native_startup_allocation_failures_stop_before_execution_in_asm_and_object() {
     let p = hir("import \"std:env\" as env; print(7);print(env::arg(0));print(99);");
     let allocations_before_get = if cfg!(windows) { 3 } else { 2 };
+    // Reserve Windows shadow space or SysV alignment before the external call.
+    let call_stack = if cfg!(windows) { 40 } else { 8 };
     for remaining in 0..=allocations_before_get {
         let mut text = assembly(&p, Limits::default()).replace("callq malloc", "callq test_malloc");
-        text.push_str(&format!("\n.data\n.Ltest_remaining:\n  .quad {remaining}\n.text\ntest_malloc:\n  cmpq $0, .Ltest_remaining(%rip)\n  je .Ltest_malloc_fail\n  subq $1, .Ltest_remaining(%rip)\n  jmp malloc\n.Ltest_malloc_fail:\n  xorl %eax, %eax\n  retq\n"));
+        text.push_str(&format!("\n.data\n.Ltest_remaining:\n  .quad {remaining}\n.text\ntest_malloc:\n  cmpq $0, .Ltest_remaining(%rip)\n  je .Ltest_malloc_fail\n  subq $1, .Ltest_remaining(%rip)\n  subq ${call_stack}, %rsp\n  callq malloc\n  addq ${call_stack}, %rsp\n  retq\n.Ltest_malloc_fail:\n  xorl %eax, %eax\n  retq\n"));
         let selected = match target() {
             Target::X86_64PcWindowsMsvc => sashimi_assembler::Target::X86_64PcWindowsMsvc,
             Target::X86_64UnknownLinuxGnu => sashimi_assembler::Target::X86_64UnknownLinuxGnu,

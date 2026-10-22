@@ -32,6 +32,8 @@ The [old encoder](../../tests/support/native_object_reference/README.en.md) is a
 
 Next design a shared typed instruction/label/data input for ASM and Object emission, mapping OriginId to multiple ranges, zero-byte operations and synthetic instructions. Positions are object section offsets, distinct from linked addresses. [Porting SASHIMI to Cerune](https://github.com/Cerune-Lang/SASHIMI/issues/2) is a separate stage after this Rust connection.
 
+The concrete typed-input and provenance proposal is in [SASHIMI PR #3](https://github.com/Cerune-Lang/SASHIMI/pull/3). The current connection still uses assembly text. In the pinned encoder, jumps to external symbols use ELF PC32 relocations and can fail Linux PIE linking. Normal Cerune output uses calls for external functions; allocation-failure fixtures shared by ASM/object tests also use ABI-compliant calls. Resolving this limitation belongs to SASHIMI relocation validation.
+
 ## Encoding and relocations
 
 - Instructions contain the required legacy prefixes, REX, ModR/M, SIB, displacements, and immediates. Register classes and widths, address scales, and immediate ranges are checked.
