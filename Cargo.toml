@@ -31,7 +31,7 @@ name = "wat_library"
 path = "experiments/host_calls/library.rs"
 
 [dependencies]
-sashimi-assembler = { git = "https://github.com/Cerune-Lang/SASHIMI.git", rev = "7068cade33213d9d188f0f6b767aaca6ffdba293" }
+sashimi-assembler = { git = "https://github.com/Cerune-Lang/SASHIMI.git", rev = "a8c65d0e99054c31e3c087e975ef2cf26d3286b3" }
 
 # The profile that 'dist' will build with
 [profile.dist]

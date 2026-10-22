@@ -3,30 +3,30 @@
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
-  .long 0x80000000
-  .long 0
-  .long 0
-  .long 0
+.long 0x80000000
+.long 0x00000000
+.long 0x00000000
+.long 0x00000000
 .p2align 4
 .Lcerune_sign_f64:
-  .quad 0x8000000000000000
-  .quad 0
+.quad 0x8000000000000000
+.quad 0x0000000000000000
 .p2align 3
 .Lcerune_string_0:
-  .quad 3
-  .byte 230
-  .byte 151
-  .byte 165
+.quad 0x0000000000000003
+.byte 230
+.byte 151
+.byte 165
 .p2align 3
 .Lcerune_string_1:
-  .quad 3
-  .byte 230
-  .byte 156
-  .byte 172
+.quad 0x0000000000000003
+.byte 230
+.byte 156
+.byte 172
 .p2align 3
 .Lcerune_string_2:
-  .quad 1
-  .byte 33
+.quad 0x0000000000000001
+.byte 33
 
 .text
 .section .rdata,"dr"

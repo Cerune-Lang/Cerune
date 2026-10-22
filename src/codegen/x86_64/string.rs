@@ -1,20 +1,3 @@
-use super::ir::Module;
-use std::fmt::Write;
-
-pub(super) fn emit_data(module: &Module, output: &mut String) {
-    for (id, value) in module.strings.iter().enumerate() {
-        writeln!(
-            output,
-            ".p2align 3\n.Lcerune_string_{id}:\n  .quad {}",
-            value.len()
-        )
-        .unwrap();
-        for byte in value.bytes() {
-            writeln!(output, "  .byte {byte}").unwrap();
-        }
-    }
-}
-
 /// Immutable byte equality. Calling convention and string layout belong to Cerune.
 pub(super) fn append(program: &mut super::machine::Program) {
     use super::machine::*;
