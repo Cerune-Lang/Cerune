@@ -18,7 +18,7 @@ The encoder covers the forms needed by all current language features: eight inte
 
 ## SASHIMI connection (2026-10-23)
 
-Object generation now calls the [SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/9bb85b60d0967c4d1f3a2881e6b907fa3269229d) Rust library. Cargo.toml pins the full commit, and Cargo.lock records it. A neighboring SASHIMI clone is for development/review; building Cerune has no local path dependency. The initial build needs dependency sources, but generated executables require no separate SASHIMI process or dynamic library.
+Object generation now calls the [SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/68edab5badc905c84ad74754f6fa1aed2be5b808) Rust library. Cargo.toml pins the full commit, and Cargo.lock records it. A neighboring SASHIMI clone is for development/review; building Cerune has no local path dependency. The initial build needs dependency sources, but generated executables require no separate SASHIMI process or dynamic library.
 
 | Owner | Responsibility |
 | --- | --- |
@@ -26,7 +26,7 @@ Object generation now calls the [SASHIMI](https://github.com/Cerune-Lang/SASHIMI
 | SASHIMI | Restricted ASM parsing, instruction encoding, label resolution, relocations, ELF64/COFF writing |
 | Adapter | Explicit Target and diagnostic conversion; preserve diagnostic messages and object bytes |
 
-Typed machine-instruction input, arbitrary OriginId-to-section-byte-range mappings and a stable public ABI remain unimplemented. The current connection passes ASM text and retains Cerune-created origin labels as ordinary symbols. The pinned version retains the existing rule rejecting unresolved cerune_ labels. Do not silently change it; [#183](https://github.com/Cerune-Lang/Cerune/issues/183) will address explicit internal/external symbols together with the typed API.
+[SASHIMI PR #4](https://github.com/Cerune-Lang/SASHIMI/pull/4) implements typed single-instruction encoding for 81 symbol-free Opcodes. Cerune pins that PR's commit to verify compatibility. Typed Program/object generation, arbitrary OriginId-to-section-byte-range mappings and a stable public ABI remain unimplemented. The current connection passes ASM text and retains Cerune-created origin labels as ordinary symbols. The pinned version retains the existing rule rejecting unresolved cerune_ labels. Do not silently change it; [#183](https://github.com/Cerune-Lang/Cerune/issues/183) will address explicit internal/external symbols together with the typed API.
 
 The [old encoder](../../tests/support/native_object_reference/README.en.md) is a frozen test-only migration reference, excluded from production builds and not a place to add features. [Connection tests](../../tests/support/sashimi_connection.rs) compare complete objects and diagnostics against it, covering 135 runnable examples, both targets, baseline MIR/SSA and origins on/off. Equivalence demonstrates preservation during the switch, not absence of shared defects. Retain external-assembler comparisons, independent expectations and linked execution tests.
 
