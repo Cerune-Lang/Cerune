@@ -2,6 +2,7 @@
 use super::machine::*;
 use Opcode::*;
 use Operand::{Immediate as imm, RipRelative as rip, Symbol as sym};
+#[cfg(test)]
 pub(super) fn support(linux: bool) -> String {
     let target = if linux {
         super::Target::X86_64UnknownLinuxGnu

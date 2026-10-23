@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
+.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -9,7 +16,6 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -688,7 +694,6 @@ cerune_output_escape:
   movb $125, 5(%rcx)
   movl $6, %eax
   retq
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -705,7 +710,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $1, %rax
   movq %rax, -8(%rbp)
   movabsq $2, %rax
@@ -722,7 +728,7 @@ main:
   movl $60, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_2:
   movq %rax, -24(%rbp)
   movq -24(%rbp), %rax
@@ -734,14 +740,14 @@ main:
   leaq .Lcerune_output_origin_1(%rip), %r11
   callq cerune_output_i64
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $80, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=1 bytes=9..14\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=1 bytes=9..14\n"
 .Lcerune_output_origin_1:
-  .asciz " node=4 bytes=16..25\n"
+.asciz " node=4 bytes=16..25\n"

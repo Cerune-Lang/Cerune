@@ -1,6 +1,16 @@
 # cerune-asm-origins v1: UTF-8 byte ranges, end exclusive
 # cerune-origin: synthetic
 # target: x86_64-unknown-linux-gnu
+.extern write
+.extern __errno_location
+.extern snprintf
+.extern _Exit
+.extern signal
+.extern free
+.extern malloc
+.extern memcpy
+.extern fflush
+.globl main
 .section .rodata
 .p2align 4
 .Lcerune_sign_f32:
@@ -28,7 +38,6 @@
 .Lcerune_string_2:
 .quad 0x0000000000000001
 .byte 33
-
 .text
 .section .rodata
 .Loutput_record:
@@ -57,7 +66,7 @@ cerune_output_write:
   movq %rsi, %rdx
   movq %rdi, %rsi
   movl $1, %edi
-  callq write
+  callq write@PLT
   addq $40, %rsp
   retq
 cerune_output_part:
@@ -80,7 +89,7 @@ cerune_output_part:
   callq cerune_output_write
   testq %rax, %rax
   jns .Loutput_part_check
-  callq __errno_location
+  callq __errno_location@PLT
   cmpl $4, 0(%rax)
   je .Loutput_part_write
   jmp .Loutput_part_failed
@@ -110,7 +119,7 @@ cerune_output_failed:
   movq 8(%r10), %r8
   movq 16(%r10), %r9
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   leaq 64(%rsp), %r10
   callq cerune_output_diagnostic
   ud2
@@ -125,10 +134,10 @@ cerune_output_diagnostic:
   movl %eax, %edx
   movq %r10, %rsi
   movl $2, %edi
-  callq write
+  callq write@PLT
 .Loutput_exit:
   movl $1, %edi
-  callq _Exit
+  callq _Exit@PLT
   ud2
 cerune_output_i64:
   subq $936, %rsp
@@ -141,7 +150,7 @@ cerune_output_i64:
   leaq .Loutput_i64(%rip), %rdx
   movq %rax, %rcx
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -161,7 +170,7 @@ cerune_output_u64:
   leaq .Loutput_u64(%rip), %rdx
   movq %rax, %rcx
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -182,7 +191,7 @@ cerune_output_f32:
   movl $128, %esi
   leaq .Loutput_f32(%rip), %rdx
   movl $1, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -202,7 +211,7 @@ cerune_output_f64:
   movl $128, %esi
   leaq .Loutput_f64(%rip), %rdx
   movl $1, %eax
-  callq snprintf
+  callq snprintf@PLT
   cmpl $127, %eax
   jae .Loutput_format_failed
   leaq 160(%rsp), %rcx
@@ -267,7 +276,7 @@ cerune_output_quoted:
   leaq .Loutput_format_error(%rip), %rdx
   movq 80(%rsp), %rcx
   xorl %eax, %eax
-  callq snprintf
+  callq snprintf@PLT
   leaq 416(%rsp), %r10
   callq cerune_output_diagnostic
   ud2
@@ -275,7 +284,7 @@ cerune_output_quoted:
   movq $0, 72(%rsp)
   movl $13, %edi
   movl $1, %esi
-  callq signal
+  callq signal@PLT
   cmpq $-1, %rax
   je .Loutput_failed
   movq %rax, 88(%rsp)
@@ -342,7 +351,7 @@ cerune_output_quoted:
 .Loutput_end:
   movl $13, %edi
   movq 88(%rsp), %rsi
-  callq signal
+  callq signal@PLT
   cmpq $-1, %rax
   je .Loutput_failed
   addq $936, %rsp
@@ -788,7 +797,7 @@ cerune_string_release:
   movq 16(%rax), %rcx
   subq %rcx, .Lcerune_heap_live(%rip)
   movq %rax, %rdi
-  callq free
+  callq free@PLT
 .Lcerune_heap_release_done:
   addq $32, %rsp
   popq %rbp
@@ -813,7 +822,7 @@ cerune_string_concat:
   cmpq %rcx, %rax
   ja .Lcerune_heap_limit_fail
   leaq 24(%rax), %rdi
-  callq malloc
+  callq malloc@PLT
   testq %rax, %rax
   je .Lcerune_heap_allocation_fail
   movq %rax, -40(%rbp)
@@ -826,14 +835,14 @@ cerune_string_concat:
   movq -8(%rbp), %rsi
   addq $8, %rsi
   movq -32(%rbp), %rdx
-  callq memcpy
+  callq memcpy@PLT
   movq -40(%rbp), %rdi
   addq $24, %rdi
   addq -32(%rbp), %rdi
   movq -16(%rbp), %rsi
   movq 0(%rsi), %rdx
   addq $8, %rsi
-  callq memcpy
+  callq memcpy@PLT
   movq -40(%rbp), %rax
   movq %rax, .Lcerune_heap_head(%rip)
   movq -24(%rbp), %rcx
@@ -869,7 +878,8 @@ cerune_fn__ownership0_0:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb0 block -> lir 1 (function-entry)
 cerune_origin_mir_fn_0_bb0_block_lir1:
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
 # cerune-origin: #2 bytes 26..31
 cerune_origin_n2_fn_0_2:
 # cerune-mir: v1 fn_0 bb0 i0 -> lir 2 (source)
@@ -947,29 +957,29 @@ cerune_origin_mir_fn_0_bb0_i6_lir15:
   cmpq $1, %rdx
   jne .Lfn_0_concat_limit_3
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_0(%rip), %rsi
   movl $69, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_0_concat_limit_3:
   cmpq $2, %rdx
   jne .Lfn_0_concat_failed_3
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_1(%rip), %rsi
   movl $70, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_0_concat_failed_3:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_2(%rip), %rsi
   movl $62, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_0_concat_ok_3:
 # cerune-origin: #1 bytes 19..39
@@ -1013,12 +1023,12 @@ cerune_origin_mir_fn_0_bb0_i9_lir22:
 cerune_origin_n20_fn_0_23:
 # cerune-mir: v1 fn_0 bb1 block -> lir 23 (after-return)
 cerune_origin_mir_fn_0_bb1_block_lir23:
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb1 i10 -> lir 24 (function-end)
 cerune_origin_mir_fn_0_bb1_i10_lir24:
   ud2
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn__ownership1_1:
@@ -1034,7 +1044,8 @@ cerune_fn__ownership1_1:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_1 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_1_bb0_block_lir2:
-.Lcerune_fn_1_block_0: # mir_block
+.Lcerune_fn_1_block_0:
+# mir_block
 # cerune-origin: #5 bytes 57..61
 cerune_origin_n5_fn_1_3:
 # cerune-mir: v1 fn_1 bb0 i0 -> lir 3 (source)
@@ -1122,12 +1133,12 @@ cerune_origin_mir_fn_1_bb0_i7_lir18:
 cerune_origin_n28_fn_1_19:
 # cerune-mir: v1 fn_1 bb1 block -> lir 19 (after-return)
 cerune_origin_mir_fn_1_bb1_block_lir19:
-.Lcerune_fn_1_block_1: # mir_block
+.Lcerune_fn_1_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_1 bb1 i8 -> lir 20 (function-end)
 cerune_origin_mir_fn_1_bb1_i8_lir20:
   ud2
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn__ownership2_2:
@@ -1143,7 +1154,8 @@ cerune_fn__ownership2_2:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_2 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_2_bb0_block_lir2:
-.Lcerune_fn_2_block_0: # mir_block
+.Lcerune_fn_2_block_0:
+# mir_block
 # cerune-origin: #8 bytes 77..81
 cerune_origin_n8_fn_2_3:
 # cerune-mir: v1 fn_2 bb0 i0 -> lir 3 (source)
@@ -1221,29 +1233,29 @@ cerune_origin_mir_fn_2_bb0_i6_lir16:
   cmpq $1, %rdx
   jne .Lfn_2_concat_limit_3
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_3(%rip), %rsi
   movl $69, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_2_concat_limit_3:
   cmpq $2, %rdx
   jne .Lfn_2_concat_failed_3
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_4(%rip), %rsi
   movl $70, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_2_concat_failed_3:
   xorl %edi, %edi
-  callq fflush
+  callq fflush@PLT
   movl $2, %edi
   leaq .Lcerune_failure_5(%rip), %rsi
   movl $62, %edx
-  callq write
+  callq write@PLT
   ud2
 .Lfn_2_concat_ok_3:
 # cerune-origin: #7 bytes 70..87
@@ -1287,12 +1299,12 @@ cerune_origin_mir_fn_2_bb0_i9_lir23:
 cerune_origin_n38_fn_2_24:
 # cerune-mir: v1 fn_2 bb1 block -> lir 24 (after-return)
 cerune_origin_mir_fn_2_bb1_block_lir24:
-.Lcerune_fn_2_block_1: # mir_block
+.Lcerune_fn_2_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_2 bb1 i10 -> lir 25 (function-end)
 cerune_origin_mir_fn_2_bb1_i10_lir25:
   ud2
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn__ownership3_3:
@@ -1311,7 +1323,8 @@ cerune_fn__ownership3_3:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_3 bb0 block -> lir 3 (function-entry)
 cerune_origin_mir_fn_3_bb0_block_lir3:
-.Lcerune_fn_3_block_0: # mir_block
+.Lcerune_fn_3_block_0:
+# mir_block
 # cerune-origin: #41 bytes 70..87
 cerune_origin_n41_fn_3_4:
 # cerune-mir: v1 fn_3 bb0 i0 -> lir 4 (source)
@@ -1359,14 +1372,13 @@ cerune_origin_mir_fn_3_bb0_i3_lir11:
 cerune_origin_n44_fn_3_12:
 # cerune-mir: v1 fn_3 bb1 block -> lir 12 (after-return)
 cerune_origin_mir_fn_3_bb1_block_lir12:
-.Lcerune_fn_3_block_1: # mir_block
+.Lcerune_fn_3_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_3 bb1 i4 -> lir 13 (function-end)
 cerune_origin_mir_fn_3_bb1_i4_lir13:
   ud2
-
 # cerune-origin: synthetic
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -1378,7 +1390,8 @@ main:
 # cerune-origin: synthetic
 # cerune-mir: v1 main bb0 block -> lir 1 (function-entry)
 cerune_origin_mir_main_bb0_block_lir1:
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
 # cerune-origin: #21 bytes 19..39
 cerune_origin_n21_main_2:
 # cerune-mir: v1 main bb0 i0 -> lir 2 (source)
@@ -1615,29 +1628,28 @@ cerune_origin_mir_main_bb0_i22_lir46:
   jmp .Lcerune_block_1
 # cerune-origin: synthetic
 # cerune-mir: v1 synthetic ABI setup/exit
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
 # cerune-origin: synthetic
   xorl %eax, %eax
   addq $144, %rsp
   popq %rbp
   retq
-
 .section .rodata
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=1 bytes=19..39\n"
+.asciz "cerune: runtime-v1 code=allocation-size-overflow node=1 bytes=19..39\n"
 .Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=1 bytes=19..39\n"
+.asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=1 bytes=19..39\n"
 .Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=1 bytes=19..39\n"
+.asciz "cerune: runtime-v1 code=allocation-failed node=1 bytes=19..39\n"
 .Lcerune_failure_3:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=7 bytes=70..87\n"
+.asciz "cerune: runtime-v1 code=allocation-size-overflow node=7 bytes=70..87\n"
 .Lcerune_failure_4:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=7 bytes=70..87\n"
+.asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=7 bytes=70..87\n"
 .Lcerune_failure_5:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=7 bytes=70..87\n"
+.asciz "cerune: runtime-v1 code=allocation-failed node=7 bytes=70..87\n"
 .Lcerune_output_origin_6:
-  .asciz " node=10 bytes=89..102\n"
+.asciz " node=10 bytes=89..102\n"
 .Lcerune_output_origin_7:
-  .asciz " node=12 bytes=103..115\n"
-
+.asciz " node=12 bytes=103..115\n"
 .section .note.GNU-stack,"",@progbits

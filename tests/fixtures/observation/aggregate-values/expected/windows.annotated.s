@@ -1,5 +1,12 @@
 # cerune-asm-origins v1: UTF-8 byte ranges, end exclusive
 # cerune-origin: synthetic
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.extern fflush
+.globl main
+.extern _setmode
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -52,7 +59,6 @@
 .p2align 3
 .Lcerune_string_7:
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -776,7 +782,8 @@ cerune_fn__equal0_0:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb0 block -> lir 3 (function-entry)
 cerune_origin_mir_fn_0_bb0_block_lir3:
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
 # cerune-origin: #45 bytes 70..84
 cerune_origin_n45_fn_0_4:
 # cerune-mir: v1 fn_0 bb0 i0 -> lir 4 (source)
@@ -806,7 +813,8 @@ cerune_origin_mir_fn_0_bb0_i2_lir8:
 cerune_origin_n65_fn_0_9:
 # cerune-mir: v1 fn_0 bb1 block -> lir 9 (loop-condition)
 cerune_origin_mir_fn_0_bb1_block_lir9:
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
 # cerune-origin: #47 bytes 70..84
 cerune_origin_n47_fn_0_10:
 # cerune-mir: v1 fn_0 bb1 i3 -> lir 10 (source)
@@ -874,7 +882,8 @@ cerune_origin_mir_fn_0_bb1_i6_lir21:
 cerune_origin_n65_fn_0_22:
 # cerune-mir: v1 fn_0 bb2 block -> lir 22 (loop-body)
 cerune_origin_mir_fn_0_bb2_block_lir22:
-.Lcerune_fn_0_block_2: # mir_block
+.Lcerune_fn_0_block_2:
+# mir_block
 # cerune-origin: #50 bytes 70..84
 cerune_origin_n50_fn_0_23:
 # cerune-mir: v1 fn_0 bb2 i7 -> lir 23 (source)
@@ -930,14 +939,14 @@ cerune_origin_mir_fn_0_bb2_i9_lir30:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_0_array_done_11:
 # cerune-origin: #52 bytes 70..84
 cerune_origin_n52_fn_0_31:
 # cerune-mir: v1 fn_0 bb2 i9 -> lir 31 (source)
 cerune_origin_mir_fn_0_bb2_i9_lir31:
   movq -200(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
 # cerune-origin: #52 bytes 70..84
 cerune_origin_n52_fn_0_32:
 # cerune-mir: v1 fn_0 bb2 i9 -> lir 32 (source)
@@ -998,14 +1007,14 @@ cerune_origin_mir_fn_0_bb2_i12_lir40:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_0_array_done_12:
 # cerune-origin: #55 bytes 70..84
 cerune_origin_n55_fn_0_41:
 # cerune-mir: v1 fn_0 bb2 i12 -> lir 41 (source)
 cerune_origin_mir_fn_0_bb2_i12_lir41:
   movq -208(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
 # cerune-origin: #55 bytes 70..84
 cerune_origin_n55_fn_0_42:
 # cerune-mir: v1 fn_0 bb2 i12 -> lir 42 (source)
@@ -1073,7 +1082,8 @@ cerune_origin_mir_fn_0_bb2_i15_lir53:
 cerune_origin_n65_fn_0_54:
 # cerune-mir: v1 fn_0 bb3 block -> lir 54 (loop-exit)
 cerune_origin_mir_fn_0_bb3_block_lir54:
-.Lcerune_fn_0_block_3: # mir_block
+.Lcerune_fn_0_block_3:
+# mir_block
 # cerune-origin: #66 bytes 70..84
 cerune_origin_n66_fn_0_55:
 # cerune-mir: v1 fn_0 bb3 i26 -> lir 55 (source)
@@ -1100,7 +1110,8 @@ cerune_origin_mir_fn_0_bb3_i27_lir58:
 cerune_origin_n65_fn_0_59:
 # cerune-mir: v1 fn_0 bb4 block -> lir 59 (for-update)
 cerune_origin_mir_fn_0_bb4_block_lir59:
-.Lcerune_fn_0_block_4: # mir_block
+.Lcerune_fn_0_block_4:
+# mir_block
 # cerune-origin: #61 bytes 70..84
 cerune_origin_n61_fn_0_60:
 # cerune-mir: v1 fn_0 bb4 i21 -> lir 60 (source)
@@ -1153,7 +1164,7 @@ cerune_origin_mir_fn_0_bb4_i23_lir68:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_0_integer_ok_13:
 # cerune-origin: #63 bytes 70..84
 cerune_origin_n63_fn_0_69:
@@ -1179,7 +1190,8 @@ cerune_origin_mir_fn_0_bb4_i25_lir72:
 cerune_origin_n60_fn_0_73:
 # cerune-mir: v1 fn_0 bb5 block -> lir 73 (if-then)
 cerune_origin_mir_fn_0_bb5_block_lir73:
-.Lcerune_fn_0_block_5: # mir_block
+.Lcerune_fn_0_block_5:
+# mir_block
 # cerune-origin: #58 bytes 70..84
 cerune_origin_n58_fn_0_74:
 # cerune-mir: v1 fn_0 bb5 i16 -> lir 74 (source)
@@ -1206,7 +1218,8 @@ cerune_origin_mir_fn_0_bb5_i17_lir77:
 cerune_origin_n60_fn_0_78:
 # cerune-mir: v1 fn_0 bb6 block -> lir 78 (if-else)
 cerune_origin_mir_fn_0_bb6_block_lir78:
-.Lcerune_fn_0_block_6: # mir_block
+.Lcerune_fn_0_block_6:
+# mir_block
 # cerune-origin: #60 bytes 70..84
 cerune_origin_n60_fn_0_79:
 # cerune-mir: v1 fn_0 bb6 i19 -> lir 79 (if-join)
@@ -1216,7 +1229,8 @@ cerune_origin_mir_fn_0_bb6_i19_lir79:
 cerune_origin_n60_fn_0_80:
 # cerune-mir: v1 fn_0 bb7 block -> lir 80 (if-join)
 cerune_origin_mir_fn_0_bb7_block_lir80:
-.Lcerune_fn_0_block_7: # mir_block
+.Lcerune_fn_0_block_7:
+# mir_block
 # cerune-origin: #65 bytes 70..84
 cerune_origin_n65_fn_0_81:
 # cerune-mir: v1 fn_0 bb7 i20 -> lir 81 (loop-back)
@@ -1226,7 +1240,8 @@ cerune_origin_mir_fn_0_bb7_i20_lir81:
 cerune_origin_n59_fn_0_82:
 # cerune-mir: v1 fn_0 bb8 block -> lir 82 (after-return)
 cerune_origin_mir_fn_0_bb8_block_lir82:
-.Lcerune_fn_0_block_8: # mir_block
+.Lcerune_fn_0_block_8:
+# mir_block
 # cerune-origin: #60 bytes 70..84
 cerune_origin_n60_fn_0_83:
 # cerune-mir: v1 fn_0 bb8 i18 -> lir 83 (if-join)
@@ -1236,12 +1251,12 @@ cerune_origin_mir_fn_0_bb8_i18_lir83:
 cerune_origin_n67_fn_0_84:
 # cerune-mir: v1 fn_0 bb9 block -> lir 84 (after-return)
 cerune_origin_mir_fn_0_bb9_block_lir84:
-.Lcerune_fn_0_block_9: # mir_block
+.Lcerune_fn_0_block_9:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb9 i28 -> lir 85 (function-end)
 cerune_origin_mir_fn_0_bb9_i28_lir85:
   ud2
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn__match_bind1_1:
@@ -1260,7 +1275,8 @@ cerune_fn__match_bind1_1:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_1 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_1_bb0_block_lir2:
-.Lcerune_fn_1_block_0: # mir_block
+.Lcerune_fn_1_block_0:
+# mir_block
 # cerune-origin: #27 bytes 182..183
 cerune_origin_n27_fn_1_3:
 # cerune-mir: v1 fn_1 bb0 i0 -> lir 3 (source)
@@ -1364,12 +1380,12 @@ cerune_origin_mir_fn_1_bb0_i6_lir21:
 cerune_origin_n70_fn_1_22:
 # cerune-mir: v1 fn_1 bb1 block -> lir 22 (after-return)
 cerune_origin_mir_fn_1_bb1_block_lir22:
-.Lcerune_fn_1_block_1: # mir_block
+.Lcerune_fn_1_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_1 bb1 i7 -> lir 23 (function-end)
 cerune_origin_mir_fn_1_bb1_i7_lir23:
   ud2
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn__match_bind2_2:
@@ -1388,7 +1404,8 @@ cerune_fn__match_bind2_2:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_2 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_2_bb0_block_lir2:
-.Lcerune_fn_2_block_0: # mir_block
+.Lcerune_fn_2_block_0:
+# mir_block
 # cerune-origin: #33 bytes 182..183
 cerune_origin_n33_fn_2_3:
 # cerune-mir: v1 fn_2 bb0 i0 -> lir 3 (source)
@@ -1455,12 +1472,12 @@ cerune_origin_mir_fn_2_bb0_i4_lir14:
 cerune_origin_n74_fn_2_15:
 # cerune-mir: v1 fn_2 bb1 block -> lir 15 (after-return)
 cerune_origin_mir_fn_2_bb1_block_lir15:
-.Lcerune_fn_2_block_1: # mir_block
+.Lcerune_fn_2_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_2 bb1 i5 -> lir 16 (function-end)
 cerune_origin_mir_fn_2_bb1_i5_lir16:
   ud2
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn__match_select3_3:
@@ -1479,7 +1496,8 @@ cerune_fn__match_select3_3:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_3 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_3_bb0_block_lir2:
-.Lcerune_fn_3_block_0: # mir_block
+.Lcerune_fn_3_block_0:
+# mir_block
 # cerune-origin: #38 bytes 205..216
 cerune_origin_n38_fn_3_3:
 # cerune-mir: v1 fn_3 bb0 i0 -> lir 3 (source)
@@ -1567,7 +1585,8 @@ cerune_origin_mir_fn_3_bb0_i4_lir18:
 cerune_origin_n79_fn_3_19:
 # cerune-mir: v1 fn_3 bb1 block -> lir 19 (if-then)
 cerune_origin_mir_fn_3_bb1_block_lir19:
-.Lcerune_fn_3_block_1: # mir_block
+.Lcerune_fn_3_block_1:
+# mir_block
 # cerune-origin: #40 bytes 229..230
 cerune_origin_n40_fn_3_20:
 # cerune-mir: v1 fn_3 bb1 i5 -> lir 20 (source)
@@ -1594,7 +1613,8 @@ cerune_origin_mir_fn_3_bb1_i6_lir23:
 cerune_origin_n79_fn_3_24:
 # cerune-mir: v1 fn_3 bb2 block -> lir 24 (if-else)
 cerune_origin_mir_fn_3_bb2_block_lir24:
-.Lcerune_fn_3_block_2: # mir_block
+.Lcerune_fn_3_block_2:
+# mir_block
 # cerune-origin: #42 bytes 255..256
 cerune_origin_n42_fn_3_25:
 # cerune-mir: v1 fn_3 bb2 i8 -> lir 25 (source)
@@ -1627,7 +1647,7 @@ cerune_origin_mir_fn_3_bb2_i9_lir29:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_3_integer_ok_7:
 # cerune-origin: #41 bytes 254..256
 cerune_origin_n41_fn_3_30:
@@ -1650,7 +1670,8 @@ cerune_origin_mir_fn_3_bb2_i10_lir32:
 cerune_origin_n79_fn_3_33:
 # cerune-mir: v1 fn_3 bb3 block -> lir 33 (if-join)
 cerune_origin_mir_fn_3_bb3_block_lir33:
-.Lcerune_fn_3_block_3: # mir_block
+.Lcerune_fn_3_block_3:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_3 bb3 i12 -> lir 34 (function-end)
 cerune_origin_mir_fn_3_bb3_i12_lir34:
@@ -1659,7 +1680,8 @@ cerune_origin_mir_fn_3_bb3_i12_lir34:
 cerune_origin_n77_fn_3_35:
 # cerune-mir: v1 fn_3 bb4 block -> lir 35 (after-return)
 cerune_origin_mir_fn_3_bb4_block_lir35:
-.Lcerune_fn_3_block_4: # mir_block
+.Lcerune_fn_3_block_4:
+# mir_block
 # cerune-origin: #79 bytes 205..216
 cerune_origin_n79_fn_3_36:
 # cerune-mir: v1 fn_3 bb4 i7 -> lir 36 (if-join)
@@ -1669,13 +1691,13 @@ cerune_origin_mir_fn_3_bb4_i7_lir36:
 cerune_origin_n78_fn_3_37:
 # cerune-mir: v1 fn_3 bb5 block -> lir 37 (after-return)
 cerune_origin_mir_fn_3_bb5_block_lir37:
-.Lcerune_fn_3_block_5: # mir_block
+.Lcerune_fn_3_block_5:
+# mir_block
 # cerune-origin: #79 bytes 205..216
 cerune_origin_n79_fn_3_38:
 # cerune-mir: v1 fn_3 bb5 i11 -> lir 38 (if-join)
 cerune_origin_mir_fn_3_bb5_i11_lir38:
   jmp .Lcerune_fn_3_block_3
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn__match_select4_4:
@@ -1694,7 +1716,8 @@ cerune_fn__match_select4_4:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_4 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_4_bb0_block_lir2:
-.Lcerune_fn_4_block_0: # mir_block
+.Lcerune_fn_4_block_0:
+# mir_block
 # cerune-origin: #23 bytes 165..176
 cerune_origin_n23_fn_4_3:
 # cerune-mir: v1 fn_4 bb0 i0 -> lir 3 (source)
@@ -1792,7 +1815,8 @@ cerune_origin_mir_fn_4_bb0_i5_lir20:
 cerune_origin_n20_fn_4_21:
 # cerune-mir: v1 fn_4 bb1 block -> lir 21 (short-circuit-rhs)
 cerune_origin_mir_fn_4_bb1_block_lir21:
-.Lcerune_fn_4_block_1: # mir_block
+.Lcerune_fn_4_block_1:
+# mir_block
 # cerune-origin: #71 bytes 182..183
 cerune_origin_n71_fn_4_22:
 # cerune-mir: v1 fn_4 bb1 i6 -> lir 22 (source)
@@ -1843,7 +1867,8 @@ cerune_origin_mir_fn_4_bb1_i9_lir30:
 cerune_origin_n20_fn_4_31:
 # cerune-mir: v1 fn_4 bb2 block -> lir 31 (short-circuit-join)
 cerune_origin_mir_fn_4_bb2_block_lir31:
-.Lcerune_fn_4_block_2: # mir_block
+.Lcerune_fn_4_block_2:
+# mir_block
 # cerune-origin: #84 bytes 165..176
 cerune_origin_n84_fn_4_32:
 # cerune-mir: v1 fn_4 bb2 i10 -> lir 32 (source)
@@ -1864,7 +1889,8 @@ cerune_origin_mir_fn_4_bb2_i10_lir34:
 cerune_origin_n84_fn_4_35:
 # cerune-mir: v1 fn_4 bb3 block -> lir 35 (if-then)
 cerune_origin_mir_fn_4_bb3_block_lir35:
-.Lcerune_fn_4_block_3: # mir_block
+.Lcerune_fn_4_block_3:
+# mir_block
 # cerune-origin: #75 bytes 182..183
 cerune_origin_n75_fn_4_36:
 # cerune-mir: v1 fn_4 bb3 i11 -> lir 36 (source)
@@ -1912,7 +1938,8 @@ cerune_origin_mir_fn_4_bb3_i13_lir43:
 cerune_origin_n84_fn_4_44:
 # cerune-mir: v1 fn_4 bb4 block -> lir 44 (if-else)
 cerune_origin_mir_fn_4_bb4_block_lir44:
-.Lcerune_fn_4_block_4: # mir_block
+.Lcerune_fn_4_block_4:
+# mir_block
 # cerune-origin: #80 bytes 205..216
 cerune_origin_n80_fn_4_45:
 # cerune-mir: v1 fn_4 bb4 i15 -> lir 45 (source)
@@ -1960,7 +1987,8 @@ cerune_origin_mir_fn_4_bb4_i17_lir52:
 cerune_origin_n84_fn_4_53:
 # cerune-mir: v1 fn_4 bb5 block -> lir 53 (if-join)
 cerune_origin_mir_fn_4_bb5_block_lir53:
-.Lcerune_fn_4_block_5: # mir_block
+.Lcerune_fn_4_block_5:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_4 bb5 i19 -> lir 54 (function-end)
 cerune_origin_mir_fn_4_bb5_i19_lir54:
@@ -1969,7 +1997,8 @@ cerune_origin_mir_fn_4_bb5_i19_lir54:
 cerune_origin_n82_fn_4_55:
 # cerune-mir: v1 fn_4 bb6 block -> lir 55 (after-return)
 cerune_origin_mir_fn_4_bb6_block_lir55:
-.Lcerune_fn_4_block_6: # mir_block
+.Lcerune_fn_4_block_6:
+# mir_block
 # cerune-origin: #84 bytes 165..176
 cerune_origin_n84_fn_4_56:
 # cerune-mir: v1 fn_4 bb6 i14 -> lir 56 (if-join)
@@ -1979,13 +2008,13 @@ cerune_origin_mir_fn_4_bb6_i14_lir56:
 cerune_origin_n83_fn_4_57:
 # cerune-mir: v1 fn_4 bb7 block -> lir 57 (after-return)
 cerune_origin_mir_fn_4_bb7_block_lir57:
-.Lcerune_fn_4_block_7: # mir_block
+.Lcerune_fn_4_block_7:
+# mir_block
 # cerune-origin: #84 bytes 165..176
 cerune_origin_n84_fn_4_58:
 # cerune-mir: v1 fn_4 bb7 i18 -> lir 58 (if-join)
 cerune_origin_mir_fn_4_bb7_i18_lir58:
   jmp .Lcerune_fn_4_block_5
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn__match_bind5_5:
@@ -1998,7 +2027,8 @@ cerune_fn__match_bind5_5:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_5 bb0 block -> lir 1 (function-entry)
 cerune_origin_mir_fn_5_bb0_block_lir1:
-.Lcerune_fn_5_block_0: # mir_block
+.Lcerune_fn_5_block_0:
+# mir_block
 # cerune-origin: #17 bytes 137..148
 cerune_origin_n17_fn_5_2:
 # cerune-mir: v1 fn_5 bb0 i0 -> lir 2 (source)
@@ -2106,12 +2136,12 @@ cerune_origin_mir_fn_5_bb0_i6_lir21:
 cerune_origin_n88_fn_5_22:
 # cerune-mir: v1 fn_5 bb1 block -> lir 22 (after-return)
 cerune_origin_mir_fn_5_bb1_block_lir22:
-.Lcerune_fn_5_block_1: # mir_block
+.Lcerune_fn_5_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_5 bb1 i7 -> lir 23 (function-end)
 cerune_origin_mir_fn_5_bb1_i7_lir23:
   ud2
-
 # cerune-origin: synthetic
 .p2align 4
 cerune_fn__display6_6:
@@ -2130,7 +2160,8 @@ cerune_fn__display6_6:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_6 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_6_bb0_block_lir2:
-.Lcerune_fn_6_block_0: # mir_block
+.Lcerune_fn_6_block_0:
+# mir_block
 # cerune-origin: #90 bytes 87..115
 cerune_origin_n90_fn_6_3:
 # cerune-mir: v1 fn_6 bb0 i0 -> lir 3 (source)
@@ -2218,7 +2249,8 @@ cerune_origin_mir_fn_6_bb0_i4_lir18:
 cerune_origin_n105_fn_6_19:
 # cerune-mir: v1 fn_6 bb1 block -> lir 19 (if-then)
 cerune_origin_mir_fn_6_bb1_block_lir19:
-.Lcerune_fn_6_block_1: # mir_block
+.Lcerune_fn_6_block_1:
+# mir_block
 # cerune-origin: #94 bytes 87..115
 cerune_origin_n94_fn_6_20:
 # cerune-mir: v1 fn_6 bb1 i5 -> lir 20 (source)
@@ -2358,7 +2390,8 @@ cerune_origin_mir_fn_6_bb1_i16_lir44:
 cerune_origin_n105_fn_6_45:
 # cerune-mir: v1 fn_6 bb2 block -> lir 45 (if-else)
 cerune_origin_mir_fn_6_bb2_block_lir45:
-.Lcerune_fn_6_block_2: # mir_block
+.Lcerune_fn_6_block_2:
+# mir_block
 # cerune-origin: #105 bytes 87..115
 cerune_origin_n105_fn_6_46:
 # cerune-mir: v1 fn_6 bb2 i17 -> lir 46 (if-join)
@@ -2368,7 +2401,8 @@ cerune_origin_mir_fn_6_bb2_i17_lir46:
 cerune_origin_n105_fn_6_47:
 # cerune-mir: v1 fn_6 bb3 block -> lir 47 (if-join)
 cerune_origin_mir_fn_6_bb3_block_lir47:
-.Lcerune_fn_6_block_3: # mir_block
+.Lcerune_fn_6_block_3:
+# mir_block
 # cerune-origin: #106 bytes 87..115
 cerune_origin_n106_fn_6_48:
 # cerune-mir: v1 fn_6 bb3 i18 -> lir 48 (source)
@@ -2456,7 +2490,8 @@ cerune_origin_mir_fn_6_bb3_i22_lir63:
 cerune_origin_n116_fn_6_64:
 # cerune-mir: v1 fn_6 bb4 block -> lir 64 (if-then)
 cerune_origin_mir_fn_6_bb4_block_lir64:
-.Lcerune_fn_6_block_4: # mir_block
+.Lcerune_fn_6_block_4:
+# mir_block
 # cerune-origin: #110 bytes 87..115
 cerune_origin_n110_fn_6_65:
 # cerune-mir: v1 fn_6 bb4 i23 -> lir 65 (source)
@@ -2532,7 +2567,8 @@ cerune_origin_mir_fn_6_bb4_i29_lir77:
 cerune_origin_n116_fn_6_78:
 # cerune-mir: v1 fn_6 bb5 block -> lir 78 (if-else)
 cerune_origin_mir_fn_6_bb5_block_lir78:
-.Lcerune_fn_6_block_5: # mir_block
+.Lcerune_fn_6_block_5:
+# mir_block
 # cerune-origin: #116 bytes 87..115
 cerune_origin_n116_fn_6_79:
 # cerune-mir: v1 fn_6 bb5 i30 -> lir 79 (if-join)
@@ -2542,7 +2578,8 @@ cerune_origin_mir_fn_6_bb5_i30_lir79:
 cerune_origin_n116_fn_6_80:
 # cerune-mir: v1 fn_6 bb6 block -> lir 80 (if-join)
 cerune_origin_mir_fn_6_bb6_block_lir80:
-.Lcerune_fn_6_block_6: # mir_block
+.Lcerune_fn_6_block_6:
+# mir_block
 # cerune-origin: #117 bytes 87..115
 cerune_origin_n117_fn_6_81:
 # cerune-mir: v1 fn_6 bb6 i31 -> lir 81 (source)
@@ -2576,16 +2613,15 @@ cerune_origin_mir_fn_6_bb6_i33_lir85:
 cerune_origin_n119_fn_6_86:
 # cerune-mir: v1 fn_6 bb7 block -> lir 86 (after-return)
 cerune_origin_mir_fn_6_bb7_block_lir86:
-.Lcerune_fn_6_block_7: # mir_block
+.Lcerune_fn_6_block_7:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_6 bb7 i34 -> lir 87 (function-end)
 cerune_origin_mir_fn_6_bb7_i34_lir87:
   addq $224, %rsp
   popq %rbp
   retq
-
 # cerune-origin: synthetic
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -2607,7 +2643,8 @@ main:
 # cerune-origin: synthetic
 # cerune-mir: v1 main bb0 block -> lir 1 (function-entry)
 cerune_origin_mir_main_bb0_block_lir1:
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
 # cerune-origin: #2 bytes 57..58
 cerune_origin_n2_main_2:
 # cerune-mir: v1 main bb0 i0 -> lir 2 (source)
@@ -2846,41 +2883,41 @@ cerune_origin_mir_main_bb0_i18_lir47:
   jmp .Lcerune_block_1
 # cerune-origin: synthetic
 # cerune-mir: v1 synthetic ABI setup/exit
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
 # cerune-origin: synthetic
   xorl %eax, %eax
   addq $192, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=52 bytes=70..84\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=52 bytes=70..84\n"
 .Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=55 bytes=70..84\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=55 bytes=70..84\n"
 .Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=63 bytes=70..84\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=63 bytes=70..84\n"
 .Lcerune_failure_3:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=41 bytes=254..256\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=41 bytes=254..256\n"
 .Lcerune_output_origin_4:
-  .asciz " node=95 bytes=87..115\n"
+.asciz " node=95 bytes=87..115\n"
 .Lcerune_output_origin_5:
-  .asciz " node=97 bytes=87..115\n"
+.asciz " node=97 bytes=87..115\n"
 .Lcerune_output_origin_6:
-  .asciz " node=99 bytes=87..115\n"
+.asciz " node=99 bytes=87..115\n"
 .Lcerune_output_origin_7:
-  .asciz " node=102 bytes=87..115\n"
+.asciz " node=102 bytes=87..115\n"
 .Lcerune_output_origin_8:
-  .asciz " node=104 bytes=87..115\n"
+.asciz " node=104 bytes=87..115\n"
 .Lcerune_output_origin_9:
-  .asciz " node=111 bytes=87..115\n"
+.asciz " node=111 bytes=87..115\n"
 .Lcerune_output_origin_10:
-  .asciz " node=113 bytes=87..115\n"
+.asciz " node=113 bytes=87..115\n"
 .Lcerune_output_origin_11:
-  .asciz " node=115 bytes=87..115\n"
+.asciz " node=115 bytes=87..115\n"
 .Lcerune_output_origin_12:
-  .asciz " node=118 bytes=87..115\n"
+.asciz " node=118 bytes=87..115\n"
 .Lcerune_output_origin_13:
-  .asciz " node=4 bytes=64..86\n"
+.asciz " node=4 bytes=64..86\n"
 .Lcerune_output_origin_14:
-  .asciz " node=43 bytes=261..275\n"
+.asciz " node=43 bytes=261..275\n"

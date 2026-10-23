@@ -154,8 +154,8 @@ The current output routes and implementation boundaries are:
 | LLVM | LLVM IR representation | `.ll` |
 | QBE | QBE IR representation | `.ssa` |
 | WebAssembly | WAT-oriented instruction IR | `.wat` |
-| Direct x86-64 Windows/Linux assembly | x86-64 LIR lowered from MIR | `.s` |
-| Native object | shared ASM reader, instruction encoding, ELF/COFF writer | `.o` / `.obj` |
+| Direct x86-64 Windows/Linux assembly | MIR → x86-64 LIR → SASHIMI typed Program | `.s` |
+| Native object | instruction encoding, relocations and ELF/COFF from the same typed Program as ASM | `.o` / `.obj` |
 | Cerune bytecode | `BytecodeProgram` | `.cebc` |
 
 Backend IR is allowed to encode decisions that do not belong in Cerune IR.

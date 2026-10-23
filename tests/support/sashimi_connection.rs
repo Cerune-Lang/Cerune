@@ -1,5 +1,5 @@
 //! Compare production objects with the frozen encoder and pre-migration runtime.
-use super::super::{emit_asm_from_lir, lower_mir, object_reference};
+use super::super::{emit_object_from_lir, lower_mir, object_reference};
 use super::{Target, assemble};
 use std::path::{Path, PathBuf};
 const TARGETS: [Target; 2] = [Target::X86_64PcWindowsMsvc, Target::X86_64UnknownLinuxGnu];
@@ -51,14 +51,22 @@ fn all_examples_keep_exact_objects_with_both_targets_ssa_and_origins() {
             for target in TARGETS {
                 let lir = lower_mir(program, target).unwrap();
                 for origins in [false, true] {
-                    let asm = emit_asm_from_lir(&lir, origins).unwrap();
+                    let asm =
+                        super::super::emitter_reference::emit::emit_with_origins(&lir, origins);
                     let baseline = super::super::data::tests::with_frozen_data(&asm, &lir);
                     let baseline = super::super::heap::tests::with_frozen_owners(&baseline, &lir);
                     let baseline = super::super::output::tests::with_frozen_output(&baseline, &lir);
+                    let baseline =
+                        super::super::machine::tests::with_frozen_runtime(&baseline, target);
+                    let expected = object_reference::assemble(&baseline, target).unwrap();
+                    let actual = emit_object_from_lir(&lir, origins).unwrap();
                     assert!(
-                        compare(&asm, &baseline, target, &file.display().to_string()),
-                        "{} must assemble",
-                        file.display()
+                        expected == actual,
+                        "{} {target:?} origins={origins}: size {} / {}, first difference {:?}",
+                        file.display(),
+                        expected.len(),
+                        actual.len(),
+                        expected.iter().zip(&actual).position(|(a, b)| a != b)
                     );
                 }
             }

@@ -1,3 +1,13 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.extern free
+.extern malloc
+.extern memcpy
+.extern fflush
+.globl main
+.extern _setmode
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -25,7 +35,6 @@
 .Lcerune_string_2:
 .quad 0x0000000000000001
 .byte 33
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -851,7 +860,8 @@ cerune_fn__ownership0_0:
   movq %rsp, %rbp
   subq $112, %rsp
   jmp .Lcerune_fn_0_block_0
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
   leaq .Lcerune_string_0(%rip), %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -879,7 +889,7 @@ cerune_fn__ownership0_0:
   movl $69, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lfn_0_concat_limit_3:
   cmpq $2, %rdx
   jne .Lfn_0_concat_failed_3
@@ -890,7 +900,7 @@ cerune_fn__ownership0_0:
   movl $70, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lfn_0_concat_failed_3:
   xorl %ecx, %ecx
   callq fflush
@@ -899,7 +909,7 @@ cerune_fn__ownership0_0:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lfn_0_concat_ok_3:
   movq %rax, -56(%rbp)
   movq -56(%rbp), %rax
@@ -910,9 +920,9 @@ cerune_fn__ownership0_0:
   addq $112, %rsp
   popq %rbp
   retq
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership1_1:
   pushq %rbp
@@ -920,7 +930,8 @@ cerune_fn__ownership1_1:
   subq $96, %rsp
   movq %rcx, -8(%rbp)
   jmp .Lcerune_fn_1_block_0
-.Lcerune_fn_1_block_0: # mir_block
+.Lcerune_fn_1_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -940,9 +951,9 @@ cerune_fn__ownership1_1:
   addq $96, %rsp
   popq %rbp
   retq
-.Lcerune_fn_1_block_1: # mir_block
+.Lcerune_fn_1_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership2_2:
   pushq %rbp
@@ -950,7 +961,8 @@ cerune_fn__ownership2_2:
   subq $112, %rsp
   movq %rcx, -8(%rbp)
   jmp .Lcerune_fn_2_block_0
-.Lcerune_fn_2_block_0: # mir_block
+.Lcerune_fn_2_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -978,7 +990,7 @@ cerune_fn__ownership2_2:
   movl $69, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lfn_2_concat_limit_3:
   cmpq $2, %rdx
   jne .Lfn_2_concat_failed_3
@@ -989,7 +1001,7 @@ cerune_fn__ownership2_2:
   movl $70, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lfn_2_concat_failed_3:
   xorl %ecx, %ecx
   callq fflush
@@ -998,7 +1010,7 @@ cerune_fn__ownership2_2:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lfn_2_concat_ok_3:
   movq %rax, -64(%rbp)
   movq -64(%rbp), %rax
@@ -1009,9 +1021,9 @@ cerune_fn__ownership2_2:
   addq $112, %rsp
   popq %rbp
   retq
-.Lcerune_fn_2_block_1: # mir_block
+.Lcerune_fn_2_block_1:
+# mir_block
   ud2
-
 .p2align 4
 cerune_fn__ownership3_3:
   pushq %rbp
@@ -1020,7 +1032,8 @@ cerune_fn__ownership3_3:
   movq %rcx, -8(%rbp)
   movq %rdx, -16(%rbp)
   jmp .Lcerune_fn_3_block_0
-.Lcerune_fn_3_block_0: # mir_block
+.Lcerune_fn_3_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -24(%rbp)
   movq -24(%rbp), %rax
@@ -1032,10 +1045,9 @@ cerune_fn__ownership3_3:
   addq $64, %rsp
   popq %rbp
   retq
-.Lcerune_fn_3_block_1: # mir_block
+.Lcerune_fn_3_block_1:
+# mir_block
   ud2
-
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -1052,7 +1064,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   callq cerune_fn__ownership0_0
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -1108,26 +1121,26 @@ main:
   movq %rax, %rcx
   callq cerune_string_release
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $176, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=1 bytes=19..39\n"
+.asciz "cerune: runtime-v1 code=allocation-size-overflow node=1 bytes=19..39\n"
 .Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=1 bytes=19..39\n"
+.asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=1 bytes=19..39\n"
 .Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=1 bytes=19..39\n"
+.asciz "cerune: runtime-v1 code=allocation-failed node=1 bytes=19..39\n"
 .Lcerune_failure_3:
-  .asciz "cerune: runtime-v1 code=allocation-size-overflow node=7 bytes=70..87\n"
+.asciz "cerune: runtime-v1 code=allocation-size-overflow node=7 bytes=70..87\n"
 .Lcerune_failure_4:
-  .asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=7 bytes=70..87\n"
+.asciz "cerune: runtime-v1 code=allocation-limit-exceeded node=7 bytes=70..87\n"
 .Lcerune_failure_5:
-  .asciz "cerune: runtime-v1 code=allocation-failed node=7 bytes=70..87\n"
+.asciz "cerune: runtime-v1 code=allocation-failed node=7 bytes=70..87\n"
 .Lcerune_output_origin_6:
-  .asciz " node=10 bytes=89..102\n"
+.asciz " node=10 bytes=89..102\n"
 .Lcerune_output_origin_7:
-  .asciz " node=12 bytes=103..115\n"
+.asciz " node=12 bytes=103..115\n"

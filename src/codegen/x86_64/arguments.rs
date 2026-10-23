@@ -1,6 +1,7 @@
 //! Native argument capture and execution. Internal helpers are not a public ABI.
 use super::ir::{Instruction, Module};
-use std::fmt::Write;
+use super::machine::{EntryKind, Linkage, Opcode, Operand, Scale, Section, r32, r64};
+use super::program::{NativeProgram, address};
 
 pub(super) fn used(module: &Module) -> bool {
     module
@@ -9,18 +10,9 @@ pub(super) fn used(module: &Module) -> bool {
         .chain(module.functions.iter().flat_map(|f| &f.instructions))
         .any(|i| matches!(i, Instruction::ArgumentCount | Instruction::ArgumentGet))
 }
-fn adapt(text: &str, linux: bool) -> String {
-    text.replace("@A@", if linux { "%rdi" } else { "%rcx" })
-        .replace("@B@", if linux { "%rsi" } else { "%rdx" })
-        .replace("@C@", if linux { "%rdx" } else { "%r8" })
-}
-pub(super) fn support(module: &Module) -> String {
+pub(super) fn append(out: &mut NativeProgram, module: &Module) {
     let linux = module.target.is_linux();
-    let mut out = String::from(if linux {
-        ".section .rodata\n"
-    } else {
-        ".section .rdata,\"dr\"\n"
-    });
+    out.push(EntryKind::Section(Section::ReadOnlyData));
     for code in [
         "invalid-limit",
         "count-limit-exceeded",
@@ -34,18 +26,14 @@ pub(super) fn support(module: &Module) -> String {
         "index-out-of-bounds",
         "budget-exceeded",
     ] {
-        writeln!(
-            out,
-            ".Largs_{}:\n  .asciz \"{code}\"",
-            code.replace('-', "_")
-        )
-        .unwrap();
+        out.label(&format!(".Largs_{}", code.replace('-', "_")));
+        out.push(EntryKind::CString(code.to_string()));
     }
     for (name, format) in [
-        ("capture", "cerune: arguments-v1 phase=capture code=%s\\n"),
+        ("capture", "cerune: arguments-v1 phase=capture code=%s\n"),
         (
             "capture_index",
-            "cerune: arguments-v1 phase=capture code=%s index=%lld\\n",
+            "cerune: arguments-v1 phase=capture code=%s index=%lld\n",
         ),
         (
             "count",
@@ -56,453 +44,885 @@ pub(super) fn support(module: &Module) -> String {
             "cerune: arguments-v1 phase=execute operation=get code=%s index=%lld%s",
         ),
     ] {
-        writeln!(out, ".Largs_format_{name}:\n  .asciz \"{format}\"").unwrap();
+        out.label(&format!(".Largs_format_{name}"));
+        out.push(EntryKind::CString(format.to_string()));
     }
-    writeln!(
-        out,
-        ".p2align 3\n.Largs_max_count:\n  .quad {}\n.Largs_max_bytes:\n  .quad {}",
-        module.argument_limits.max_count, module.argument_limits.max_bytes
-    )
-    .unwrap();
-    out.push_str(&adapt(SNAPSHOT, linux));
-    out.push_str(&adapt(GET, linux));
-    out.push_str(&adapt(FAILURE, linux));
-    out.push_str(if linux {
-        "  leaq 80(%rsp), %rdi\n  movl $512, %esi\n  movq 32(%rsp), %rdx\n  movq 40(%rsp), %rcx\n  movq 48(%rsp), %r8\n  movq 56(%rsp), %r9\n  xorl %eax, %eax\n"
+
+    out.push(EntryKind::Align(3));
+    out.label(".Largs_max_count");
+    out.push(EntryKind::Data64(module.argument_limits.max_count));
+    out.label(".Largs_max_bytes");
+    out.push(EntryKind::Data64(module.argument_limits.max_bytes));
+
+    snapshot(out, linux);
+    get(out, linux);
+    failure(out, linux);
+    if linux {
+        out.emit(Opcode::Lea64, [address(4, None, 80), r64(7)]);
+        out.emit(Opcode::Mov32, [Operand::Immediate(512), r32(6)]);
+        out.emit(Opcode::Mov64, [address(4, None, 32), r64(2)]);
+        out.emit(Opcode::Mov64, [address(4, None, 40), r64(1)]);
+        out.emit(Opcode::Mov64, [address(4, None, 48), r64(8)]);
+        out.emit(Opcode::Mov64, [address(4, None, 56), r64(9)]);
+        out.emit(Opcode::Xor32, [r32(0), r32(0)]);
     } else {
-        "  movq 48(%rsp), %rax\n  movq %rax, 32(%rsp)\n  movq 56(%rsp), %rax\n  movq %rax, 40(%rsp)\n  leaq 80(%rsp), %rcx\n  movl $512, %edx\n  movq 64(%rsp), %r8\n  movq 72(%rsp), %r9\n"
-    });
-    out.push_str("  callq snprintf\n  testl %eax, %eax\n  jle .Largs_exit\n  cmpl $512, %eax\n  jb .Largs_write\n  movl $511, %eax\n.Largs_write:\n");
-    out.push_str(if linux {
-        "  movl %eax, %edx\n  leaq 80(%rsp), %rsi\n  movl $2, %edi\n  callq write\n.Largs_exit:\n  movl $1, %edi\n"
+        out.emit(Opcode::Mov64, [address(4, None, 48), r64(0)]);
+        out.emit(Opcode::Mov64, [r64(0), address(4, None, 32)]);
+        out.emit(Opcode::Mov64, [address(4, None, 56), r64(0)]);
+        out.emit(Opcode::Mov64, [r64(0), address(4, None, 40)]);
+        out.emit(Opcode::Lea64, [address(4, None, 80), r64(1)]);
+        out.emit(Opcode::Mov32, [Operand::Immediate(512), r32(2)]);
+        out.emit(Opcode::Mov64, [address(4, None, 64), r64(8)]);
+        out.emit(Opcode::Mov64, [address(4, None, 72), r64(9)]);
+    };
+
+    let symbol = out.symbol("snprintf", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test32, [r32(0), r32(0)]);
+
+    let symbol = out.symbol(".Largs_exit", Linkage::Local);
+    out.emit(Opcode::JumpLe, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Cmp32, [Operand::Immediate(512), r32(0)]);
+
+    let symbol = out.symbol(".Largs_write", Linkage::Local);
+    out.emit(Opcode::JumpB, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov32, [Operand::Immediate(511), r32(0)]);
+    out.label(".Largs_write");
+
+    if linux {
+        out.emit(Opcode::Mov32, [r32(0), r32(2)]);
+        out.emit(Opcode::Lea64, [address(4, None, 80), r64(6)]);
+        out.emit(Opcode::Mov32, [Operand::Immediate(2), r32(7)]);
+
+        let symbol = out.symbol("write", Linkage::External);
+        out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+        out.label(".Largs_exit");
+        out.emit(Opcode::Mov32, [Operand::Immediate(1), r32(7)]);
     } else {
-        "  movl %eax, %r8d\n  leaq 80(%rsp), %rdx\n  movl $2, %ecx\n  callq _write\n.Largs_exit:\n  movl $1, %ecx\n"
-    });
-    out.push_str("  callq _Exit\n  ud2\n");
-    out
+        out.emit(Opcode::Mov32, [r32(0), r32(8)]);
+        out.emit(Opcode::Lea64, [address(4, None, 80), r64(2)]);
+        out.emit(Opcode::Mov32, [Operand::Immediate(2), r32(1)]);
+
+        let symbol = out.symbol("_write", Linkage::External);
+        out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+        out.label(".Largs_exit");
+        out.emit(Opcode::Mov32, [Operand::Immediate(1), r32(1)]);
+    };
+
+    let symbol = out.symbol("_Exit", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Undefined, []);
 }
 // Capture: rax=count, rdx=borrowed [pointer,length] pairs. Validate everything
 // before allocating a single private block, then publish count/pointer together.
 // Frame: 32 count,40 pairs,48 total,56 index,64 block,72 cursor,80 slot,88 length.
-const SNAPSHOT: &str = r#"
-.data
-.p2align 3
-.Largs_ready:
-  .quad 0
-.Largs_count:
-  .quad 0
-.Largs_values:
-  .quad 0
-.text
-cerune_arguments_capture:
-  subq $104, %rsp
-  movq %rax, 32(%rsp)
-  movq %rdx, 40(%rsp)
-  movq $0, 48(%rsp)
-  movq $0, 56(%rsp)
-  cmpq $0, .Largs_max_count(%rip)
-  js .Largs_bad_limit
-  testq %rax, %rax
-  js .Largs_bad_count
-  cmpq .Largs_max_count(%rip), %rax
-  ja .Largs_bad_count
-.Largs_validate:
-  movq 56(%rsp), %rax
-  cmpq 32(%rsp), %rax
-  je .Largs_allocate
-  shlq $4, %rax
-  addq 40(%rsp), %rax
-  movq %rax, 80(%rsp)
-  movq 8(%rax), %rcx
-  movq %rcx, 88(%rsp)
-  addq 48(%rsp), %rcx
-  jc .Largs_bad_bytes
-  cmpq .Largs_max_bytes(%rip), %rcx
-  ja .Largs_bad_bytes
-  movq %rcx, 48(%rsp)
-  movq 8(%rax), %rcx
-  movq (%rax), %rdx
-  callq cerune_utf8
-  testl %eax, %eax
-  je .Largs_bad_utf8
-  movq 80(%rsp), %rax
-  movq (%rax), %rdx
-  xorl %ecx, %ecx
-.Largs_nul_loop:
-  cmpq 88(%rsp), %rcx
-  je .Largs_valid
-  cmpb $0, (%rdx,%rcx)
-  je .Largs_bad_nul
-  addq $1, %rcx
-  jmp .Largs_nul_loop
-.Largs_valid:
-  addq $1, 56(%rsp)
-  jmp .Largs_validate
-.Largs_allocate:
-  movq $-1, 56(%rsp)
-  movq 32(%rsp), %rax
-  testq %rax, %rax
-  je .Largs_empty_snapshot
-  movabsq $576460752303423487, %rcx
-  cmpq %rcx, %rax
-  ja .Largs_snapshot_allocation
-  shlq $4, %rax
-  movq %rax, 72(%rsp)
-  addq 48(%rsp), %rax
-  jc .Largs_snapshot_allocation
-  testq %rax, %rax
-  js .Largs_snapshot_allocation
-  movq %rax, @A@
-  callq malloc
-  testq %rax, %rax
-  je .Largs_snapshot_allocation
-  movq %rax, 64(%rsp)
-  addq %rax, 72(%rsp)
-  movq $0, 56(%rsp)
-.Largs_copy:
-  movq 56(%rsp), %rax
-  cmpq 32(%rsp), %rax
-  je .Largs_publish
-  shlq $4, %rax
-  movq %rax, %r10
-  addq 40(%rsp), %rax
-  addq 64(%rsp), %r10
-  movq 8(%rax), %r11
-  movq %r11, 88(%rsp)
-  movq %r11, 8(%r10)
-  movq 72(%rsp), %r11
-  movq %r11, (%r10)
-  cmpq $0, 88(%rsp)
-  je .Largs_copy_next
-  movq 72(%rsp), @A@
-  movq (%rax), @B@
-  movq 88(%rsp), @C@
-  callq memcpy
-.Largs_copy_next:
-  movq 88(%rsp), %rax
-  addq %rax, 72(%rsp)
-  addq $1, 56(%rsp)
-  jmp .Largs_copy
-.Largs_empty_snapshot:
-  movq $0, 64(%rsp)
-.Largs_publish:
-  movq 64(%rsp), %rax
-  movq %rax, .Largs_values(%rip)
-  movq 32(%rsp), %rax
-  movq %rax, .Largs_count(%rip)
-  movq $1, .Largs_ready(%rip)
-  addq $104, %rsp
-  retq
-.Largs_bad_limit:
-  leaq .Largs_invalid_limit(%rip), %rax
-  movq $-1, 56(%rsp)
-  jmp .Largs_capture_error
-.Largs_bad_count:
-  leaq .Largs_count_limit_exceeded(%rip), %rax
-  movq $-1, 56(%rsp)
-  jmp .Largs_capture_error
-.Largs_bad_bytes:
-  leaq .Largs_byte_limit_exceeded(%rip), %rax
-  jmp .Largs_capture_error
-.Largs_bad_utf8:
-  leaq .Largs_invalid_utf8(%rip), %rax
-  jmp .Largs_capture_error
-.Largs_bad_nul:
-  leaq .Largs_embedded_nul(%rip), %rax
-  jmp .Largs_capture_error
-.Largs_snapshot_allocation:
-  leaq .Largs_allocation_failed(%rip), %rax
-.Largs_capture_error:
-  movq 56(%rsp), %rcx
-  callq cerune_arguments_capture_failed
-  ud2
-cerune_arguments_dispose:
-  subq $40, %rsp
-  movq .Largs_values(%rip), @A@
-  callq free
-  movq $0, .Largs_ready(%rip)
-  movq $0, .Largs_values(%rip)
-  movq $0, .Largs_count(%rip)
-  addq $40, %rsp
-  retq
-"#;
+fn snapshot(out: &mut NativeProgram, linux: bool) {
+    let (first, second, third) = if linux { (7, 6, 2) } else { (1, 2, 8) };
+
+    out.push(EntryKind::Section(Section::Data));
+    out.push(EntryKind::Align(3));
+    out.label(".Largs_ready");
+    out.push(EntryKind::Data64(0_u64));
+    out.label(".Largs_count");
+    out.push(EntryKind::Data64(0_u64));
+    out.label(".Largs_values");
+    out.push(EntryKind::Data64(0_u64));
+    out.push(EntryKind::Section(Section::Text));
+    out.label("cerune_arguments_capture");
+    out.emit(Opcode::Sub64, [Operand::Immediate(104), r64(4)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 32)]);
+    out.emit(Opcode::Mov64, [r64(2), address(4, None, 40)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 48)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 56)]);
+
+    let symbol = out.symbol(".Largs_max_count", Linkage::Local);
+    out.emit(
+        Opcode::Cmp64,
+        [Operand::Immediate(0), Operand::RipRelative(symbol)],
+    );
+
+    let symbol = out.symbol(".Largs_bad_limit", Linkage::Local);
+    out.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_bad_count", Linkage::Local);
+    out.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+    let symbol = out.symbol(".Largs_max_count", Linkage::Local);
+    out.emit(Opcode::Cmp64, [Operand::RipRelative(symbol), r64(0)]);
+
+    let symbol = out.symbol(".Largs_bad_count", Linkage::Local);
+    out.emit(Opcode::JumpA, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_validate");
+    out.emit(Opcode::Mov64, [address(4, None, 56), r64(0)]);
+    out.emit(Opcode::Cmp64, [address(4, None, 32), r64(0)]);
+
+    let symbol = out.symbol(".Largs_allocate", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::ShiftLeft64, [Operand::Immediate(4), r64(0)]);
+    out.emit(Opcode::Add64, [address(4, None, 40), r64(0)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 80)]);
+    out.emit(Opcode::Mov64, [address(0, None, 8), r64(1)]);
+    out.emit(Opcode::Mov64, [r64(1), address(4, None, 88)]);
+    out.emit(Opcode::Add64, [address(4, None, 48), r64(1)]);
+
+    let symbol = out.symbol(".Largs_bad_bytes", Linkage::Local);
+    out.emit(Opcode::JumpB, [Operand::Symbol(symbol)]);
+
+    let symbol = out.symbol(".Largs_max_bytes", Linkage::Local);
+    out.emit(Opcode::Cmp64, [Operand::RipRelative(symbol), r64(1)]);
+
+    let symbol = out.symbol(".Largs_bad_bytes", Linkage::Local);
+    out.emit(Opcode::JumpA, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(1), address(4, None, 48)]);
+    out.emit(Opcode::Mov64, [address(0, None, 8), r64(1)]);
+    out.emit(Opcode::Mov64, [address(0, None, 0), r64(2)]);
+
+    let symbol = out.symbol("cerune_utf8", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test32, [r32(0), r32(0)]);
+
+    let symbol = out.symbol(".Largs_bad_utf8", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 80), r64(0)]);
+    out.emit(Opcode::Mov64, [address(0, None, 0), r64(2)]);
+    out.emit(Opcode::Xor32, [r32(1), r32(1)]);
+    out.label(".Largs_nul_loop");
+    out.emit(Opcode::Cmp64, [address(4, None, 88), r64(1)]);
+
+    let symbol = out.symbol(".Largs_valid", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(
+        Opcode::Cmp8,
+        [Operand::Immediate(0), address(2, Some((1, Scale::One)), 0)],
+    );
+
+    let symbol = out.symbol(".Largs_bad_nul", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Add64, [Operand::Immediate(1), r64(1)]);
+
+    let symbol = out.symbol(".Largs_nul_loop", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_valid");
+    out.emit(Opcode::Add64, [Operand::Immediate(1), address(4, None, 56)]);
+
+    let symbol = out.symbol(".Largs_validate", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_allocate");
+    out.emit(
+        Opcode::Mov64,
+        [Operand::Immediate(-1), address(4, None, 56)],
+    );
+    out.emit(Opcode::Mov64, [address(4, None, 32), r64(0)]);
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_empty_snapshot", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(
+        Opcode::MovAbs64,
+        [Operand::Immediate(576460752303423487), r64(1)],
+    );
+    out.emit(Opcode::Cmp64, [r64(1), r64(0)]);
+
+    let symbol = out.symbol(".Largs_snapshot_allocation", Linkage::Local);
+    out.emit(Opcode::JumpA, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::ShiftLeft64, [Operand::Immediate(4), r64(0)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 72)]);
+    out.emit(Opcode::Add64, [address(4, None, 48), r64(0)]);
+
+    let symbol = out.symbol(".Largs_snapshot_allocation", Linkage::Local);
+    out.emit(Opcode::JumpB, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_snapshot_allocation", Linkage::Local);
+    out.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(0), r64(first)]);
+
+    let symbol = out.symbol("malloc", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_snapshot_allocation", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 64)]);
+    out.emit(Opcode::Add64, [r64(0), address(4, None, 72)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 56)]);
+    out.label(".Largs_copy");
+    out.emit(Opcode::Mov64, [address(4, None, 56), r64(0)]);
+    out.emit(Opcode::Cmp64, [address(4, None, 32), r64(0)]);
+
+    let symbol = out.symbol(".Largs_publish", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::ShiftLeft64, [Operand::Immediate(4), r64(0)]);
+    out.emit(Opcode::Mov64, [r64(0), r64(10)]);
+    out.emit(Opcode::Add64, [address(4, None, 40), r64(0)]);
+    out.emit(Opcode::Add64, [address(4, None, 64), r64(10)]);
+    out.emit(Opcode::Mov64, [address(0, None, 8), r64(11)]);
+    out.emit(Opcode::Mov64, [r64(11), address(4, None, 88)]);
+    out.emit(Opcode::Mov64, [r64(11), address(10, None, 8)]);
+    out.emit(Opcode::Mov64, [address(4, None, 72), r64(11)]);
+    out.emit(Opcode::Mov64, [r64(11), address(10, None, 0)]);
+    out.emit(Opcode::Cmp64, [Operand::Immediate(0), address(4, None, 88)]);
+
+    let symbol = out.symbol(".Largs_copy_next", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 72), r64(first)]);
+    out.emit(Opcode::Mov64, [address(0, None, 0), r64(second)]);
+    out.emit(Opcode::Mov64, [address(4, None, 88), r64(third)]);
+
+    let symbol = out.symbol("memcpy", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_copy_next");
+    out.emit(Opcode::Mov64, [address(4, None, 88), r64(0)]);
+    out.emit(Opcode::Add64, [r64(0), address(4, None, 72)]);
+    out.emit(Opcode::Add64, [Operand::Immediate(1), address(4, None, 56)]);
+
+    let symbol = out.symbol(".Largs_copy", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_empty_snapshot");
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 64)]);
+    out.label(".Largs_publish");
+    out.emit(Opcode::Mov64, [address(4, None, 64), r64(0)]);
+
+    let symbol = out.symbol(".Largs_values", Linkage::Local);
+    out.emit(Opcode::Mov64, [r64(0), Operand::RipRelative(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 32), r64(0)]);
+
+    let symbol = out.symbol(".Largs_count", Linkage::Local);
+    out.emit(Opcode::Mov64, [r64(0), Operand::RipRelative(symbol)]);
+
+    let symbol = out.symbol(".Largs_ready", Linkage::Local);
+    out.emit(
+        Opcode::Mov64,
+        [Operand::Immediate(1), Operand::RipRelative(symbol)],
+    );
+
+    out.emit(Opcode::Add64, [Operand::Immediate(104), r64(4)]);
+    out.emit(Opcode::Ret, []);
+    out.label(".Largs_bad_limit");
+
+    let symbol = out.symbol(".Largs_invalid_limit", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(
+        Opcode::Mov64,
+        [Operand::Immediate(-1), address(4, None, 56)],
+    );
+
+    let symbol = out.symbol(".Largs_capture_error", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_bad_count");
+
+    let symbol = out.symbol(".Largs_count_limit_exceeded", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(
+        Opcode::Mov64,
+        [Operand::Immediate(-1), address(4, None, 56)],
+    );
+
+    let symbol = out.symbol(".Largs_capture_error", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_bad_bytes");
+
+    let symbol = out.symbol(".Largs_byte_limit_exceeded", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    let symbol = out.symbol(".Largs_capture_error", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_bad_utf8");
+
+    let symbol = out.symbol(".Largs_invalid_utf8", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    let symbol = out.symbol(".Largs_capture_error", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_bad_nul");
+
+    let symbol = out.symbol(".Largs_embedded_nul", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    let symbol = out.symbol(".Largs_capture_error", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_snapshot_allocation");
+
+    let symbol = out.symbol(".Largs_allocation_failed", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.label(".Largs_capture_error");
+    out.emit(Opcode::Mov64, [address(4, None, 56), r64(1)]);
+
+    let symbol = out.symbol("cerune_arguments_capture_failed", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Undefined, []);
+    out.label("cerune_arguments_dispose");
+    out.emit(Opcode::Sub64, [Operand::Immediate(40), r64(4)]);
+
+    let symbol = out.symbol(".Largs_values", Linkage::Local);
+    out.emit(Opcode::Mov64, [Operand::RipRelative(symbol), r64(first)]);
+
+    let symbol = out.symbol("free", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    let symbol = out.symbol(".Largs_ready", Linkage::Local);
+    out.emit(
+        Opcode::Mov64,
+        [Operand::Immediate(0), Operand::RipRelative(symbol)],
+    );
+
+    let symbol = out.symbol(".Largs_values", Linkage::Local);
+    out.emit(
+        Opcode::Mov64,
+        [Operand::Immediate(0), Operand::RipRelative(symbol)],
+    );
+
+    let symbol = out.symbol(".Largs_count", Linkage::Local);
+    out.emit(
+        Opcode::Mov64,
+        [Operand::Immediate(0), Operand::RipRelative(symbol)],
+    );
+
+    out.emit(Opcode::Add64, [Operand::Immediate(40), r64(4)]);
+    out.emit(Opcode::Ret, []);
+}
 // Execution: r11=immutable origin, rax=get index. Return the existing string
 // representation [length,bytes], owned by the ordinary string heap.
-const GET: &str = r#"
-cerune_arguments_count:
-  cmpq $0, .Largs_ready(%rip)
-  je .Largs_count_unconfigured
-  movq .Largs_count(%rip), %rax
-  retq
-.Largs_count_unconfigured:
-  leaq .Largs_format_count(%rip), %rax
-  leaq .Largs_unconfigured(%rip), %rdx
-  movq %r11, %rcx
-  jmp cerune_arguments_failed
-cerune_arguments_get:
-  subq $104, %rsp
-  movq %rax, 32(%rsp)
-  movq %r11, 40(%rsp)
-  cmpq $0, .Largs_ready(%rip)
-  je .Largs_get_unconfigured
-  testq %rax, %rax
-  js .Largs_get_negative
-  cmpq .Largs_count(%rip), %rax
-  jae .Largs_get_bounds
-  shlq $4, %rax
-  addq .Largs_values(%rip), %rax
-  movq (%rax), %rcx
-  movq %rcx, 48(%rsp)
-  movq 8(%rax), %rax
-  movq %rax, 56(%rsp)
-  testq %rax, %rax
-  je .Largs_get_empty
-  movq .Lcerune_heap_limit(%rip), %rcx
-  subq .Lcerune_heap_live(%rip), %rcx
-  cmpq %rcx, %rax
-  ja .Largs_get_budget
-  cmpq .Lcerune_heap_max(%rip), %rax
-  ja .Largs_get_allocation
-  leaq 24(%rax), @A@
-  callq malloc
-  testq %rax, %rax
-  je .Largs_get_allocation
-  movq %rax, 64(%rsp)
-  movq .Lcerune_heap_head(%rip), %rcx
-  movq %rcx, (%rax)
-  movq $1, 8(%rax)
-  movq 56(%rsp), %rcx
-  movq %rcx, 16(%rax)
-  leaq 24(%rax), @A@
-  movq 48(%rsp), @B@
-  movq 56(%rsp), @C@
-  callq memcpy
-  movq 64(%rsp), %rax
-  movq %rax, .Lcerune_heap_head(%rip)
-  movq 56(%rsp), %rcx
-  addq %rcx, .Lcerune_heap_live(%rip)
-  addq $16, %rax
-  addq $104, %rsp
-  retq
-.Largs_get_empty:
-  leaq .Lcerune_heap_empty(%rip), %rax
-  addq $104, %rsp
-  retq
-.Largs_get_unconfigured:
-  leaq .Largs_unconfigured(%rip), %rdx
-  jmp .Largs_get_failed
-.Largs_get_negative:
-  leaq .Largs_invalid_index(%rip), %rdx
-  jmp .Largs_get_failed
-.Largs_get_bounds:
-  leaq .Largs_index_out_of_bounds(%rip), %rdx
-  jmp .Largs_get_failed
-.Largs_get_budget:
-  leaq .Largs_budget_exceeded(%rip), %rdx
-  jmp .Largs_get_failed
-.Largs_get_allocation:
-  leaq .Largs_allocation_failed(%rip), %rdx
-.Largs_get_failed:
-  leaq .Largs_format_get(%rip), %rax
-  movq 32(%rsp), %rcx
-  movq 40(%rsp), %r11
-  callq cerune_arguments_failed
-  ud2
-"#;
+fn get(out: &mut NativeProgram, linux: bool) {
+    let (first, second, third) = if linux { (7, 6, 2) } else { (1, 2, 8) };
+
+    out.label("cerune_arguments_count");
+
+    let symbol = out.symbol(".Largs_ready", Linkage::Local);
+    out.emit(
+        Opcode::Cmp64,
+        [Operand::Immediate(0), Operand::RipRelative(symbol)],
+    );
+
+    let symbol = out.symbol(".Largs_count_unconfigured", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    let symbol = out.symbol(".Largs_count", Linkage::Local);
+    out.emit(Opcode::Mov64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(Opcode::Ret, []);
+    out.label(".Largs_count_unconfigured");
+
+    let symbol = out.symbol(".Largs_format_count", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    let symbol = out.symbol(".Largs_unconfigured", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(2)]);
+
+    out.emit(Opcode::Mov64, [r64(11), r64(1)]);
+
+    let symbol = out.symbol("cerune_arguments_failed", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label("cerune_arguments_get");
+    out.emit(Opcode::Sub64, [Operand::Immediate(104), r64(4)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 32)]);
+    out.emit(Opcode::Mov64, [r64(11), address(4, None, 40)]);
+
+    let symbol = out.symbol(".Largs_ready", Linkage::Local);
+    out.emit(
+        Opcode::Cmp64,
+        [Operand::Immediate(0), Operand::RipRelative(symbol)],
+    );
+
+    let symbol = out.symbol(".Largs_get_unconfigured", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_get_negative", Linkage::Local);
+    out.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+    let symbol = out.symbol(".Largs_count", Linkage::Local);
+    out.emit(Opcode::Cmp64, [Operand::RipRelative(symbol), r64(0)]);
+
+    let symbol = out.symbol(".Largs_get_bounds", Linkage::Local);
+    out.emit(Opcode::JumpAe, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::ShiftLeft64, [Operand::Immediate(4), r64(0)]);
+
+    let symbol = out.symbol(".Largs_values", Linkage::Local);
+    out.emit(Opcode::Add64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(Opcode::Mov64, [address(0, None, 0), r64(1)]);
+    out.emit(Opcode::Mov64, [r64(1), address(4, None, 48)]);
+    out.emit(Opcode::Mov64, [address(0, None, 8), r64(0)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 56)]);
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_get_empty", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    let symbol = out.symbol(".Lcerune_heap_limit", Linkage::Local);
+    out.emit(Opcode::Mov64, [Operand::RipRelative(symbol), r64(1)]);
+
+    let symbol = out.symbol(".Lcerune_heap_live", Linkage::Local);
+    out.emit(Opcode::Sub64, [Operand::RipRelative(symbol), r64(1)]);
+
+    out.emit(Opcode::Cmp64, [r64(1), r64(0)]);
+
+    let symbol = out.symbol(".Largs_get_budget", Linkage::Local);
+    out.emit(Opcode::JumpA, [Operand::Symbol(symbol)]);
+
+    let symbol = out.symbol(".Lcerune_heap_max", Linkage::Local);
+    out.emit(Opcode::Cmp64, [Operand::RipRelative(symbol), r64(0)]);
+
+    let symbol = out.symbol(".Largs_get_allocation", Linkage::Local);
+    out.emit(Opcode::JumpA, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Lea64, [address(0, None, 24), r64(first)]);
+
+    let symbol = out.symbol("malloc", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_get_allocation", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 64)]);
+
+    let symbol = out.symbol(".Lcerune_heap_head", Linkage::Local);
+    out.emit(Opcode::Mov64, [Operand::RipRelative(symbol), r64(1)]);
+
+    out.emit(Opcode::Mov64, [r64(1), address(0, None, 0)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(1), address(0, None, 8)]);
+    out.emit(Opcode::Mov64, [address(4, None, 56), r64(1)]);
+    out.emit(Opcode::Mov64, [r64(1), address(0, None, 16)]);
+    out.emit(Opcode::Lea64, [address(0, None, 24), r64(first)]);
+    out.emit(Opcode::Mov64, [address(4, None, 48), r64(second)]);
+    out.emit(Opcode::Mov64, [address(4, None, 56), r64(third)]);
+
+    let symbol = out.symbol("memcpy", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 64), r64(0)]);
+
+    let symbol = out.symbol(".Lcerune_heap_head", Linkage::Local);
+    out.emit(Opcode::Mov64, [r64(0), Operand::RipRelative(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 56), r64(1)]);
+
+    let symbol = out.symbol(".Lcerune_heap_live", Linkage::Local);
+    out.emit(Opcode::Add64, [r64(1), Operand::RipRelative(symbol)]);
+
+    out.emit(Opcode::Add64, [Operand::Immediate(16), r64(0)]);
+    out.emit(Opcode::Add64, [Operand::Immediate(104), r64(4)]);
+    out.emit(Opcode::Ret, []);
+    out.label(".Largs_get_empty");
+
+    let symbol = out.symbol(".Lcerune_heap_empty", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(Opcode::Add64, [Operand::Immediate(104), r64(4)]);
+    out.emit(Opcode::Ret, []);
+    out.label(".Largs_get_unconfigured");
+
+    let symbol = out.symbol(".Largs_unconfigured", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(2)]);
+
+    let symbol = out.symbol(".Largs_get_failed", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_get_negative");
+
+    let symbol = out.symbol(".Largs_invalid_index", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(2)]);
+
+    let symbol = out.symbol(".Largs_get_failed", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_get_bounds");
+
+    let symbol = out.symbol(".Largs_index_out_of_bounds", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(2)]);
+
+    let symbol = out.symbol(".Largs_get_failed", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_get_budget");
+
+    let symbol = out.symbol(".Largs_budget_exceeded", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(2)]);
+
+    let symbol = out.symbol(".Largs_get_failed", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_get_allocation");
+
+    let symbol = out.symbol(".Largs_allocation_failed", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(2)]);
+
+    out.label(".Largs_get_failed");
+
+    let symbol = out.symbol(".Largs_format_get", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 32), r64(1)]);
+    out.emit(Opcode::Mov64, [address(4, None, 40), r64(11)]);
+
+    let symbol = out.symbol("cerune_arguments_failed", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Undefined, []);
+}
 // Format/code/argument/origin in rax/rdx/rcx/r11; no input contents.
 // The optional origin distinguishes execute failures from capture failures.
-const FAILURE: &str = r#"
-cerune_arguments_capture_failed:
-  movq %rax, %rdx
-  leaq .Largs_format_capture(%rip), %rax
-  testq %rcx, %rcx
-  js .Largs_capture_format_ready
-  leaq .Largs_format_capture_index(%rip), %rax
-.Largs_capture_format_ready:
-  xorl %r11d, %r11d
-  jmp cerune_arguments_failed
-cerune_arguments_failed:
-  subq $600, %rsp
-  movq %rax, 32(%rsp)
-  movq %rdx, 40(%rsp)
-  movq %rcx, 48(%rsp)
-  movq %r11, 56(%rsp)
-  movq %rax, 64(%rsp)
-  movq %rdx, 72(%rsp)
-  testq %r11, %r11
-  je .Largs_failure_format
-  movq $0, @A@
-  callq fflush
-.Largs_failure_format:
-"#;
+fn failure(out: &mut NativeProgram, linux: bool) {
+    let first = if linux { 7 } else { 1 };
 
-pub(super) fn entry(linux: bool) -> String {
-    let mut out = adapt(ENTRY, linux)
-        .replace("@ENTRY@", if linux { "main" } else { "wmain" })
-        .replace("@ARGC@", if linux { "%edi" } else { "%ecx" })
-        .replace("@ARGV@", if linux { "%rsi" } else { "%rdx" })
-        .replace("@FREE_VALUES@", if linux { "" } else { FREE_VALUES });
-    out.push_str(&adapt(
-        if linux { LINUX_VALUE } else { WINDOWS_VALUE },
-        linux,
-    ));
-    // FREE_VALUES has one target argument placeholder.
-    adapt(&out, linux)
+    out.label("cerune_arguments_capture_failed");
+    out.emit(Opcode::Mov64, [r64(0), r64(2)]);
+
+    let symbol = out.symbol(".Largs_format_capture", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(Opcode::Test64, [r64(1), r64(1)]);
+
+    let symbol = out.symbol(".Largs_capture_format_ready", Linkage::Local);
+    out.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+    let symbol = out.symbol(".Largs_format_capture_index", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.label(".Largs_capture_format_ready");
+    out.emit(Opcode::Xor32, [r32(11), r32(11)]);
+
+    let symbol = out.symbol("cerune_arguments_failed", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label("cerune_arguments_failed");
+    out.emit(Opcode::Sub64, [Operand::Immediate(600), r64(4)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 32)]);
+    out.emit(Opcode::Mov64, [r64(2), address(4, None, 40)]);
+    out.emit(Opcode::Mov64, [r64(1), address(4, None, 48)]);
+    out.emit(Opcode::Mov64, [r64(11), address(4, None, 56)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 64)]);
+    out.emit(Opcode::Mov64, [r64(2), address(4, None, 72)]);
+    out.emit(Opcode::Test64, [r64(11), r64(11)]);
+
+    let symbol = out.symbol(".Largs_failure_format", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), r64(first)]);
+
+    let symbol = out.symbol("fflush", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_failure_format");
+}
+
+pub(super) fn append_entry(out: &mut NativeProgram) {
+    let linux = out.program.target == sashimi_assembler::Target::X86_64UnknownLinuxGnu;
+    entry(out, linux);
+    if linux {
+        linux_value(out);
+    } else {
+        windows_value(out);
+    }
 }
 // OS conversion precedes common capture, as in C/LLVM/QBE. argc excludes argv[0].
 // Frame: 64 count,72 argv,80 temporary pairs,88 index,96 result.
-const ENTRY: &str = r#"
-.text
-.globl @ENTRY@
-@ENTRY@:
-  subq $120, %rsp
-  movq @ARGV@, 72(%rsp)
-  movl @ARGC@, %eax
-  testl %eax, %eax
-  jle .Largs_start_empty
-  subl $1, %eax
-  jmp .Largs_start_size
-.Largs_start_empty:
-  xorl %eax, %eax
-.Largs_start_size:
-  movq %rax, 64(%rsp)
-  movq $0, 80(%rsp)
-  movq $0, 88(%rsp)
-  testq %rax, %rax
-  je .Largs_start_capture
-  shlq $4, %rax
-  movq %rax, @A@
-  callq malloc
-  testq %rax, %rax
-  je .Largs_start_allocation
-  movq %rax, 80(%rsp)
-.Largs_start_convert:
-  movq 88(%rsp), %rcx
-  cmpq 64(%rsp), %rcx
-  je .Largs_start_capture
-  movq 72(%rsp), %rdx
-  movq 8(%rdx,%rcx,8), %rax
-  callq cerune_arguments_os_value
-  movq 88(%rsp), %rdx
-  shlq $4, %rdx
-  addq 80(%rsp), %rdx
-  movq %rax, (%rdx)
-  movq %rcx, 8(%rdx)
-  addq $1, 88(%rsp)
-  jmp .Largs_start_convert
-.Largs_start_capture:
-  movq 64(%rsp), %rax
-  movq 80(%rsp), %rdx
-  callq cerune_arguments_capture
-@FREE_VALUES@
-  movq 80(%rsp), @A@
-  callq free
-  callq cerune_program
-  movq %rax, 96(%rsp)
-  callq cerune_arguments_dispose
-  movq 96(%rsp), %rax
-  addq $120, %rsp
-  retq
-.Largs_start_allocation:
-  leaq .Largs_allocation_failed(%rip), %rax
-  movq $-1, %rcx
-  callq cerune_arguments_capture_failed
-  ud2
-"#;
-const FREE_VALUES: &str = r#"
-  movq $0, 88(%rsp)
-.Largs_free_os:
-  movq 88(%rsp), %rax
-  cmpq 64(%rsp), %rax
-  je .Largs_free_os_done
-  shlq $4, %rax
-  addq 80(%rsp), %rax
-  cmpq $0, 8(%rax)
-  je .Largs_free_os_next
-  movq (%rax), @A@
-  callq free
-.Largs_free_os_next:
-  addq $1, 88(%rsp)
-  jmp .Largs_free_os
-.Largs_free_os_done:
-"#;
+fn entry(out: &mut NativeProgram, linux: bool) {
+    let (first, argv) = if linux { (7, 6) } else { (1, 2) };
+
+    out.push(EntryKind::Section(Section::Text));
+    out.global_label(if linux { "main" } else { "wmain" });
+    out.emit(Opcode::Sub64, [Operand::Immediate(120), r64(4)]);
+    out.emit(Opcode::Mov64, [r64(argv), address(4, None, 72)]);
+    out.emit(Opcode::Mov32, [r32(first), r32(0)]);
+    out.emit(Opcode::Test32, [r32(0), r32(0)]);
+
+    let symbol = out.symbol(".Largs_start_empty", Linkage::Local);
+    out.emit(Opcode::JumpLe, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Sub32, [Operand::Immediate(1), r32(0)]);
+
+    let symbol = out.symbol(".Largs_start_size", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_start_empty");
+    out.emit(Opcode::Xor32, [r32(0), r32(0)]);
+    out.label(".Largs_start_size");
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 64)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 80)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 88)]);
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_start_capture", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::ShiftLeft64, [Operand::Immediate(4), r64(0)]);
+    out.emit(Opcode::Mov64, [r64(0), r64(first)]);
+
+    let symbol = out.symbol("malloc", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_start_allocation", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 80)]);
+    out.label(".Largs_start_convert");
+    out.emit(Opcode::Mov64, [address(4, None, 88), r64(1)]);
+    out.emit(Opcode::Cmp64, [address(4, None, 64), r64(1)]);
+
+    let symbol = out.symbol(".Largs_start_capture", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 72), r64(2)]);
+    out.emit(
+        Opcode::Mov64,
+        [address(2, Some((1, Scale::Eight)), 8), r64(0)],
+    );
+
+    let symbol = out.symbol("cerune_arguments_os_value", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 88), r64(2)]);
+    out.emit(Opcode::ShiftLeft64, [Operand::Immediate(4), r64(2)]);
+    out.emit(Opcode::Add64, [address(4, None, 80), r64(2)]);
+    out.emit(Opcode::Mov64, [r64(0), address(2, None, 0)]);
+    out.emit(Opcode::Mov64, [r64(1), address(2, None, 8)]);
+    out.emit(Opcode::Add64, [Operand::Immediate(1), address(4, None, 88)]);
+
+    let symbol = out.symbol(".Largs_start_convert", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_start_capture");
+    out.emit(Opcode::Mov64, [address(4, None, 64), r64(0)]);
+    out.emit(Opcode::Mov64, [address(4, None, 80), r64(2)]);
+
+    let symbol = out.symbol("cerune_arguments_capture", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    if !linux {
+        free_values(out, linux);
+    }
+    out.emit(Opcode::Mov64, [address(4, None, 80), r64(first)]);
+
+    let symbol = out.symbol("free", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    let symbol = out.symbol("cerune_program", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 96)]);
+
+    let symbol = out.symbol("cerune_arguments_dispose", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 96), r64(0)]);
+    out.emit(Opcode::Add64, [Operand::Immediate(120), r64(4)]);
+    out.emit(Opcode::Ret, []);
+    out.label(".Largs_start_allocation");
+
+    let symbol = out.symbol(".Largs_allocation_failed", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(Opcode::Mov64, [Operand::Immediate(-1), r64(1)]);
+
+    let symbol = out.symbol("cerune_arguments_capture_failed", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Undefined, []);
+}
+fn free_values(out: &mut NativeProgram, linux: bool) {
+    let first = if linux { 7 } else { 1 };
+
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 88)]);
+    out.label(".Largs_free_os");
+    out.emit(Opcode::Mov64, [address(4, None, 88), r64(0)]);
+    out.emit(Opcode::Cmp64, [address(4, None, 64), r64(0)]);
+
+    let symbol = out.symbol(".Largs_free_os_done", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::ShiftLeft64, [Operand::Immediate(4), r64(0)]);
+    out.emit(Opcode::Add64, [address(4, None, 80), r64(0)]);
+    out.emit(Opcode::Cmp64, [Operand::Immediate(0), address(0, None, 8)]);
+
+    let symbol = out.symbol(".Largs_free_os_next", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(0, None, 0), r64(first)]);
+
+    let symbol = out.symbol("free", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_free_os_next");
+    out.emit(Opcode::Add64, [Operand::Immediate(1), address(4, None, 88)]);
+
+    let symbol = out.symbol(".Largs_free_os", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_free_os_done");
+}
 // Internal OS adapter: rax=text, rcx=index; returns rax=UTF8 bytes, rcx=length.
-const LINUX_VALUE: &str = r#"
-cerune_arguments_os_value:
-  subq $72, %rsp
-  movq %rax, 32(%rsp)
-  movq %rcx, 40(%rsp)
-  movq %rax, %rdi
-  callq strlen
-  movq %rax, 48(%rsp)
-  movq %rax, %rcx
-  movq 32(%rsp), %rdx
-  callq cerune_utf8
-  testl %eax, %eax
-  je .Largs_os_unicode
-  movq 32(%rsp), %rax
-  movq 48(%rsp), %rcx
-  addq $72, %rsp
-  retq
-.Largs_os_unicode:
-  leaq .Largs_invalid_unicode(%rip), %rax
-  movq 40(%rsp), %rcx
-  callq cerune_arguments_capture_failed
-  ud2
-"#;
-const WINDOWS_VALUE: &str = r#"
-cerune_arguments_os_value:
-  subq $104, %rsp
-  movq %rax, 64(%rsp)
-  movq %rcx, 72(%rsp)
-  movl $65001, %ecx
-  movl $128, %edx
-  movq %rax, %r8
-  movl $-1, %r9d
-  movq $0, 32(%rsp)
-  movq $0, 40(%rsp)
-  movq $0, 48(%rsp)
-  movq $0, 56(%rsp)
-  callq WideCharToMultiByte
-  testl %eax, %eax
-  je .Largs_os_unicode
-  movq %rax, 80(%rsp)
-  cmpl $1, %eax
-  je .Largs_os_empty
-  movq %rax, %rcx
-  callq malloc
-  testq %rax, %rax
-  je .Largs_os_allocation
-  movq %rax, 88(%rsp)
-  movl $65001, %ecx
-  movl $128, %edx
-  movq 64(%rsp), %r8
-  movl $-1, %r9d
-  movq %rax, 32(%rsp)
-  movq 80(%rsp), %rax
-  movq %rax, 40(%rsp)
-  movq $0, 48(%rsp)
-  movq $0, 56(%rsp)
-  callq WideCharToMultiByte
-  cmpq 80(%rsp), %rax
-  jne .Largs_os_unicode
-  movq 88(%rsp), %rax
-  movq 80(%rsp), %rcx
-  subq $1, %rcx
-  addq $104, %rsp
-  retq
-.Largs_os_empty:
-  leaq .Lcerune_heap_empty(%rip), %rax
-  xorl %ecx, %ecx
-  addq $104, %rsp
-  retq
-.Largs_os_allocation:
-  leaq .Largs_allocation_failed(%rip), %rax
-  jmp .Largs_os_failure
-.Largs_os_unicode:
-  leaq .Largs_invalid_unicode(%rip), %rax
-.Largs_os_failure:
-  movq 72(%rsp), %rcx
-  callq cerune_arguments_capture_failed
-  ud2
-"#;
+fn linux_value(out: &mut NativeProgram) {
+    out.label("cerune_arguments_os_value");
+    out.emit(Opcode::Sub64, [Operand::Immediate(72), r64(4)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 32)]);
+    out.emit(Opcode::Mov64, [r64(1), address(4, None, 40)]);
+    out.emit(Opcode::Mov64, [r64(0), r64(7)]);
+
+    let symbol = out.symbol("strlen", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 48)]);
+    out.emit(Opcode::Mov64, [r64(0), r64(1)]);
+    out.emit(Opcode::Mov64, [address(4, None, 32), r64(2)]);
+
+    let symbol = out.symbol("cerune_utf8", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test32, [r32(0), r32(0)]);
+
+    let symbol = out.symbol(".Largs_os_unicode", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 32), r64(0)]);
+    out.emit(Opcode::Mov64, [address(4, None, 48), r64(1)]);
+    out.emit(Opcode::Add64, [Operand::Immediate(72), r64(4)]);
+    out.emit(Opcode::Ret, []);
+    out.label(".Largs_os_unicode");
+
+    let symbol = out.symbol(".Largs_invalid_unicode", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 40), r64(1)]);
+
+    let symbol = out.symbol("cerune_arguments_capture_failed", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Undefined, []);
+}
+fn windows_value(out: &mut NativeProgram) {
+    out.label("cerune_arguments_os_value");
+    out.emit(Opcode::Sub64, [Operand::Immediate(104), r64(4)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 64)]);
+    out.emit(Opcode::Mov64, [r64(1), address(4, None, 72)]);
+    out.emit(Opcode::Mov32, [Operand::Immediate(65001), r32(1)]);
+    out.emit(Opcode::Mov32, [Operand::Immediate(128), r32(2)]);
+    out.emit(Opcode::Mov64, [r64(0), r64(8)]);
+    out.emit(Opcode::Mov32, [Operand::Immediate(-1), r32(9)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 32)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 40)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 48)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 56)]);
+
+    let symbol = out.symbol("WideCharToMultiByte", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test32, [r32(0), r32(0)]);
+
+    let symbol = out.symbol(".Largs_os_unicode", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 80)]);
+    out.emit(Opcode::Cmp32, [Operand::Immediate(1), r32(0)]);
+
+    let symbol = out.symbol(".Largs_os_empty", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(0), r64(1)]);
+
+    let symbol = out.symbol("malloc", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+    let symbol = out.symbol(".Largs_os_allocation", Linkage::Local);
+    out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 88)]);
+    out.emit(Opcode::Mov32, [Operand::Immediate(65001), r32(1)]);
+    out.emit(Opcode::Mov32, [Operand::Immediate(128), r32(2)]);
+    out.emit(Opcode::Mov64, [address(4, None, 64), r64(8)]);
+    out.emit(Opcode::Mov32, [Operand::Immediate(-1), r32(9)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 32)]);
+    out.emit(Opcode::Mov64, [address(4, None, 80), r64(0)]);
+    out.emit(Opcode::Mov64, [r64(0), address(4, None, 40)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 48)]);
+    out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 56)]);
+
+    let symbol = out.symbol("WideCharToMultiByte", Linkage::External);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Cmp64, [address(4, None, 80), r64(0)]);
+
+    let symbol = out.symbol(".Largs_os_unicode", Linkage::Local);
+    out.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Mov64, [address(4, None, 88), r64(0)]);
+    out.emit(Opcode::Mov64, [address(4, None, 80), r64(1)]);
+    out.emit(Opcode::Sub64, [Operand::Immediate(1), r64(1)]);
+    out.emit(Opcode::Add64, [Operand::Immediate(104), r64(4)]);
+    out.emit(Opcode::Ret, []);
+    out.label(".Largs_os_empty");
+
+    let symbol = out.symbol(".Lcerune_heap_empty", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.emit(Opcode::Xor32, [r32(1), r32(1)]);
+    out.emit(Opcode::Add64, [Operand::Immediate(104), r64(4)]);
+    out.emit(Opcode::Ret, []);
+    out.label(".Largs_os_allocation");
+
+    let symbol = out.symbol(".Largs_allocation_failed", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    let symbol = out.symbol(".Largs_os_failure", Linkage::Local);
+    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+    out.label(".Largs_os_unicode");
+
+    let symbol = out.symbol(".Largs_invalid_unicode", Linkage::Local);
+    out.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(0)]);
+
+    out.label(".Largs_os_failure");
+    out.emit(Opcode::Mov64, [address(4, None, 72), r64(1)]);
+
+    let symbol = out.symbol("cerune_arguments_capture_failed", Linkage::Local);
+    out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+    out.emit(Opcode::Undefined, []);
+}

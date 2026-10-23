@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
+.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -9,7 +16,6 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -695,7 +701,8 @@ cerune_fn_mark_0:
   subq $64, %rsp
   movq %rcx, -8(%rbp)
   jmp .Lcerune_fn_0_block_0
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -708,10 +715,9 @@ cerune_fn_mark_0:
   addq $64, %rsp
   popq %rbp
   retq
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
   ud2
-
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -728,7 +734,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $1, %rax
   movq %rax, -8(%rbp)
   movabsq $7, %rax
@@ -758,7 +765,7 @@ main:
   movl $61, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
   jmp .Lcerune_main_integer_done_4
 .Lcerune_main_integer_bad_4:
   xorl %ecx, %ecx
@@ -768,9 +775,9 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_done_4:
-  # semantic u8, storage i64
+# semantic u8, storage i64
   movabsq $0, %r11
   cmpq %r11, %rax
   jl .Lcerune_main_range_bad_5
@@ -785,7 +792,7 @@ main:
   movl $61, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_range_ok_5:
   movq %rax, -24(%rbp)
   movq -24(%rbp), %rax
@@ -817,9 +824,9 @@ main:
   movl $66, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_done_6:
-  # semantic u8, storage i64
+# semantic u8, storage i64
   movabsq $0, %r11
   cmpq %r11, %rax
   jl .Lcerune_main_range_bad_7
@@ -834,7 +841,7 @@ main:
   movl $63, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_range_ok_7:
   movq %rax, -64(%rbp)
   movq -64(%rbp), %rax
@@ -846,7 +853,7 @@ main:
   movq -72(%rbp), %rax
   movabsq $255, %r11
   xorq %r11, %rax
-  # semantic u8, storage i64
+# semantic u8, storage i64
   movabsq $0, %r11
   cmpq %r11, %rax
   jl .Lcerune_main_range_bad_8
@@ -861,7 +868,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_range_ok_8:
   movq %rax, -80(%rbp)
   movq -80(%rbp), %rax
@@ -887,7 +894,7 @@ main:
   movq %rax, %rcx
   movq -112(%rbp), %rax
   xorq %rcx, %rax
-  # semantic u8, storage i64
+# semantic u8, storage i64
   movabsq $0, %r11
   cmpq %r11, %rax
   jl .Lcerune_main_range_bad_10
@@ -902,14 +909,14 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_range_ok_10:
   movq %rax, -136(%rbp)
   movq -136(%rbp), %rax
   movq %rax, %rcx
   movq -96(%rbp), %rax
   orq %rcx, %rax
-  # semantic u8, storage i64
+# semantic u8, storage i64
   movabsq $0, %r11
   cmpq %r11, %rax
   jl .Lcerune_main_range_bad_12
@@ -924,7 +931,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_range_ok_12:
   movq %rax, -144(%rbp)
   movq -144(%rbp), %rax
@@ -939,7 +946,7 @@ main:
   movq %rax, %rcx
   movq -152(%rbp), %rax
   andq %rcx, %rax
-  # semantic u8, storage i64
+# semantic u8, storage i64
   movabsq $0, %r11
   cmpq %r11, %rax
   jl .Lcerune_main_range_bad_14
@@ -954,7 +961,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_range_ok_14:
   movq %rax, -168(%rbp)
   movq -168(%rbp), %rax
@@ -973,7 +980,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_15:
   movq %rax, -184(%rbp)
   movabsq $3, %rax
@@ -1000,7 +1007,7 @@ main:
   movl $65, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_done_16:
   movq %rax, -200(%rbp)
   movq -200(%rbp), %rax
@@ -1021,7 +1028,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_17:
   movq %rax, -224(%rbp)
   movq -224(%rbp), %rax
@@ -1046,7 +1053,7 @@ main:
   movl $65, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_done_18:
   movq %rax, -232(%rbp)
   movq -232(%rbp), %rax
@@ -1065,9 +1072,9 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_ok_19:
-  # semantic i8, storage i64
+# semantic i8, storage i64
   movabsq $-128, %r11
   cmpq %r11, %rax
   jl .Lcerune_main_range_bad_20
@@ -1082,7 +1089,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_range_ok_20:
   movq %rax, -248(%rbp)
   movabsq $1, %rax
@@ -1104,9 +1111,9 @@ main:
   movl $67, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_done_21:
-  # semantic i8, storage i64
+# semantic i8, storage i64
   movabsq $-128, %r11
   cmpq %r11, %rax
   jl .Lcerune_main_range_bad_22
@@ -1121,7 +1128,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_range_ok_22:
   movq %rax, -264(%rbp)
   movq -264(%rbp), %rax
@@ -1136,7 +1143,8 @@ main:
   testq %rax, %rax
   je .Lcerune_block_2
   jmp .Lcerune_block_1
-.Lcerune_block_1: # mir_block
+.Lcerune_block_1:
+# mir_block
   movq -32(%rbp), %rax
   movq %rax, -288(%rbp)
   movabsq $1, %rax
@@ -1166,7 +1174,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
   jmp .Lcerune_main_integer_done_23
 .Lcerune_main_integer_bad_23:
   xorl %ecx, %ecx
@@ -1176,9 +1184,9 @@ main:
   movl $67, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_integer_done_23:
-  # semantic u8, storage i64
+# semantic u8, storage i64
   movabsq $0, %r11
   cmpq %r11, %rax
   jl .Lcerune_main_range_bad_24
@@ -1193,7 +1201,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_range_ok_24:
   movq %rax, -304(%rbp)
   movabsq $0, %rax
@@ -1208,76 +1216,77 @@ main:
   movq -320(%rbp), %rax
   movq %rax, -280(%rbp)
   jmp .Lcerune_block_2
-.Lcerune_block_2: # mir_block
+.Lcerune_block_2:
+# mir_block
   movq -280(%rbp), %rax
   movl $1, %r10d
   leaq .Lcerune_output_origin_29(%rip), %r11
   callq cerune_output_bool
   jmp .Lcerune_block_3
-.Lcerune_block_3: # main_exit
+.Lcerune_block_3:
+# main_exit
   xorl %eax, %eax
   addq $352, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_output_origin_0:
-  .asciz " node=0 bytes=27..40\n"
+.asciz " node=0 bytes=27..40\n"
 .Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=5 bytes=68..74\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=5 bytes=68..74\n"
 .Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=invalid-shift-count node=5 bytes=68..74\n"
+.asciz "cerune: runtime-v1 code=invalid-shift-count node=5 bytes=68..74\n"
 .Lcerune_failure_3:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=5 bytes=68..74\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=5 bytes=68..74\n"
 .Lcerune_output_origin_4:
-  .asciz " node=8 bytes=76..88\n"
+.asciz " node=8 bytes=76..88\n"
 .Lcerune_failure_5:
-  .asciz "cerune: runtime-v1 code=invalid-shift-count node=11 bytes=95..104\n"
+.asciz "cerune: runtime-v1 code=invalid-shift-count node=11 bytes=95..104\n"
 .Lcerune_failure_6:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=11 bytes=95..104\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=11 bytes=95..104\n"
 .Lcerune_output_origin_7:
-  .asciz " node=10 bytes=89..106\n"
+.asciz " node=10 bytes=89..106\n"
 .Lcerune_failure_8:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=15 bytes=113..117\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=15 bytes=113..117\n"
 .Lcerune_output_origin_9:
-  .asciz " node=14 bytes=107..119\n"
+.asciz " node=14 bytes=107..119\n"
 .Lcerune_failure_10:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=21 bytes=136..155\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=21 bytes=136..155\n"
 .Lcerune_failure_11:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=18 bytes=126..155\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=18 bytes=126..155\n"
 .Lcerune_output_origin_12:
-  .asciz " node=17 bytes=120..157\n"
+.asciz " node=17 bytes=120..157\n"
 .Lcerune_failure_13:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=27 bytes=164..174\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=27 bytes=164..174\n"
 .Lcerune_output_origin_14:
-  .asciz " node=26 bytes=158..176\n"
+.asciz " node=26 bytes=158..176\n"
 .Lcerune_failure_15:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=32 bytes=183..185\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=32 bytes=183..185\n"
 .Lcerune_failure_16:
-  .asciz "cerune: runtime-v1 code=remainder-by-zero node=31 bytes=183..189\n"
+.asciz "cerune: runtime-v1 code=remainder-by-zero node=31 bytes=183..189\n"
 .Lcerune_output_origin_17:
-  .asciz " node=30 bytes=177..191\n"
+.asciz " node=30 bytes=177..191\n"
 .Lcerune_failure_18:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=38 bytes=221..223\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=38 bytes=221..223\n"
 .Lcerune_failure_19:
-  .asciz "cerune: runtime-v1 code=remainder-by-zero node=36 bytes=198..223\n"
+.asciz "cerune: runtime-v1 code=remainder-by-zero node=36 bytes=198..223\n"
 .Lcerune_output_origin_20:
-  .asciz " node=35 bytes=192..225\n"
+.asciz " node=35 bytes=192..225\n"
 .Lcerune_failure_21:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=42 bytes=232..236\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=42 bytes=232..236\n"
 .Lcerune_failure_22:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=42 bytes=232..236\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=42 bytes=232..236\n"
 .Lcerune_failure_23:
-  .asciz "cerune: runtime-v1 code=invalid-shift-count node=41 bytes=232..241\n"
+.asciz "cerune: runtime-v1 code=invalid-shift-count node=41 bytes=232..241\n"
 .Lcerune_failure_24:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=41 bytes=232..241\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=41 bytes=232..241\n"
 .Lcerune_output_origin_25:
-  .asciz " node=40 bytes=226..243\n"
+.asciz " node=40 bytes=226..243\n"
 .Lcerune_failure_26:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=49 bytes=259..270\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=49 bytes=259..270\n"
 .Lcerune_failure_27:
-  .asciz "cerune: runtime-v1 code=invalid-shift-count node=49 bytes=259..270\n"
+.asciz "cerune: runtime-v1 code=invalid-shift-count node=49 bytes=259..270\n"
 .Lcerune_failure_28:
-  .asciz "cerune: runtime-v1 code=integer-overflow node=49 bytes=259..270\n"
+.asciz "cerune: runtime-v1 code=integer-overflow node=49 bytes=259..270\n"
 .Lcerune_output_origin_29:
-  .asciz " node=45 bytes=244..277\n"
+.asciz " node=45 bytes=244..277\n"

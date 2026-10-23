@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.extern fflush
+.globl main
+.extern _setmode
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -12,7 +19,6 @@
 .p2align 3
 .Lcerune_f64_0:
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -698,7 +704,8 @@ cerune_fn_measure_0:
   subq $80, %rsp
   movq %rcx, -8(%rbp)
   jmp .Lcerune_fn_0_block_0
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
   movq -8(%rbp), %rax
   movq %rax, -16(%rbp)
   movq -16(%rbp), %rax
@@ -721,7 +728,7 @@ cerune_fn_measure_0:
   movl $63, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_0_convert_done_3:
   movsd %xmm0, -24(%rbp)
   movabsq $2, %rax
@@ -746,7 +753,7 @@ cerune_fn_measure_0:
   movl $63, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_fn_0_convert_done_4:
   movsd %xmm0, -40(%rbp)
   movsd -40(%rbp), %xmm0
@@ -758,10 +765,9 @@ cerune_fn_measure_0:
   addq $80, %rsp
   popq %rbp
   retq
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
   ud2
-
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -778,7 +784,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $42, %rax
   movq %rax, -8(%rbp)
   movq -8(%rbp), %rax
@@ -805,7 +812,7 @@ main:
   movl $64, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_done_2:
   movsd %xmm0, -32(%rbp)
   movsd -32(%rbp), %xmm0
@@ -846,7 +853,7 @@ main:
   movl $66, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_3_range:
   xorl %ecx, %ecx
   callq fflush
@@ -855,7 +862,7 @@ main:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_3_nan:
   xorl %ecx, %ecx
   callq fflush
@@ -864,7 +871,7 @@ main:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_done_3:
   movss %xmm0, -56(%rbp)
   movss -56(%rbp), %xmm0
@@ -894,7 +901,7 @@ main:
   movl $72, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_4_nonfinite:
   xorl %ecx, %ecx
   callq fflush
@@ -903,7 +910,7 @@ main:
   movl $69, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_4_finite:
   movabsq $-4548635623644200960, %r11
   movq %r11, %xmm1
@@ -926,7 +933,7 @@ main:
   movl $66, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_4_range:
   xorl %ecx, %ecx
   callq fflush
@@ -935,7 +942,7 @@ main:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_4_nan:
   xorl %ecx, %ecx
   callq fflush
@@ -944,7 +951,7 @@ main:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_done_4:
   movq %rax, -80(%rbp)
   movq -80(%rbp), %rax
@@ -976,7 +983,7 @@ main:
   movl $72, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_5_nonfinite:
   xorl %ecx, %ecx
   callq fflush
@@ -985,7 +992,7 @@ main:
   movl $69, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_5_finite:
   movabsq $-4332462841530417152, %r11
   movq %r11, %xmm1
@@ -1008,7 +1015,7 @@ main:
   movl $66, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_5_range:
   xorl %ecx, %ecx
   callq fflush
@@ -1017,7 +1024,7 @@ main:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_5_nan:
   xorl %ecx, %ecx
   callq fflush
@@ -1026,7 +1033,7 @@ main:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_done_5:
   movq %rax, -96(%rbp)
   movq -96(%rbp), %rax
@@ -1048,7 +1055,7 @@ main:
   movl $66, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_6_range:
   xorl %ecx, %ecx
   callq fflush
@@ -1057,7 +1064,7 @@ main:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_6_nan:
   xorl %ecx, %ecx
   callq fflush
@@ -1066,7 +1073,7 @@ main:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_done_6:
   movsd %xmm0, -112(%rbp)
   movsd -112(%rbp), %xmm0
@@ -1095,7 +1102,7 @@ main:
   movl $66, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_done_7:
   movss %xmm0, -128(%rbp)
   movss -128(%rbp), %xmm0
@@ -1150,7 +1157,7 @@ main:
   movl $66, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_8_range:
   xorl %ecx, %ecx
   callq fflush
@@ -1159,7 +1166,7 @@ main:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_bad_8_nan:
   xorl %ecx, %ecx
   callq fflush
@@ -1168,7 +1175,7 @@ main:
   movl $62, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_convert_done_8:
   movss %xmm0, -168(%rbp)
   movss -168(%rbp), %xmm0
@@ -1176,68 +1183,68 @@ main:
   leaq .Lcerune_output_origin_28(%rip), %r11
   callq cerune_output_f32
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $208, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=conversion-inexact node=2 bytes=43..53\n"
+.asciz "cerune: runtime-v1 code=conversion-inexact node=2 bytes=43..53\n"
 .Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=conversion-inexact node=4 bytes=56..62\n"
+.asciz "cerune: runtime-v1 code=conversion-inexact node=4 bytes=56..62\n"
 .Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=conversion-inexact node=9 bytes=95..114\n"
+.asciz "cerune: runtime-v1 code=conversion-inexact node=9 bytes=95..114\n"
 .Lcerune_failure_3:
-  .asciz "cerune: runtime-v1 code=conversion-inexact node=12 bytes=130..139\n"
+.asciz "cerune: runtime-v1 code=conversion-inexact node=12 bytes=130..139\n"
 .Lcerune_failure_4:
-  .asciz "cerune: runtime-v1 code=conversion-out-of-range node=12 bytes=130..139\n"
+.asciz "cerune: runtime-v1 code=conversion-out-of-range node=12 bytes=130..139\n"
 .Lcerune_failure_5:
-  .asciz "cerune: runtime-v1 code=conversion-nan node=12 bytes=130..139\n"
+.asciz "cerune: runtime-v1 code=conversion-nan node=12 bytes=130..139\n"
 .Lcerune_failure_6:
-  .asciz "cerune: runtime-v1 code=conversion-negative-zero node=15 bytes=147..158\n"
+.asciz "cerune: runtime-v1 code=conversion-negative-zero node=15 bytes=147..158\n"
 .Lcerune_failure_7:
-  .asciz "cerune: runtime-v1 code=conversion-not-finite node=15 bytes=147..158\n"
+.asciz "cerune: runtime-v1 code=conversion-not-finite node=15 bytes=147..158\n"
 .Lcerune_failure_8:
-  .asciz "cerune: runtime-v1 code=conversion-inexact node=15 bytes=147..158\n"
+.asciz "cerune: runtime-v1 code=conversion-inexact node=15 bytes=147..158\n"
 .Lcerune_failure_9:
-  .asciz "cerune: runtime-v1 code=conversion-out-of-range node=15 bytes=147..158\n"
+.asciz "cerune: runtime-v1 code=conversion-out-of-range node=15 bytes=147..158\n"
 .Lcerune_failure_10:
-  .asciz "cerune: runtime-v1 code=conversion-nan node=15 bytes=147..158\n"
+.asciz "cerune: runtime-v1 code=conversion-nan node=15 bytes=147..158\n"
 .Lcerune_output_origin_11:
-  .asciz " node=14 bytes=141..160\n"
+.asciz " node=14 bytes=141..160\n"
 .Lcerune_failure_12:
-  .asciz "cerune: runtime-v1 code=conversion-negative-zero node=18 bytes=167..176\n"
+.asciz "cerune: runtime-v1 code=conversion-negative-zero node=18 bytes=167..176\n"
 .Lcerune_failure_13:
-  .asciz "cerune: runtime-v1 code=conversion-not-finite node=18 bytes=167..176\n"
+.asciz "cerune: runtime-v1 code=conversion-not-finite node=18 bytes=167..176\n"
 .Lcerune_failure_14:
-  .asciz "cerune: runtime-v1 code=conversion-inexact node=18 bytes=167..176\n"
+.asciz "cerune: runtime-v1 code=conversion-inexact node=18 bytes=167..176\n"
 .Lcerune_failure_15:
-  .asciz "cerune: runtime-v1 code=conversion-out-of-range node=18 bytes=167..176\n"
+.asciz "cerune: runtime-v1 code=conversion-out-of-range node=18 bytes=167..176\n"
 .Lcerune_failure_16:
-  .asciz "cerune: runtime-v1 code=conversion-nan node=18 bytes=167..176\n"
+.asciz "cerune: runtime-v1 code=conversion-nan node=18 bytes=167..176\n"
 .Lcerune_output_origin_17:
-  .asciz " node=17 bytes=161..178\n"
+.asciz " node=17 bytes=161..178\n"
 .Lcerune_failure_18:
-  .asciz "cerune: runtime-v1 code=conversion-inexact node=21 bytes=185..196\n"
+.asciz "cerune: runtime-v1 code=conversion-inexact node=21 bytes=185..196\n"
 .Lcerune_failure_19:
-  .asciz "cerune: runtime-v1 code=conversion-out-of-range node=21 bytes=185..196\n"
+.asciz "cerune: runtime-v1 code=conversion-out-of-range node=21 bytes=185..196\n"
 .Lcerune_failure_20:
-  .asciz "cerune: runtime-v1 code=conversion-nan node=21 bytes=185..196\n"
+.asciz "cerune: runtime-v1 code=conversion-nan node=21 bytes=185..196\n"
 .Lcerune_output_origin_21:
-  .asciz " node=20 bytes=179..198\n"
+.asciz " node=20 bytes=179..198\n"
 .Lcerune_failure_22:
-  .asciz "cerune: runtime-v1 code=conversion-inexact node=24 bytes=205..215\n"
+.asciz "cerune: runtime-v1 code=conversion-inexact node=24 bytes=205..215\n"
 .Lcerune_output_origin_23:
-  .asciz " node=23 bytes=199..217\n"
+.asciz " node=23 bytes=199..217\n"
 .Lcerune_output_origin_24:
-  .asciz " node=26 bytes=218..236\n"
+.asciz " node=26 bytes=218..236\n"
 .Lcerune_failure_25:
-  .asciz "cerune: runtime-v1 code=conversion-inexact node=30 bytes=243..252\n"
+.asciz "cerune: runtime-v1 code=conversion-inexact node=30 bytes=243..252\n"
 .Lcerune_failure_26:
-  .asciz "cerune: runtime-v1 code=conversion-out-of-range node=30 bytes=243..252\n"
+.asciz "cerune: runtime-v1 code=conversion-out-of-range node=30 bytes=243..252\n"
 .Lcerune_failure_27:
-  .asciz "cerune: runtime-v1 code=conversion-nan node=30 bytes=243..252\n"
+.asciz "cerune: runtime-v1 code=conversion-nan node=30 bytes=243..252\n"
 .Lcerune_output_origin_28:
-  .asciz " node=29 bytes=237..254\n"
+.asciz " node=29 bytes=237..254\n"

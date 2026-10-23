@@ -1,13 +1,15 @@
 //! 配列の要素は既存Native ABIと同じく、基準アドレスから8byteずつ下へ置きます。
 //! 共通IRが要素のコピー/逆順解放を展開し、ここでは保存領域と検査だけを生成します。
+use super::machine::{Linkage, Opcode, Operand, r64};
+use super::program::{NativeProgram, address, xmm};
 use super::{
     Target,
     failure::Reporter,
     ir::{Instruction, Type},
 };
 use crate::runtime::FailureCode as Failure;
-use std::fmt::Write;
 
+#[cfg(test)]
 pub(super) fn support(limit: u64, linux: bool) -> String {
     let target = if linux {
         super::Target::X86_64UnknownLinuxGnu
@@ -203,12 +205,12 @@ pub(super) fn emit(
     prefix: &str,
     target: Target,
     reporter: &mut Reporter,
-    out: &mut String,
+    out: &mut NativeProgram,
 ) -> bool {
     let (first, second, third) = if target.is_linux() {
-        ("%rdi", "%rsi", "%rdx")
+        (7, 6, 2)
     } else {
-        ("%rcx", "%rdx", "%r8")
+        (1, 2, 8)
     };
     match i {
         Instruction::ArrayAllocate {
@@ -217,24 +219,58 @@ pub(super) fn emit(
             label,
         } => {
             let length_ok = format!(".L{prefix}_array_length_ok_{label}");
-            writeln!(out, "  testq %rax, %rax\n  jns {length_ok}").unwrap();
+
+            out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+            let symbol = out.symbol(&length_ok, Linkage::Local);
+            out.emit(Opcode::JumpNs, [Operand::Symbol(symbol)]);
+
             reporter.emit(Failure::ArrayLengthOutOfRange, out);
-            writeln!(out, "{length_ok}:").unwrap();
-            writeln!(out, "  movq %rax, {first}\n  movabsq \u{24}{width}, {second}\n  movabsq \u{24}{stride}, {third}\n  callq cerune_array_allocate").unwrap();
+
+            out.label(&length_ok);
+
+            out.emit(Opcode::Mov64, [r64(0), r64(first)]);
+            out.emit(
+                Opcode::MovAbs64,
+                [Operand::Immediate((width).to_owned() as i128), r64(second)],
+            );
+            out.emit(
+                Opcode::MovAbs64,
+                [Operand::Immediate((stride).to_owned() as i128), r64(third)],
+            );
+
+            let symbol = out.symbol("cerune_array_allocate", Linkage::Local);
+            out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
             let done = format!(".L{prefix}_array_allocated_{label}");
             let limit = format!(".L{prefix}_array_limit_{label}");
             let failed = format!(".L{prefix}_array_failed_{label}");
-            writeln!(
-                out,
-                "  testq %rdx, %rdx\n  je {done}\n  cmpq $1, %rdx\n  jne {limit}"
-            )
-            .unwrap();
+
+            out.emit(Opcode::Test64, [r64(2), r64(2)]);
+
+            let symbol = out.symbol(&done, Linkage::Local);
+            out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+            out.emit(Opcode::Cmp64, [Operand::Immediate(1), r64(2)]);
+
+            let symbol = out.symbol(&limit, Linkage::Local);
+            out.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
+
             reporter.emit(Failure::AllocationSizeOverflow, out);
-            writeln!(out, "{limit}:\n  cmpq $2, %rdx\n  jne {failed}").unwrap();
+
+            out.label(&limit);
+            out.emit(Opcode::Cmp64, [Operand::Immediate(2), r64(2)]);
+
+            let symbol = out.symbol(&failed, Linkage::Local);
+            out.emit(Opcode::JumpNe, [Operand::Symbol(symbol)]);
+
             reporter.emit(Failure::AllocationLimitExceeded, out);
-            writeln!(out, "{failed}:").unwrap();
+
+            out.label(&failed);
+
             reporter.emit(Failure::AllocationFailed, out);
-            writeln!(out, "{done}:").unwrap();
+
+            out.label(&done);
         }
         Instruction::ArrayRangeCheck {
             length_offset,
@@ -243,9 +279,37 @@ pub(super) fn emit(
         } => {
             let trap = format!(".L{prefix}_array_range_trap_{label}");
             let done = format!(".L{prefix}_array_range_done_{label}");
-            writeln!(out, "  movq {start_offset}(%rbp), %r10\n  testq %r10, %r10\n  js {trap}\n  cmpq %r10, %rax\n  jl {trap}\n  cmpq {length_offset}(%rbp), %rax\n  jg {trap}\n  jmp {done}\n{trap}:").unwrap();
+
+            out.emit(
+                Opcode::Mov64,
+                [address(5, None, (start_offset).to_owned() as i128), r64(10)],
+            );
+            out.emit(Opcode::Test64, [r64(10), r64(10)]);
+
+            let symbol = out.symbol(&trap, Linkage::Local);
+            out.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+            out.emit(Opcode::Cmp64, [r64(10), r64(0)]);
+
+            let symbol = out.symbol(&trap, Linkage::Local);
+            out.emit(Opcode::JumpL, [Operand::Symbol(symbol)]);
+
+            out.emit(
+                Opcode::Cmp64,
+                [address(5, None, (length_offset).to_owned() as i128), r64(0)],
+            );
+
+            let symbol = out.symbol(&trap, Linkage::Local);
+            out.emit(Opcode::JumpG, [Operand::Symbol(symbol)]);
+
+            let symbol = out.symbol(&done, Linkage::Local);
+            out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+            out.label(&trap);
+
             reporter.emit(Failure::ArrayRangeOutOfBounds, out);
-            writeln!(out, "{done}:").unwrap();
+
+            out.label(&done);
         }
         Instruction::DynamicArrayAddress {
             base_offset,
@@ -255,26 +319,88 @@ pub(super) fn emit(
         } => {
             let trap = format!(".L{prefix}_dynamic_index_trap_{label}");
             let done = format!(".L{prefix}_dynamic_index_done_{label}");
-            writeln!(out, "  movq {base_offset}(%rbp), %r10").unwrap();
+
+            out.emit(
+                Opcode::Mov64,
+                [address(5, None, (base_offset).to_owned() as i128), r64(10)],
+            );
+
             if *base_is_pointer {
-                out.push_str("  movq (%r10), %r10\n");
+                out.emit(Opcode::Mov64, [address(10, None, 0), r64(10)]);
             }
-            writeln!(out, "  testq %rax, %rax\n  js {trap}\n  testq %r10, %r10\n  je {trap}\n  cmpq 8(%r10), %rax\n  jge {trap}\n  cmpq 32(%r10), %rax\n  jae .Lcerune_array_invalid_owner\n  imulq 40(%r10), %rax\n  movq (%r10), %r11\n  subq %rax, %r11\n  movq %r11, {destination_offset}(%rbp)\n  jmp {done}\n{trap}:").unwrap();
+
+            out.emit(Opcode::Test64, [r64(0), r64(0)]);
+
+            let symbol = out.symbol(&trap, Linkage::Local);
+            out.emit(Opcode::JumpS, [Operand::Symbol(symbol)]);
+
+            out.emit(Opcode::Test64, [r64(10), r64(10)]);
+
+            let symbol = out.symbol(&trap, Linkage::Local);
+            out.emit(Opcode::JumpE, [Operand::Symbol(symbol)]);
+
+            out.emit(Opcode::Cmp64, [address(10, None, 8), r64(0)]);
+
+            let symbol = out.symbol(&trap, Linkage::Local);
+            out.emit(Opcode::JumpGe, [Operand::Symbol(symbol)]);
+
+            out.emit(Opcode::Cmp64, [address(10, None, 32), r64(0)]);
+
+            let symbol = out.symbol(".Lcerune_array_invalid_owner", Linkage::Local);
+            out.emit(Opcode::JumpAe, [Operand::Symbol(symbol)]);
+
+            out.emit(Opcode::SignedMul64, [address(10, None, 40), r64(0)]);
+            out.emit(Opcode::Mov64, [address(10, None, 0), r64(11)]);
+            out.emit(Opcode::Sub64, [r64(0), r64(11)]);
+            out.emit(
+                Opcode::Mov64,
+                [
+                    r64(11),
+                    address(5, None, (destination_offset).to_owned() as i128),
+                ],
+            );
+
+            let symbol = out.symbol(&done, Linkage::Local);
+            out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+
+            out.label(&trap);
+
             reporter.emit(Failure::ArrayIndexOutOfBounds, out);
-            writeln!(out, "{done}:").unwrap();
+
+            out.label(&done);
         }
         Instruction::ArrayInitAddress {
             owner_offset,
             destination_offset,
         } => {
-            writeln!(out, "  movq {owner_offset}(%rbp), {first}\n  callq cerune_array_init_address\n  movq %rax, {destination_offset}(%rbp)").unwrap();
+            out.emit(
+                Opcode::Mov64,
+                [
+                    address(5, None, (owner_offset).to_owned() as i128),
+                    r64(first),
+                ],
+            );
+
+            let symbol = out.symbol("cerune_array_init_address", Linkage::Local);
+            out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+
+            out.emit(
+                Opcode::Mov64,
+                [
+                    r64(0),
+                    address(5, None, (destination_offset).to_owned() as i128),
+                ],
+            );
         }
         Instruction::ArrayInitialized { owner_offset } => {
-            writeln!(
-                out,
-                "  movq {owner_offset}(%rbp), %r10\n  addq $1, 32(%r10)"
-            )
-            .unwrap();
+            out.emit(
+                Opcode::Mov64,
+                [address(5, None, (owner_offset).to_owned() as i128), r64(10)],
+            );
+            out.emit(
+                Opcode::Add64,
+                [Operand::Immediate(1), address(10, None, 32)],
+            );
         }
         Instruction::ArrayLength
         | Instruction::ArrayRetain
@@ -287,30 +413,58 @@ pub(super) fn emit(
                 Instruction::ArrayFree => "free",
                 _ => unreachable!(),
             };
-            writeln!(out, "  movq %rax, {first}\n  callq cerune_array_{name}").unwrap();
+
+            out.emit(Opcode::Mov64, [r64(0), r64(first)]);
+
+            let symbol = out.symbol(&format!("cerune_array_{name}"), Linkage::Local);
+            out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
         }
         Instruction::LoadFromPointer { ty, pointer_offset } => {
-            writeln!(out, "  movq {pointer_offset}(%rbp), %r11").unwrap();
-            out.push_str(match ty {
-                Type::F32 => "  movss (%r11), %xmm0\n",
-                Type::F64 => "  movsd (%r11), %xmm0\n",
-                _ => "  movq (%r11), %rax\n",
-            });
+            out.emit(
+                Opcode::Mov64,
+                [
+                    address(5, None, (pointer_offset).to_owned() as i128),
+                    r64(11),
+                ],
+            );
+
+            match ty {
+                Type::F32 => {
+                    out.emit(Opcode::Movss, [address(11, None, 0), xmm(0)]);
+                }
+                Type::F64 => {
+                    out.emit(Opcode::Movsd, [address(11, None, 0), xmm(0)]);
+                }
+                _ => {
+                    out.emit(Opcode::Mov64, [address(11, None, 0), r64(0)]);
+                }
+            };
         }
         Instruction::CopyFromPointer {
             pointer_offset,
             destination_offset,
             slots,
         } => {
-            writeln!(out, "  movq {pointer_offset}(%rbp), %r11").unwrap();
+            out.emit(
+                Opcode::Mov64,
+                [
+                    address(5, None, (pointer_offset).to_owned() as i128),
+                    r64(11),
+                ],
+            );
+
             for slot in 0..*slots {
                 let source = -8 * slot as isize;
                 let destination = destination_offset + source;
-                writeln!(
-                    out,
-                    "  movq {source}(%r11), %r10\n  movq %r10, {destination}(%rbp)"
-                )
-                .unwrap();
+
+                out.emit(
+                    Opcode::Mov64,
+                    [address(11, None, (source).to_owned() as i128), r64(10)],
+                );
+                out.emit(
+                    Opcode::Mov64,
+                    [r64(10), address(5, None, (destination).to_owned() as i128)],
+                );
             }
         }
         _ => return false,
@@ -318,7 +472,6 @@ pub(super) fn emit(
     true
 }
 
-// Runtime linking below exercises ELF/COFF, not Darwin Mach-O.
 #[cfg(all(test, any(target_os = "linux", target_os = "windows")))]
 #[path = "array_tests.rs"]
 mod tests;

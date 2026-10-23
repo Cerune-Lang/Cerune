@@ -1,3 +1,10 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
+.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -9,7 +16,6 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -688,7 +694,6 @@ cerune_output_escape:
   movb $125, 5(%rcx)
   movl $6, %eax
   retq
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -705,7 +710,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movabsq $2, %rax
   movq %rax, -8(%rbp)
   movabsq $4, %rax
@@ -779,10 +785,10 @@ main:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_array_done_2:
   movq -256(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -208(%rbp)
   movq -208(%rbp), %rax
   movl $1, %r10d
@@ -813,28 +819,28 @@ main:
   movl $73, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_array_done_3:
   movq -264(%rbp), %r11
-  movq (%r11), %rax
+  movq 0(%r11), %rax
   movq %rax, -248(%rbp)
   movq -248(%rbp), %rax
   movl $1, %r10d
   leaq .Lcerune_output_origin_3(%rip), %r11
   callq cerune_output_i64
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $304, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=13 bytes=85..92\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=13 bytes=85..92\n"
 .Lcerune_output_origin_1:
-  .asciz " node=12 bytes=79..94\n"
+.asciz " node=12 bytes=79..94\n"
 .Lcerune_failure_2:
-  .asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=17 bytes=101..110\n"
+.asciz "cerune: runtime-v1 code=array-index-out-of-bounds node=17 bytes=101..110\n"
 .Lcerune_output_origin_3:
-  .asciz " node=16 bytes=95..112\n"
+.asciz " node=16 bytes=95..112\n"

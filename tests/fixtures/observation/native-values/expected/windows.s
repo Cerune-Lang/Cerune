@@ -1,5 +1,11 @@
 # cerune-asm-origins v1: UTF-8 byte ranges, end exclusive
 # cerune-origin: synthetic
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -18,7 +24,6 @@
 .byte 151
 .byte 165
 .byte 0
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -733,7 +738,8 @@ cerune_fn_echo_0:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_0_bb0_block_lir2:
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
 # cerune-origin: #1 bytes 36..41
 cerune_origin_n1_fn_0_3:
 # cerune-mir: v1 fn_0 bb0 i0 -> lir 3 (source)
@@ -760,14 +766,13 @@ cerune_origin_mir_fn_0_bb0_i1_lir6:
 cerune_origin_n0_fn_0_7:
 # cerune-mir: v1 fn_0 bb1 block -> lir 7 (after-return)
 cerune_origin_mir_fn_0_bb1_block_lir7:
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb1 i2 -> lir 8 (function-end)
 cerune_origin_mir_fn_0_bb1_i2_lir8:
   ud2
-
 # cerune-origin: synthetic
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -789,7 +794,8 @@ main:
 # cerune-origin: synthetic
 # cerune-mir: v1 main bb0 block -> lir 1 (function-entry)
 cerune_origin_mir_main_bb0_block_lir1:
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
 # cerune-origin: #3 bytes 51..58
 cerune_origin_n3_main_2:
 # cerune-mir: v1 main bb0 i0 -> lir 2 (source)
@@ -851,15 +857,15 @@ cerune_origin_mir_main_bb0_i5_lir12:
   jmp .Lcerune_block_1
 # cerune-origin: synthetic
 # cerune-mir: v1 synthetic ABI setup/exit
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
 # cerune-origin: synthetic
   xorl %eax, %eax
   addq $64, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_output_origin_0:
-  .asciz " node=2 bytes=45..60\n"
+.asciz " node=2 bytes=45..60\n"
 .Lcerune_output_origin_1:
-  .asciz " node=4 bytes=61..95\n"
+.asciz " node=4 bytes=61..95\n"

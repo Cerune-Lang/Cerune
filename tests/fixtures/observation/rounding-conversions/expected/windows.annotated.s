@@ -1,5 +1,12 @@
 # cerune-asm-origins v1: UTF-8 byte ranges, end exclusive
 # cerune-origin: synthetic
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
+.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -38,7 +45,6 @@
 .p2align 3
 .Lcerune_f64_8:
 .quad 0x406FD00000000000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -732,7 +738,8 @@ cerune_fn_value_0:
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb0 block -> lir 2 (function-entry)
 cerune_origin_mir_fn_0_bb0_block_lir2:
-.Lcerune_fn_0_block_0: # mir_block
+.Lcerune_fn_0_block_0:
+# mir_block
 # cerune-origin: #5 bytes 68..69
 cerune_origin_n5_fn_0_3:
 # cerune-mir: v1 fn_0 bb0 i0 -> lir 3 (source)
@@ -759,14 +766,13 @@ cerune_origin_mir_fn_0_bb0_i1_lir6:
 cerune_origin_n4_fn_0_7:
 # cerune-mir: v1 fn_0 bb1 block -> lir 7 (after-return)
 cerune_origin_mir_fn_0_bb1_block_lir7:
-.Lcerune_fn_0_block_1: # mir_block
+.Lcerune_fn_0_block_1:
+# mir_block
 # cerune-origin: synthetic
 # cerune-mir: v1 fn_0 bb1 i2 -> lir 8 (function-end)
 cerune_origin_mir_fn_0_bb1_i2_lir8:
   ud2
-
 # cerune-origin: synthetic
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -788,7 +794,8 @@ main:
 # cerune-origin: synthetic
 # cerune-mir: v1 main bb0 block -> lir 1 (function-entry)
 cerune_origin_mir_main_bb0_block_lir1:
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
 # cerune-origin: #10 bytes 97..100
 cerune_origin_n10_main_2:
 # cerune-mir: v1 main bb0 i0 -> lir 2 (source)
@@ -834,7 +841,7 @@ cerune_origin_mir_main_bb0_i3_lir9:
 cerune_origin_n7_main_10:
 # cerune-mir: v1 main bb0 i3 -> lir 10 (source)
 cerune_origin_mir_main_bb0_i3_lir10:
-  # policy: floor
+# policy: floor
   movapd %xmm0, %xmm2
   ucomisd %xmm2, %xmm2
   jp .Lcerune_main_floor_2_nonfinite
@@ -846,7 +853,7 @@ cerune_origin_mir_main_bb0_i3_lir10:
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
   je .Lcerune_main_floor_2_nonfinite
-  # round finite input; large values are already integral
+# round finite input; large values are already integral
   movabsq $4841369599423283200, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -871,7 +878,7 @@ cerune_origin_mir_main_bb0_i3_lir10:
 .Lcerune_main_floor_2_rounded:
   cvtsi2sdq %rax, %xmm2
 .Lcerune_main_floor_2_bounds:
-  # range policy after rounding, then convert
+# range policy after rounding, then convert
   movabsq $-4332462841530417152, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -890,7 +897,7 @@ cerune_origin_mir_main_bb0_i3_lir10:
   movl $67, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_floor_2_minimum:
 .Lcerune_main_floor_2_maximum:
   xorl %ecx, %ecx
@@ -900,7 +907,7 @@ cerune_origin_mir_main_bb0_i3_lir10:
   movl $69, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_floor_2_done:
 # cerune-origin: #7 bytes 79..102
 cerune_origin_n7_main_11:
@@ -964,7 +971,7 @@ cerune_origin_mir_main_bb0_i8_lir21:
 cerune_origin_n12_main_22:
 # cerune-mir: v1 main bb0 i8 -> lir 22 (source)
 cerune_origin_mir_main_bb0_i8_lir22:
-  # policy: ceil
+# policy: ceil
   movapd %xmm0, %xmm2
   ucomisd %xmm2, %xmm2
   jp .Lcerune_main_ceil_3_nonfinite
@@ -976,7 +983,7 @@ cerune_origin_mir_main_bb0_i8_lir22:
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
   je .Lcerune_main_ceil_3_nonfinite
-  # round finite input; large values are already integral
+# round finite input; large values are already integral
   movabsq $4841369599423283200, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1001,7 +1008,7 @@ cerune_origin_mir_main_bb0_i8_lir22:
 .Lcerune_main_ceil_3_rounded:
   cvtsi2sdq %rax, %xmm2
 .Lcerune_main_ceil_3_bounds:
-  # range policy after rounding, then convert
+# range policy after rounding, then convert
   movabsq $-4332462841530417152, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1020,7 +1027,7 @@ cerune_origin_mir_main_bb0_i8_lir22:
   movl $69, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_ceil_3_minimum:
 .Lcerune_main_ceil_3_maximum:
   xorl %ecx, %ecx
@@ -1030,7 +1037,7 @@ cerune_origin_mir_main_bb0_i8_lir22:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_ceil_3_done:
 # cerune-origin: #12 bytes 111..133
 cerune_origin_n12_main_23:
@@ -1079,7 +1086,7 @@ cerune_origin_mir_main_bb0_i12_lir30:
 cerune_origin_n17_main_31:
 # cerune-mir: v1 main bb0 i12 -> lir 31 (source)
 cerune_origin_mir_main_bb0_i12_lir31:
-  # policy: round
+# policy: round
   movapd %xmm0, %xmm2
   ucomisd %xmm2, %xmm2
   jp .Lcerune_main_round_4_nonfinite
@@ -1091,7 +1098,7 @@ cerune_origin_mir_main_bb0_i12_lir31:
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
   je .Lcerune_main_round_4_nonfinite
-  # round finite input; large values are already integral
+# round finite input; large values are already integral
   movabsq $4841369599423283200, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1120,7 +1127,7 @@ cerune_origin_mir_main_bb0_i12_lir31:
 .Lcerune_main_round_4_rounded:
   cvtsi2sdq %rax, %xmm2
 .Lcerune_main_round_4_bounds:
-  # range policy after rounding, then convert
+# range policy after rounding, then convert
   movabsq $-4332462841530417152, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1139,7 +1146,7 @@ cerune_origin_mir_main_bb0_i12_lir31:
   movl $69, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_round_4_minimum:
 .Lcerune_main_round_4_maximum:
   xorl %ecx, %ecx
@@ -1149,7 +1156,7 @@ cerune_origin_mir_main_bb0_i12_lir31:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_round_4_done:
 # cerune-origin: #17 bytes 142..164
 cerune_origin_n17_main_32:
@@ -1198,7 +1205,7 @@ cerune_origin_mir_main_bb0_i16_lir39:
 cerune_origin_n21_main_40:
 # cerune-mir: v1 main bb0 i16 -> lir 40 (source)
 cerune_origin_mir_main_bb0_i16_lir40:
-  # policy: round_ties_even
+# policy: round_ties_even
   movapd %xmm0, %xmm2
   ucomisd %xmm2, %xmm2
   jp .Lcerune_main_round_ties_even_5_nonfinite
@@ -1210,7 +1217,7 @@ cerune_origin_mir_main_bb0_i16_lir40:
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
   je .Lcerune_main_round_ties_even_5_nonfinite
-  # round finite input; large values are already integral
+# round finite input; large values are already integral
   movabsq $4841369599423283200, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1249,7 +1256,7 @@ cerune_origin_mir_main_bb0_i16_lir40:
 .Lcerune_main_round_ties_even_5_rounded:
   cvtsi2sdq %rax, %xmm2
 .Lcerune_main_round_ties_even_5_bounds:
-  # range policy after rounding, then convert
+# range policy after rounding, then convert
   movabsq $-4332462841530417152, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1268,7 +1275,7 @@ cerune_origin_mir_main_bb0_i16_lir40:
   movl $69, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_round_ties_even_5_minimum:
 .Lcerune_main_round_ties_even_5_maximum:
   xorl %ecx, %ecx
@@ -1278,7 +1285,7 @@ cerune_origin_mir_main_bb0_i16_lir40:
   movl $71, %r8d
   callq _write
   movl $7, %ecx
-  int $0x29
+  int $41
 .Lcerune_main_round_ties_even_5_done:
 # cerune-origin: #21 bytes 173..205
 cerune_origin_n21_main_41:
@@ -1327,7 +1334,7 @@ cerune_origin_mir_main_bb0_i20_lir48:
 cerune_origin_n25_main_49:
 # cerune-mir: v1 main bb0 i20 -> lir 49 (source)
 cerune_origin_mir_main_bb0_i20_lir49:
-  # policy: saturating_trunc
+# policy: saturating_trunc
   movapd %xmm0, %xmm2
   ucomisd %xmm2, %xmm2
   jp .Lcerune_main_saturating_trunc_6_nonfinite
@@ -1339,7 +1346,7 @@ cerune_origin_mir_main_bb0_i20_lir49:
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
   je .Lcerune_main_saturating_trunc_6_nonfinite
-  # round finite input; large values are already integral
+# round finite input; large values are already integral
   movabsq $4841369599423283200, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1360,7 +1367,7 @@ cerune_origin_mir_main_bb0_i20_lir49:
 .Lcerune_main_saturating_trunc_6_rounded:
   cvtsi2sdq %rax, %xmm2
 .Lcerune_main_saturating_trunc_6_bounds:
-  # range policy after rounding, then convert
+# range policy after rounding, then convert
   movabsq $0, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1450,7 +1457,7 @@ cerune_origin_mir_main_bb0_i25_lir60:
 cerune_origin_n29_main_61:
 # cerune-mir: v1 main bb0 i25 -> lir 61 (source)
 cerune_origin_mir_main_bb0_i25_lir61:
-  # policy: saturating_floor
+# policy: saturating_floor
   movapd %xmm0, %xmm2
   ucomisd %xmm2, %xmm2
   jp .Lcerune_main_saturating_floor_7_nonfinite
@@ -1462,7 +1469,7 @@ cerune_origin_mir_main_bb0_i25_lir61:
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
   je .Lcerune_main_saturating_floor_7_nonfinite
-  # round finite input; large values are already integral
+# round finite input; large values are already integral
   movabsq $4841369599423283200, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1487,7 +1494,7 @@ cerune_origin_mir_main_bb0_i25_lir61:
 .Lcerune_main_saturating_floor_7_rounded:
   cvtsi2sdq %rax, %xmm2
 .Lcerune_main_saturating_floor_7_bounds:
-  # range policy after rounding, then convert
+# range policy after rounding, then convert
   movabsq $0, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1562,7 +1569,7 @@ cerune_origin_mir_main_bb0_i29_lir69:
 cerune_origin_n34_main_70:
 # cerune-mir: v1 main bb0 i29 -> lir 70 (source)
 cerune_origin_mir_main_bb0_i29_lir70:
-  # policy: saturating_ceil
+# policy: saturating_ceil
   movapd %xmm0, %xmm2
   ucomisd %xmm2, %xmm2
   jp .Lcerune_main_saturating_ceil_8_nonfinite
@@ -1574,7 +1581,7 @@ cerune_origin_mir_main_bb0_i29_lir70:
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
   je .Lcerune_main_saturating_ceil_8_nonfinite
-  # round finite input; large values are already integral
+# round finite input; large values are already integral
   movabsq $4841369599423283200, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1599,7 +1606,7 @@ cerune_origin_mir_main_bb0_i29_lir70:
 .Lcerune_main_saturating_ceil_8_rounded:
   cvtsi2sdq %rax, %xmm2
 .Lcerune_main_saturating_ceil_8_bounds:
-  # range policy after rounding, then convert
+# range policy after rounding, then convert
   movabsq $0, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1674,7 +1681,7 @@ cerune_origin_mir_main_bb0_i33_lir78:
 cerune_origin_n38_main_79:
 # cerune-mir: v1 main bb0 i33 -> lir 79 (source)
 cerune_origin_mir_main_bb0_i33_lir79:
-  # policy: saturating_round
+# policy: saturating_round
   movapd %xmm0, %xmm2
   ucomisd %xmm2, %xmm2
   jp .Lcerune_main_saturating_round_9_nonfinite
@@ -1686,7 +1693,7 @@ cerune_origin_mir_main_bb0_i33_lir79:
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
   je .Lcerune_main_saturating_round_9_nonfinite
-  # round finite input; large values are already integral
+# round finite input; large values are already integral
   movabsq $4841369599423283200, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1715,7 +1722,7 @@ cerune_origin_mir_main_bb0_i33_lir79:
 .Lcerune_main_saturating_round_9_rounded:
   cvtsi2sdq %rax, %xmm2
 .Lcerune_main_saturating_round_9_bounds:
-  # range policy after rounding, then convert
+# range policy after rounding, then convert
   movabsq $0, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1790,7 +1797,7 @@ cerune_origin_mir_main_bb0_i37_lir87:
 cerune_origin_n42_main_88:
 # cerune-mir: v1 main bb0 i37 -> lir 88 (source)
 cerune_origin_mir_main_bb0_i37_lir88:
-  # policy: saturating_round_ties_even
+# policy: saturating_round_ties_even
   movapd %xmm0, %xmm2
   ucomisd %xmm2, %xmm2
   jp .Lcerune_main_saturating_round_ties_even_10_nonfinite
@@ -1802,7 +1809,7 @@ cerune_origin_mir_main_bb0_i37_lir88:
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
   je .Lcerune_main_saturating_round_ties_even_10_nonfinite
-  # round finite input; large values are already integral
+# round finite input; large values are already integral
   movabsq $4841369599423283200, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1841,7 +1848,7 @@ cerune_origin_mir_main_bb0_i37_lir88:
 .Lcerune_main_saturating_round_ties_even_10_rounded:
   cvtsi2sdq %rax, %xmm2
 .Lcerune_main_saturating_round_ties_even_10_bounds:
-  # range policy after rounding, then convert
+# range policy after rounding, then convert
   movabsq $0, %r11
   movq %r11, %xmm1
   ucomisd %xmm1, %xmm2
@@ -1924,47 +1931,47 @@ cerune_origin_mir_main_bb0_i42_lir98:
   jmp .Lcerune_block_1
 # cerune-origin: synthetic
 # cerune-mir: v1 synthetic ABI setup/exit
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
 # cerune-origin: synthetic
   xorl %eax, %eax
   addq $288, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_failure_0:
-  .asciz "cerune: runtime-v1 code=conversion-not-finite node=7 bytes=79..102\n"
+.asciz "cerune: runtime-v1 code=conversion-not-finite node=7 bytes=79..102\n"
 .Lcerune_failure_1:
-  .asciz "cerune: runtime-v1 code=conversion-out-of-range node=7 bytes=79..102\n"
+.asciz "cerune: runtime-v1 code=conversion-out-of-range node=7 bytes=79..102\n"
 .Lcerune_output_origin_2:
-  .asciz " node=6 bytes=73..104\n"
+.asciz " node=6 bytes=73..104\n"
 .Lcerune_failure_3:
-  .asciz "cerune: runtime-v1 code=conversion-not-finite node=12 bytes=111..133\n"
+.asciz "cerune: runtime-v1 code=conversion-not-finite node=12 bytes=111..133\n"
 .Lcerune_failure_4:
-  .asciz "cerune: runtime-v1 code=conversion-out-of-range node=12 bytes=111..133\n"
+.asciz "cerune: runtime-v1 code=conversion-out-of-range node=12 bytes=111..133\n"
 .Lcerune_output_origin_5:
-  .asciz " node=11 bytes=105..135\n"
+.asciz " node=11 bytes=105..135\n"
 .Lcerune_failure_6:
-  .asciz "cerune: runtime-v1 code=conversion-not-finite node=17 bytes=142..164\n"
+.asciz "cerune: runtime-v1 code=conversion-not-finite node=17 bytes=142..164\n"
 .Lcerune_failure_7:
-  .asciz "cerune: runtime-v1 code=conversion-out-of-range node=17 bytes=142..164\n"
+.asciz "cerune: runtime-v1 code=conversion-out-of-range node=17 bytes=142..164\n"
 .Lcerune_output_origin_8:
-  .asciz " node=16 bytes=136..166\n"
+.asciz " node=16 bytes=136..166\n"
 .Lcerune_failure_9:
-  .asciz "cerune: runtime-v1 code=conversion-not-finite node=21 bytes=173..205\n"
+.asciz "cerune: runtime-v1 code=conversion-not-finite node=21 bytes=173..205\n"
 .Lcerune_failure_10:
-  .asciz "cerune: runtime-v1 code=conversion-out-of-range node=21 bytes=173..205\n"
+.asciz "cerune: runtime-v1 code=conversion-out-of-range node=21 bytes=173..205\n"
 .Lcerune_output_origin_11:
-  .asciz " node=20 bytes=167..207\n"
+.asciz " node=20 bytes=167..207\n"
 .Lcerune_output_origin_12:
-  .asciz " node=24 bytes=208..250\n"
+.asciz " node=24 bytes=208..250\n"
 .Lcerune_output_origin_13:
-  .asciz " node=28 bytes=251..292\n"
+.asciz " node=28 bytes=251..292\n"
 .Lcerune_output_origin_14:
-  .asciz " node=33 bytes=293..334\n"
+.asciz " node=33 bytes=293..334\n"
 .Lcerune_output_origin_15:
-  .asciz " node=37 bytes=335..377\n"
+.asciz " node=37 bytes=335..377\n"
 .Lcerune_output_origin_16:
-  .asciz " node=41 bytes=378..430\n"
+.asciz " node=41 bytes=378..430\n"
 .Lcerune_output_origin_17:
-  .asciz " node=45 bytes=431..444\n"
+.asciz " node=45 bytes=431..444\n"

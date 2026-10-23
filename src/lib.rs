@@ -449,7 +449,7 @@ mod tests {
 
         let asm = compile_to_x86_64_win_asm(source).unwrap();
         assert!(asm.contains("array_oob"));
-        assert!(asm.contains("movl $7, %ecx\n  int $0x29"));
+        assert!(asm.contains("movl $7, %ecx\n  int $41"));
     }
 
     #[test]

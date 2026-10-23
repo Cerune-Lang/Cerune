@@ -1,3 +1,9 @@
+.extern _write
+.extern _errno
+.extern snprintf
+.extern _Exit
+.globl main
+.extern _setmode
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -57,7 +63,6 @@
 .p2align 3
 .Lcerune_f64_15:
 .quad 0x4376345785D8A000
-
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -736,7 +741,6 @@ cerune_output_escape:
   movb $125, 5(%rcx)
   movl $6, %eax
   retq
-.globl main
 .p2align 4
 main:
   pushq %rbp
@@ -753,7 +757,8 @@ main:
   retq
 .Lstdout_ready:
   jmp .Lcerune_block_0
-.Lcerune_block_0: # mir_block
+.Lcerune_block_0:
+# mir_block
   movss .Lcerune_f32_0(%rip), %xmm0
   movss %xmm0, -8(%rbp)
   movss -8(%rbp), %xmm0
@@ -862,40 +867,40 @@ main:
   leaq .Lcerune_output_origin_14(%rip), %r11
   callq cerune_output_f64
   jmp .Lcerune_block_1
-.Lcerune_block_1: # main_exit
+.Lcerune_block_1:
+# main_exit
   xorl %eax, %eax
   addq $192, %rsp
   popq %rbp
   retq
-
 .section .rdata,"dr"
 .Lcerune_output_origin_0:
-  .asciz " node=0 bytes=0..16\n"
+.asciz " node=0 bytes=0..16\n"
 .Lcerune_output_origin_1:
-  .asciz " node=2 bytes=17..30\n"
+.asciz " node=2 bytes=17..30\n"
 .Lcerune_output_origin_2:
-  .asciz " node=4 bytes=31..51\n"
+.asciz " node=4 bytes=31..51\n"
 .Lcerune_output_origin_3:
-  .asciz " node=8 bytes=52..68\n"
+.asciz " node=8 bytes=52..68\n"
 .Lcerune_output_origin_4:
-  .asciz " node=10 bytes=69..83\n"
+.asciz " node=10 bytes=69..83\n"
 .Lcerune_output_origin_5:
-  .asciz " node=12 bytes=84..116\n"
+.asciz " node=12 bytes=84..116\n"
 .Lcerune_output_origin_6:
-  .asciz " node=14 bytes=117..147\n"
+.asciz " node=14 bytes=117..147\n"
 .Lcerune_output_origin_7:
-  .asciz " node=16 bytes=148..163\n"
+.asciz " node=16 bytes=148..163\n"
 .Lcerune_output_origin_8:
-  .asciz " node=19 bytes=164..176\n"
+.asciz " node=19 bytes=164..176\n"
 .Lcerune_output_origin_9:
-  .asciz " node=22 bytes=177..191\n"
+.asciz " node=22 bytes=177..191\n"
 .Lcerune_output_origin_10:
-  .asciz " node=24 bytes=192..203\n"
+.asciz " node=24 bytes=192..203\n"
 .Lcerune_output_origin_11:
-  .asciz " node=26 bytes=204..221\n"
+.asciz " node=26 bytes=204..221\n"
 .Lcerune_output_origin_12:
-  .asciz " node=28 bytes=222..236\n"
+.asciz " node=28 bytes=222..236\n"
 .Lcerune_output_origin_13:
-  .asciz " node=30 bytes=237..251\n"
+.asciz " node=30 bytes=237..251\n"
 .Lcerune_output_origin_14:
-  .asciz " node=32 bytes=252..264\n"
+.asciz " node=32 bytes=252..264\n"
