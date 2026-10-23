@@ -550,13 +550,12 @@ fn inject_allocation_failure(program: &mut sashimi_assembler::program::Program, 
     let failure = program.declare(".Ltest_malloc_fail", Linkage::Local);
     let mut replaced = 0;
     for entry in &mut program.entries {
-        if let EntryKind::Instruction(instruction) = &mut entry.kind {
-            if instruction.opcode == Opcode::Call
-                && instruction.operands == [Operand::Symbol(malloc)]
-            {
-                instruction.operands[0] = Operand::Symbol(replacement);
-                replaced += 1;
-            }
+        if let EntryKind::Instruction(instruction) = &mut entry.kind
+            && instruction.opcode == Opcode::Call
+            && instruction.operands == [Operand::Symbol(malloc)]
+        {
+            instruction.operands[0] = Operand::Symbol(replacement);
+            replaced += 1;
         }
     }
     assert!(replaced > 0, "missing malloc injection site");
