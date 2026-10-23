@@ -65,7 +65,7 @@ The [example type tables](../../examples/README.en.md) list ranges and applicati
 
 All features above, including dynamic arrays, are supported by the [IR Executor](ir-executor.en.md), [MIR Executor](mir-executor.en.md), VM, generated C, LLVM, QBE, WAT, Windows/Linux direct assembly, and objects from Cerune's own encoder. Windows/Linux distinguish targets; assembly/objects distinguish artifacts. Use the [route and target table](targets.en.md) when counting them.
 
-The native encoder generates x86-64 instructions and COFF/ELF objects. It shares assembly lowering and currently reads an internal assembly representation to encode it. Linking uses external tools. A typed machine-instruction IR or an internal linker would be compiler implementation work, not new language features. See the [native encoder design](native-encoder.en.md).
+Native constructs a SASHIMI typed Program from LIR and generates ASM and COFF/ELF from that same Program, without reparsing ASM for Object generation. Cerune retains instruction selection, ABI, runtime and source-provenance semantics; SASHIMI handles encoding, relocations and object formats. Linking uses external tools. A future internal linker would be compiler implementation work, not a new language feature. See the [native encoder design](native-encoder.en.md).
 
 Language support does not imply equal observation detail. Language check failures have comparable reasons, source locations, and prior output across all routes. LLVM/assembly origin annotations still do not promise debugging information across all routes and optimization stages.
 

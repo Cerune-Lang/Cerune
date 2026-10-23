@@ -65,7 +65,7 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 
 動的配列を含む上記機能を[IR Executor](ir-executor.ja.md)、[MIR Executor](mir-executor.ja.md)、VM、生成C、LLVM、QBE、WAT、Windows/Linuxの直接ASM、および自前エンコーダのオブジェクトで扱えます。Windows/Linuxはターゲットの違い、ASM/オブジェクトは成果物の違いです。[経路とターゲットの表](targets.ja.md#現在の構成)を基準に数えます。
 
-自前エンコーダはx86-64命令とCOFF/ELFを生成します。ASMと共通のloweringを使い、現在は内部ASM表現を読み取って符号化します。リンクは外部ツールです。将来の型付き機械命令IRや自前リンカはコンパイラ実装の候補であり、新しい言語機能ではありません。[自前エンコーダの設計](native-encoder.ja.md)を参照してください。
+NativeはLIRからSASHIMIの型付きProgramを構築し、同じProgramからASMとCOFF/ELFを生成します。Object生成にASMの再解析はありません。命令選択・ABI・runtime・ソース出自の意味はCeruneが保持し、符号化・再配置・Object形式はSASHIMIが担当します。リンクは外部ツールです。将来の自前リンカはコンパイラ実装の候補であり、新しい言語機能ではありません。[自前エンコーダの設計](native-encoder.ja.md)を参照してください。
 
 言語機能を扱えることと、観測の詳しさが等しいことは別です。言語の検査失敗は全経路で共通の停止理由・ソース位置・先行出力を照合できます。ただし、LLVM/ASMの出自注釈は全経路・全最適化段階のデバッグ情報を保証するものではありません。
 

@@ -237,7 +237,7 @@ fn typed_data_links_and_preserves_bits_with_external_assembler() {
             &mut cmd,
             &dir,
             "typed-data/link",
-            Duration::from_secs(30),
+            Duration::from_secs(120),
         )
         .unwrap();
         assert!(

@@ -13,7 +13,10 @@ mod output_reference;
 use output_reference::reference;
 
 fn run(command: &mut Command, dir: &Path, label: &str) -> std::process::Output {
-    process::bounded_output(command, dir, label, Duration::from_secs(30)).unwrap()
+    // Tool startup/linking on hosted runners can exceed the execution limit.
+    // Keep generated programs bounded at 30 seconds.
+    let seconds = if label == "compile" { 120 } else { 30 };
+    process::bounded_output(command, dir, label, Duration::from_secs(seconds)).unwrap()
 }
 fn compiler() -> Option<std::ffi::OsString> {
     if QBE {

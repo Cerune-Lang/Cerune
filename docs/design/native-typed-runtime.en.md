@@ -53,6 +53,8 @@ Independent execution tests link ASM/Object from the same Program with clang and
 | Length-prefixed strings and empty contents | Eight-byte byte length plus raw contents, eight-byte alignment and zero-byte empty-content range |
 | String/array reference counts and capacity | Capacity stays occupied while retained and recovers after final release; distinguish empty values, zero-width elements, invalid sizes and limit failures |
 | Normal output success/failure | Compare bytes, io-v1 diagnostics and stopping across ASM/Object and four executors: scalar formats, Japanese/NUL/CRLF, aggregates, short writes, EINTR, zero progress, invalid counts and closed stdout |
+| Argument allocation failure | Replace malloc call targets in a test-owned Program clone; compare startup termination, source-bearing diagnostics and prior output through ASM/Object from that same Program |
+| Input OS responses | Explicitly replace external calls in ASM to compare EOF, interruptions, failures, invalid responses and consumption; missing injection sites fail the test |
 | Helper/constant provenance | Synthetic, nonempty instruction ranges, empty label ranges, no range for section selection |
 | Repeated rendering/generation | Unchanged input Program and Object |
 

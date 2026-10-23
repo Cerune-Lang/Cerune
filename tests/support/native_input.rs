@@ -1,5 +1,14 @@
 use super::*;
 use cerune_lang::{codegen::x86_64 as native, runtime::input::Code};
+fn replace_external_call(asm: &str, name: &str, replacement: &str) -> String {
+    let suffix = if cfg!(windows) { "" } else { "@PLT" };
+    let from = format!("  callq {name}{suffix}\n");
+    assert!(
+        asm.contains(&from),
+        "missing external call injection site: {name}"
+    );
+    asm.replace(&from, &format!("  {replacement}\n"))
+}
 fn hir(source: &str) -> cerune_lang::ir::Program {
     modules::from_source(source).unwrap().to_ir().unwrap()
 }
@@ -61,7 +70,7 @@ fn origins_and_explicit_targets_preserve_native_instructions() {
             target == native::Target::X86_64PcWindowsMsvc
         );
         assert_eq!(
-            plain.contains("callq read\n"),
+            plain.contains("callq read@PLT\n"),
             target == native::Target::X86_64UnknownLinuxGnu
         );
         assert!(plain.contains(".Lcerune_input_origin_"));
@@ -84,7 +93,7 @@ fn injected_failures_preserve_consumption_and_prior_output() {
         let mut asm = base.clone();
         match mode {
             "allocate" => {
-                asm = asm.replace("callq malloc", "xorl %eax, %eax");
+                asm = replace_external_call(&asm, "malloc", "xorl %eax, %eax");
             }
             "unsupported" => {
                 asm = asm.replace(
@@ -178,7 +187,7 @@ fn os_responses_preserve_eof_interruptions_and_connection_failures() {
                 "ReadFile",
                 "GetLastError",
             ] {
-                asm = asm.replace(&format!("callq {name}\n"), &format!("callq test_{name}\n"));
+                asm = replace_external_call(&asm, name, &format!("callq test_{name}"));
             }
             asm.push_str(&format!(r#"
 test_GetStdHandle:
@@ -226,9 +235,8 @@ _=>"movl $109, .Ltest_error(%rip)\n  xorl %eax, %eax\n  retq",
                 );
             }
         } else {
-            asm = asm
-                .replace("callq read\n", "callq test_read\n")
-                .replace("callq __errno_location\n", "callq test_errno\n");
+            asm = replace_external_call(&asm, "read", "callq test_read");
+            asm = replace_external_call(&asm, "__errno_location", "callq test_errno");
             asm.push_str(&format!(
                 r#"
 test_errno:
@@ -348,9 +356,8 @@ fn preflight_and_failed_flush_do_not_read() {
     }
     let program =
         hir(r#"import "std:io" as io;print("before");flush();v:io::ReadLine=io::read_line(4);"#);
-    let asm = native::emit_asm(&program, native_target())
-        .unwrap()
-        .replace("callq fflush", "movl $-1, %eax")
+    let asm = native::emit_asm(&program, native_target()).unwrap();
+    let asm = replace_external_call(&asm, "fflush", "movl $-1, %eax")
         .replace("callq cerune_input_read_byte", "ud2");
     if let Some(exe) = native_link(&dir, "flush", asm.as_bytes(), "s") {
         let out = file_run(&mut Command::new(exe), &dir, b"UNREAD");

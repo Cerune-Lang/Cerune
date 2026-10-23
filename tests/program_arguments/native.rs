@@ -85,10 +85,18 @@ fn executables(p: &ir::Program, limits: Limits) -> Vec<(PathBuf, PathBuf)> {
     }
     out
 }
+fn replace_asm(text: &str, from: &str, to: &str) -> String {
+    assert!(text.contains(from), "missing ASM injection site: {from:?}");
+    text.replace(from, to)
+}
 fn harness(p: &ir::Program, data: &str, body: &str) -> String {
     let entry = if cfg!(windows) { "wmain" } else { "main" };
-    let text = assembly(p, Limits::default())
-        .replace(&format!(".globl {entry}\n{entry}:"), "unused_os_entry:");
+    let text = replace_asm(
+        &assembly(p, Limits::default()),
+        &format!(".globl {entry}\n"),
+        "",
+    );
+    let text = replace_asm(&text, &format!("\n{entry}:\n"), "\nunused_os_entry:\n");
     format!(
         "{text}\n.data\n{data}\n.text\n.globl main\nmain:\n  subq $40, %rsp\n{body}\n  xorl %eax, %eax\n  addq $40, %rsp\n  retq\n"
     )
@@ -353,16 +361,18 @@ fn native_capture_validates_before_allocation_and_redacts_failures() {
         let data = format!(
             ".Ltest_data:\n  .byte {bytes}\n.p2align 3\n.Ltest_values:\n  .quad .Ltest_data\n  .quad {len}"
         );
-        let text = harness(&p, &data, CAPTURE).replace(
-            ".Largs_max_bytes:\n  .quad 1048576",
+        let text = replace_asm(
+            &harness(&p, &data, CAPTURE),
+            ".Largs_max_bytes:\n.quad 0x0000000000100000",
             &format!(".Largs_max_bytes:\n  .quad {limit}"),
         );
         if let Some((dir, exe)) = link(text.as_bytes(), "s") {
             capture_failure(&run(&dir, &exe, &[]), expected);
         }
     }
-    let text = harness(&p, VALUES, CAPTURE).replace(
-        ".Largs_max_count:\n  .quad 4096",
+    let text = replace_asm(
+        &harness(&p, VALUES, CAPTURE),
+        ".Largs_max_count:\n.quad 0x0000000000001000",
         ".Largs_max_count:\n  .quad -1",
     );
     if let Some((dir, exe)) = link(text.as_bytes(), "s") {
@@ -448,12 +458,12 @@ fn native_cli_limits_are_visible_and_emission_does_not_capture_arguments() {
             assert!(text.contains(if route == "emit-lir" {
                 "argument-count-limit 2"
             } else {
-                ".Largs_max_count:\n  .quad 2"
+                ".Largs_max_count:\n.quad 0x0000000000000002"
             }));
             assert!(text.contains(if route == "emit-lir" {
                 "argument-byte-limit 3"
             } else {
-                ".Largs_max_bytes:\n  .quad 3"
+                ".Largs_max_bytes:\n.quad 0x0000000000000003"
             }));
         }
         for flags in [
@@ -480,16 +490,16 @@ fn native_cli_limits_are_visible_and_emission_does_not_capture_arguments() {
 fn native_startup_allocation_failures_stop_before_execution_in_asm_and_object() {
     let p = hir("import \"std:env\" as env; print(7);print(env::arg(0));print(99);");
     let allocations_before_get = if cfg!(windows) { 3 } else { 2 };
-    // Reserve Windows shadow space or SysV alignment before the external call.
-    let call_stack = if cfg!(windows) { 40 } else { 8 };
     for remaining in 0..=allocations_before_get {
-        let mut text = assembly(&p, Limits::default()).replace("callq malloc", "callq test_malloc");
-        text.push_str(&format!("\n.data\n.Ltest_remaining:\n  .quad {remaining}\n.text\ntest_malloc:\n  cmpq $0, .Ltest_remaining(%rip)\n  je .Ltest_malloc_fail\n  subq $1, .Ltest_remaining(%rip)\n  subq ${call_stack}, %rsp\n  callq malloc\n  addq ${call_stack}, %rsp\n  retq\n.Ltest_malloc_fail:\n  xorl %eax, %eax\n  retq\n"));
-        let selected = match target() {
-            Target::X86_64PcWindowsMsvc => sashimi_assembler::Target::X86_64PcWindowsMsvc,
-            Target::X86_64UnknownLinuxGnu => sashimi_assembler::Target::X86_64UnknownLinuxGnu,
-        };
-        let object = sashimi_assembler::assemble(&text, selected).unwrap();
+        let lir = native::lower_mir(&mir::lower(&p).unwrap(), target()).unwrap();
+        let original = native::build_program_from_lir(&lir, true).unwrap();
+        // Mutate a test-owned clone; production observation stays read-only.
+        let mut injected = original.program().clone();
+        inject_allocation_failure(&mut injected, remaining);
+        let text = sashimi_assembler::program::render_asm(&injected).unwrap();
+        let object = sashimi_assembler::program::assemble_program(&injected)
+            .unwrap()
+            .object;
         for (bytes, ext) in [
             (text.as_bytes(), "s"),
             (object.as_slice(), if cfg!(windows) { "obj" } else { "o" }),
@@ -520,5 +530,69 @@ fn native_startup_allocation_failures_stop_before_execution_in_asm_and_object() 
                 );
             }
         }
+    }
+}
+
+fn inject_allocation_failure(program: &mut sashimi_assembler::program::Program, remaining: u64) {
+    use sashimi_assembler::{
+        program::{EntryKind, Linkage, Provenance, Section, SymbolId},
+        typed::{Instruction, Opcode, Operand, Register, Width},
+    };
+    let malloc = SymbolId(
+        program
+            .symbols
+            .iter()
+            .position(|s| s.name == "malloc" && s.linkage == Linkage::External)
+            .unwrap(),
+    );
+    let replacement = program.declare("test_malloc", Linkage::Local);
+    let counter = program.declare(".Ltest_remaining", Linkage::Local);
+    let failure = program.declare(".Ltest_malloc_fail", Linkage::Local);
+    let mut replaced = 0;
+    for entry in &mut program.entries {
+        if let EntryKind::Instruction(instruction) = &mut entry.kind {
+            if instruction.opcode == Opcode::Call
+                && instruction.operands == [Operand::Symbol(malloc)]
+            {
+                instruction.operands[0] = Operand::Symbol(replacement);
+                replaced += 1;
+            }
+        }
+    }
+    assert!(replaced > 0, "missing malloc injection site");
+    let stack: Operand = Register::gpr(4, Width::Qword).unwrap().into();
+    let eax: Operand = Register::gpr(0, Width::Dword).unwrap().into();
+    // Reserve Windows shadow space or SysV alignment before the external call.
+    let call_stack = if cfg!(windows) { 40 } else { 8 };
+    let instruction =
+        |opcode, operands: Vec<Operand>| EntryKind::Instruction(Instruction::new(opcode, operands));
+    for kind in [
+        EntryKind::Section(Section::Data),
+        EntryKind::Align(3),
+        EntryKind::Label(counter),
+        EntryKind::Data64(remaining),
+        EntryKind::Section(Section::Text),
+        EntryKind::Label(replacement),
+        instruction(
+            Opcode::Cmp64,
+            vec![Operand::Immediate(0), Operand::RipRelative(counter)],
+        ),
+        instruction(Opcode::JumpE, vec![Operand::Symbol(failure)]),
+        instruction(
+            Opcode::Sub64,
+            vec![Operand::Immediate(1), Operand::RipRelative(counter)],
+        ),
+        instruction(
+            Opcode::Sub64,
+            vec![Operand::Immediate(call_stack), stack.clone()],
+        ),
+        instruction(Opcode::Call, vec![Operand::Symbol(malloc)]),
+        instruction(Opcode::Add64, vec![Operand::Immediate(call_stack), stack]),
+        instruction(Opcode::Ret, vec![]),
+        EntryKind::Label(failure),
+        instruction(Opcode::Xor32, vec![eax.clone(), eax]),
+        instruction(Opcode::Ret, vec![]),
+    ] {
+        program.push(kind, Provenance::synthetic());
     }
 }

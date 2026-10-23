@@ -154,8 +154,8 @@ Cerune IRで一つの整数演算として見える式は、backend loweringで�
 | LLVM | LLVM IR表現 | `.ll` |
 | QBE | QBE IR表現 | `.ssa` |
 | WebAssembly | WAT指向の命令IR | `.wat` |
-| Windows/Linux x86-64直接アセンブリ | MIRから変換したx86-64 LIR | `.s` |
-| ネイティブオブジェクト | 共通ASMの読み取り・命令符号化・ELF/COFF生成 | `.o` / `.obj` |
+| Windows/Linux x86-64直接アセンブリ | MIR→x86-64 LIR→SASHIMIの型付きProgram | `.s` |
+| ネイティブオブジェクト | ASMと同じ型付きProgramから命令符号化・再配置・ELF/COFF生成 | `.o` / `.obj` |
 | Cerune bytecode | `BytecodeProgram` | `.cebc` |
 
 バックエンドIRには、Cerune IRに含めるべきでない決定を表現できます。
