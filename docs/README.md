@@ -38,6 +38,7 @@
 - [言語機能と今後の順序](design/language-roadmap.ja.md)
 - [本体と周辺プロジェクトの役割](design/ecosystem.ja.md)
 - [利用例から進める引数と数値の読取り](design/dogfooding-inputs.ja.md)
+- [明示的な整数読取り](design/integer-parsing.ja.md)
 - [丸め方と飽和](design/rounding-conversions.ja.md)
 - [小数部分の切り捨て](design/truncating-conversions.ja.md)
 - [型・長さを引数にする関数](design/generic-functions.ja.md)

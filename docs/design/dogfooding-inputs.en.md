@@ -2,7 +2,7 @@
 
 [日本語](dogfooding-inputs.ja.md)
 
-2026-10-23. This is the next design proposal for [#173](https://github.com/Cerune-Lang/Cerune/issues/173) and [#89](https://github.com/Cerune-Lang/Cerune/issues/89). **Argument acquisition works in HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT/Native; integer parsing remains unimplemented.** Existing stdin and WAT function exports remain in place.
+2026-10-24. This is the next design proposal for [#173](https://github.com/Cerune-Lang/Cerune/issues/173) and [#89](https://github.com/Cerune-Lang/Cerune/issues/89). **Argument acquisition works in HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT/Native; integer parsing is also implemented in [std:num](integer-parsing.en.md).** Existing stdin and WAT function exports remain in place.
 
 ## Smallest use
 
@@ -60,9 +60,9 @@ CLI now strictly converts `env::args_os()` and separates program arguments befor
 
 ## Integer parsing as a separate pure operation
 
-Initially propose string-to-i64 parsing, rather than a seed-specific operation or an implicit extension to numeric `convert<T>`.
+`std:num::parse_i64` implements string-to-i64 parsing. It is not seed-specific or an implicit extension to numeric `convert<T>`.
 
-| Input | Proposed result |
+| Input | Result |
 | --- | --- |
 | ASCII `-?[0-9]+` | i64 value; allow leading zeros, parse `-0` as integer zero |
 | Empty, sign only, `+1`, whitespace, newline, fullwidth digits, fractions, NUL, trailing text | Invalid format |
@@ -72,13 +72,13 @@ Initially propose string-to-i64 parsing, rather than a seed-specific operation o
 
 Parsing and application-level seed validation are separate: valid negative i64 values or seeds at least 2147483647 are rejected by the example. Returning a format error as a value is distinct from execution failures such as allocation failure. Parsing does not consume or mutate input.
 
-General string indexing is currently unavailable. Compare the necessary pure IR operation and backend implementations before attempting to implement parsing solely in bundled Cerune source.
+General string indexing is not public. An internal pure byte-access operation in common IR lets bundled Cerune source share syntax and range checks. See the [final API and internal operation](integer-parsing.en.md).
 
 ## Implementation units and validation
 
 1. Implemented: public declarations, snapshot and common IR connected to HIR/MIR/SSA/VM and CLI, with an argument-display example and comparison tests.
 2. Implemented: generated C/LLVM/QBE/WAT/Native connections with equal argument lists. Native includes baseline MIR/SSA, assembly and self-encoded objects.
-3. Add pure integer parsing across routes and complete the argument-driven seed example.
+3. Implemented: pure integer parsing across routes and an example accepting seed and count arguments.
 4. After arguments and integer parsing, follow the [core roadmap](language-roadmap.en.md): optional let + fmt, Native build/initial distribution, then recursion. Subsequently design limited file I/O and shell-free subprocess operations separately.
 
 Retain original HIR, non-SSA MIR, SSA, generated artifacts and origins throughout. Optimization, Native build and package management are not prerequisites.
@@ -129,7 +129,7 @@ Argument failures use arguments-v1 even with `--diagnostic-format runtime-v1`. C
 
 The [example](../../examples/arguments/README.en.md) and [comparison tests](../../tests/program_arguments/mod.rs) verify expected output, short-circuiting, function/array transfers, independent copies, prior output, stop reason/origin, and unchanged original IR.
 
-Native now generates argument-using LIR, assembly, self-encoded objects and observe bundles. Preserve original HIR, non-SSA MIR, SSA and origins. A chronological event log of successful accesses remains unimplemented. Pure integer parsing is next.
+Native now generates argument-using LIR, assembly, self-encoded objects and observe bundles. Preserve original HIR, non-SSA MIR, SSA and origins. A chronological event log of successful accesses remains unimplemented. Pure integer parsing is implemented in [std:num](integer-parsing.en.md).
 
 ## Generated C argument connection
 
@@ -200,6 +200,6 @@ Lower common MIR directly to LIR ArgumentCount/ArgumentGet. Baseline MIR and SSA
 
 [Native comparisons](../../tests/program_arguments/native.rs) compare the same example against four executors through baseline MIR/SSA, assembly and self-encoded objects. Windows/Linux CI require these tests. Cover unconfigured/empty/missing values, Unicode/CR/LF, limits, validation order, allocation failures, independent copies/release, short-circuit/evaluation order and stdin coexistence. Strict UTF-8 validation is shared by input and arguments.
 
-Internal helpers are not a stable embedding ABI. Chronological success records, integer parsing, Native build and distribution remain follow-up work.
+Internal helpers are not a stable embedding ABI. Integer parsing is implemented in [std:num](integer-parsing.en.md). Chronological success records, Native build and distribution remain follow-up work.
 
 PR #182 merged Native support into master. ASM/Object tests cover allocation failures during startup, OS conversion, snapshot capture and string retrieval, including prior output and arguments-v1. The [SASHIMI object connection](native-encoder.en.md) does not change argument semantics.

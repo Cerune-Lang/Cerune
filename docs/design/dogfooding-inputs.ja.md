@@ -2,7 +2,7 @@
 
 [English](dogfooding-inputs.en.md)
 
-2026-10-23。[#173](https://github.com/Cerune-Lang/Cerune/issues/173)と[#89](https://github.com/Cerune-Lang/Cerune/issues/89)の次の設計案です。**引数取得はHIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeに対応済み。整数読取りは未実装**です。実装済みの標準入力・WAT関数公開を作り直しません。
+2026-10-24。[#173](https://github.com/Cerune-Lang/Cerune/issues/173)と[#89](https://github.com/Cerune-Lang/Cerune/issues/89)の次の設計案です。**引数取得はHIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeに対応済み。整数読取りも[std:num](integer-parsing.ja.md)として実装済み**です。実装済みの標準入力・WAT関数公開を作り直しません。
 
 ## 最小の用途
 
@@ -60,9 +60,9 @@ CLIは`env::args_os()`を厳密変換し、区切り以後を`parse_heap_limits`
 
 ## 数値の読取りを別の純粋操作にする
 
-最初は文字列からi64を読む操作を提案します。seedだけの特別処理や、既存の数値型間の`convert<T>`への暗黙追加にはしません。
+文字列からi64を読む`std:num::parse_i64`を実装しました。seedだけの特別処理や、既存の数値型間の`convert<T>`への暗黙追加にはしません。
 
-| 入力 | 提案する結果 |
+| 入力 | 結果 |
 | --- | --- |
 | ASCIIの`-?[0-9]+` | i64の値。先頭ゼロを許可、`-0`は整数0 |
 | 空、符号だけ、`+1`、空白、改行、全角数字、小数、NUL、末尾の文字 | 不正な書式 |
@@ -72,13 +72,13 @@ CLIは`env::args_os()`を厳密変換し、区切り以後を`parse_heap_limits`
 
 整数への読取りと、seedの用途上の範囲検査は分けます。i64として正しくても負値や2147483647以上のseedは例側が拒否します。書式の誤りを値で返すことと、確保失敗などの実行時停止も区別します。入力文字列は消費・変更しません。
 
-現在は一般の文字列添字APIがありません。同梱Ceruneソースだけでこの処理を無理に実装せず、必要な純粋IR操作の範囲と各backendの実装を比較して決めます。
+一般の文字列添字APIは公開していません。内部の純粋なバイト参照を共通IRに追加し、書式と範囲の検査を同梱Ceruneソースで共有します。[確定したAPIと内部操作](integer-parsing.ja.md)を参照してください。
 
 ## 実装単位と検証
 
 1. 実装済み：公開宣言・snapshot・共通IRをHIR/MIR/SSA/VMとCLIへ接続。引数を表示するexampleと比較テストを追加。
 2. 実装済み：生成C・LLVM・QBE・WAT・Nativeへ接続し、同じ引数列で比較。Nativeは通常MIR／SSA経由のASM・自前Objectを含む。
-3. 純粋な整数読取りを全経路へ追加し、seedを引数から受け取る例を完成する。
+3. 実装済み：純粋な整数読取りを全経路へ追加し、seedと回数を引数から受け取る例を追加。
 4. 引数・整数読取りの完了後は、[本体ロードマップ](language-roadmap.ja.md)に従ってoptional let＋fmt、Native build・配布初版、再帰へ進む。その後、明示した作業範囲でのファイルI/Oとshellを経由しない子プロセス操作を個別設計する。
 
 各段階で元HIR・非SSA MIR・SSA・生成物・ソース対応を維持します。最適化・Native build・パッケージ管理は前提にしません。
@@ -129,7 +129,7 @@ CのWindows起動・UTF-16変換・上限設定は下記で確定しました。
 
 [実行例](../../examples/arguments/README.md)と[比較テスト](../../tests/program_arguments/mod.rs)で正常出力、短絡評価、関数・配列への受渡し、コピー後の独立性、停止前の出力、停止理由・出自、元IRが変わらないことを確認します。
 
-Nativeも対応し、引数操作を含むLIR・ASM・自前Objectとobserve bundleを生成できます。元HIR・非SSA MIR・SSA・出自を維持します。成功した各取得の時系列イベント記録は未実装です。次は純粋な整数読取りへ進みます。
+Nativeも対応し、引数操作を含むLIR・ASM・自前Objectとobserve bundleを生成できます。元HIR・非SSA MIR・SSA・出自を維持します。成功した各取得の時系列イベント記録は未実装です。純粋な整数読取りは[std:num](integer-parsing.ja.md)に実装しました。
 
 ## 生成Cの引数接続
 
@@ -164,7 +164,7 @@ C内の静的補助関数は安定した埋込みABIとして公開するもの�
 
 [LLVM比較テスト](../../tests/program_arguments/llvm.rs)は両ターゲットのIRを`-O0`／`-O2`でオブジェクトへコンパイルし、実行可能なWindows/Linuxでは4実行器と同じexample・正常値・異常値・停止前出力を比較します。macOSではLLVM実行ターゲットを追加せず、両ターゲットのオブジェクト生成を検証します。Cの引数はmacOSでも実行できますが、Cの標準入力併用は既存の未対応診断を検証します。
 
-`emit-llvm`は実行用の`-- [引数...]`を受け取りません。プログラム引数はリンク後の実行ファイルへ渡します。次は整数読取りへ進みます。
+`emit-llvm`は実行用の`-- [引数...]`を受け取りません。プログラム引数はリンク後の実行ファイルへ渡します。整数読取りは[std:num](integer-parsing.ja.md)に対応しています。
 
 ## QBEの引数接続
 
@@ -180,7 +180,7 @@ C内の静的補助関数は安定した埋込みABIとして公開するもの�
 
 [QBE比較テスト](../../tests/program_arguments/qbe.rs)はQBE 1.3のamd64_sysv／amd64_winでILからassemblyを生成します。WindowsとLinuxの実行をそれぞれ4実行器・生成Cと比較し、example、日本語・空文字・CR/LF・結合文字・補助平面文字、短絡・評価順、コピー後の独立性、上限・不正入力・確保失敗・停止前出力、標準入力との併用を検証します。古いLinux ClangにはQBEのCOFFセクション書式を受け付けないものがあるため、Windows向けassemblyのオブジェクト化・実行はWindows CIで必須検証します。
 
-emit-qbeは実行用の区切り以後の引数を受け取りません。内部ヘルパーは安定した埋込みABIではありません。次は整数読取りへ進みます。
+emit-qbeは実行用の区切り以後の引数を受け取りません。内部ヘルパーは安定した埋込みABIではありません。整数読取りは[std:num](integer-parsing.ja.md)に対応しています。
 
 ## WATの引数接続
 
@@ -200,6 +200,6 @@ emit-qbeは実行用の区切り以後の引数を受け取りません。内部
 
 [Native比較テスト](../../tests/program_arguments/native.rs)で同じexampleを4実行器、通常MIR／SSAのASM・自前Objectで比較します。Windows/Linux CIで必須実行します。未設定・空・欠落、Unicode・CR/LF、上限、検証順、確保失敗、独立コピー・解放、短絡・評価順、stdin併用を検証します。行入力と引数で厳密UTF-8検証を共有します。
 
-内部ヘルパーは安定した埋込みABIではありません。成功操作の時系列記録、整数読取り、Native build・配布は後続です。
+内部ヘルパーは安定した埋込みABIではありません。整数読取りは[std:num](integer-parsing.ja.md)に実装済みです。成功操作の時系列記録、Native build・配布は後続です。
 
 PR #182でNativeもmasterへ統合済みです。起動・OS文字列変換・snapshot・取得文字列の確保失敗をASM／Objectで比較し、停止前出力とarguments-v1を確認します。Object生成の[SASHIMI接続](native-encoder.ja.md)は言語の引数契約を変更しません。

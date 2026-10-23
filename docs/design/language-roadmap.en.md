@@ -2,18 +2,18 @@
 
 [日本語](language-roadmap.ja.md)
 
-This inventory records capabilities, execution routes, and next steps as of 2026-10-23. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+This inventory records capabilities, execution routes, and next steps as of 2026-10-24. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
 The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline. This page tracks current status.
 
 ## Core development order
 
-**Argument acquisition is merged across existing routes. Before integer parsing, prioritize assembler separation in [#183](https://github.com/Cerune-Lang/Cerune/issues/183).** Extend Cerune in this order so programs can use external values to select computations, then save and reuse results.
+**Assembler separation (#183) is merged. Following argument acquisition, [integer parsing](integer-parsing.en.md) and the seed-argument example are implemented. Optional let + fmt is next.** Extend Cerune in this order so programs can use external values to select computations, then save and reuse results.
 
 | Order | Work | First usable outcome | Status |
 | --- | --- | --- | --- |
-| Preceding work | [SASHIMI connection / assembler separation](native-encoder.en.md) (#183) | Preserve pinned-object equivalence and typed machine instructions with origin ranges | Complete Native Program sharing, NodeId/SourceId/Span mappings and removal of production ASM reparsing implemented; return to integer input after both-OS execution validation and CI |
-| 1 | [Program arguments](https://github.com/Cerune-Lang/Cerune/issues/174) → [integer parsing](https://github.com/Cerune-Lang/Cerune/issues/175) | Distinguish empty/missing values, invalid syntax and range errors; compare a seed-argument example across routes | Arguments implemented in four executors, CLI and generated C/LLVM/QBE/WAT/Native; integer parsing is next |
+| Preceding work | [SASHIMI connection / assembler separation](native-encoder.en.md) (#183) | Preserve pinned-object equivalence and typed machine instructions with origin ranges | Merged in PR #191. Shared typed Native Program, origin mappings and removal of production ASM reparsing verified on both OSes and CI |
+| 1 | [Program arguments](https://github.com/Cerune-Lang/Cerune/issues/174) → [integer parsing](https://github.com/Cerune-Lang/Cerune/issues/175) | Distinguish empty/missing values, invalid syntax and range errors; compare a seed-argument example across routes | Arguments, `std:num::parse_i64` and the seed-argument example implemented in four executors and all existing generated routes |
 | 2 | [Optional let + fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | Preserve/show/hide let, retain comments, and verify formatting idempotence and semantics; align with [infer omission and related syntax](https://github.com/Cerune-Lang/Cerune/issues/105) | Design and implement together; unimplemented |
 | 3 | [Native build and initial distribution](https://github.com/Cerune-Lang/Cerune/issues/81) | Build an executable with explicit target/linker; distribute dependencies, execution requirements, and origins | Responsibilities outlined; unimplemented |
 | 4 | [Recursion](functions.en.md) | Align per-call storage, ownership/cleanup, limits, failure diagnostics, call stacks and origins across routes | Design and implementation pending |
@@ -25,7 +25,7 @@ Add optional let and fmt together in step 2. Preserve types, mutability, and eva
 
 Step 3 distributes programs written in Cerune. Compiler binary updates can proceed separately. Initial Native distribution does not wait for IR/VM Images; those routes require separate format, validator, and loader work. Release does not imply optimization.
 
-The [fixed-seed baseline example](../../examples/deterministic_seed.ceru) is added in PR #176. An [argument-display example](../../examples/arguments/README.en.md) runs in four executors, CLI and generated C/LLVM/QBE/WAT/Native. Integer parsing remains unimplemented. Parallax seed selection is one validation use case for general Cerune features. Retain Parallax's independent Python oracle.
+The [fixed-seed baseline example](../../examples/deterministic_seed.ceru) is added in PR #176. An [argument-display example](../../examples/arguments/README.en.md) runs in four executors, CLI and generated C/LLVM/QBE/WAT/Native. [Integer parsing](integer-parsing.en.md) and a [seed-argument example](../../examples/arguments/seed.ceru) are also implemented. Parallax seed selection is one validation use case for general Cerune features. Retain Parallax's independent Python oracle.
 
 At each step, preserve observation of original unoptimized forms, transformations, inputs, outputs, stop reasons, and origins; compare identical inputs across existing routes. Observation APIs must not mutate execution state.
 

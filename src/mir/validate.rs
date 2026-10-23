@@ -279,6 +279,11 @@ fn operation(p: &Program, f: &Function, op: &Operation, dst: &T, o: Origin) -> R
             element(ty(*v)?, o)?;
             same(dst, &I64)
         }
+        Operation::StringByteAt { value, index } => {
+            same(ty(*value)?, &T::String)?;
+            same(ty(*index)?, &I64)?;
+            same(dst, &I64)
+        }
         Operation::StringByteLength(v) => {
             same(ty(*v)?, &T::String)?;
             same(dst, &I64)
@@ -414,7 +419,12 @@ pub(super) fn operation_reads(op: &Operation) -> Vec<LocalId> {
         Operation::Unary { value, .. }
         | Operation::ConvertInteger { value, .. }
         | Operation::ConvertNumeric { value, .. } => vec![*value],
-        Operation::Binary { left, right, .. } | Operation::StringConcat { left, right } => {
+        Operation::StringByteAt {
+            value: left,
+            index: right,
+        }
+        | Operation::Binary { left, right, .. }
+        | Operation::StringConcat { left, right } => {
             vec![*left, *right]
         }
         Operation::Array(values)

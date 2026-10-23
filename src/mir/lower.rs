@@ -558,6 +558,10 @@ impl<'a> Builder<'a> {
             E::ArgumentCount => Operation::ArgumentCount,
             E::ArgumentGet { index } => Operation::ArgumentGet(self.expr(index)?),
             E::ReadLine { max_bytes } => Operation::ReadLine(self.expr(max_bytes)?),
+            E::StringByteAt { value, index } => Operation::StringByteAt {
+                value: self.expr(value)?,
+                index: self.expr(index)?,
+            },
             E::StringByteLength { value } => Operation::StringByteLength(self.expr(value)?),
             E::StringConcat { left, right } => {
                 let left = self.expr(left)?;

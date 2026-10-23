@@ -194,6 +194,10 @@ pub enum ExprKind {
         value: Box<Expr>,
         length: Option<usize>,
     },
+    StringByteAt {
+        value: Box<Expr>,
+        index: Box<Expr>,
+    },
     StringByteLength {
         value: Box<Expr>,
     },

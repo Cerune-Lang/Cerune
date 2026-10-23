@@ -196,7 +196,9 @@ fn collect_helpers<'a>(
             origin,
             instruction,
         } => {
-            *uses_failures = true;
+            if !matches!(instruction.as_ref(), Instruction::StringByteAt) {
+                *uses_failures = true;
+            }
             helpers.insert(
                 super::failure::helper_name(instruction, *origin),
                 (instruction, *origin),
@@ -252,6 +254,7 @@ fn emit_helper(instruction: &Instruction, origin: Origin, name: &str, output: &m
             super::arguments::located(instruction, origin, name, output)
         }
         Instruction::ReadLine => super::input::located(origin, name, output),
+        Instruction::StringByteAt => super::string::byte_at(name, output),
         Instruction::StringConcat => super::heap::concat(origin, name, output),
         Instruction::ConvertNumeric { conversion } => {
             super::conversion::emit_support(*conversion, origin, name, output)
@@ -391,6 +394,7 @@ fn emit_instruction(
             unreachable!("arguments carry source origin")
         }
         Instruction::ReadLine => unreachable!("input carries its source origin"),
+        Instruction::StringByteAt => unreachable!("byte access carries its source origin"),
         Instruction::StringConcat => unreachable!("concat carries its source origin"),
         Instruction::StringManage { retain } => {
             writeln!(

@@ -167,6 +167,7 @@ fn body(
             ArrayAllocate { label, .. }
             | ArrayRangeCheck { label, .. }
             | DynamicArrayAddress { label, .. }
+            | LoadStringByte { label, .. }
             | StringConcat { label, .. }
             | ConvertNumeric { label, .. }
             | IntegerBinary { label, .. }
@@ -242,6 +243,9 @@ fn body(
                 pointer_offset: o, ..
             }
             | ArrayInitialized { owner_offset: o }
+            | LoadStringByte {
+                string_offset: o, ..
+            }
             | StringConcat { left_offset: o, .. }
             | CompareString { left_offset: o, .. } => stack(*o, 1)?,
             ArrayRangeCheck {
@@ -396,7 +400,7 @@ fn body(
         }
         if matches!(
             i,
-            LoadStringConstant(_) | LoadStringLength | CompareString { .. }
+            LoadStringByte { .. } | LoadStringConstant(_) | LoadStringLength | CompareString { .. }
         ) && !m.uses_strings
         {
             return Err(fail("string runtime is absent"));

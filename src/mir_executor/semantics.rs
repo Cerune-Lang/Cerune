@@ -331,6 +331,12 @@ fn operation<'a, R: Copy>(
             array_length(&frame.get(*v)?)? as i128,
             IntegerType::I64,
         )),
+        O::StringByteAt { value, index } => {
+            let value = frame.get(*value)?.string()?;
+            let index = frame.get(*index)?.integer(IntegerType::I64)?;
+            let byte = value.byte_at(index);
+            Value::Number(Number::Integer(byte, IntegerType::I64))
+        }
         O::StringByteLength(v) => Value::Number(Number::Integer(
             frame.get(*v)?.string()?.len() as i128,
             IntegerType::I64,

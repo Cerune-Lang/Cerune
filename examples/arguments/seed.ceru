@@ -1,0 +1,35 @@
+import "std:env" as env;
+import "std:num" as num;
+
+fn number(index: i64) -> num::ParseI64 {
+    match env::arg(index) {
+        env::Argument::Value { text: text } => { return num::parse_i64(text); },
+        env::Argument::Missing {} => { return num::ParseI64::InvalidFormat {}; },
+    }
+}
+
+fn main() -> void {
+    if env::arg_count() != 2 {
+        print("usage: seed <0..2147483646> <0..100>");
+        return;
+    }
+    mut seed: i64 = 0;
+    match number(0) {
+        num::ParseI64::Value { value: value } => { seed = value; },
+        num::ParseI64::InvalidFormat {} => { print("seed: invalid integer"); return; },
+        num::ParseI64::OutOfRange {} => { print("seed: outside i64"); return; },
+    }
+    mut count: i64 = 0;
+    match number(1) {
+        num::ParseI64::Value { value: value } => { count = value; },
+        num::ParseI64::InvalidFormat {} => { print("count: invalid integer"); return; },
+        num::ParseI64::OutOfRange {} => { print("count: outside i64"); return; },
+    }
+    if seed < 0 || seed > 2147483646 { print("seed: outside 0..2147483646"); return; }
+    if count < 0 || count > 100 { print("count: outside 0..100"); return; }
+    for (mut i: i64 = 0; i < count; i = i + 1) {
+        seed = (seed * 48271) % 2147483647;
+        print(seed);
+    }
+}
+

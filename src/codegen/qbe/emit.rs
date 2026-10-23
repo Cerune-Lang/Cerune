@@ -414,6 +414,16 @@ fn emit_instruction(
             )
             .unwrap();
         }
+        Instruction::StringByteAt { dest, value, index } => {
+            writeln!(
+                output,
+                "  {} =l call $cerune_string_byte_at(l {}, l {})",
+                temp(*dest),
+                operand(value, slots),
+                operand(index, slots)
+            )
+            .unwrap();
+        }
         Instruction::ArgumentCount { dest, origin } => {
             writeln!(
                 output,

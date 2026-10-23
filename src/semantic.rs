@@ -1929,6 +1929,27 @@ fn check_call(
         }
         return Ok(ReturnType::Value(Type::DynamicArray { element }));
     }
+    if name == "$string_byte_at" {
+        if arguments.len() != 2 {
+            return Err(Diagnostic::new(
+                "string byte access expects string and i64",
+                name_span,
+            ));
+        }
+        for (argument, expected) in arguments
+            .iter()
+            .zip([Type::String, Type::Integer(IntegerType::I64)])
+        {
+            if model.type_of_expr_expected(argument, bindings, Some(expected.clone()))? != expected
+            {
+                return Err(Diagnostic::new(
+                    "invalid string byte operand type",
+                    argument.span,
+                ));
+            }
+        }
+        return Ok(ReturnType::Value(Type::Integer(IntegerType::I64)));
+    }
     if name == "$arg_count" {
         if !arguments.is_empty() {
             return Err(Diagnostic::new(

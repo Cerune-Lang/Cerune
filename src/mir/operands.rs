@@ -67,6 +67,10 @@ impl<R: Copy> O<R> {
             O::ArgumentCount => O::ArgumentCount,
             O::ArgumentGet(v) => O::ArgumentGet(f(*v)),
             O::ReadLine(v) => O::ReadLine(f(*v)),
+            O::StringByteAt { value, index } => O::StringByteAt {
+                value: f(*value),
+                index: f(*index),
+            },
             O::StringByteLength(v) => O::StringByteLength(f(*v)),
             O::StringConcat { left, right } => O::StringConcat {
                 left: f(*left),

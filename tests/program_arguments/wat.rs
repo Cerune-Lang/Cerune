@@ -462,3 +462,18 @@ fn wat_snapshot_growth_is_separate_from_returned_string_limits() {
     };
     compare(&p, &[], &run(&dir, &mut cmd, Some(&config(&[])), b""));
 }
+
+#[test]
+fn integer_parsing_wat_matches_independent_expectations() {
+    for group in super::integer_parsing::compiled_cases() {
+        let p = &group.program;
+        let text = wat::emit_wat(p).unwrap();
+        assert!(!text.contains("(export \"memory\""));
+        let Some((dir, mut cmd)) = build(&text) else {
+            return;
+        };
+        for (args, expected) in &group.runs {
+            super::integer_parsing::check(&run(&dir, &mut cmd, Some(&config(args)), &[]), expected);
+        }
+    }
+}

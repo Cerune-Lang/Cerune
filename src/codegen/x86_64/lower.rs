@@ -697,6 +697,14 @@ impl Lowerer<'_> {
                 self.load(*v);
                 self.push(Instruction::ReadLine);
             }
+            Op::StringByteAt { value, index } => {
+                self.load(*index);
+                let label = self.next_label();
+                self.push(Instruction::LoadStringByte {
+                    string_offset: self.offset(*value),
+                    label,
+                });
+            }
             Op::StringByteLength(v) => {
                 self.load(*v);
                 self.push(Instruction::LoadStringLength);

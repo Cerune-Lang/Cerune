@@ -7,3 +7,5 @@
 Constants, strings, allocation bookkeeping and normal output use the existing [frozen runtime](../native_runtime_reference/README.en.md) and [data emitter](../native_data_reference.rs). This is not merely a comparison obtained by parsing the new Program ASM.
 
 Excluded from production builds; do not add features or update this baseline to match migrated output. Current ASM display fixtures serve a different purpose.
+
+`examples.txt` freezes the 135 examples at migration completion (fe97b30). New features are checked through execution tests across routes and are not added to this old implementation.

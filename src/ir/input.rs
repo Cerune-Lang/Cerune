@@ -140,6 +140,10 @@ pub(super) fn visit_expr(expr: &Expr, f: &mut impl FnMut(&Expr)) {
             value: left,
             count: right,
         }
+        | ExprKind::StringByteAt {
+            value: left,
+            index: right,
+        }
         | ExprKind::StringConcat { left, right }
         | ExprKind::Logical { left, right, .. }
         | ExprKind::Binary { left, right, .. }

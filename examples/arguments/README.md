@@ -80,3 +80,19 @@ clang target/arguments-native.o -o target/arguments-native
 ```
 
 Windowsではtargetを`x86_64-pc-windows-msvc`、Objectを`.obj`、実行ファイルを`.exe`にします。`emit-asm`ならAssembly、`emit-lir`なら命令・上限・出自を確認できます。`--ssa`でSSA経由にしても同じ結果です。上限は`--argument-count-limit 2 --argument-byte-limit 10`のように生成時に指定します。
+
+## 引数からseedを指定する
+
+`seed.ceru`は引数を整数へ読み取り、用途上の範囲を検査して数列を出力します。
+
+```sh
+
+cargo run -- run examples/arguments/seed.ceru -- 1337 3
+
+```
+
+出力は `64538327`、`1478294467`、`18110394` の3行です。`run-mir`、`run-mir --ssa`、`run-vm`でも同じです。
+
+seedは0..2147483646、回数は0..100に限定した小さな例です。引数不足・不正書式・i64範囲外・用途上の範囲外を区別します。`0 0`では何も出力しません。OSの乱数は使わず、暗号用途ではありません。
+
+[整数読取りの基本例](../integer_parsing/README.md) / [契約](../../docs/design/integer-parsing.ja.md)

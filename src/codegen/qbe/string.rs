@@ -18,6 +18,14 @@ pub(super) fn emit(module: &Module, output: &mut String) {
         }
         output.push_str(" }\n");
     }
+    if module
+        .instructions
+        .iter()
+        .chain(module.functions.iter().flat_map(|f| &f.instructions))
+        .any(|i| matches!(i, super::ir::Instruction::StringByteAt { .. }))
+    {
+        output.push_str(BYTE_AT);
+    }
     output.push_str(SUPPORT);
 }
 
@@ -48,5 +56,23 @@ function w $cerune_string_equal(l %left, l %right) {
   ret 1
 @different
   ret 0
+}
+"#;
+
+const BYTE_AT: &str = r#"
+function l $cerune_string_byte_at(l %value, l %index) {
+@start
+  %length =l loadl %value
+  %negative =w csltl %index, 0
+  %outside =w cugel %index, %length
+  %invalid =w or %negative, %outside
+  jnz %invalid, @missing, @read
+@read
+  %data =l add %value, 8
+  %address =l add %data, %index
+  %byte =l loadub %address
+  ret %byte
+@missing
+  ret -1
 }
 "#;

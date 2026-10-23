@@ -407,6 +407,10 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
         cerune_ir::ExprKind::ReadLine { max_bytes } => ExprKind::ReadLine {
             max_bytes: Box::new(lower_expr(max_bytes)),
         },
+        cerune_ir::ExprKind::StringByteAt { value, index } => ExprKind::StringByteAt {
+            value: Box::new(lower_expr(value)),
+            index: Box::new(lower_expr(index)),
+        },
         cerune_ir::ExprKind::StringByteLength { value } => ExprKind::StringByteLength {
             value: Box::new(lower_expr(value)),
         },
@@ -608,7 +612,8 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
                     visit_expr(value, types);
                 }
             }
-            cerune_ir::ExprKind::StringConcat {
+            cerune_ir::ExprKind::StringByteAt { value: base, index }
+            | cerune_ir::ExprKind::StringConcat {
                 left: base,
                 right: index,
             }

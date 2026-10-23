@@ -63,9 +63,13 @@ pub fn emit(module: &Module) -> String {
     {
         output.push_str(super::failure::SUPPORT);
     }
+    let string_byte_at = support.string_byte_at;
     emit_i64_operation_support(support, &mut output);
     if strings {
         output.push_str(super::string::SUPPORT);
+        if string_byte_at {
+            output.push_str(super::string::BYTE_AT);
+        }
         if let Some(limit) = module.string_heap_limit {
             output.push_str(&super::heap::support(limit));
         }
@@ -611,6 +615,13 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
             super::failure::argument(expr.origin, output);
             output.push(')');
         }
+        ExprKind::StringByteAt { value, index } => {
+            output.push_str("cerune_string_byte_at(");
+            emit_expr(value, module, output);
+            output.push_str(", ");
+            emit_expr(index, module, output);
+            output.push(')');
+        }
         ExprKind::StringByteLength { value } => {
             output.push_str("((int64_t)(");
             emit_expr(value, module, output);
@@ -878,6 +889,7 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
 struct RuntimeSupport {
     arguments: bool,
     input: bool,
+    string_byte_at: bool,
     strings: bool,
     nonfinite: bool,
     conversions: std::collections::BTreeSet<crate::codegen::NumericConversion>,
@@ -908,6 +920,11 @@ impl RuntimeSupport {
         self.strings |= expr.ty == Type::String;
         self.nonfinite |= matches!(&expr.kind, ExprKind::Float { text, .. } if matches!(text.as_str(), "nan" | "inf" | "-inf"));
         match &expr.kind {
+            ExprKind::StringByteAt { value, index } => {
+                self.string_byte_at = true;
+                self.include_expr(value);
+                self.include_expr(index);
+            }
             ExprKind::ArgumentCount => self.arguments = true,
             ExprKind::ArgumentGet { index } => {
                 self.arguments = true;

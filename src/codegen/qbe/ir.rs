@@ -99,6 +99,11 @@ pub enum CompareOp {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
+    StringByteAt {
+        dest: Temp,
+        value: Operand,
+        index: Operand,
+    },
     ArgumentCount {
         dest: Temp,
         origin: FailureOrigin,

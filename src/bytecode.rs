@@ -140,6 +140,7 @@ pub enum InstructionKind {
     ArgumentCount,
     ArgumentGet,
     ReadLine,
+    StringByteAt,
     StringByteLength,
     StringConcat,
     StringManage {
@@ -857,6 +858,11 @@ impl Compiler {
                 self.emit_expr(max_bytes);
                 self.emit_source(InstructionKind::ReadLine, expr.id, expr.span);
             }
+            ExprKind::StringByteAt { value, index } => {
+                self.emit_expr(value);
+                self.emit_expr(index);
+                self.emit_source(InstructionKind::StringByteAt, expr.id, expr.span);
+            }
             ExprKind::StringByteLength { value } => {
                 self.emit_expr(value);
                 self.emit_source(InstructionKind::StringByteLength, expr.id, expr.span);
@@ -1330,6 +1336,9 @@ fn format_instruction(
         }
         InstructionKind::ReadLine => {
             writeln!(output, "input.read_line.utf8").unwrap();
+        }
+        InstructionKind::StringByteAt => {
+            writeln!(output, "byte_at.string").unwrap();
         }
         InstructionKind::StringByteLength => {
             writeln!(output, "byte_len.string").unwrap();

@@ -400,3 +400,19 @@ fn generated_c_returned_allocation_failure_has_the_source_operation_origin() {
         format!("cerune: {}\n", failure.record())
     );
 }
+
+#[test]
+fn integer_parsing_c_matches_independent_expectations() {
+    for group in super::integer_parsing::compiled_cases() {
+        let p = &group.program;
+        for opt in ["-O0", "-O2"] {
+            let Some((dir, exe)) = build(&codegen::emit_c(p).unwrap(), opt, &[]) else {
+                return;
+            };
+            for (args, expected) in &group.runs {
+                let os: Vec<_> = args.iter().map(OsStr::new).collect();
+                super::integer_parsing::check(&run(&dir, &exe, &os), expected);
+            }
+        }
+    }
+}

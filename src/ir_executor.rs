@@ -655,6 +655,12 @@ impl Executor<'_, '_> {
                 let right = self.expr(right, frame)?.string()?;
                 Value::String(self.heap.concat(&left, &right).map_err(heap_error)?)
             }
+            E::StringByteAt { value, index } => {
+                let value = self.expr(value, frame)?.string()?;
+                let index = self.expr(index, frame)?.integer(IntegerType::I64)?;
+                let byte = value.byte_at(index);
+                Value::Number(Number::Integer(byte, IntegerType::I64))
+            }
             E::StringByteLength { value } => {
                 let value = self.expr(value, frame)?.string()?;
                 Value::Number(Number::Integer(value.len() as i128, IntegerType::I64))

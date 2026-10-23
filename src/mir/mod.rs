@@ -213,6 +213,10 @@ pub enum Operation<R = LocalId> {
     ArgumentCount,
     ArgumentGet(R),
     ReadLine(R),
+    StringByteAt {
+        value: R,
+        index: R,
+    },
     StringByteLength(R),
     StringConcat {
         left: R,

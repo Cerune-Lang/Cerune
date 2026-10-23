@@ -80,3 +80,19 @@ clang target/arguments-native.o -o target/arguments-native
 ```
 
 On Windows, use target `x86_64-pc-windows-msvc`, `.obj` for the object and `.exe` for the executable. `emit-asm` exposes assembly; `emit-lir` exposes instructions, limits and origins. `--ssa` selects the SSA path with the same result. Set limits at generation time, for example `--argument-count-limit 2 --argument-byte-limit 10`.
+
+## Select a seed through arguments
+
+`seed.ceru` parses integer arguments, checks application ranges and prints a sequence.
+
+```sh
+
+cargo run -- run examples/arguments/seed.ceru -- 1337 3
+
+```
+
+The three output lines are `64538327`, `1478294467` and `18110394`. `run-mir`, `run-mir --ssa` and `run-vm` produce the same result.
+
+This small example restricts seeds to 0..2147483646 and counts to 0..100. It distinguishes missing arguments, invalid syntax, i64 overflow and application range errors. `0 0` prints nothing. It does not use OS randomness and is not cryptographic.
+
+[Basic integer parsing](../integer_parsing/README.en.md) / [Contract](../../docs/design/integer-parsing.en.md)

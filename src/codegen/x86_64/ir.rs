@@ -154,6 +154,10 @@ pub enum Instruction {
         newline: bool,
     },
     CompareU64(CompareOp),
+    LoadStringByte {
+        string_offset: isize,
+        label: usize,
+    },
     LoadStringLength,
     LoadStringConstant(usize),
     CompareString {

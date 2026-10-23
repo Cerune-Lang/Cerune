@@ -2,18 +2,18 @@
 
 [English](language-roadmap.en.md)
 
-2026-10-23時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
+2026-10-24時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
 
 [以前の監査記録](development-status.ja.md)は2026-10-11時点の履歴です。現在の状態はこのページで管理します。
 
 ## 本体の開発順
 
-**引数取得は全既存経路へ統合済みです。整数読取りの前に、[#183](https://github.com/Cerune-Lang/Cerune/issues/183)のアセンブラ分離を進めます。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
+**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。次はoptional let＋fmtです。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
-| 先行整理 | [SASHIMI接続・アセンブラ分離](native-encoder.ja.md)（#183） | 固定版のObject同等性を維持し、型付き機械命令と出自範囲の責務を整理 | 全Native経路の型付きProgram共有・NodeId/SourceId/Span対応・本番ASM再解析除去を実装。両OSの実行検証とCI後に整数読取りへ戻る |
-| 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) → [整数読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 空・欠落・書式・範囲外を区別し、引数でseedを指定するexampleを全経路で比較 | 引数取得は4実行器・CLI・生成C・LLVM・QBE・WAT・Nativeに対応。次は整数読取り |
+| 先行整理 | [SASHIMI接続・アセンブラ分離](native-encoder.ja.md)（#183） | 固定版のObject同等性を維持し、型付き機械命令と出自範囲の責務を整理 | PR #191で統合済み。全Native経路の型付きProgram共有・出自対応・本番ASM再解析除去を両OSとCIで検証 |
+| 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) → [整数読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 空・欠落・書式・範囲外を区別し、引数でseedを指定するexampleを全経路で比較 | 引数取得・`std:num::parse_i64`・seed引数例を4実行器と全既存生成経路に実装 |
 | 2 | [optional let＋fmt](https://github.com/Cerune-Lang/Cerune/issues/90) | letの保持・表示・非表示、コメント保持、整形の冪等性と意味の一致。[infer省略等](https://github.com/Cerune-Lang/Cerune/issues/105)との整合を確認 | 同時に設計・実装する。未実装 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | 責務整理済み・未実装 |
 | 4 | [再帰](functions.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | 設計・実装はこれから |
@@ -25,7 +25,7 @@
 
 3はCeruneで書いたプログラムの配布です。処理系自体のバイナリ更新はこの順序と別に行えます。Nativeの配布初版はIR/VM Imageの完成を待たず、IR/VM向け配布は形式・検証器・loaderを別途実装します。releaseは暗黙の最適化ではありません。
 
-[固定seedの基準例](../../examples/deterministic_seed.ceru)はPR #176に追加しています。引数取得の[表示例](../../examples/arguments/README.md)は4実行器・CLI・生成C・LLVM・QBE・WAT・Nativeで実行できます。整数読取りは未実装です。Parallaxのseed指定は検証用途の一つとし、Ceruneの一般的な機能として実装します。Parallaxの独立したPython期待値計算は維持します。
+[固定seedの基準例](../../examples/deterministic_seed.ceru)はPR #176に追加しています。引数取得の[表示例](../../examples/arguments/README.md)は4実行器・CLI・生成C・LLVM・QBE・WAT・Nativeで実行できます。[整数読取り](integer-parsing.ja.md)と[seed引数例](../../examples/arguments/seed.ceru)も追加しました。Parallaxのseed指定は検証用途の一つとし、Ceruneの一般的な機能として実装します。Parallaxの独立したPython期待値計算は維持します。
 
 各段階で、元の非最適化表現、生成過程、入力・出力・停止理由・出自を観測できることを保ち、同じ入力を既存経路で比較します。観測APIから実行状態を変更する機能は追加しません。
 

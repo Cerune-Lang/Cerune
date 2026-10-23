@@ -148,6 +148,10 @@ fn string_expr(expr: &Expr) -> Option<Span> {
             value: left,
             count: right,
         }
+        | ExprKind::StringByteAt {
+            value: left,
+            index: right,
+        }
         | ExprKind::StringConcat { left, right }
         | ExprKind::Logical { left, right, .. }
         | ExprKind::Binary { left, right, .. }

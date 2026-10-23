@@ -407,6 +407,33 @@ fn emit_instruction(
 
             output.emit(Opcode::ZeroExtend8To64, [r8(0), r64(0)]);
         }
+        Instruction::LoadStringByte {
+            string_offset,
+            label,
+        } => {
+            let missing = output.symbol(
+                &format!(".L{label_prefix}_byte_missing_{label}"),
+                Linkage::Local,
+            );
+            let end = output.symbol(
+                &format!(".L{label_prefix}_byte_end_{label}"),
+                Linkage::Local,
+            );
+            output.emit(
+                Opcode::Mov64,
+                [address(5, None, *string_offset as i128), r64(2)],
+            );
+            output.emit(Opcode::Cmp64, [address(2, None, 0), r64(0)]);
+            output.emit(Opcode::JumpAe, [Operand::Symbol(missing)]);
+            output.emit(
+                Opcode::ZeroExtend8To64,
+                [address(2, Some((0, Scale::One)), 8), r64(0)],
+            );
+            output.emit(Opcode::Jump, [Operand::Symbol(end)]);
+            output.push(EntryKind::Label(missing));
+            output.emit(Opcode::Mov64, [Operand::Immediate(-1), r64(0)]);
+            output.push(EntryKind::Label(end));
+        }
         Instruction::LoadStringLength => {
             output.emit(Opcode::Mov64, [address(0, None, 0), r64(0)]);
         }
