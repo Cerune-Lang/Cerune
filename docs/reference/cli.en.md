@@ -4,7 +4,7 @@
 
 This document defines the command-line interface of Cerune v0.1.
 
-[Native build](../design/native-build.en.md) is implemented. IR/VM [build and per-route release](../design/owned-routes.en.md), and [Lean output](../design/lean-verification.en.md), remain at the design/experiment stage.
+[Native build](../design/native-build.en.md) and [Native release](../design/native-release.en.md) are implemented. IR/VM [build / release](../design/owned-routes.en.md), and [Lean output](../design/lean-verification.en.md), remain at the design/experiment stage.
 
 `emit-lir` displays Native LIR with an explicit target and optional `--ssa`. See [LIR observation and validation](../design/lir-observation.en.md). `run-lir` is deferred; independent execution covers HIR, MIR, SSA, and Bytecode.
 
@@ -19,6 +19,7 @@ The current CLI provides the following commands:
 ```text
 cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]
 cerune build native <file> --target <triple> --linker <clang-path> -o <new-directory> [--ssa] [--include-sources]
+cerune release native <build-directory> -o <new-directory>
 cerune check <file>
 cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>
 cerune emit-sources <file> [-o <sources.json>]
@@ -38,6 +39,12 @@ cerune run-mir <file> [--diagnostic-format runtime-v1]
 cerune run-vm <file> [--diagnostic-format runtime-v1]
 cerune --version
 ```
+
+## Native release
+
+`release native <build-directory> -o <new-directory>` preserves the executable and all prescribed build records, adding direct runtime requirements, SHA-256 and bilingual usage guides. It starts no external tools or programs. Target, SSA, limits and source inclusion come from the saved build and cannot be changed by release. Reject existing destinations and output inside the input.
+
+[Contract, limits and failures](../design/native-release.en.md) · [Example](../../examples/build_native/README.en.md). The initial format is a directory requiring the target system runtime; archives, installers, bundled dependencies and certified deployment compatibility are outside this change.
 
 ## Native build
 

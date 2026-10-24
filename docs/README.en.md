@@ -30,6 +30,7 @@ Each document links to its Japanese counterpart.
 - [Bounded UTF-8 line input](design/line-input.en.md)
 - [Versioned WAT input hosts](design/wat-input-host.en.md)
 - [Native build: executable and generation/link records](design/native-build.en.md)
+- [Native release: distribution, runtime requirements and checksums](design/native-release.en.md)
 - [Owned routes and build / release](design/owned-routes.en.md)
 - [Lean verification](design/lean-verification.en.md)
 - [Output routes and targets](design/targets.en.md)

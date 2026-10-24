@@ -1,5 +1,6 @@
 mod format_cli;
 mod native_build;
+mod native_release;
 mod observation_bundle;
 mod program_arguments;
 
@@ -30,6 +31,7 @@ fn run() -> Result<(), String> {
     let mut args = rest.into_iter();
     match command.as_str() {
         "fmt" => format_cli::run(args),
+        "release" => native_release::run(args),
         "build" => native_build::run(args, string_heap_limit, array_heap_limit, argument_limits),
         // コードの構文チェック
         "check" => {
@@ -701,6 +703,7 @@ fn print_help() {
          USAGE:\n\
            cerune check <file>\n\
            cerune build native <file> --target <triple> --linker <clang-path> -o <new-directory> [--ssa] [--include-sources]\n\
+           cerune release native <build-directory> -o <new-directory>\n\
            cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]\n\
            cerune emit-sources <file> [-o <sources.json>]\n\
            cerune emit-ir <file> [-o <output.ceir>]\n\

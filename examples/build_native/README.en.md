@@ -32,4 +32,31 @@ Use the actual Clang path on your machine, with the target linker/SDK/runtime in
 | Native generation | `program.lir.txt`, `program.machine.txt`, `program.origins.s`, `program.o` |
 | Link execution | `link-plan.json`, `link.stderr.log`, `program.link.map`, `manifest.json` |
 
-Add `--ssa` to compare SSA lowering while retaining baseline MIR, or `--include-sources` to save exact input contents. See the [build contract](../../docs/design/native-build.en.md) for limits, failures and origins. The executable uses the target system runtime; release packaging is a separate follow-up.
+Add `--ssa` to compare SSA lowering while retaining baseline MIR, or `--include-sources` to save exact input contents. See the [build contract](../../docs/design/native-build.en.md) for limits, failures and origins. The executable uses the target system runtime; release packaging is described below.
+
+## Distribute the completed build
+
+Package the successful build above. Packaging performs no relinking, optimization or execution.
+
+```powershell
+cargo run --quiet -- release native target/native-demo -o target/native-dist
+.\target\native-dist\build\program.exe 3
+Get-FileHash target/native-dist/build/program.exe -Algorithm SHA256
+```
+
+```sh
+cargo run --quiet -- release native target/native-demo -o target/native-dist
+./target/native-dist/build/program 3
+(cd target/native-dist && sha256sum -c SHA256SUMS)
+```
+
+Output matches the example above. Copy the entire `native-dist` directory elsewhere to run it, preserving Linux execute permission. The recipient needs no Cerune or Clang, but does need the target OS and runtime recorded in `runtime-requirements.json`.
+
+| Inspection | Distribution path |
+| --- | --- |
+| Entry, target, per-file SHA-256 | `release.json` |
+| ELF loader, libraries and symbol versions, or Windows import DLLs | `runtime-requirements.json` |
+| Original generation stages, origins and link records | `build/`, unchanged bytes |
+| Recipient usage guides | `README.md`, `README.en.md` |
+
+Existing destinations are not overwritten. Source inclusion follows the build-time choice. Automatic target-environment execution checks and transitive dependency resolution are outside this initial release. See the [distribution contract](../../docs/design/native-release.en.md).
