@@ -4009,47 +4009,57 @@
     (if (i64.ge_u (local.get $value) (i64.const 10))
       (then (call $cerune_output_error_u64 (i64.div_u (local.get $value) (i64.const 10)))))
     (call $write_error_byte (i32.add (i32.wrap_i64 (i64.rem_u (local.get $value) (i64.const 10))) (i32.const 48))))
-  (func $cerune_fn_value_0 (param $cerune_x f64) (result f64)
+  (func $cerune_fn_value_0 (param $cerune_x f64) (param $cerune.frame.base i32) (result f64)
+    ;; function=0 private-frame-bytes=0
     local.get $cerune_x
     return
   )
   (func $main
     f64.const 2.5
     f64.neg
+    i32.const 0
     call $cerune_fn_value_0
     call $cerune_floor_f64_i64_n7_b79_102
     call $cerune_output_i64_lf1_n6_b73_104
     f64.const 2.5
     f64.neg
+    i32.const 0
     call $cerune_fn_value_0
     call $cerune_ceil_f64_i64_n12_b111_133
     call $cerune_output_i64_lf1_n11_b105_135
     f64.const 2.5
+    i32.const 0
     call $cerune_fn_value_0
     call $cerune_round_f64_i64_n17_b142_164
     call $cerune_output_i64_lf1_n16_b136_166
     f64.const 2.5
+    i32.const 0
     call $cerune_fn_value_0
     call $cerune_round_ties_even_f64_i64_n21_b173_205
     call $cerune_output_i64_lf1_n20_b167_207
     f64.const 300.0
+    i32.const 0
     call $cerune_fn_value_0
     call $cerune_saturating_trunc_f64_u8_n25_b214_248
     call $cerune_output_i64_lf1_n24_b208_250
     f64.const 0.1
     f64.neg
+    i32.const 0
     call $cerune_fn_value_0
     call $cerune_saturating_floor_f64_u8_n29_b257_290
     call $cerune_output_i64_lf1_n28_b251_292
     f64.const 255.1
+    i32.const 0
     call $cerune_fn_value_0
     call $cerune_saturating_ceil_f64_u8_n34_b299_332
     call $cerune_output_i64_lf1_n33_b293_334
     f64.const 255.5
+    i32.const 0
     call $cerune_fn_value_0
     call $cerune_saturating_round_f64_u8_n38_b341_375
     call $cerune_output_i64_lf1_n37_b335_377
     f64.const 254.5
+    i32.const 0
     call $cerune_fn_value_0
     call $cerune_saturating_round_ties_even_f64_u8_n42_b384_428
     call $cerune_output_i64_lf1_n41_b378_430

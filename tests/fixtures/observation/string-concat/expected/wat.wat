@@ -1814,7 +1814,8 @@
       (then (return (i64.const 137877970974044) (i32.const 6))))
     (i64.extend_i32_u (local.get $byte)) (i32.const 1)
   )
-  (func $cerune_fn__ownership0_0 (result i32)
+  (func $cerune_fn__ownership0_0 (param $cerune.frame.base i32) (result i32)
+    ;; function=0 private-frame-bytes=0
     (local $cerune_$read2 i32)
     (local $cerune_$read3 i32)
     (local $cerune_$owned4 i32)
@@ -1830,7 +1831,8 @@
     local.get $cerune_$owned4
     return
   )
-  (func $cerune_fn__ownership1_1 (param $cerune_$owned5 i32) (result i32)
+  (func $cerune_fn__ownership1_1 (param $cerune_$owned5 i32) (param $cerune.frame.base i32) (result i32)
+    ;; function=1 private-frame-bytes=0
     (local $cerune_$read6 i32)
     (local $cerune_$owned7 i32)
 
@@ -1843,7 +1845,8 @@
     local.get $cerune_$owned7
     return
   )
-  (func $cerune_fn__ownership2_2 (param $cerune_$owned8 i32) (result i32)
+  (func $cerune_fn__ownership2_2 (param $cerune_$owned8 i32) (param $cerune.frame.base i32) (result i32)
+    ;; function=2 private-frame-bytes=0
     (local $cerune_$read9 i32)
     (local $cerune_$read10 i32)
     (local $cerune_$owned11 i32)
@@ -1859,7 +1862,8 @@
     local.get $cerune_$owned11
     return
   )
-  (func $cerune_fn__ownership3_3 (param $cerune_$owned12 i32) (param $cerune_$owned13 i32) (result i32)
+  (func $cerune_fn__ownership3_3 (param $cerune_$owned12 i32) (param $cerune_$owned13 i32) (param $cerune.frame.base i32) (result i32)
+    ;; function=3 private-frame-bytes=0
     local.get $cerune_$owned12
     call $cerune_string_release
     local.get $cerune_$owned13
@@ -1871,14 +1875,18 @@
     (local $cerune_$read14 i32)
     (local $cerune_$read15 i32)
 
+    i32.const 0
     call $cerune_fn__ownership0_0
     local.set $cerune_text
     local.get $cerune_text
+    i32.const 0
     call $cerune_fn__ownership1_1
     local.set $cerune_saved
     local.get $cerune_text
     local.get $cerune_text
+    i32.const 0
     call $cerune_fn__ownership2_2
+    i32.const 0
     call $cerune_fn__ownership3_3
     local.set $cerune_text
     local.get $cerune_saved

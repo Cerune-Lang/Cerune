@@ -471,3 +471,6 @@ fn library_exports_execute_typed_functions_and_preserve_dependency_failure_origi
         expected
     );
 }
+
+#[path = "wat_frames/mod.rs"]
+mod frames;

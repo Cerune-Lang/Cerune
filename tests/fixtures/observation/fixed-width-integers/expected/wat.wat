@@ -2416,7 +2416,8 @@
     (if (i64.ge_u (local.get $value) (i64.const 10))
       (then (call $cerune_output_error_u64 (i64.div_u (local.get $value) (i64.const 10)))))
     (call $write_error_byte (i32.add (i32.wrap_i64 (i64.rem_u (local.get $value) (i64.const 10))) (i32.const 48))))
-  (func $cerune_fn_add_0 (param $cerune_left i64) (param $cerune_right i64) (result i64)
+  (func $cerune_fn_add_0 (param $cerune_left i64) (param $cerune_right i64) (param $cerune.frame.base i32) (result i64)
+    ;; function=0 private-frame-bytes=0
     local.get $cerune_left
     local.get $cerune_right
     call $cerune_i64_add_n1_b50_62
@@ -2432,6 +2433,7 @@
     call $cerune_i64_sub_n6_b83_85
     call $cerune_check_i32_integer-overflow_n6_b83_85
     i64.const 5
+    i32.const 0
     call $cerune_fn_add_0
     local.set $cerune_small
     i64.const 4294967295

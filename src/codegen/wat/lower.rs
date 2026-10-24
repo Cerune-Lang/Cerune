@@ -9,17 +9,18 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
     let mut strings = Vec::new();
     let uses_output = super::output::uses_output(program);
     // 固定128バイトの整形領域はprivate memoryの先頭に予約します。
-    let mut next_address = if uses_output { 128 } else { 0 };
+    let mut static_address = if uses_output { 128 } else { 0 };
     let mut functions = Vec::new();
     for function in &program.function_definitions {
         functions.push(lower_function(
             program,
             function,
-            &mut next_address,
+            &mut static_address,
             &mut strings,
         ));
     }
 
+    let mut next_address = 0;
     let mut locals = Vec::new();
     let mut locations = HashMap::new();
     let mut name_counts = HashMap::new();
@@ -34,6 +35,7 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
 
     let mut context = LoweringContext {
         strings: &mut strings,
+        static_address: &mut static_address,
         program,
         locations,
         next_address,
@@ -46,27 +48,35 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
     let mut instructions = Vec::new();
     context.lower_statements(&program.statements, &mut instructions);
 
+    let entry_frame_size = context.next_address;
+    let uses_frames = entry_frame_size > 0 || functions.iter().any(|f| f.frame_size > 0);
     if crate::codegen::support::string_heap_limit(program).is_some()
         || program.first_dynamic_array_span().is_some()
+        || uses_frames
     {
-        context.next_address = context.next_address.div_ceil(8) * 8 + 8;
+        static_address = static_address.div_ceil(8) * 8 + 8;
     }
     Module {
+        entry_frame_size,
+        entry_origin: program.statements.first().map(|s| Origin {
+            node_id: s.id,
+            span: s.span,
+        }),
         uses_arguments: program.first_argument_span().is_some(),
         argument_limits: Default::default(),
         array_heap_limit: program
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
-        string_heap_start: context.next_address,
+        string_heap_start: static_address,
         string_heap_limit: crate::codegen::support::string_heap_limit(program),
         uses_input: program.first_input_span().is_some(),
         uses_write: uses_output,
         uses_flush: crate::codegen::support::first_flush_span(program).is_some(),
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
-        memory_pages: if context.next_address == 0 {
+        memory_pages: if static_address == 0 {
             0
         } else {
-            context.next_address.div_ceil(65_536) as u32
+            static_address.div_ceil(65_536) as u32
         },
         functions,
         explicit_main: program
@@ -83,9 +93,11 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
 fn lower_function(
     program: &cerune_ir::Program,
     function: &cerune_ir::FunctionDefinition,
-    next_address: &mut usize,
+    static_address: &mut usize,
     strings: &mut Vec<(usize, String)>,
 ) -> Function {
+    let mut frame_address = 0;
+    let next_address = &mut frame_address;
     let mut locals = Vec::new();
     let mut locations = HashMap::new();
     let mut name_counts = HashMap::new();
@@ -189,6 +201,7 @@ fn lower_function(
 
     let mut context = LoweringContext {
         strings,
+        static_address,
         program,
         locations,
         next_address: *next_address,
@@ -200,18 +213,18 @@ fn lower_function(
     };
     let mut instructions = Vec::new();
     if let Some(pointer) = aggregate_return_pointer {
-        instructions.push(Instruction::I32Const(pointer as i32));
+        instructions.push(Instruction::FrameAddress(pointer));
         instructions.push(Instruction::LocalGet("abi.result".into()));
         instructions.push(Instruction::I32Store { offset: 0 });
     }
     for (name, source_pointer, destination, ty) in aggregate_parameters {
-        instructions.push(Instruction::I32Const(source_pointer as i32));
+        instructions.push(Instruction::FrameAddress(source_pointer));
         instructions.push(Instruction::LocalGet(name));
         instructions.push(Instruction::I32Store { offset: 0 });
         context.copy_value(
             &ty,
             Address::Indirect(source_pointer),
-            Address::Static(destination),
+            Address::Frame(destination),
             &mut instructions,
         );
     }
@@ -227,9 +240,8 @@ fn lower_function(
             },
         );
     }
-    *next_address = context.next_address;
-
     Function {
+        frame_size: context.next_address,
         id: function.id.0,
         name: function.name.clone(),
         parameters,
@@ -292,14 +304,15 @@ enum ArrayElement {
 
 #[derive(Debug, Clone, Copy)]
 enum Address {
-    /// lowering時点で位置が決まる、Wasm線形メモリ上のアドレス。
-    Static(usize),
+    /// 呼出しごとのframe内でlowering時点に決まるoffset。
+    Frame(usize),
     /// 指定位置にi32として一時保存した、実行時に決まるアドレス。
     Indirect(usize),
 }
 
 struct LoweringContext<'a> {
     strings: &'a mut Vec<(usize, String)>,
+    static_address: &'a mut usize,
     program: &'a cerune_ir::Program,
     locations: HashMap<cerune_ir::BindingId, Location>,
     next_address: usize,
@@ -337,11 +350,11 @@ impl LoweringContext<'_> {
         match &statement.kind {
             cerune_ir::StatementKind::ArrayInitialize { array, value } => {
                 let owner = self.allocate(4);
-                instructions.push(Instruction::I32Const(owner as i32));
+                instructions.push(Instruction::FrameAddress(owner));
                 self.lower_expr(array, instructions);
                 instructions.push(Instruction::I32Store { offset: 0 });
                 let slot = self.allocate(4);
-                instructions.push(Instruction::I32Const(slot as i32));
+                instructions.push(Instruction::FrameAddress(slot));
                 self.emit_address(Address::Indirect(owner), instructions);
                 instructions.push(Instruction::ArrayInitAddress);
                 instructions.push(Instruction::I32Store { offset: 0 });
@@ -378,13 +391,13 @@ impl LoweringContext<'_> {
                     self.assign_location(self.locations[&target.id].clone(), value, instructions);
                 } else {
                     let mut destination = match self.locations[&target.id].clone() {
-                        Location::Array { address, .. } => Address::Static(address),
+                        Location::Array { address, .. } => Address::Frame(address),
                         Location::Scalar(name) => {
                             let slot = self.allocate(4);
-                            instructions.push(Instruction::I32Const(slot as i32));
+                            instructions.push(Instruction::FrameAddress(slot));
                             instructions.push(Instruction::LocalGet(name));
                             instructions.push(Instruction::I32Store { offset: 0 });
-                            Address::Static(slot)
+                            Address::Frame(slot)
                         }
                         _ => unreachable!("indexed assignment requires an array root"),
                     };
@@ -410,7 +423,7 @@ impl LoweringContext<'_> {
                                 index, span, ..
                             } => {
                                 let slot = self.allocate(4);
-                                instructions.push(Instruction::I32Const(slot as i32));
+                                instructions.push(Instruction::FrameAddress(slot));
                                 self.emit_address(destination, instructions);
                                 instructions.push(Instruction::I32Load { offset: 0 });
                                 self.lower_expr(index, instructions);
@@ -576,7 +589,16 @@ impl LoweringContext<'_> {
                 arguments,
                 ..
             } => {
-                self.lower_call(function_id.0, arguments, None, instructions);
+                self.lower_call(
+                    function_id.0,
+                    arguments,
+                    Origin {
+                        node_id: statement.id,
+                        span: statement.span,
+                    },
+                    None,
+                    instructions,
+                );
             }
             cerune_ir::StatementKind::Return { value } => {
                 if let Some(value) = value {
@@ -611,7 +633,7 @@ impl LoweringContext<'_> {
             Location::Aggregate { type_id, address } => {
                 self.assign_address(
                     &cerune_ir::Type::Named(cerune_ir::TypeId(type_id)),
-                    Address::Static(address),
+                    Address::Frame(address),
                     value,
                     instructions,
                 );
@@ -635,7 +657,7 @@ impl LoweringContext<'_> {
                     &element,
                     length,
                     source,
-                    Address::Static(address),
+                    Address::Frame(address),
                     instructions,
                 );
             }
@@ -700,13 +722,13 @@ impl LoweringContext<'_> {
         instructions: &mut Vec<Instruction>,
     ) -> Address {
         let index_address = self.allocate(8);
-        instructions.push(Instruction::I32Const(index_address as i32));
+        instructions.push(Instruction::FrameAddress(index_address));
         let Value::Scalar(Type::I64) = self.lower_expr(index, instructions) else {
             unreachable!("array index must be i64")
         };
         instructions.push(Instruction::I64Store { offset: 0 });
 
-        instructions.push(Instruction::I32Const(index_address as i32));
+        instructions.push(Instruction::FrameAddress(index_address));
         instructions.push(Instruction::I64Load { offset: 0 });
         instructions.push(Instruction::I64Const(0));
         instructions.push(Instruction::I64LtS);
@@ -714,7 +736,7 @@ impl LoweringContext<'_> {
             then_instructions: vec![array_failure(origin)],
             else_instructions: Vec::new(),
         });
-        instructions.push(Instruction::I32Const(index_address as i32));
+        instructions.push(Instruction::FrameAddress(index_address));
         instructions.push(Instruction::I64Load { offset: 0 });
         instructions.push(Instruction::I64Const(length as i64));
         instructions.push(Instruction::I64GeS);
@@ -724,7 +746,7 @@ impl LoweringContext<'_> {
         });
 
         let result_address = self.allocate(4);
-        instructions.push(Instruction::I32Const(result_address as i32));
+        instructions.push(Instruction::FrameAddress(result_address));
         self.emit_indexed_address(
             base,
             index_address,
@@ -838,7 +860,8 @@ impl LoweringContext<'_> {
                 Value::Scalar(Type::I64)
             }
             cerune_ir::ExprKind::String(value) => {
-                let address = self.allocate(8 + value.len());
+                let address = *self.static_address;
+                *self.static_address += 8 + value.len();
                 self.strings.push((address, value.clone()));
                 instructions.push(Instruction::I32Const(address as i32));
                 Value::Scalar(Type::String)
@@ -894,7 +917,7 @@ impl LoweringContext<'_> {
                 }
                 Location::Aggregate { type_id, address } => Value::Aggregate {
                     type_id: *type_id,
-                    address: Address::Static(*address),
+                    address: Address::Frame(*address),
                 },
                 Location::Array {
                     element,
@@ -903,7 +926,7 @@ impl LoweringContext<'_> {
                 } => Value::Array {
                     element: element.clone(),
                     length: *length,
-                    address: Address::Static(*address),
+                    address: Address::Frame(*address),
                 },
             },
             cerune_ir::ExprKind::Construct {
@@ -920,7 +943,7 @@ impl LoweringContext<'_> {
                     else {
                         unreachable!("update base has the same aggregate type")
                     };
-                    self.copy_aggregate(type_id.0, source, Address::Static(address), instructions);
+                    self.copy_aggregate(type_id.0, source, Address::Frame(address), instructions);
                 }
                 for field in fields {
                     let field_definition =
@@ -939,7 +962,7 @@ impl LoweringContext<'_> {
                             self.copy_aggregate(
                                 nested.0,
                                 source,
-                                Address::Static(destination),
+                                Address::Frame(destination),
                                 instructions,
                             );
                         }
@@ -959,12 +982,12 @@ impl LoweringContext<'_> {
                                 &element,
                                 *length,
                                 source,
-                                Address::Static(destination),
+                                Address::Frame(destination),
                                 instructions,
                             );
                         }
                         scalar => {
-                            instructions.push(Instruction::I32Const(destination as i32));
+                            instructions.push(Instruction::FrameAddress(destination));
                             let Value::Scalar(actual) = self.lower_expr(&field.value, instructions)
                             else {
                                 unreachable!("semantic analysis keeps field types equal")
@@ -976,7 +999,7 @@ impl LoweringContext<'_> {
                 }
                 Value::Aggregate {
                     type_id: type_id.0,
-                    address: Address::Static(address),
+                    address: Address::Frame(address),
                 }
             }
             cerune_ir::ExprKind::FieldAccess {
@@ -1019,7 +1042,7 @@ impl LoweringContext<'_> {
                 let element = array_element_type(element);
                 let stride = array_element_size(self.program, &element);
                 for (index, value) in values.iter().enumerate() {
-                    let destination = Address::Static(address + index * stride);
+                    let destination = Address::Frame(address + index * stride);
                     match &element {
                         ArrayElement::Scalar(expected) => {
                             self.emit_address(destination, instructions);
@@ -1067,13 +1090,13 @@ impl LoweringContext<'_> {
                 Value::Array {
                     element,
                     length: *length,
-                    address: Address::Static(address),
+                    address: Address::Frame(address),
                 }
             }
             cerune_ir::ExprKind::Index { base, index } => {
                 if let cerune_ir::Type::DynamicArray { element } = &base.ty {
                     let slot = self.allocate(4);
-                    instructions.push(Instruction::I32Const(slot as i32));
+                    instructions.push(Instruction::FrameAddress(slot));
                     self.lower_expr(base, instructions);
                     self.lower_expr(index, instructions);
                     instructions.push(Instruction::ArrayAddress.at(expr));
@@ -1108,13 +1131,13 @@ impl LoweringContext<'_> {
 
                 // 添字を一度だけ評価し、検査とアドレス計算で同じ値を使います。
                 let index_address = self.allocate(8);
-                instructions.push(Instruction::I32Const(index_address as i32));
+                instructions.push(Instruction::FrameAddress(index_address));
                 let Value::Scalar(Type::I64) = self.lower_expr(index, instructions) else {
                     unreachable!("array index must be i64")
                 };
                 instructions.push(Instruction::I64Store { offset: 0 });
 
-                instructions.push(Instruction::I32Const(index_address as i32));
+                instructions.push(Instruction::FrameAddress(index_address));
                 instructions.push(Instruction::I64Load { offset: 0 });
                 instructions.push(Instruction::I64Const(0));
                 instructions.push(Instruction::I64LtS);
@@ -1126,7 +1149,7 @@ impl LoweringContext<'_> {
                     else_instructions: Vec::new(),
                 });
 
-                instructions.push(Instruction::I32Const(index_address as i32));
+                instructions.push(Instruction::FrameAddress(index_address));
                 instructions.push(Instruction::I64Load { offset: 0 });
                 instructions.push(Instruction::I64Const(length as i64));
                 instructions.push(Instruction::I64GeS);
@@ -1151,7 +1174,7 @@ impl LoweringContext<'_> {
                     }
                     ArrayElement::Named(type_id) => {
                         let result_address = self.allocate(4);
-                        instructions.push(Instruction::I32Const(result_address as i32));
+                        instructions.push(Instruction::FrameAddress(result_address));
                         self.emit_indexed_address(
                             address,
                             index_address,
@@ -1169,7 +1192,7 @@ impl LoweringContext<'_> {
                         length: nested_length,
                     } => {
                         let result_address = self.allocate(4);
-                        instructions.push(Instruction::I32Const(result_address as i32));
+                        instructions.push(Instruction::FrameAddress(result_address));
                         self.emit_indexed_address(
                             address,
                             index_address,
@@ -1275,7 +1298,16 @@ impl LoweringContext<'_> {
                 arguments,
                 ..
             } => self
-                .lower_call(function_id.0, arguments, Some(&expr.ty), instructions)
+                .lower_call(
+                    function_id.0,
+                    arguments,
+                    Origin {
+                        node_id: expr.id,
+                        span: expr.span,
+                    },
+                    Some(&expr.ty),
+                    instructions,
+                )
                 .expect("call expressions produce a value"),
         }
     }
@@ -1284,6 +1316,7 @@ impl LoweringContext<'_> {
         &mut self,
         function_id: usize,
         arguments: &[cerune_ir::Expr],
+        origin: Origin,
         result_type: Option<&cerune_ir::Type>,
         instructions: &mut Vec<Instruction>,
     ) -> Option<Value> {
@@ -1291,7 +1324,7 @@ impl LoweringContext<'_> {
             cerune_ir::Type::DynamicArray { .. } => None,
             cerune_ir::Type::Named(_) | cerune_ir::Type::Array { .. } => {
                 let address = self.allocate(type_size(self.program, ty));
-                instructions.push(Instruction::I32Const(address as i32));
+                instructions.push(Instruction::FrameAddress(address));
                 Some((ty, address))
             }
             cerune_ir::Type::String
@@ -1309,18 +1342,21 @@ impl LoweringContext<'_> {
                 }
             }
         }
-        instructions.push(Instruction::Call { function_id });
+        instructions.push(Instruction::Call {
+            function_id,
+            origin,
+        });
 
         if let Some((ty, address)) = aggregate_result {
             return Some(match ty {
                 cerune_ir::Type::Named(type_id) => Value::Aggregate {
                     type_id: type_id.0,
-                    address: Address::Static(address),
+                    address: Address::Frame(address),
                 },
                 cerune_ir::Type::Array { element, length } => Value::Array {
                     element: array_element_type(element),
                     length: *length,
-                    address: Address::Static(address),
+                    address: Address::Frame(address),
                 },
                 cerune_ir::Type::DynamicArray { .. }
                 | cerune_ir::Type::String
@@ -1431,9 +1467,9 @@ impl LoweringContext<'_> {
 
     fn emit_address(&self, address: Address, instructions: &mut Vec<Instruction>) {
         match address {
-            Address::Static(address) => instructions.push(Instruction::I32Const(address as i32)),
+            Address::Frame(address) => instructions.push(Instruction::FrameAddress(address)),
             Address::Indirect(address) => {
-                instructions.push(Instruction::I32Const(address as i32));
+                instructions.push(Instruction::FrameAddress(address));
                 instructions.push(Instruction::I32Load { offset: 0 });
             }
         }
@@ -1449,10 +1485,10 @@ impl LoweringContext<'_> {
             return address;
         }
         match address {
-            Address::Static(address) => Address::Static(address + offset),
+            Address::Frame(address) => Address::Frame(address + offset),
             Address::Indirect(_) => {
                 let result = self.allocate(4);
-                instructions.push(Instruction::I32Const(result as i32));
+                instructions.push(Instruction::FrameAddress(result));
                 self.emit_address(address, instructions);
                 instructions.push(Instruction::I32Const(offset as i32));
                 instructions.push(Instruction::I32Add);
@@ -1470,7 +1506,7 @@ impl LoweringContext<'_> {
         instructions: &mut Vec<Instruction>,
     ) {
         self.emit_address(base, instructions);
-        instructions.push(Instruction::I32Const(index_address as i32));
+        instructions.push(Instruction::FrameAddress(index_address));
         instructions.push(Instruction::I64Load { offset: 0 });
         instructions.push(Instruction::I32WrapI64);
         instructions.push(Instruction::I32Const(stride as i32));

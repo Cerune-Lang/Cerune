@@ -7,6 +7,7 @@ Normal examples are the `.ceru` files in this directory.
 | Location | Purpose |
 | --- | --- |
 | This directory | Standalone programs; included in the batch runner |
+| [call_frames](call_frames/README.en.md) | Nested calls, independent copies, early returns, and observable WAT invocation storage |
 | [host_calls](host_calls/README.en.md) | Small numeric functions also used for host-call comparisons, with an ordinary Cerune execution example |
 | [dynamic_arrays](dynamic_arrays/README.en.md) | Dynamic array copies, ranges, nesting; IR/MIR/VM/C/LLVM/QBE/WAT/ASM/native-object execution |
 | [build_native](build_native/README.en.md) | Build an executable with an explicit target/Clang; arguments, array copies, and generation records |
