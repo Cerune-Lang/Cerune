@@ -47,7 +47,7 @@ Linuxは明示target・`-pie`・`--no-undefined`・map・`-lm`を指定します
 
 Clangが終了0でも、選択targetのx86-64実行形式ヘッダと空でないmapが確認できなければ失敗です。これは成果物の最低限の形式確認で、任意の実行ファイルの安全性・意味の証明ではありません。build成功は、このホスト上で実行できることを意味しません。
 
-Windowsは選択toolchainのMSVC/UCRT・Win32、Linuxは選択toolchainのglibc・libm・ELF loaderに依存します。OSライブラリや再頒布runtimeを同梱せず、最低OS／glibc版も初版では確約しません。releaseで配布対象と依存物の検証を別途定義します。
+Windowsは選択toolchainのMSVC/UCRT・Win32、Linuxは選択toolchainのglibc・libm・ELF loaderに依存します。OSライブラリや再頒布runtimeを同梱せず、最低OS／glibc版も初版では確約しません。[Native release初版](native-release.ja.md)で直接のruntime要求と配布構成を別途記録します。
 
 ## 失敗と検証
 

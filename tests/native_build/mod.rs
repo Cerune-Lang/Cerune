@@ -391,3 +391,5 @@ fn native_build_rejects_missing_or_non_clang_drivers() {
     assert!(text(&dir, "link-result.json").contains("unsupported-linker"));
     assert!(!dir.join("link.stdout.log").exists());
 }
+
+mod release;

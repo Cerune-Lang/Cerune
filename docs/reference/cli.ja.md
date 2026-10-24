@@ -4,7 +4,7 @@
 
 この文書では、Cerune v0.1のコマンドラインインターフェースを定義します。
 
-[Native build](../design/native-build.ja.md)は実装済みです。IR/VMの[buildと各経路のrelease](../design/owned-routes.ja.md)、[Lean出力](../design/lean-verification.ja.md)は設計・検証段階です。
+[Native build](../design/native-build.ja.md)と[Native release](../design/native-release.ja.md)は実装済みです。IR/VMの[build・release](../design/owned-routes.ja.md)、[Lean出力](../design/lean-verification.ja.md)は設計・検証段階です。
 
 `emit-lir`はNative生成のLIRを表示します。targetを明示し、`--ssa`でSSA経由も選べます。[LIRの観測・検証](../design/lir-observation.ja.md)を参照してください。`run-lir`は保留で、独立実行はHIR・MIR・SSA・Bytecodeです。
 
@@ -19,6 +19,7 @@
 ```text
 cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]
 cerune build native <file> --target <triple> --linker <clang-path> -o <new-directory> [--ssa] [--include-sources]
+cerune release native <build-directory> -o <new-directory>
 cerune check <file>
 cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>
 cerune emit-sources <file> [-o <sources.json>]
@@ -38,6 +39,12 @@ cerune run-mir <file> [--diagnostic-format runtime-v1]
 cerune run-vm <file> [--diagnostic-format runtime-v1]
 cerune --version
 ```
+
+## Native release
+
+`release native <build-directory> -o <new-directory>`は成功済みbuildの実行ファイルと全規定記録を保持し、直接のruntime要求・SHA-256・日英の実行案内を追加します。外部ツールやプログラムは起動しません。target・SSA・上限・本文同梱はbuildの選択を継承し、releaseで変更できません。既存先・入力配下への出力は拒否します。
+
+[配布契約・上限・失敗](../design/native-release.ja.md) · [実行例](../../examples/build_native/README.md)。初版はディレクトリ形式・対象システムruntime要求で、archive・installer・依存物同梱・対象環境の動作保証は含みません。
 
 ## Native build
 

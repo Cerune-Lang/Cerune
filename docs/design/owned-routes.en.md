@@ -9,7 +9,7 @@ IR, VM, and Native are the three routes for which Cerune defines completed artif
 Neither operation selects an execution strategy or enables implicit optimization.
 
 Current commands include `run` / `run-ir`, `run-mir`, `run-vm`, `emit-*`, and [`observe` for observation bundles](observation-bundle.en.md).
-**[Native build](native-build.en.md) is implemented. IR/VM build, per-route release, saved Image loading, and the Lean backend remain unimplemented.**
+**[Native build](native-build.en.md) and [Native release](native-release.en.md) are implemented. IR/VM build/release, saved Image loading, and the Lean backend remain unimplemented.**
 Dashed edges below are plans; language-feature coverage is tracked separately.
 Dynamic arrays support IR/MIR/VM/C/LLVM/QBE/WAT, Windows/Linux ASM, and self-encoded objects. MIR generation and independent execution in the [stage design](ir-stages.en.md) are implemented; this does not establish another build/release distribution route.
 
@@ -24,7 +24,8 @@ The following records responsibilities and the implementation status of each ope
 | `show` | Unimplemented proposal: display Cerune semantics in a human-facing notation, distinct from generating actual Rust or other code |
 | `run --via` | Unimplemented proposal: additional backend plus external tools. Distinguish missing tools, generation/build/launch failures, timeout, and language stops |
 | `build native` | Implemented; explicit target/Clang produce an executable and generation/link records |
-| IR/VM `build`, per-route `release` | Unimplemented; define artifact/distribution contracts separately |
+| `release native` | Implemented; package a successful build with direct runtime requirements and SHA-256 |
+| IR/VM `build` / `release` | Unimplemented; define Image/distribution contracts separately |
 
 Ownership of a route depends on Cerune managing conditions, artifacts, compatibility, failures, and execution, not on the absence of external tools. **Owned, implemented, available in this environment, buildable for the target, and executable here are separate states.** Route and artifact kind are also distinct.
 
@@ -54,7 +55,7 @@ flowchart LR
         A --> E["SASHIMI encoder"]
         E --> OBJ["COFF / ELF Object"]
         OBJ --> NB["build native<br/>Clang link → executable"]
-        NB -.-> NP["release native → distribution"]
+        NB --> NP["release native → distribution directory"]
     end
     MIR --> OMIR["emit-mir"]
     BC --> OBC["emit-bytecode"]
@@ -78,7 +79,8 @@ Assembly display and Object generation share the typed NativeProgram; neither As
 | `emit-*` | Explicitly expose a representation at one stage for observation or downstream processing; it need not be a completed artifact |
 | Planned `build ir` / `build vm` | Construct a loadable Image with format/semantics versions, entry point, required definitions, resource contract, and origins |
 | `build native` | Explicit target/Clang produce an executable with generation/link records. [Contract](native-build.en.md) |
-| Planned `release` | Package that artifact, required dependencies, manifest, and compatibility conditions for distribution |
+| `release native` | Save a successful build, direct runtime requirements, SHA-256 and usage guides; require system libraries from the target environment |
+| Planned IR/VM `release` | Package each Image with runtime and compatibility conditions |
 
 Generation code may be shared. Simply renaming textual `.ceir` / `.cebc` output or an object is not build.
 Current observation text is not promised as a stable input format. Image extensions, containers, and compatibility versioning remain loader design decisions.
@@ -121,7 +123,7 @@ The shared frontend, IR, and runtime semantics must not depend on individual opt
 Emitters depend on shared contracts; the CLI composes available routes. Do not prematurely freeze crate splitting or a plugin ABI.
 
 1. Record responsibilities and open questions here; begin Lean with a separate verification experiment.
-2. Native build is implemented. Next, separately design and verify Native release contents, execution requirements, and preserved origins.
+2. Native build is implemented. Initial Native release is also implemented separately, verifying contents, direct runtime requirements and preserved origins.
 3. Design and implement IR/Bytecode Image formats, verifiers, and loaders.
 4. Implement IR/VM build and compare saved/reloaded execution. Specify release after artifacts stabilize, also clarifying its relationship to optimization selection and observation design. Implemented optimization passes do not gate build.
 5. Separate optional emitters at boundaries justified by actual use.
@@ -133,5 +135,5 @@ Dynamic arrays are supported by current compiled routes. Classification changes 
 
 ## Open decisions
 
-Native build now specifies an executable, explicit Clang, and target system runtime requirements. Release packaging and IR/VM Image formats, compatibility, and CLI details remain separate decisions.
+Native build now specifies an executable, explicit Clang, and target system runtime requirements. Native release uses a directory requiring target system runtimes. Broader portability, bundled dependencies and IR/VM Image formats, compatibility and CLI remain separate decisions.
 Names such as `build ir` describe planned operations, not existing commands.

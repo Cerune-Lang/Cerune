@@ -47,7 +47,7 @@ Linux explicitly selects the target, `-pie`, `--no-undefined`, map and `-lm`. Wi
 
 Exit 0 is insufficient: require an x86-64 executable header for the chosen target and a nonempty map. This is a minimal format check, not proof of arbitrary executable safety or semantics. Successful building does not imply executability on the current host.
 
-Windows requires the selected MSVC/UCRT and Win32 environment; Linux requires the selected glibc, libm and ELF loader. No OS libraries or redistributable runtimes are bundled, and no minimum OS/glibc version is promised initially. Release will separately define distribution targets and dependency validation.
+Windows requires the selected MSVC/UCRT and Win32 environment; Linux requires the selected glibc, libm and ELF loader. No OS libraries or redistributable runtimes are bundled, and no minimum OS/glibc version is promised initially. [Initial Native release](native-release.en.md) separately records direct runtime requirements and distribution contents.
 
 ## Failures and verification
 
