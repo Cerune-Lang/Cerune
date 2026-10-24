@@ -4,6 +4,7 @@ pub mod bytecode;
 pub mod codegen;
 pub mod diagnostic;
 pub mod embedding;
+pub mod format;
 mod generics;
 pub mod ir;
 pub mod ir_executor;

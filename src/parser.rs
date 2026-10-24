@@ -46,7 +46,33 @@ pub fn parse(tokens: Vec<Token>) -> Result<Program, Diagnostic> {
     Ok(module.program)
 }
 
+/// Source spelling of a binding; not part of its execution semantics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BindingSyntax {
+    /// Starts at the optional let, mut, or binding name, including for headers.
+    pub start: Span,
+    pub let_span: Option<Span>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct SourceSyntax {
+    pub bindings: Vec<BindingSyntax>,
+    /// Opening braces belonging to values, match patterns, or enum payloads.
+    pub inline_braces: Vec<Span>,
+    /// Generic/conversion angle delimiters, distinguished from comparisons.
+    pub type_angles: Vec<Span>,
+}
+
+/// Parse one source without resolving imports, retaining formatting information.
+pub fn parse_module_with_syntax(tokens: Vec<Token>) -> Result<(Module, SourceSyntax), Diagnostic> {
+    parse_module_inner(tokens)
+}
+
 pub fn parse_module(tokens: Vec<Token>) -> Result<Module, Diagnostic> {
+    parse_module_inner(tokens).map(|(module, _)| module)
+}
+
+fn parse_module_inner(tokens: Vec<Token>) -> Result<(Module, SourceSyntax), Diagnostic> {
     let source_id = tokens
         .first()
         .map_or(SourceId::ANONYMOUS, |token| token.span.source_id());
@@ -60,15 +86,17 @@ pub fn parse_module(tokens: Vec<Token>) -> Result<Module, Diagnostic> {
         ));
     }
     limits::delimiters(&tokens)?;
-    Parser {
+    let mut parser = Parser {
         source_id,
         tokens,
         current: 0,
         expression_nesting: 0,
         block_nesting: 0,
         allow_construct: true,
-    }
-    .parse_program()
+        syntax: SourceSyntax::default(),
+    };
+    let module = parser.parse_program()?;
+    Ok((module, parser.syntax))
 }
 
 struct Parser {
@@ -78,6 +106,7 @@ struct Parser {
     expression_nesting: usize,
     block_nesting: usize,
     allow_construct: bool,
+    syntax: SourceSyntax,
 }
 
 impl Parser {
@@ -160,7 +189,8 @@ impl Parser {
             let mut fields = Vec::new();
             let mut end = variant_span.end();
             if matches!(self.peek().kind, TokenKind::LeftBrace) {
-                self.advance();
+                let opening = self.advance().span;
+                self.syntax.inline_braces.push(opening);
                 while !matches!(self.peek().kind, TokenKind::RightBrace) {
                     let (field, span) = self.expect_identifier()?;
                     self.expect_simple(TokenKind::Colon)?;
@@ -229,7 +259,8 @@ impl Parser {
         let mut arms = Vec::new();
         while !matches!(self.peek().kind, TokenKind::RightBrace) {
             let (variant, variant_span) = self.expect_path()?;
-            self.expect_simple(TokenKind::LeftBrace)?;
+            let opening = self.expect_simple(TokenKind::LeftBrace)?;
+            self.syntax.inline_braces.push(opening);
             let mut fields = Vec::new();
             while !matches!(self.peek().kind, TokenKind::RightBrace) {
                 let (name, name_span) = self.expect_identifier()?;
@@ -430,12 +461,18 @@ impl Parser {
         })
     }
 
+    fn type_angle(&mut self, kind: TokenKind) -> ParseResult<()> {
+        let span = self.expect_simple(kind)?;
+        self.syntax.type_angles.push(span);
+        Ok(())
+    }
+
     fn parse_generic_parameters(&mut self) -> ParseResult<Vec<GenericParameter>> {
         let mut parameters = Vec::new();
         if !matches!(self.peek().kind, TokenKind::Less) {
             return Ok(parameters);
         }
-        self.advance();
+        self.type_angle(TokenKind::Less)?;
         loop {
             let length = matches!(self.peek().kind, TokenKind::Const);
             if length {
@@ -461,12 +498,12 @@ impl Parser {
                 break;
             }
         }
-        self.expect_simple(TokenKind::Greater)?;
+        self.type_angle(TokenKind::Greater)?;
         Ok(parameters)
     }
     fn parse_generic_call(&mut self, name: String, name_span: Span) -> ParseResult<Expr> {
         self.expect_simple(TokenKind::ColonColon)?;
-        self.expect_simple(TokenKind::Less)?;
+        self.type_angle(TokenKind::Less)?;
         let mut generic_arguments = Vec::new();
         loop {
             let argument = if let TokenKind::Integer(digits) = &self.peek().kind {
@@ -487,7 +524,7 @@ impl Parser {
                 break;
             }
         }
-        self.expect_simple(TokenKind::Greater)?;
+        self.type_angle(TokenKind::Greater)?;
         let expr = self.parse_call(name, name_span)?;
         let ExprKind::Call {
             name,
@@ -509,6 +546,9 @@ impl Parser {
     }
 
     fn parse_statement(&mut self) -> ParseResult<Stmt> {
+        if self.has_let_prefix() {
+            return self.parse_binding();
+        }
         match &self.peek().kind {
             TokenKind::Match => self.parse_match(),
             TokenKind::Mut => self.parse_binding(),
@@ -547,12 +587,31 @@ impl Parser {
         }
     }
 
-    fn parse_binding(&mut self) -> ParseResult<Stmt> {
-        let (mutable, start) = if matches!(&self.peek().kind, TokenKind::Mut) {
-            (true, self.advance().span.start())
+    fn has_let_prefix(&self) -> bool {
+        matches!(&self.peek().kind, TokenKind::Identifier(name) if name == "let")
+            && matches!(
+                self.peek_next().kind,
+                TokenKind::Identifier(_) | TokenKind::Mut
+            )
+    }
+
+    fn binding_start(&mut self) -> usize {
+        let start = self.peek().span;
+        let let_span = if self.has_let_prefix() {
+            Some(self.advance().span)
         } else {
-            (false, self.peek().span.start())
+            None
         };
+        self.syntax.bindings.push(BindingSyntax { start, let_span });
+        start.start()
+    }
+
+    fn parse_binding(&mut self) -> ParseResult<Stmt> {
+        let start = self.binding_start();
+        let mutable = matches!(&self.peek().kind, TokenKind::Mut);
+        if mutable {
+            self.advance();
+        }
 
         let token = self.advance().clone();
 
@@ -860,8 +919,16 @@ impl Parser {
         }
         self.advance();
 
+        let has_let = self.has_let_prefix();
         let initializer = match (&self.peek().kind, &self.peek_next().kind) {
-            (TokenKind::Mut, _) | (TokenKind::Identifier(_), TokenKind::Colon) => {
+            (first, second)
+                if has_let
+                    || matches!(first, TokenKind::Mut)
+                    || matches!(
+                        (first, second),
+                        (TokenKind::Identifier(_), TokenKind::Colon)
+                    ) =>
+            {
                 let header = self.parse_iteration_binding()?;
                 if matches!(self.peek().kind, TokenKind::In | TokenKind::Comma) {
                     return self.parse_for_each(start, header);
@@ -922,7 +989,7 @@ impl Parser {
     }
 
     fn parse_iteration_binding(&mut self) -> ParseResult<IterationBinding> {
-        let start = self.peek().span.start();
+        let start = self.binding_start();
         let mutable = matches!(self.peek().kind, TokenKind::Mut);
         if mutable {
             self.advance();
@@ -1318,9 +1385,9 @@ impl Parser {
                 } else if ConversionMode::from_name(&name).is_some()
                     && self.starts_explicit_conversion()
                 {
-                    self.expect_simple(TokenKind::Less)?;
+                    self.type_angle(TokenKind::Less)?;
                     let target = self.parse_type_ref()?;
-                    self.expect_simple(TokenKind::Greater)?;
+                    self.type_angle(TokenKind::Greater)?;
                     self.parse_conversion(
                         target,
                         ConversionSyntax::Explicit,
@@ -1478,6 +1545,7 @@ impl Parser {
 
     fn parse_construct(&mut self, type_name: String, type_name_span: Span) -> ParseResult<Expr> {
         let opening = self.expect_simple(TokenKind::LeftBrace)?;
+        self.syntax.inline_braces.push(opening);
 
         if matches!(&self.peek().kind, TokenKind::RightBrace) && !type_name.contains("::") {
             let closing = self.advance().span;

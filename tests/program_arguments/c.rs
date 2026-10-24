@@ -416,3 +416,15 @@ fn integer_parsing_c_matches_independent_expectations() {
         }
     }
 }
+
+#[test]
+fn optional_let_formatting_c_preserves_execution() {
+    for (p, expected) in super::formatting::cases() {
+        for opt in ["-O0", "-O2"] {
+            let Some((dir, exe)) = build(&codegen::emit_c(&p).unwrap(), opt, &[]) else {
+                return;
+            };
+            super::formatting::check(&run(&dir, &exe, &[]), expected);
+        }
+    }
+}

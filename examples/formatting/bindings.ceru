@@ -1,0 +1,24 @@
+// let marks declarations; types and mutability keep their existing meanings.
+fn twice(value: i64) -> i64 {
+    let result: infer = value * 2;
+    return result;
+}
+
+let mut total: i64 = 0;
+for (let mut i: i64 = 0; i < 3; i = i + 1) {
+    total = total + twice(i);
+}
+print(total);
+
+let mut values: [i64; 2] = [2, 4];
+let saved: [i64; 2] = values;
+values[0] = 9;
+for (let index: i64, let value: infer in saved) {
+    print(index + value);
+}
+print(values);
+print(saved);
+
+fn skipped() -> bool { print("must not run"); return true; }
+let short: bool = false && skipped();
+print(short);

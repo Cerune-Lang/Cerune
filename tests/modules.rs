@@ -960,3 +960,6 @@ fn nonmodular_declarations_keep_existing_anonymous_ir_and_private_visibility() {
         cerune_lang::compile_to_ir("fn f(x:f64)->f64{return x;}").unwrap()
     );
 }
+
+#[path = "formatting/cli.rs"]
+mod formatting;

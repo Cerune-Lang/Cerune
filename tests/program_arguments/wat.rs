@@ -477,3 +477,13 @@ fn integer_parsing_wat_matches_independent_expectations() {
         }
     }
 }
+
+#[test]
+fn optional_let_formatting_wat_preserves_execution() {
+    for (p, expected) in super::formatting::cases() {
+        let Some((dir, mut cmd)) = build(&wat::emit_wat(&p).unwrap()) else {
+            return;
+        };
+        super::formatting::check(&run(&dir, &mut cmd, Some(&config(&[])), &[]), expected);
+    }
+}

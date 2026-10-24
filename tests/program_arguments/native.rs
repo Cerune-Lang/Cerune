@@ -608,3 +608,12 @@ fn integer_parsing_native_matches_independent_expectations() {
         }
     }
 }
+
+#[test]
+fn optional_let_formatting_native_preserves_execution() {
+    for (p, expected) in super::formatting::cases() {
+        for (dir, exe) in executables(&p, Limits::default()) {
+            super::formatting::check(&run(&dir, &exe, &[]), expected);
+        }
+    }
+}
