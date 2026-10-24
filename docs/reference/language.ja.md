@@ -6,7 +6,7 @@
 
 ## 文法
 
-`let`は通常の束縛・for初期化・配列反復の各束縛で省略できます。`let mut total: infer = 0;`と`mut total: infer = 0;`は同じ意味です。`:`と型指定は必須で、定数・引数・フィールド・for更新節にはletを付けません。予約語ではなく、束縛位置で次が識別子または`mut`の場合だけ接頭辞として扱います。既存の`let: i64 = 1;`等の識別子は維持します。整形での保持・表示・非表示は[fmt](cli.ja.md#ソース整形)を参照してください。
+`let`は通常の束縛・for初期化・配列反復の各束縛で省略できます。`let mut total: infer = 0;`と`mut total: infer = 0;`は同じ意味です。`:`は必須で、定数・引数・フィールド・for更新節にはletを付けません。予約語ではなく、束縛位置で次が識別子または`mut`の場合だけ接頭辞として扱います。既存の`let: i64 = 1;`等の識別子は維持します。整形での保持・表示・非表示は[fmt](cli.ja.md#ソース整形)を参照してください。
 
 ```text
 program     := item* EOF
@@ -78,9 +78,9 @@ for_each_statement :=
 
 block       := "{" statement* "}"
 
-binding     := "let"? "mut"? IDENT ":" type_spec "=" expression ";"
+binding     := "let"? "mut"? IDENT ":" type_spec? "=" expression ";"
 
-binding_clause := "let"? "mut"? IDENT ":" type_spec "=" expression
+binding_clause := "let"? "mut"? IDENT ":" type_spec? "=" expression
 
 assignment  := assignment_target "=" expression ";"
 
@@ -169,6 +169,8 @@ value: infer = count * 2;
 ```
 
 `infer`は型推論を明示的に要求します。`infer`自体が実行時の型になることはありません。
+
+通常の束縛とfor初期化では`value: = expression;`と省略しても同じ推論を使います。`mut`・任意の`let`とも組み合わせられ、宣言を表す`:`は必須です。配列反復は引き続き`value: infer in values`等の型指定が必要です。定数・引数・戻り値・フィールドへ省略を広げません。fmtは推論表記を保持します。[契約と検証](../design/infer-omission.ja.md)を参照してください。
 
 ## 文字列
 

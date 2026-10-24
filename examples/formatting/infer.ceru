@@ -1,0 +1,27 @@
+// The colon declares a binding; omission uses the existing inference rules.
+fn twice(value: i64) -> i64 {
+    let result: = value * 2;
+    return result;
+}
+fn skipped() -> bool { print("must not run"); return true; }
+
+let mut total: = 0;
+for (let mut i: = 0; i < 3; i = i + 1) {
+    total = total + twice(i);
+}
+print(total);
+
+let mut values: = [2u8, 4u8];
+let saved: = values;
+values[0] = 9u8;
+print(values);
+print(saved);
+
+wide: = 18446744073709551615u64;
+fraction: = 1.5;
+word: = "日本語";
+let short: = false && skipped();
+print(wide);
+print(fraction);
+print(word);
+print(short);

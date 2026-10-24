@@ -4,7 +4,7 @@
 
 ## Scope and contract
 
-`let` is optional spelling that makes bindings easier to find. Accept it on ordinary bindings, for initializers and each array-iteration binding, before optional `mut`. The colon and type specification (including `infer`) remain mandatory. Infer omission is the next task; else-if and conditional expressions are also excluded here.
+`let` is optional spelling that makes bindings easier to find. Accept it on ordinary bindings, for initializers and each array-iteration binding, before optional `mut`. The colon remains mandatory. Bindings with initializers also support the [infer-omission follow-up](infer-omission.en.md); array iteration still requires a type specification (including `infer`). Else-if and conditional expressions remain unimplemented.
 
 `let` is contextual, not reserved: at a binding position it is a prefix only when followed by an identifier or `mut`. Existing identifiers in `let: i64 = 1;`, `let(...)` and `let = ...` remain valid; `let let: i64 = 1;` is valid too. Update clauses, constants, parameters and fields do not accept the prefix.
 

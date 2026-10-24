@@ -10,7 +10,7 @@ Normal examples are the `.ceru` files in this directory.
 | [host_calls](host_calls/README.en.md) | Small numeric functions also used for host-call comparisons, with an ordinary Cerune execution example |
 | [dynamic_arrays](dynamic_arrays/README.en.md) | Dynamic array copies, ranges, nesting; IR/MIR/VM/C/LLVM/QBE/WAT/ASM/native-object execution |
 | [arguments](arguments/README.en.md) | Program arguments, empty values, UTF-8 bytes and seed selection; all existing routes |
-| [formatting](formatting/README.en.md) | Optional let, formatting, prefix policies and execution comparisons |
+| [formatting](formatting/README.en.md) | Optional let, infer omission, formatting, prefix policies and execution comparisons |
 | [integer_parsing](integer_parsing/README.en.md) | Explicit i64 parsing, invalid syntax and range errors |
 | [stdin](stdin/README.en.md) | Actual stdin lines/blank lines/EOF, prompt flush, UTF-8 byte counts; compared across routes |
 | [io_protocol](io_protocol/README.en.md) | Output/evaluation order, explicit flush, and scripted input; distinguish EOF, empty lines, and failure (no stdin) |

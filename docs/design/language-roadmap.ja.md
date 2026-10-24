@@ -8,21 +8,21 @@
 
 ## 本体の開発順
 
-**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。次はinfer省略です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
+**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。[infer省略](infer-omission.ja.md)まで実装し、次はNative build・配布初版です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
 | 先行整理 | [SASHIMI接続・アセンブラ分離](native-encoder.ja.md)（#183） | 固定版のObject同等性を維持し、型付き機械命令と出自範囲の責務を整理 | PR #191で統合済み。全Native経路の型付きProgram共有・出自対応・本番ASM再解析除去を両OSとCIで検証 |
 | 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) → [整数読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 空・欠落・書式・範囲外を区別し、引数でseedを指定するexampleを全経路で比較 | 引数取得・`std:num::parse_i64`・seed引数例を4実行器と全既存生成経路に実装 |
 | 2 | [optional let＋fmt](formatting.ja.md)（#90） | letの保持・表示・非表示、コメント保持、整形の冪等性と意味の一致 | 実装済み。exampleを4実行器と全既存生成経路で比較 |
-| 2の続き | [infer省略](https://github.com/Cerune-Lang/Cerune/issues/105) | `value: = expression;`。宣言の`:`と既存の型推論規則を維持し、fmtも対応 | 次に設計・実装。else if・条件式は別途 |
+| 2の続き | [infer省略](infer-omission.ja.md)（#105） | `value: = expression;`。宣言の`:`と既存の型推論規則を維持し、fmtも対応 | 通常束縛・for初期化に実装済み。配列反復・else if・条件式は別途 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | 責務整理済み・未実装 |
 | 4 | [再帰](functions.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | 設計・実装はこれから |
 | 5 | 限定的なファイル入出力 → 子プロセス（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 後続設計・未実装 |
 
 2026-10-20に合意した着手順です。1では引数取得の全経路対応後に純粋な整数読取りを追加し、引数指定のexampleまで完成させます。[設計案](dogfooding-inputs.ja.md)の公開名・上限・接続契約を確定し、小さな標準モジュールとして実装します。汎用Option/Resultやパッケージ管理は前提にしません。
 
-2のoptional letとfmtは同時に追加しました。2026-10-24の合意により、次にinfer省略を別の変更として追加します。型・可変性・評価順を保ち、元ソースと整形後のソースをそれぞれ正しい位置情報で観測できるようにします。再帰はファイル入出力を待つ必要がなく、WATの一時領域を含む呼出しframeの独立性から設計します。
+2のoptional letとfmtは同時に追加しました。2026-10-24の合意に沿ってinfer省略も別の変更として追加しました。型・可変性・評価順を保ち、元ソースと整形後のソースをそれぞれ正しい位置情報で観測できるようにします。再帰はファイル入出力を待つ必要がなく、WATの一時領域を含む呼出しframeの独立性から設計します。
 
 3はCeruneで書いたプログラムの配布です。処理系自体のバイナリ更新はこの順序と別に行えます。Nativeの配布初版はIR/VM Imageの完成を待たず、IR/VM向け配布は形式・検証器・loaderを別途実装します。releaseは暗黙の最適化ではありません。
 
@@ -154,7 +154,7 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release・経路の責務 | 優先3でNative buildと配布初版。IR/VM Imageは形式・検証・loaderを別途実装。show／via／optional backendは用途と詳細設計待ち |
 | [#60](https://github.com/Cerune-Lang/Cerune/issues/60) / [#94](https://github.com/Cerune-Lang/Cerune/issues/94) | 観測・変換・証明 | SSA・LIR観測まで部分完了。未収録の成果物・一般の証明・最適化は残件。非最適化表現を維持 |
 | [#88](https://github.com/Cerune-Lang/Cerune/issues/88) | 整数演算の追加方針 | checkedを維持し、実用途のwrappingを先に検討。飽和・overflow報告・拡幅・ビット破棄・除算は別々に意味を決める |
-| [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | 長いコードの構文 | optional letとfmtは実装済み。次はinfer省略を別変更で追加。else if・条件式の意味とfor適用は別途設計 |
+| [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | 長いコードの構文 | optional let・fmt・通常束縛とfor初期化のinfer省略は実装済み。配列反復の省略・else if・条件式は別途設計 |
 | [#92](https://github.com/Cerune-Lang/Cerune/issues/92) | QBE Windows | 現行回避処理を維持。正式な上流変更を基準に再検証。調査ブランチは未統合で保管 |
 | [#103](https://github.com/Cerune-Lang/Cerune/issues/103) / [#118](https://github.com/Cerune-Lang/Cerune/issues/118) | コード構成・観測成果物 | 変更する責務から整理。ローカル記録と公開fixtureを区別し、共有する本文・パス・環境情報を確認 |
 | [#93](https://github.com/Cerune-Lang/Cerune/issues/93) | FPGA | 同じIR意味の別の実現形態を調査。機能追加の必須前提にしない |

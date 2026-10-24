@@ -6,7 +6,7 @@ This document defines the syntax and semantics of Cerune v0.1.
 
 ## Grammar
 
-`let` is optional on ordinary bindings, for initializers and each array-iteration binding. `let mut total: infer = 0;` and `mut total: infer = 0;` have the same meaning. The colon and type specification remain required; constants, parameters, fields and for updates do not accept the prefix. It is contextual: only an identifier or `mut` following it in a binding position makes it a prefix. Existing identifiers such as `let: i64 = 1;` remain valid. See [fmt](cli.en.md#source-formatting) for preserve/show/hide policies.
+`let` is optional on ordinary bindings, for initializers and each array-iteration binding. `let mut total: infer = 0;` and `mut total: infer = 0;` have the same meaning. The colon remains required; constants, parameters, fields and for updates do not accept the prefix. It is contextual: only an identifier or `mut` following it in a binding position makes it a prefix. Existing identifiers such as `let: i64 = 1;` remain valid. See [fmt](cli.en.md#source-formatting) for preserve/show/hide policies.
 
 ```text
 program     := item* EOF
@@ -78,9 +78,9 @@ for_each_statement :=
 
 block       := "{" statement* "}"
 
-binding     := "let"? "mut"? IDENT ":" type_spec "=" expression ";"
+binding     := "let"? "mut"? IDENT ":" type_spec? "=" expression ";"
 
-binding_clause := "let"? "mut"? IDENT ":" type_spec "=" expression
+binding_clause := "let"? "mut"? IDENT ":" type_spec? "=" expression
 
 assignment  := assignment_target "=" expression ";"
 
@@ -169,6 +169,8 @@ value: infer = count * 2;
 ```
 
 `infer` explicitly requests type inference. It is not itself a runtime type.
+
+Ordinary bindings and for initializers may use `value: = expression;` with exactly the same inference. This combines with `mut` and optional `let`; the declaration colon remains required. Array iteration still needs a type specification such as `value: infer in values`. Omission does not extend to constants, parameters, results or fields. Formatting preserves inference spelling. See the [contract and verification](../design/infer-omission.en.md).
 
 ## Strings
 
