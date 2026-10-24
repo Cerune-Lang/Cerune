@@ -69,6 +69,7 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]), imports).then(({ insta
   const record = Buffer.concat(diagnostics);
   process.stderr.write(record);
   const valid = parseRuntimeFailure(record) !== null ||
+    record.toString('utf8') === 'cerune: runtime-v1 code=allocation-failed origin=host\n' ||
     /^cerune: output formatting failed node=\d+(?: file=\d+)? bytes=\d+\.\.\d+\n$/.test(record.toString('utf8')) ||
     /^cerune: io-v1 operation=(?:write|flush) requested=\d+ accepted=\d+ node=\d+(?: file=\d+)? bytes=\d+\.\.\d+\n$/.test(record.toString('utf8'));
   if (!(error instanceof WebAssembly.RuntimeError) || error.message !== 'unreachable' || !valid) console.error(error.message);

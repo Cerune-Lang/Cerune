@@ -13,7 +13,7 @@ pub(super) fn emit_library(module: &Module, exports: &[super::library::Export]) 
 fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> String {
     let mut output = String::new();
     let mut helpers = std::collections::BTreeMap::new();
-    let mut uses_failures = module.uses_flush || module.uses_write;
+    let mut uses_failures = module.uses_flush || module.uses_write || super::frame::used(module);
     for instruction in module.instructions.iter().chain(
         module
             .functions
@@ -71,6 +71,7 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
             !(module.uses_strings && module.string_heap_limit.is_some()),
         ));
     }
+    super::frame::support(module, &mut output);
     if module.uses_write {
         super::output::support(module, &mut output);
     }
@@ -92,6 +93,9 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
         emit_exports(module, exports, &mut output);
     } else {
         writeln!(output, "  (func $main").unwrap();
+        if super::frame::used(module) {
+            output.push_str("    (local $cerune.frame.base i32) (local $cerune.frame.next i32)\n");
+        }
 
         for local in &module.locals {
             writeln!(
@@ -110,11 +114,26 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
         if module.uses_arguments {
             output.push_str("    call $cerune_arguments_start\n");
         }
+        if module.entry_frame_size > 0 {
+            super::frame::allocate(
+                module.entry_frame_size,
+                module.entry_origin,
+                "    ",
+                &mut output,
+            );
+            output.push_str("    local.set $cerune.frame.base\n");
+        }
         for instruction in &module.instructions {
             emit_instruction(instruction, 2, module, &mut output);
         }
 
         if let Some(function_id) = module.explicit_main {
+            super::frame::allocate(
+                module.functions[function_id].frame_size,
+                None,
+                "    ",
+                &mut output,
+            );
             writeln!(
                 output,
                 "    call ${}",
@@ -123,6 +142,9 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
             .unwrap();
         }
 
+        if module.entry_frame_size > 0 {
+            super::frame::release("    ", &mut output);
+        }
         writeln!(output, "  )").unwrap();
 
         writeln!(output, "  (export \"main\" (func $main))").unwrap();
@@ -157,12 +179,16 @@ fn emit_exports(module: &Module, exports: &[super::library::Export], output: &mu
             write!(output, " (param {})", ty.name()).unwrap();
         }
         writeln!(output, " (result {})", export.result().name()).unwrap();
+        if super::frame::used(module) {
+            output.push_str("    (local $cerune.frame.next i32)\n");
+        }
         for (i, ty) in export.parameters().iter().enumerate() {
             writeln!(output, "    local.get {i}").unwrap();
             if *ty == ScalarType::I32 {
                 writeln!(output, "    i64.extend_i32_s").unwrap();
             }
         }
+        super::frame::allocate(function.frame_size, None, "    ", output);
         writeln!(output, "    call ${}", function_name(function)).unwrap();
         if export.result() == ScalarType::I32 {
             writeln!(output, "    i32.wrap_i64").unwrap();
@@ -297,11 +323,21 @@ fn emit_function(function: &Function, module: &Module, output: &mut String) {
         )
         .unwrap();
     }
+    write!(output, " (param $cerune.frame.base i32)").unwrap();
     if let Some(return_type) = function.return_type {
         write!(output, " (result {})", wat_type(return_type)).unwrap();
     }
     writeln!(output).unwrap();
 
+    if super::frame::used(module) {
+        output.push_str("    (local $cerune.frame.next i32)\n");
+    }
+    writeln!(
+        output,
+        "    ;; function={} private-frame-bytes={}",
+        function.id, function.frame_size
+    )
+    .unwrap();
     for local in &function.locals {
         writeln!(
             output,
@@ -417,6 +453,14 @@ fn emit_instruction(
         Instruction::CheckIntegerRange { ty, .. } => {
             writeln!(output, "{prefix}call $cerune_check_{}", ty.name()).unwrap();
         }
+        Instruction::FrameAddress(offset) => {
+            writeln!(
+                output,
+                "{prefix}local.get $cerune.frame.base\n{prefix}i32.const {}\n{prefix}i32.add",
+                *offset as u32
+            )
+            .unwrap();
+        }
         Instruction::I32Const(value) => {
             writeln!(output, "{prefix}i32.const {value}").unwrap();
         }
@@ -517,7 +561,16 @@ fn emit_instruction(
             writeln!(output, "{prefix}br ${}_continue_{id}", loop_name(*kind)).unwrap();
         }
 
-        Instruction::Call { function_id } => {
+        Instruction::Call {
+            function_id,
+            origin,
+        } => {
+            super::frame::allocate(
+                module.functions[*function_id].frame_size,
+                Some(*origin),
+                &prefix,
+                output,
+            );
             writeln!(
                 output,
                 "{prefix}call ${}",
@@ -526,7 +579,12 @@ fn emit_instruction(
             .unwrap();
         }
 
-        Instruction::Return => emit_simple("return", &prefix, output),
+        Instruction::Return => {
+            if super::frame::used(module) {
+                super::frame::release(&prefix, output);
+            }
+            emit_simple("return", &prefix, output);
+        }
 
         Instruction::CheckedI64Add => emit_simple("call $cerune_i64_add", &prefix, output),
         Instruction::CheckedI64Sub => emit_simple("call $cerune_i64_sub", &prefix, output),

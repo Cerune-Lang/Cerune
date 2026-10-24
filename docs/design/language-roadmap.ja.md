@@ -17,7 +17,7 @@
 | 2 | [optional let＋fmt](formatting.ja.md)（#90） | letの保持・表示・非表示、コメント保持、整形の冪等性と意味の一致 | 実装済み。exampleを4実行器と全既存生成経路で比較 |
 | 2の続き | [infer省略](infer-omission.ja.md)（#105） | `value: = expression;`。宣言の`:`と既存の型推論規則を維持し、fmtも対応 | 通常束縛・for初期化に実装済み。配列反復・else if・条件式は別途 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | Native build・対象システムruntimeを要求するrelease初版を実装済み |
-| 4 | [再帰](functions.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | 設計・実装はこれから |
+| 4 | [再帰](recursion.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | 共通上限の方針を合意。WATの呼出し領域を分離。全経路の上限・診断と再帰解禁は未実装 |
 | 5 | 限定的なファイル入出力 → 子プロセス（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 後続設計・未実装 |
 
 2026-10-20に合意した着手順です。1では引数取得の全経路対応後に純粋な整数読取りを追加し、引数指定のexampleまで完成させます。[設計案](dogfooding-inputs.ja.md)の公開名・上限・接続契約を確定し、小さな標準モジュールとして実装します。汎用Option/Resultやパッケージ管理は前提にしません。

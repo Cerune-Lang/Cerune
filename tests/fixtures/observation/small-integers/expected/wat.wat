@@ -3434,7 +3434,8 @@
     (if (i64.ge_u (local.get $value) (i64.const 10))
       (then (call $cerune_output_error_u64 (i64.div_u (local.get $value) (i64.const 10)))))
     (call $write_error_byte (i32.add (i32.wrap_i64 (i64.rem_u (local.get $value) (i64.const 10))) (i32.const 48))))
-  (func $cerune_fn_average_0 (param $cerune_left i64) (param $cerune_right i64) (result i64)
+  (func $cerune_fn_average_0 (param $cerune_left i64) (param $cerune_right i64) (param $cerune.frame.base i32) (result i64)
+    ;; function=0 private-frame-bytes=0
     local.get $cerune_left
     call $cerune_check_u16_integer-conversion-out-of-range_n4_b55_64
     local.get $cerune_right
@@ -3469,6 +3470,7 @@
     call $cerune_output_i64_lf1_n15_b128_157
     i64.const 240
     i64.const 80
+    i32.const 0
     call $cerune_fn_average_0
     call $cerune_output_i64_lf1_n20_b158_182
     i64.const 127

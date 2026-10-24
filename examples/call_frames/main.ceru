@@ -1,0 +1,21 @@
+type Packet { label: string, values: [i64; 2], }
+
+fn adjust(value: Packet, early: bool) -> Packet {
+    if early { return value; }
+    mut result: Packet = value;
+    result = Packet { ..result, label: concat(value.label, "!"), values: [value.values[0] + 10, value.values[1]], };
+    return result;
+}
+fn combine(value: Packet) -> Packet {
+    first: Packet = adjust(value, false);
+    second: Packet = adjust(first, true);
+    print(value.values);
+    return second;
+}
+
+original: Packet = Packet { label: concat("Cer", "une"), values: [2, 4], };
+result: Packet = combine(original);
+print(original.label);
+print(original.values);
+print(result.label);
+print(result.values);

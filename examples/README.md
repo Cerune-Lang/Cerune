@@ -7,6 +7,7 @@
 | 場所 | 内容 |
 | --- | --- |
 | このディレクトリ | 一括実行できるプログラム |
+| [call_frames](call_frames/README.md) | 入れ子呼出し、コピーの独立性、早期return、WATの呼出し領域を観測 |
 | [host_calls](host_calls/README.md) | 外部ホスト呼出しの比較にも使う小さな数値関数と、通常のCerune実行例 |
 | [dynamic_arrays](dynamic_arrays/README.md) | 動的配列の作成・範囲コピー・入れ子。IR・MIR・VM・C・LLVM・QBE・WAT・ASM・自前Objectで実行 |
 | [arguments](arguments/README.md) | プログラム引数・空文字・UTF-8バイト数・seed指定。全既存経路対応 |

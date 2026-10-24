@@ -47,6 +47,7 @@ Each document links to its Japanese counterpart.
 - [Truncating conversions](design/truncating-conversions.en.md)
 - [Generic functions](design/generic-functions.en.md)
 - [Functions](design/functions.en.md)
+- [Recursion design and invocation storage](design/recursion.en.md)
 - [Named product types](design/product-types.en.md)
 - [Aggregate values and match expressions](design/aggregate-values.en.md)
 - [Sum types and match](design/sum-types.en.md)

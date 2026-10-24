@@ -3,6 +3,7 @@ mod array;
 mod conversion;
 mod emit;
 mod failure;
+mod frame;
 mod heap;
 mod input;
 mod integer;
@@ -212,7 +213,7 @@ mod tests {
         let wat = emit_wat(&program).unwrap();
 
         assert!(wat.contains(
-            "(func $cerune_fn_add_0 (param $cerune_left i64) (param $cerune_right i64) (result i64)"
+            "(func $cerune_fn_add_0 (param $cerune_left i64) (param $cerune_right i64) (param $cerune.frame.base i32) (result i64)"
         ));
         assert!(wat.contains("call $cerune_fn_add_0"));
         assert!(wat.contains("return"));
