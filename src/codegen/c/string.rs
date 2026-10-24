@@ -47,3 +47,10 @@ static inline bool cerune_string_equal(cerune_string left, cerune_string right) 
 }
 
 "#;
+
+pub(super) const BYTE_AT: &str = r#"
+static int64_t cerune_string_byte_at(cerune_string value, int64_t index) {
+    if (index < 0 || (uint64_t)index >= value.length) return -1;
+    return (int64_t)value.data[(size_t)index];
+}
+"#;

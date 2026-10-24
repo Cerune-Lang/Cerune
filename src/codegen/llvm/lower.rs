@@ -700,6 +700,16 @@ impl Lowerer<'_> {
                     operand: Operand::Temp(dest),
                 }
             }
+            cerune_ir::ExprKind::StringByteAt { value, index } => {
+                let value = self.lower_expr(value).operand;
+                let index = self.lower_expr(index).operand;
+                let dest = self.next_temp();
+                self.push(Instruction::StringByteAt { dest, value, index });
+                Value {
+                    ty: Type::I64,
+                    operand: Operand::Temp(dest),
+                }
+            }
             cerune_ir::ExprKind::StringByteLength { value } => {
                 let value = self.lower_expr(value);
                 let dest = self.next_temp();

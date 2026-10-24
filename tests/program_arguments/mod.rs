@@ -451,3 +451,5 @@ fn returned_strings_obey_the_heap_limit_and_release_between_calls() {
         );
     }
 }
+
+mod integer_parsing;

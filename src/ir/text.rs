@@ -485,6 +485,13 @@ fn emit_expr(expr: &Expr, program: &Program, output: &mut String) {
             emit_expr(max_bytes, program, output);
             output.push(')');
         }
+        ExprKind::StringByteAt { value, index } => {
+            output.push_str("byte_at.string(");
+            emit_expr(value, program, output);
+            output.push_str(", ");
+            emit_expr(index, program, output);
+            output.push(')');
+        }
         ExprKind::StringByteLength { value } => {
             output.push_str("byte_len.string(");
             emit_expr(value, program, output);

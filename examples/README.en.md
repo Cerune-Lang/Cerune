@@ -9,7 +9,8 @@ Normal examples are the `.ceru` files in this directory.
 | This directory | Standalone programs; included in the batch runner |
 | [host_calls](host_calls/README.en.md) | Small numeric functions also used for host-call comparisons, with an ordinary Cerune execution example |
 | [dynamic_arrays](dynamic_arrays/README.en.md) | Dynamic array copies, ranges, nesting; IR/MIR/VM/C/LLVM/QBE/WAT/ASM/native-object execution |
-| [arguments](arguments/README.en.md) | Program arguments, empty text and UTF-8 byte counts; HIR/MIR/SSA/VM supported, generated routes pending |
+| [arguments](arguments/README.en.md) | Program arguments, empty values, UTF-8 bytes and seed selection; all existing routes |
+| [integer_parsing](integer_parsing/README.en.md) | Explicit i64 parsing, invalid syntax and range errors |
 | [stdin](stdin/README.en.md) | Actual stdin lines/blank lines/EOF, prompt flush, UTF-8 byte counts; compared across routes |
 | [io_protocol](io_protocol/README.en.md) | Output/evaluation order, explicit flush, and scripted input; distinguish EOF, empty lines, and failure (no stdin) |
 | [ir_stages](ir_stages/README.en.md) | Execute short circuits, loops, and calls; observe HIR→MIR→LIR→Native lowering and target-specific ABI |

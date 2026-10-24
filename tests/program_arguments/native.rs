@@ -595,3 +595,16 @@ fn inject_allocation_failure(program: &mut sashimi_assembler::program::Program, 
         program.push(kind, Provenance::synthetic());
     }
 }
+
+#[test]
+fn integer_parsing_native_matches_independent_expectations() {
+    for group in super::integer_parsing::compiled_cases() {
+        let p = &group.program;
+        for (dir, exe) in executables(p, Limits::default()) {
+            for (args, expected) in &group.runs {
+                let os: Vec<_> = args.iter().map(OsStr::new).collect();
+                super::integer_parsing::check(&run(&dir, &exe, &os), expected);
+            }
+        }
+    }
+}

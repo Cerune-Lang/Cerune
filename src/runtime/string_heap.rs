@@ -31,6 +31,12 @@ impl StringValue {
     pub(crate) fn len(&self) -> usize {
         self.bytes.borrow().len()
     }
+    pub(crate) fn byte_at(&self, index: i128) -> i128 {
+        usize::try_from(index)
+            .ok()
+            .and_then(|i| self.bytes.borrow().as_bytes().get(i).copied())
+            .map_or(-1, i128::from)
+    }
     pub(crate) fn text(&self) -> String {
         self.bytes.borrow().clone()
     }

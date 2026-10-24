@@ -125,6 +125,11 @@ pub enum Instruction {
         start: Operand,
         end: Operand,
     },
+    StringByteAt {
+        dest: Temp,
+        value: Operand,
+        index: Operand,
+    },
     ArgumentCount {
         dest: Temp,
     },

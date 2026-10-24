@@ -608,6 +608,12 @@ fn execute_frame_inner(
                 let value = at_instruction(string_heap::pop(&mut stack), pc)?;
                 at_instruction(heap.manage(&value, *retain).map_err(string_heap::error), pc)?;
             }
+            InstructionKind::StringByteAt => {
+                let index = at_instruction(pop_integer(&mut stack, IntegerType::I64), pc)?;
+                let value = at_instruction(pop_string(&mut stack), pc)?;
+                let byte = value.byte_at(index);
+                stack.push(Value::Integer(byte, IntegerType::I64));
+            }
             InstructionKind::StringByteLength => {
                 let value = at_instruction(pop_string(&mut stack), pc)?;
                 // 対応する32/64ビット環境のRust文字列はisize::MAXを超えません。

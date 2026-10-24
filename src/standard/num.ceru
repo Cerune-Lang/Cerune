@@ -1,0 +1,33 @@
+// std:num contract version 1. Decimal grammar and range checks are visible Cerune code.
+pub enum ParseI64 {
+    Value { value: i64 },
+    InvalidFormat,
+    OutOfRange
+}
+
+pub fn parse_i64(text: string) -> ParseI64 {
+    length: i64 = byte_len(text);
+    if length == 0 { return ParseI64::InvalidFormat {}; }
+    negative: bool = __cerune_string_byte_at(text, 0) == 45;
+    mut start: i64 = 0;
+    if negative { start = 1; }
+    if start == length { return ParseI64::InvalidFormat {}; }
+    // Validate the entire grammar before reporting range overflow.
+    for (mut i: i64 = start; i < length; i = i + 1) {
+        byte: i64 = __cerune_string_byte_at(text, i);
+        if byte < 48 || byte > 57 { return ParseI64::InvalidFormat {}; }
+    }
+    // Accumulate negatively so i64::MIN never needs a positive magnitude.
+    mut limit: i64 = -9223372036854775807;
+    if negative { limit = -9223372036854775808; }
+    mut value: i64 = 0;
+    for (mut i: i64 = start; i < length; i = i + 1) {
+        digit: i64 = __cerune_string_byte_at(text, i) - 48;
+        if value < -922337203685477580 { return ParseI64::OutOfRange {}; }
+        value = value * 10;
+        if value < limit + digit { return ParseI64::OutOfRange {}; }
+        value = value - digit;
+    }
+    if negative { return ParseI64::Value { value: value }; }
+    return ParseI64::Value { value: -value };
+}

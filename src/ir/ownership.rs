@@ -680,7 +680,12 @@ impl Lowerer {
             | ExprKind::ConvertNumeric { value, .. }
             | ExprKind::ConvertInteger { value, .. }
             | ExprKind::Unary { value, .. } => child(value, false, self, body),
-            ExprKind::StringConcat { left, right } | ExprKind::Binary { left, right, .. } => {
+            ExprKind::StringByteAt {
+                value: left,
+                index: right,
+            }
+            | ExprKind::StringConcat { left, right }
+            | ExprKind::Binary { left, right, .. } => {
                 child(left, false, self, body);
                 child(right, false, self, body);
             }

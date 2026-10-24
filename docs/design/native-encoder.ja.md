@@ -28,7 +28,7 @@ Object生成は[SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/ee8f6b132ae
 
 [SASHIMI PR #5](https://github.com/Cerune-Lang/SASHIMI/pull/5)で、同じ型付きProgramからASM・Object・OriginIdの出自対応表を生成するAPIを実装しました。[SASHIMI PR #6](https://github.com/Cerune-Lang/SASHIMI/pull/6)でData32/Data64を追加し、[SASHIMI PR #7](https://github.com/Cerune-Lang/SASHIMI/pull/7)の読める終端付き文字列対応へ固定して既存経路の互換性を検証しています。本番接続は[プログラム全体の型付き構築](native-typed-runtime.ja.md)へ移行しました。起動・関数ABI・入力・引数・出力・flush・確保管理・全LIR命令と失敗診断が対象です。内部／外部シンボルは明示宣言し、同じProgramからASMとObjectを生成します。安定した公開ABIは別の将来作業です。
 
-[旧エンコーダ](../../tests/support/native_object_reference/README.md)は移行比較用にテスト専用へ移し、本番ビルドには含めません。新機能の追加先にはしません。[接続テスト](../../tests/support/sashimi_connection.rs)は135個の実行用exampleについて、両ターゲット・通常MIR/SSA・出自注釈の有無を組み合わせ、Object全体と失敗診断を旧実装に照合します。この一致は切替前後の同等性であり、双方に共通する不具合を否定する証明ではありません。外部アセンブラとの比較・既知の期待値・リンク後実行も維持します。
+[旧エンコーダ](../../tests/support/native_object_reference/README.md)は移行比較用にテスト専用へ移し、本番ビルドには含めません。新機能の追加先にはしません。[接続テスト](../../tests/support/sashimi_connection.rs)は移行完了時の135個の実行用exampleを固定し、両ターゲット・通常MIR/SSA・出自注釈の有無を組み合わせ、Object全体と失敗診断を旧実装に照合します。この一致は切替前後の同等性であり、双方に共通する不具合を否定する証明ではありません。外部アセンブラとの比較・既知の期待値・リンク後実行も維持します。
 
 SASHIMIはOriginIdに複数範囲・0バイトの操作・合成命令を対応させます。位置はObjectのセクション内オフセットであり、リンク後アドレスではありません。Ceruneの `NativeProgram::origins()` がNodeId／SourceId／Span・MIR・LIRの対応を保持します。`assemble()` はObjectと位置対応を返し、`render_asm()` は同じProgramを表示します。[Cerune言語へのSASHIMI移植](https://github.com/Cerune-Lang/SASHIMI/issues/2)は別段階です。
 

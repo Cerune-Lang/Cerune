@@ -1,0 +1,7 @@
+import "std:num" as num;
+
+print(num::parse_i64("0042"));
+print(num::parse_i64("-9223372036854775808"));
+print(num::parse_i64("9223372036854775808"));
+print(num::parse_i64("12x"));
+print(num::parse_i64("999999999999999999999x"));

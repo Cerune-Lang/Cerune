@@ -6,7 +6,7 @@ The public line-input API uses `import "std:io" as io;` and `io::read_line(4096)
 
 ## Resolution and identity
 
-- Classify `std:` imports as standard modules. The exact identifiers `std:io` and `std:env` are recognized; unknown identifiers fail without filesystem fallback.
+- Classify `std:` imports as standard modules. The exact identifiers `std:io`, `std:env` and `std:num` are recognized; unknown identifiers fail without filesystem fallback.
 - Preserve existing relative `.ceru` resolution. Add no environment variables, search paths, network downloads, or general package manager.
 - Register each standard module once per compilation. Aliases and imports from multiple user files share one ordinary enum definition across all backends.
 - `modules::from_source` resolves in-memory source and bundled modules only, rejecting relative file imports. compile(&str) and compile_to_ir(&str) use this path without implicit file I/O. APIs taking a single SourceFile preserve their existing behavior without resolving imports; use modules::from_source when the full SourceMap including standard sources is needed.
@@ -15,7 +15,7 @@ The public line-input API uses `import "std:io" as io;` and `io::read_line(4096)
 
 SourceIds are compilation-local registration-order identifiers: register the entry first, then traverse dependencies in declaration order. Do not reserve a fixed numerical ID for std:io or assume IDs match across compilations.
 
-SourceMap distinguishes user and standard sources. Standard sources use identifiers std:io or std:env, both with contract version 1. emit-sources includes its text, SourceId, kind, identifier, and version, without inventing a filesystem path. Preserve anonymous spans and manifests for existing single-source inputs without standard modules.
+SourceMap distinguishes user and standard sources. Standard sources use identifiers std:io, std:env or std:num, all with contract version 1. emit-sources includes its text, SourceId, kind, identifier, and version, without inventing a filesystem path. Preserve anonymous spans and manifests for existing single-source inputs without standard modules.
 
 The input operation's Span refers to its location in the bundled function. The caller's HIR Call retains the user's Span, allowing observation of the relationship between caller, function, and input operation. Never render a virtual-source diagnostic against the same offsets in a user file.
 
@@ -42,3 +42,7 @@ cargo run -- emit-ir tests/fixtures/line_input.ceru
 ## Program arguments: std:env
 
 Bundled arg_count/arg/Argument declarations reuse the same SourceMap, name resolution and enum lowering. HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT are connected; Native diagnose unsupported operations. See the [contract and remaining work](dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
+
+## Pure integer parsing
+
+`std:num` provides `parse_i64(string) -> ParseI64`. Bundled Cerune source implements the checks; routes only add internal common-IR byte access. See the [syntax, range and origin contract](integer-parsing.en.md).

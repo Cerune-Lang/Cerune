@@ -17,6 +17,7 @@ pub(super) fn helper_name(instruction: &Instruction, origin: Origin) -> String {
         Instruction::ArgumentCount => "cerune_arguments_count".into(),
         Instruction::ArgumentGet => "cerune_arguments_get".into(),
         Instruction::ReadLine => "cerune_input_read_line".into(),
+        Instruction::StringByteAt => "cerune_string_byte_at".into(),
         Instruction::StringConcat => "cerune_string_concat".into(),
         Instruction::ConvertNumeric { conversion } => conversion.helper(),
         Instruction::IntegerBinary { op, ty } => op.helper(*ty),

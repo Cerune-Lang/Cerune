@@ -318,6 +318,11 @@ pub enum ExprKind {
     ArrayLength {
         value: Box<Expr>,
     },
+    /// Raw unsigned byte as i64; -1 for a negative or out-of-range index.
+    StringByteAt {
+        value: Box<Expr>,
+        index: Box<Expr>,
+    },
     StringByteLength {
         value: Box<Expr>,
     },

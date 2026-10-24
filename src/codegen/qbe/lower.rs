@@ -711,6 +711,21 @@ impl Lowerer<'_> {
                     operand: Operand::Temp(dest),
                 }
             }
+            cerune_ir::ExprKind::StringByteAt { value, index } => {
+                let Value::Scalar { operand: value, .. } = self.lower_expr(value) else {
+                    unreachable!()
+                };
+                let Value::Scalar { operand: index, .. } = self.lower_expr(index) else {
+                    unreachable!()
+                };
+                let dest = self.next_temp();
+                self.instructions
+                    .push(Instruction::StringByteAt { dest, value, index });
+                Value::Scalar {
+                    ty: Type::I64,
+                    operand: Operand::Temp(dest),
+                }
+            }
             cerune_ir::ExprKind::StringByteLength { value } => {
                 let value = self.lower_expr(value);
                 let Value::Scalar {

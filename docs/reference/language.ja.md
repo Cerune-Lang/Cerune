@@ -483,13 +483,19 @@ print(item.amount);
 
 現在はHIR・MIR・SSA・VMのRust入力接続APIで利用できます。[CLI・生成C・LLVM・QBE・Nativeの実stdin](../design/stdin-connections.ja.md)も利用できます。[WATの版付きhost接続](../design/wat-input-host.ja.md)も実装済みです。**Windows console入力は未対応です。** 標準モジュールはファイルや環境変数から探さず、本文・型・出自をemit-sources等で確認できます。[解決規則と実行例](../design/standard-modules.ja.md)・[消費数と失敗の契約](../design/line-input.ja.md)を参照してください。
 
+### 明示的な整数読取り
+
+`import "std:num" as num;`で`num::parse_i64(text: string) -> num::ParseI64`を使えます。結果は`Value { value: i64 }`・`InvalidFormat {}`・`OutOfRange {}`です。ASCIIの`-?[0-9]+`だけを全文検査し、その後i64の範囲を検査します。先頭0を許し、`-0`は0です。`+`、空白、改行、NUL、全角数字などは受理せず、入力を変更・正規化しません。
+
+全既存経路に対応します。判定処理は同梱のCeruneソースで、生成過程も観測できます。[詳細契約](../design/integer-parsing.ja.md)・[基本例](../../examples/integer_parsing/README.md)を参照してください。
+
 ### プログラム引数
 
 `import "std:env" as env;`で`env::arg_count() -> i64`と`env::arg(index: i64) -> env::Argument`を使えます。結果は`Value { text: string }`／`Missing {}`です。空文字はValue、0以上の範囲外はMissing、負添字は位置付き診断で停止します。文字列の内容を正規化・再分割しません。
 
-HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WATに対応しています。CLIの最初の`--`以後をプログラム引数とし、実行ファイル名やソース名を含めません。既定上限は4096件・UTF-8合計1048576バイトで、区切り前の`--argument-count-limit`／`--argument-byte-limit`で変更できます。不正Unicode・NUL・上限超過は起動準備で停止します。取得文字列には別途文字列ヒープ上限を適用します。
+HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeに対応しています。CLIの最初の`--`以後をプログラム引数とし、実行ファイル名やソース名を含めません。既定上限は4096件・UTF-8合計1048576バイトで、区切り前の`--argument-count-limit`／`--argument-byte-limit`で変更できます。不正Unicode・NUL・上限超過は起動準備で停止します。取得文字列には別途文字列ヒープ上限を適用します。
 
-既存の埋込みAPIは暗黙にOS引数を読まず、引数取得時に未設定を診断します。`run_with_arguments`等で明示注入してください。**Native接続と整数読取りは未実装**です。[契約](../design/dogfooding-inputs.ja.md)・[実行例](../../examples/arguments/README.md)を参照してください。
+既存の埋込みAPIは暗黙にOS引数を読まず、引数取得時に未設定を診断します。`run_with_arguments`等で明示注入してください。[契約](../design/dogfooding-inputs.ja.md)・[実行例](../../examples/arguments/README.md)を参照してください。
 
 ## 関数とentry point
 

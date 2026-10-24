@@ -241,7 +241,7 @@ fn visit(
             ));
         }
         if import.path.starts_with("std:") {
-            if !matches!(import.path.as_str(), "std:io" | "std:env") {
+            if !matches!(import.path.as_str(), "std:io" | "std:env" | "std:num") {
                 return Err(Diagnostic::new(
                     format!("unknown standard module `{}`", import.path),
                     import.span,
@@ -258,6 +258,7 @@ fn visit(
                 let (identifier, text) = match import.path.as_str() {
                     "std:io" => ("std:io", include_str!("standard/io.ceru")),
                     "std:env" => ("std:env", include_str!("standard/env.ceru")),
+                    "std:num" => ("std:num", include_str!("standard/num.ceru")),
                     _ => unreachable!(),
                 };
                 let id = sources.add_standard(identifier, 1, text);
@@ -268,6 +269,7 @@ fn visit(
                             ("std:io", "__cerune_read_line_utf8") => Some("$read_line"),
                             ("std:env", "__cerune_arg_count") => Some("$arg_count"),
                             ("std:env", "__cerune_arg_get") => Some("$arg_get"),
+                            ("std:num", "__cerune_string_byte_at") => Some("$string_byte_at"),
                             _ => None,
                         };
                         if let Some(internal) = internal {

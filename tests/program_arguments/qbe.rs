@@ -447,3 +447,17 @@ fn qbe_capture_validation_and_fallible_allocations_are_redacted() {
         );
     }
 }
+
+#[test]
+fn integer_parsing_qbe_matches_independent_expectations() {
+    for group in super::integer_parsing::compiled_cases() {
+        let p = &group.program;
+        let Some((dir, exe)) = build(&artifact(p, Limits::default()), None) else {
+            return;
+        };
+        for (args, expected) in &group.runs {
+            let os: Vec<_> = args.iter().map(OsStr::new).collect();
+            super::integer_parsing::check(&run(&dir, &exe, &os), expected);
+        }
+    }
+}

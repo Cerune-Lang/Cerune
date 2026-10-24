@@ -1,7 +1,7 @@
 //! Compare production objects with the frozen encoder and pre-migration runtime.
 use super::super::{emit_object_from_lir, lower_mir, object_reference};
 use super::{Target, assemble};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 const TARGETS: [Target; 2] = [Target::X86_64PcWindowsMsvc, Target::X86_64UnknownLinuxGnu];
 fn compare(asm: &str, baseline: &str, target: Target, context: &str) -> bool {
     let original = super::super::machine::tests::with_frozen_runtime(baseline, target);
@@ -21,27 +21,14 @@ fn compare(asm: &str, baseline: &str, target: Target, context: &str) -> bool {
     }
     expected.is_ok()
 }
-fn files(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).unwrap() {
-        let path = entry.unwrap().path();
-        if path.is_dir() {
-            files(&path, out);
-        } else if path.extension().is_some_and(|e| e == "ceru") {
-            out.push(path);
-        }
-    }
-}
 #[test]
-fn all_examples_keep_exact_objects_with_both_targets_ssa_and_origins() {
+fn migration_examples_keep_exact_objects_with_both_targets_ssa_and_origins() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut examples = Vec::new();
-    files(&root.join("examples"), &mut examples);
-    examples.sort();
+    let examples = include_str!("native_emitter_reference/examples.txt")
+        .lines()
+        .map(|path| root.join(path));
     let mut count = 0;
     for file in examples {
-        if file.parent() == Some(root.join("examples/source_files").as_path()) {
-            continue;
-        }
         let hir = crate::modules::load(&file).unwrap().to_ir().unwrap();
         let mir = crate::mir::lower(&hir).unwrap();
         let ssa = crate::mir::ssa::lower(&crate::mir::ssa::construct(&mir).unwrap())
@@ -73,7 +60,7 @@ fn all_examples_keep_exact_objects_with_both_targets_ssa_and_origins() {
         }
         count += 1;
     }
-    assert!(count >= 120);
+    assert_eq!(count, 135);
     eprintln!("SASHIMI: {count} runnable examples, two targets, MIR/SSA, with/without origins");
 }
 #[test]

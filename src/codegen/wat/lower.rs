@@ -826,6 +826,12 @@ impl LoweringContext<'_> {
                 instructions.push(Instruction::ReadLine.at(expr));
                 Value::Scalar(Type::String)
             }
+            cerune_ir::ExprKind::StringByteAt { value, index } => {
+                self.lower_expr(value, instructions);
+                self.lower_expr(index, instructions);
+                instructions.push(Instruction::StringByteAt.at(expr));
+                Value::Scalar(Type::I64)
+            }
             cerune_ir::ExprKind::StringByteLength { value } => {
                 self.lower_expr(value, instructions);
                 instructions.push(Instruction::I64Load { offset: 0 });

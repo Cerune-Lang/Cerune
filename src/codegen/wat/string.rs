@@ -60,3 +60,29 @@ const SUPPORT: &str = r#"
   )
 
 "#;
+
+pub(super) fn byte_at(name: &str, output: &mut String) {
+    output.push_str(&BYTE_AT.replace("BYTE_AT", name));
+}
+const BYTE_AT: &str = r#"
+  (func $BYTE_AT (param $value i32) (param $index i64) (result i64)
+    local.get $index
+    i64.const 0
+    i64.lt_s
+    local.get $index
+    local.get $value
+    i64.load
+    i64.ge_u
+    i32.or
+    if (result i64)
+      i64.const -1
+    else
+      local.get $value
+      i32.const 8
+      i32.add
+      local.get $index
+      i32.wrap_i64
+      i32.add
+      i64.load8_u
+    end)
+"#;

@@ -478,3 +478,19 @@ fn llvm_arguments_and_stdin_share_utf8_validation_without_changing_order() {
         );
     }
 }
+
+#[test]
+fn integer_parsing_llvm_matches_independent_expectations() {
+    for group in super::integer_parsing::compiled_cases() {
+        let p = &group.program;
+        for opt in ["-O0", "-O2"] {
+            let Some((dir, exe)) = build(&artifact(p, Limits::default()), opt, None) else {
+                return;
+            };
+            for (args, expected) in &group.runs {
+                let os: Vec<_> = args.iter().map(OsStr::new).collect();
+                super::integer_parsing::check(&run(&dir, &exe, &os), expected);
+            }
+        }
+    }
+}

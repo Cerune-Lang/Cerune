@@ -294,6 +294,9 @@ fn emit_instruction(
             });
             output.push_str("  movzbq %al, %rax\n");
         }
+        Instruction::LoadStringByte { .. } => {
+            panic!("string byte access is outside the frozen migration baseline")
+        }
         Instruction::LoadStringLength => output.push_str("  movq (%rax), %rax\n"),
         Instruction::LoadStringConstant(id) => {
             output.push_str(&format!("  leaq .Lcerune_string_{id}(%rip), %rax\n"))

@@ -70,6 +70,7 @@ pub enum Instruction {
     ArgumentCount,
     ArgumentGet,
     ReadLine,
+    StringByteAt,
     StringConcat,
     StringManage {
         retain: bool,

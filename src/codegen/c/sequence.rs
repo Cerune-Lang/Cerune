@@ -97,7 +97,11 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
         return;
     }
     let mut children: Vec<&mut Expr> = match &mut expr.kind {
-        ExprKind::StringConcat { left, right }
+        ExprKind::StringByteAt {
+            value: left,
+            index: right,
+        }
+        | ExprKind::StringConcat { left, right }
         | ExprKind::Binary { left, right, .. }
         | ExprKind::Index {
             base: left,
@@ -204,7 +208,11 @@ fn observable(expr: &Expr) -> bool {
             ) || observable(left)
                 || observable(right)
         }
-        ExprKind::Logical { left, right, .. } => observable(left) || observable(right),
+        ExprKind::StringByteAt {
+            value: left,
+            index: right,
+        }
+        | ExprKind::Logical { left, right, .. } => observable(left) || observable(right),
         ExprKind::ArrayLength { value: base, .. }
         | ExprKind::StringByteLength { value: base }
         | ExprKind::FieldAccess { base, .. } => observable(base),

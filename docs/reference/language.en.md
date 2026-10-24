@@ -483,13 +483,19 @@ Explicitly import the bundled module with `import "std:io" as io;` and call `io:
 
 Currently available through HIR/MIR/SSA/VM Rust input connection APIs. [CLI and generated C/LLVM/QBE/Native stdin](../design/stdin-connections.en.md) are also available. [Versioned WAT input hosts](../design/wat-input-host.en.md) are also implemented. **Windows console input remains unsupported.** Standard modules are not searched through files or environment variables; emit-sources exposes their text, types can be inspected in IR, and source origins remain observable. See [resolution and execution examples](../design/standard-modules.en.md) and the [consumption/failure contract](../design/line-input.en.md).
 
+### Explicit integer parsing
+
+Import `"std:num" as num` and call `num::parse_i64(text: string) -> num::ParseI64`. Results are `Value { value: i64 }`, `InvalidFormat {}` and `OutOfRange {}`. Validate the complete ASCII grammar `-?[0-9]+` before checking the i64 range. Leading zeros are allowed and `-0` is zero. `+`, whitespace, line endings, NUL and non-ASCII digits are rejected without mutation or normalization.
+
+All existing routes support it. Bundled Cerune source implements the checks and keeps their generation observable. See the [contract](../design/integer-parsing.en.md) and [basic example](../../examples/integer_parsing/README.en.md).
+
 ### Program arguments
 
 Import `std:env` explicitly to use `env::arg_count() -> i64` and `env::arg(index: i64) -> env::Argument`. Results are `Value { text: string }` / `Missing {}`. Empty text is Value, nonnegative out-of-range indices are Missing, and negative indices stop with source diagnostics. Contents are neither normalized nor split again.
 
 HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT are supported. Values after the first CLI `--` are program arguments, excluding executable/source names. Defaults are 4096 entries and 1048576 total UTF-8 bytes; override with `--argument-count-limit` / `--argument-byte-limit` before the delimiter. Invalid Unicode, NUL and limit excess stop startup preparation. Returned strings separately obey the string-heap limit.
 
-Existing embedding APIs never read OS arguments implicitly and report unconfigured access. Inject arguments using `run_with_arguments` or related APIs. **Native connections and integer parsing remain unimplemented.** See the [contract](../design/dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
+Existing embedding APIs never read OS arguments implicitly and report unconfigured access. Inject arguments using `run_with_arguments` or related APIs. See the [contract](../design/dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
 
 ## Functions and entrypoint
 

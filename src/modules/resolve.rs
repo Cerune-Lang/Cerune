@@ -484,6 +484,7 @@ impl Resolver<'_> {
                     "$read_line"
                         | "$arg_count"
                         | "$arg_get"
+                        | "$string_byte_at"
                         | "byte_len"
                         | "array_len"
                         | "concat"

@@ -422,6 +422,26 @@ impl Builder<'_> {
         })
     }
 
+    // Keep the recursive expression builder's frame small on Windows debug builds.
+    fn build_string_byte_at(
+        &self,
+        arguments: &[ast::Expr],
+        bindings: &Bindings,
+    ) -> Result<ExprKind, Diagnostic> {
+        Ok(ExprKind::StringByteAt {
+            value: Box::new(self.build_expr(
+                &arguments[0],
+                Some(semantic::Type::String),
+                bindings,
+            )?),
+            index: Box::new(self.build_expr(
+                &arguments[1],
+                Some(semantic::Type::Integer(IntegerType::I64)),
+                bindings,
+            )?),
+        })
+    }
+
     fn build_expr(
         &self,
         expr: &ast::Expr,
@@ -448,6 +468,9 @@ impl Builder<'_> {
         let ty = self.model.type_of_expr_expected(expr, bindings, expected)?;
 
         let kind = match &expr.kind {
+            ast::ExprKind::Call {
+                name, arguments, ..
+            } if name == "$string_byte_at" => self.build_string_byte_at(arguments, bindings)?,
             ast::ExprKind::Call { name, .. } if name == "$arg_count" => ExprKind::ArgumentCount,
             ast::ExprKind::Call {
                 name, arguments, ..
