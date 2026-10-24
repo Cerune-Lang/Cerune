@@ -1,4 +1,5 @@
 mod format_cli;
+mod native_build;
 mod observation_bundle;
 mod program_arguments;
 
@@ -29,6 +30,7 @@ fn run() -> Result<(), String> {
     let mut args = rest.into_iter();
     match command.as_str() {
         "fmt" => format_cli::run(args),
+        "build" => native_build::run(args, string_heap_limit, array_heap_limit, argument_limits),
         // コードの構文チェック
         "check" => {
             let input = required_path(args.next(), "missing input file")?;
@@ -588,6 +590,7 @@ fn parse_heap_limits(args: Vec<String>, command: &str) -> Result<(Vec<String>, u
                 | "emit-lir"
                 | "emit-asm"
                 | "emit-obj"
+                | "build"
         ) {
             return Err(format!("{arg} is not supported by {command}"));
         }
@@ -697,6 +700,7 @@ fn print_help() {
          A small experimental language with observable code generation.\n\n\
          USAGE:\n\
            cerune check <file>\n\
+           cerune build native <file> --target <triple> --linker <clang-path> -o <new-directory> [--ssa] [--include-sources]\n\
            cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]\n\
            cerune emit-sources <file> [-o <sources.json>]\n\
            cerune emit-ir <file> [-o <output.ceir>]\n\

@@ -125,3 +125,6 @@ fn typed_program_keeps_every_lir_origin_and_observation_does_not_change_objects(
         }
     }
 }
+
+#[path = "native_build/mod.rs"]
+mod native_build;

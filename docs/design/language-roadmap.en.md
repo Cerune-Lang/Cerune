@@ -8,7 +8,7 @@ The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline.
 
 ## Core development order
 
-**Assembler separation (#183) is merged. Following argument acquisition, [integer parsing](integer-parsing.en.md) and the seed-argument example are implemented. [Optional let + fmt](formatting.en.md) is also implemented. [Infer omission](infer-omission.en.md) is implemented; Native build and initial distribution are next.** Extend Cerune in this order so programs can use external values to select computations, then save and reuse results.
+**Assembler separation (#183) is merged. Following argument acquisition, [integer parsing](integer-parsing.en.md) and the seed-argument example are implemented. [Optional let + fmt](formatting.en.md) is also implemented. [Infer omission](infer-omission.en.md) and [Native build](native-build.en.md) are implemented; Native release and initial distribution are next.** Extend Cerune in this order so programs can use external values to select computations, then save and reuse results.
 
 | Order | Work | First usable outcome | Status |
 | --- | --- | --- | --- |
@@ -16,7 +16,7 @@ The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline.
 | 1 | [Program arguments](https://github.com/Cerune-Lang/Cerune/issues/174) → [integer parsing](https://github.com/Cerune-Lang/Cerune/issues/175) | Distinguish empty/missing values, invalid syntax and range errors; compare a seed-argument example across routes | Arguments, `std:num::parse_i64` and the seed-argument example implemented in four executors and all existing generated routes |
 | 2 | [Optional let + fmt](formatting.en.md) (#90) | Preserve/show/hide let, retain comments, verify idempotence and semantics | Implemented; example compared across four executors and all existing generated routes |
 | Follow-up to 2 | [Infer omission](infer-omission.en.md) (#105) | `value: = expression;`; retain declaration colons and existing inference rules, with formatter support | Implemented on ordinary bindings and for initializers; array iteration, else-if and conditional expressions remain separate |
-| 3 | [Native build and initial distribution](https://github.com/Cerune-Lang/Cerune/issues/81) | Build an executable with explicit target/linker; distribute dependencies, execution requirements, and origins | Responsibilities outlined; unimplemented |
+| 3 | [Native build and initial distribution](https://github.com/Cerune-Lang/Cerune/issues/81) | Build an executable with explicit target/linker; distribute dependencies, execution requirements, and origins | Native build implemented; release unimplemented |
 | 4 | [Recursion](functions.en.md) | Align per-call storage, ownership/cleanup, limits, failure diagnostics, call stacks and origins across routes | Design and implementation pending |
 | 5 | Limited file I/O → subprocess operations ([#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)) | Save/reload first, then explicit shell-free execution and output/exit-status collection; define resources, capacity/time limits, and failures | Follow-up design; unimplemented |
 
@@ -83,7 +83,7 @@ Language features are tracked separately from compiler stages, distribution, and
 | Partly implemented | [SSA construction](mir-ssa.en.md) and later optimization passes | Scalar SSA/residual-slot representation, structural validator, observation text, automatic construction, and direct execution through the Rust API implemented; public SSA CLI/bundle support also implemented; SSA→MIR/Native also implemented; finite-fixture Lean checks for MIR→SSA→MIR implemented; constant folding is designed but unimplemented and deferred; general proofs also remain future work |
 | Implemented | [LIR observation and validation](lir-observation.en.md) | `emit-lir`, `observe --lir`, validator, and example comparisons for both targets. Direct execution investigated and deferred |
 | Distributed | Compiler binaries v0.1.0 | Published for Windows x64, Linux x64/arm64, and macOS x64/arm64. Separate from Cerune program build/release and a Darwin Native backend |
-| Planned, unimplemented | [IR/VM/Native build / release](owned-routes.en.md) | Follow [#81](https://github.com/Cerune-Lang/Cerune/issues/81), keeping completed artifacts and distribution separate from optimization |
+| Partially implemented | [IR/VM/Native build / release](owned-routes.en.md); only Native build implemented | Follow [#81](https://github.com/Cerune-Lang/Cerune/issues/81), keeping completed artifacts and distribution separate from optimization |
 
 ## Implementation order, technical dependencies, and later candidates
 
@@ -91,7 +91,7 @@ The opening table sets development priorities. Technical prerequisites are liste
 
 | Start condition | Work and status | Completion criteria and decisions |
 | --- | --- | --- |
-| Priority 3; technically independent | [Native build](owned-routes.en.md). Responsibilities outlined; CLI/link management unimplemented | An executable is the proposed first artifact. Define explicit target, external linker, dependencies, failures, and observation records; build/link current examples and compare with IR/VM |
+| Priority 3; build implemented | [Native build](native-build.en.md); explicit target/Clang produce an executable | Compare examples with IR/MIR/VM; preserve generation stages, origins, and link records. Distribution follows separately through release |
 | After each artifact stabilizes | IR/VM Images and per-route release; initial Native distribution is priority 3. Unimplemented | Validate versions, types, references, ownership, and budgets before loading; compare saved/reloaded execution. As each route's artifact stabilizes, verify distribution contents, compatibility, and failure origins |
 | Later; order undecided | Array growth/borrowing, more string operations, module distribution | Design borrowing lifetimes/mutation, re-exports, dependency versions, and reproducibility around actual uses |
 | Deferred/experimental | Optimization passes, broader proofs, added AST/LIR execution, GPU/FPGA | Resume for concrete needs; these do not gate language features, I/O, or build |
@@ -151,7 +151,7 @@ On 2026-10-20, 17 open issues, recent merges and Organization progress were chec
 | [#173](https://github.com/Cerune-Lang/Cerune/issues/173) / [#174](https://github.com/Cerune-Lang/Cerune/issues/174) / [#175](https://github.com/Cerune-Lang/Cerune/issues/175) | Select missing capabilities from real uses | [Responsibility inventory and argument design](dogfooding-inputs.en.md). Priority-1 arguments/parsing are implemented; next come fmt, Native distribution, and recursion before file I/O/subprocesses at priority 5. Retain the independent Python oracle |
 | [#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | Input capacity and memory measurement | Initial measurements and policy decisions are complete. Distinguish memory limit, capacity, RSS, and WAT pages. Measure large limits with short input; do not claim unconfirmed leaks or regressions |
 | [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | Actions Node.js warning | Completed in PR #157. Distinguish action-runtime Node 24 from WAT-test Node 20.20.2 |
-| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release and route responsibilities | Priority 3 covers Native build and initial distribution. IR/VM Image formats, validation, and loading follow separately. show/via/optional backends await use cases and detailed design |
+| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release and route responsibilities | Priority-3 Native build is implemented; release and initial distribution follow next. IR/VM Image formats, validation, and loading follow separately. show/via/optional backends await use cases and detailed design |
 | [#60](https://github.com/Cerune-Lang/Cerune/issues/60) / [#94](https://github.com/Cerune-Lang/Cerune/issues/94) | Observation, transformations, proofs | Partly complete through SSA/LIR observation. More bundled artifacts, general proofs, and optimization remain; preserve unoptimized forms |
 | [#88](https://github.com/Cerune-Lang/Cerune/issues/88) | Integer arithmetic policies | Keep checked arithmetic; prioritize demonstrated wrapping uses. Define saturation, overflow reporting, widening, bit discard, and division separately |
 | [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | Longer-program syntax | Optional let, fmt and infer omission on ordinary bindings/for initializers are implemented. Array-iteration omission, else-if and conditional expressions await separate design |

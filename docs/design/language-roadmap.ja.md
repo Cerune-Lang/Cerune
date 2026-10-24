@@ -8,7 +8,7 @@
 
 ## 本体の開発順
 
-**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。[infer省略](infer-omission.ja.md)まで実装し、次はNative build・配布初版です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
+**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。[infer省略](infer-omission.ja.md)と[Native build](native-build.ja.md)まで実装し、次はNative release・配布初版です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
@@ -16,7 +16,7 @@
 | 1 | [プログラム引数](https://github.com/Cerune-Lang/Cerune/issues/174) → [整数読取り](https://github.com/Cerune-Lang/Cerune/issues/175) | 空・欠落・書式・範囲外を区別し、引数でseedを指定するexampleを全経路で比較 | 引数取得・`std:num::parse_i64`・seed引数例を4実行器と全既存生成経路に実装 |
 | 2 | [optional let＋fmt](formatting.ja.md)（#90） | letの保持・表示・非表示、コメント保持、整形の冪等性と意味の一致 | 実装済み。exampleを4実行器と全既存生成経路で比較 |
 | 2の続き | [infer省略](infer-omission.ja.md)（#105） | `value: = expression;`。宣言の`:`と既存の型推論規則を維持し、fmtも対応 | 通常束縛・for初期化に実装済み。配列反復・else if・条件式は別途 |
-| 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | 責務整理済み・未実装 |
+| 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | Native build実装済み・release未実装 |
 | 4 | [再帰](functions.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | 設計・実装はこれから |
 | 5 | 限定的なファイル入出力 → 子プロセス（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 後続設計・未実装 |
 
@@ -83,7 +83,7 @@ NativeはLIRからSASHIMIの型付きProgramを構築し、同じProgramからAS
 | 一部実装済み | [SSA変換](mir-ssa.ja.md)・後続の最適化pass | scalar SSAと残存slotの表現・構造検証・観測テキスト・自動変換・Rust APIでの直接実行を実装。公開CLI・bundleもSSAに対応。SSA→MIR／Nativeも対応。MIR→SSA→MIRの有限例のLean検証も対応。定数畳み込みは設計済み・未実装で当面保留。一般の証明も後続 |
 | 実装済み | [LIRの観測・構造検証](lir-observation.ja.md) | `emit-lir`・`observe --lir`・検証器・両targetのexample比較。直接実行は調査を終えて保留 |
 | 配布済み | コンパイラのバイナリ v0.1.0 | Windows x64、Linux x64/arm64、macOS x64/arm64向けに公開。Ceruneプログラムのbuild/releaseやDarwin Native backendの実装とは別 |
-| 計画・未実装 | [IR・VM・Nativeのbuild / release](owned-routes.ja.md) | [#81](https://github.com/Cerune-Lang/Cerune/issues/81)の責務整理を基準に、完成成果物・配布を最適化と分ける |
+| 一部実装 | [IR・VM・Nativeのbuild / release](owned-routes.ja.md)。Native buildのみ実装済み | [#81](https://github.com/Cerune-Lang/Cerune/issues/81)の責務整理を基準に、完成成果物・配布を最適化と分ける |
 
 ## 着手順と技術的依存・後続候補
 
@@ -91,7 +91,7 @@ NativeはLIRからSASHIMIの型付きProgramを構築し、同じProgramからAS
 
 | 着手条件 | 作業・現在の状態 | 完了条件・判断すること |
 | --- | --- | --- |
-| 優先3・技術的には独立 | [Nativeのbuild](owned-routes.ja.md)。責務は整理済み、CLI・リンク管理は未実装 | 最初の成果物候補は実行ファイル。明示target・外部リンカ・依存物・失敗・観測記録を決め、既存exampleを生成・リンクしてIR/VMと照合する |
+| 優先3・build実装済み | [Native build](native-build.ja.md)。明示target・Clangで実行ファイルを構築 | exampleの実行をIR/MIR/VMと照合し、生成過程・出自・リンク記録を保存。配布はreleaseで別途進める |
 | 各成果物の安定後 | IR/VMのImageと各経路のrelease。Native配布初版は優先3。未実装 | 版・型・参照・所有・予算を検証してloadし、保存前後で比較。各経路の完成成果物が安定した段階で配布構成・互換条件・停止出自を検証する |
 | 順序未定の後続 | 配列の成長・借用、文字列操作の拡張、モジュール配布 | 借用の寿命・更新規則、再export・依存の版・再現性を用途ごとに設計する |
 | 保留・実験 | 最適化pass、証明範囲の拡張、AST／LIR直接実行の追加、GPU／FPGA | 具体的な必要性から再開。言語機能・入出力・buildの着手条件にはしない |
@@ -151,7 +151,7 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | [#173](https://github.com/Cerune-Lang/Cerune/issues/173) / [#174](https://github.com/Cerune-Lang/Cerune/issues/174) / [#175](https://github.com/Cerune-Lang/Cerune/issues/175) | 利用例から不足機能を選ぶ | [担当処理の棚卸しと引数設計](dogfooding-inputs.ja.md)。優先1の引数・整数読取りを実装済み。次のfmt・Native配布・再帰を挟み、ファイルI/O・子プロセスは優先5。Pythonの独立期待値を維持 |
 | [#154](https://github.com/Cerune-Lang/Cerune/issues/154) / [#133](https://github.com/Cerune-Lang/Cerune/issues/133) | 入力容量とメモリ測定 | 初版の測定・判断は完了。メモリ上限と確保容量・RSS・WATページを区別。大きな上限と短い入力を測定し、未確認の漏えい・退行を断定しない |
 | [#132](https://github.com/Cerune-Lang/Cerune/issues/132) | ActionsのNode.js警告 | PR #157で完了。Actionの実行用Node 24とWATテスト用Node 20.20.2を区別 |
-| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release・経路の責務 | 優先3でNative buildと配布初版。IR/VM Imageは形式・検証・loaderを別途実装。show／via／optional backendは用途と詳細設計待ち |
+| [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | build / release・経路の責務 | 優先3のNative buildは実装済み。次にrelease・配布初版。IR/VM Imageは形式・検証・loaderを別途実装。show／via／optional backendは用途と詳細設計待ち |
 | [#60](https://github.com/Cerune-Lang/Cerune/issues/60) / [#94](https://github.com/Cerune-Lang/Cerune/issues/94) | 観測・変換・証明 | SSA・LIR観測まで部分完了。未収録の成果物・一般の証明・最適化は残件。非最適化表現を維持 |
 | [#88](https://github.com/Cerune-Lang/Cerune/issues/88) | 整数演算の追加方針 | checkedを維持し、実用途のwrappingを先に検討。飽和・overflow報告・拡幅・ビット破棄・除算は別々に意味を決める |
 | [#90](https://github.com/Cerune-Lang/Cerune/issues/90) / [#105](https://github.com/Cerune-Lang/Cerune/issues/105) | 長いコードの構文 | optional let・fmt・通常束縛とfor初期化のinfer省略は実装済み。配列反復の省略・else if・条件式は別途設計 |
