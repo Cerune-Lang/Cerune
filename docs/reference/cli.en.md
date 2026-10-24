@@ -49,7 +49,7 @@ cerune --version
 | `--check` | Exit 0 when formatted, 1 when different; no stdout or file changes |
 | `--write` / `-o <file>` | Replace input/save to the selected path; mutually exclusive with each other and check |
 
-Use four-space indentation and LF endings while retaining comments and literals. Type specifications including `infer` are not omitted. Input is limited to 8 MiB; syntax, UTF-8 and save errors also exit 1. Saving uses a temporary file and refuses replacement of links, directories and read-only files. Configuration files, import sorting and recursive formatting are unsupported.
+Use four-space indentation and LF endings while retaining comments and literals. Keep the original presence/absence of `infer` on initialized bindings; `--let` does not change it. Input is limited to 8 MiB; syntax, UTF-8 and save errors also exit 1. Saving uses a temporary file and refuses replacement of links, directories and read-only files. Configuration files, import sorting and recursive formatting are unsupported.
 
 See the [example](../../examples/formatting/README.en.md) and [design](../design/formatting.en.md) for semantic and origin checks.
 

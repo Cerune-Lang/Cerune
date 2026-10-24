@@ -8,11 +8,21 @@ const EXAMPLE: &str = include_str!("../../examples/formatting/bindings.ceru");
 const EXPECTED: &str = "6\n2\n5\n[9, 4]\n[2, 4]\nfalse\n";
 
 pub(super) fn cases() -> Vec<(ir::Program, &'static str)> {
-    let mut programs = vec![(hir(EXAMPLE), EXPECTED)];
-    for style in [LetStyle::Preserve, LetStyle::Show, LetStyle::Hide] {
-        let source = format(EXAMPLE, style).unwrap();
-        assert_eq!(format(&source, style).unwrap(), source);
-        programs.push((hir(&source), EXPECTED));
+    let inferred = include_str!("../../examples/formatting/infer.ceru");
+    let explicit = inferred.replace(": =", ": infer =");
+    let inferred_output = "6\n[9, 4]\n[2, 4]\n18446744073709551615\n1.5\n日本語\nfalse\n";
+    let mut programs = Vec::new();
+    for (input, expected) in [
+        (EXAMPLE, EXPECTED),
+        (inferred, inferred_output),
+        (&explicit, inferred_output),
+    ] {
+        programs.push((hir(input), expected));
+        for style in [LetStyle::Preserve, LetStyle::Show, LetStyle::Hide] {
+            let source = format(input, style).unwrap();
+            assert_eq!(format(&source, style).unwrap(), source);
+            programs.push((hir(&source), expected));
+        }
     }
     programs
 }

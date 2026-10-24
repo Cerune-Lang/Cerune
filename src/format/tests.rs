@@ -21,7 +21,6 @@ fn contextual_let_preserves_identifiers_and_for_binding_forms() {
     }
     for invalid in [
         "let x = 1;",
-        "let x: = 1;",
         "mut let x: i64 = 1;",
         "let const X:i64=1;",
         "for (mut i:i64=0;i<1;let i=1) {}",
@@ -219,4 +218,91 @@ fn blank_lines_and_comments_stay_in_order_when_prefixes_change() {
         assert_eq!(text.matches("// binding").count(), 1);
         assert_eq!(format(&text, style).unwrap(), text);
     }
+}
+
+#[test]
+fn omitted_infer_keeps_the_same_ast_and_ir_when_offsets_are_held_constant() {
+    let source = include_str!("../../examples/formatting/infer.ceru").replace(": =", ": infer =");
+    // Padding isolates inference semantics from source-offset changes.
+    let omitted = source.replace(": infer =", ":       =");
+    assert_eq!(
+        parser::parse(lexer::lex(&source).unwrap()).unwrap(),
+        parser::parse(lexer::lex(&omitted).unwrap()).unwrap()
+    );
+    assert_eq!(
+        crate::compile_to_ir(&source).unwrap(),
+        crate::compile_to_ir(&omitted).unwrap()
+    );
+    for style in STYLES {
+        let output = format(&omitted, style).unwrap();
+        assert!(output.contains("total: = 0;"));
+        assert!(output.contains("i: = 0;"));
+        assert_eq!(format(&output, style).unwrap(), output);
+    }
+}
+
+#[test]
+fn omitted_infer_keeps_declaration_rules_and_inference_errors() {
+    for input in [
+        "let mut value: = 1; value = true;",
+        "let value: = 1; value = 2;",
+        "value: = 9223372036854775808;",
+        "value: = missing;",
+        "fn f()->void{} value: = f();",
+    ] {
+        let explicit = input.replace(": =", ": infer =");
+        let compact_error = crate::compile_to_ir(input).unwrap_err();
+        let explicit_error = crate::compile_to_ir(&explicit).unwrap_err();
+        assert_eq!(compact_error.message(), explicit_error.message(), "{input}");
+        let c = compact_error.primary_span().unwrap();
+        let e = explicit_error.primary_span().unwrap();
+        assert_eq!(
+            input[c.start()..c.end()].replace(": =", ": infer ="),
+            explicit[e.start()..e.end()],
+            "{input}"
+        );
+    }
+    for invalid in [
+        "let value = 1;",
+        "value: ;",
+        "value: =;",
+        "value: in [1];",
+        "const VALUE: = 1;",
+        "fn f(x: =) -> i64 {return 1;}",
+        "fn f() -> {return 1;}",
+        "type T { x: = }",
+        "enum E{V{x: =}}",
+        "for(value: in [1]){}",
+        "for(value: = in [1]){}",
+        "for(i: =, value: infer in [1]){}",
+        "for(i: i64, value: = in [1]){}",
+        "for(mut i: = 0; i<1; i: = 1){}",
+    ] {
+        assert!(format(invalid, LetStyle::Preserve).is_err(), "{invalid}");
+    }
+    let input = "let mut let: = 1; let = 2; for(let v: infer in [let]){print(v);}";
+    assert_eq!(
+        crate::ir_executor::run(&crate::compile_to_ir(input).unwrap()).unwrap(),
+        "2\n"
+    );
+}
+
+#[test]
+fn formatter_preserves_inference_spelling_comments_and_positions() {
+    let input = "let x:// before initializer\r\n=1; let y:infer=x; print(y);";
+    for style in STYLES {
+        let output = format(input, style).unwrap();
+        assert!(output.contains("x: // before initializer\n= 1;"));
+        assert!(output.contains("y: infer = x;"));
+        assert_eq!(format(&output, style).unwrap(), output);
+    }
+    let mut sources = crate::source::SourceMap::new();
+    let id = sources.add("infer.ceru", "let value: = ;");
+    let error = format_source(sources.get(id).unwrap(), LetStyle::Show).unwrap_err();
+    let span = error.primary_span().unwrap();
+    assert_eq!(span.source_id(), id);
+    assert_eq!(
+        &sources.get(id).unwrap().text()[span.start()..span.end()],
+        ";"
+    );
 }

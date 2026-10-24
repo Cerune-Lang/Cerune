@@ -703,6 +703,11 @@ impl Parser {
     }
 
     fn parse_type_spec(&mut self) -> ParseResult<TypeSpec> {
+        // Only binding positions call this: an initializer may omit `infer`.
+        // Leave `=` for the caller; iteration without an initializer still needs a type.
+        if matches!(self.peek().kind, TokenKind::Equal) {
+            return Ok(TypeSpec::Infer);
+        }
         let type_ref = self.parse_type_ref()?;
 
         if type_ref.is_named("infer") {

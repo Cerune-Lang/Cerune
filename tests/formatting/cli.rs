@@ -89,10 +89,11 @@ fn formatter_errors_preserve_input_and_output_and_do_not_load_imports() {
 #[test]
 fn formatted_failures_refer_to_their_own_source_positions() {
     let w = Workspace::new();
-    let before = "// original\nlet x: i64=0; print(7);print(1/x);print(99);";
+    let before = "// original\nlet x: =0; print(7);print(1/x);print(99);";
     let after = format(before, LetStyle::Hide).unwrap();
+    let explicit = before.replace(": =", ": infer =");
     let mut spans = vec![];
-    for source in [before, &after] {
+    for source in [before, &explicit, &after] {
         let file = w.put("origin.ceru", source);
         let c = modules::load(&file).unwrap();
         let p = c.to_ir().unwrap();
