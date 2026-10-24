@@ -1,3 +1,4 @@
+mod format_cli;
 mod observation_bundle;
 mod program_arguments;
 
@@ -27,6 +28,7 @@ fn run() -> Result<(), String> {
     let (rest, string_heap_limit, array_heap_limit) = parse_heap_limits(compiler_args, &command)?;
     let mut args = rest.into_iter();
     match command.as_str() {
+        "fmt" => format_cli::run(args),
         // コードの構文チェック
         "check" => {
             let input = required_path(args.next(), "missing input file")?;
@@ -695,6 +697,7 @@ fn print_help() {
          A small experimental language with observable code generation.\n\n\
          USAGE:\n\
            cerune check <file>\n\
+           cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]\n\
            cerune emit-sources <file> [-o <sources.json>]\n\
            cerune emit-ir <file> [-o <output.ceir>]\n\
            cerune emit-c <file> [-o <output.c>]\n\

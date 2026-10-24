@@ -17,6 +17,7 @@ IR/VM/Native [build / release](../design/owned-routes.en.md) and [Lean output](.
 The current CLI provides the following commands:
 
 ```text
+cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]
 cerune check <file>
 cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>
 cerune emit-sources <file> [-o <sources.json>]
@@ -37,6 +38,22 @@ cerune run-vm <file> [--diagnostic-format runtime-v1]
 cerune --version
 ```
 
+## Source formatting
+
+`fmt` validates and formats syntax in one explicitly selected file. It does not load imports, type-check or execute code. By default it writes to stdout without changing files.
+
+| Selection | Behavior |
+| --- | --- |
+| `--let preserve` (default) | Keep original prefix choices |
+| `--let show` / `hide` | Add/remove binding prefixes; preserve identifiers named let |
+| `--check` | Exit 0 when formatted, 1 when different; no stdout or file changes |
+| `--write` / `-o <file>` | Replace input/save to the selected path; mutually exclusive with each other and check |
+
+Use four-space indentation and LF endings while retaining comments and literals. Type specifications including `infer` are not omitted. Input is limited to 8 MiB; syntax, UTF-8 and save errors also exit 1. Saving uses a temporary file and refuses replacement of links, directories and read-only files. Configuration files, import sorting and recursive formatting are unsupported.
+
+See the [example](../../examples/formatting/README.en.md) and [design](../design/formatting.en.md) for semantic and origin checks.
+
+
 ## Standard output during execution
 
 `run`, `run-ir`, `run-mir` (including `--ssa`), and `run-vm` deliver output during execution. Destination buffering still applies; this does not guarantee delivery of every byte before program termination. Unless the connection failed, the CLI flushes at both normal completion and language failure, without printing prior output again.
@@ -47,7 +64,7 @@ Write/flush failures produce diagnostics and exit code 1. If both language execu
 
 ## Dynamic string budget
 
-`observe`, `run`, `run-ir`, `run-mir`, `run-vm`, `emit-ir`, `emit-mir`, `emit-bytecode`, `emit-c`, `emit-llvm`, `emit-qbe`, `emit-wat`, `emit-asm`, and `emit-obj` accept `--string-heap-limit <bytes>`. The default is 67108864 (64 MiB). Values are decimal integers from 0 through 9223372036854775807; missing, duplicate, and negative values are rejected. `check` and `emit-sources` do not accept this option.
+`observe`, `run`, `run-ir`, `run-mir`, `run-vm`, `emit-ir`, `emit-mir`, `emit-bytecode`, `emit-c`, `emit-llvm`, `emit-qbe`, `emit-wat`, `emit-asm`, and `emit-obj` accept `--string-heap-limit <bytes>`. The default is 67108864 (64 MiB). Values are decimal integers from 0 through 9223372036854775807; missing, duplicate, and negative values are rejected. `fmt`, `check` and `emit-sources` do not accept this option.
 
 The budget counts live dynamic string payload, shared allocations once, and static strings never. Old and new values both count while reassignment keeps them alive. Compile-time evaluation has an independent 64 MiB budget unaffected by this setting. This is not a physical-memory cap. Generated artifacts fix the value; no API changes it during execution.
 
@@ -58,7 +75,7 @@ cerune emit-llvm examples/string_concat.ceru --target x86_64-unknown-linux-gnu -
 
 ## Dynamic array budget
 
-The same commands also accept `--array-heap-limit <bytes>`, with the same default and numeric syntax as the string option. The budgets are independent. Array accounting measures live element storage using logical widths, not total physical memory. `check` and `emit-sources` reject this option.
+The same commands also accept `--array-heap-limit <bytes>`, with the same default and numeric syntax as the string option. The budgets are independent. Array accounting measures live element storage using logical widths, not total physical memory. `fmt`, `check` and `emit-sources` reject this option.
 
 Dynamic arrays support `run` / `run-ir` / `run-mir` / `run-vm` and IR/MIR/bytecode/C/LLVM/QBE/WAT/ASM/native-object output. Each artifact records the array budget in use. LLVM and QBE require `--target`, including unused array types. Select a target for ASM and objects, then link externally. `emit-asm` retains its fixed Windows default.
 
@@ -69,7 +86,7 @@ cerune run-vm examples/dynamic_arrays/copy.ceru --array-heap-limit 1024
 
 ## Validation
 
-`<file>` is the entry file for every command. [Module imports](../design/modules.en.md) resolve from the declaring file's directory, and all dependencies are checked. Changing the CLI working directory does not change resolution. Existing backend `--target` requirements remain in effect.
+Except for `fmt`, `<file>` is the entry file for each command. [Module imports](../design/modules.en.md) resolve from the declaring file's directory, and all dependencies are checked. Changing the CLI working directory does not change resolution. Existing backend `--target` requirements remain in effect.
 
 ### Observing dependency sources
 

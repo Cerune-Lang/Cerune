@@ -75,7 +75,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 
 | Feature | Support |
 | --- | --- |
-| Variables | Explicit types or inference with `infer`; immutable by default, reassignable with `mut` |
+| Variables | Optional `let`, explicit types or inference with `infer`; immutable by default, reassignable with `mut` |
 | Operators | Arithmetic, remainder, comparisons, bit operations, logical negation, short-circuit evaluation; aggregate `==` / `!=` |
 | Numeric conversion | `convert<T>(x)` / `T(x)` preserve values; float-to-integer conversions offer explicit rounding and saturation |
 | Structs | Named types, field access and defaults, updates that create new values, nesting, value copies |
@@ -102,6 +102,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 
 | Command | Result / artifact | Use / target |
 | --- | --- | --- |
+| `fmt` | Source formatting | Keep comments; preserve/show/hide let; check or explicitly save |
 | `check` | Syntax and type checking | Validate Cerune source (`.ceru`) |
 | `run` / `run-ir` | Direct IR execution | Execute Cerune source (`.ceru`) from common IR |
 | `run-mir` | MIR execution | Compare lowered control flow; `--ssa` executes SSA directly |

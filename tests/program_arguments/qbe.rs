@@ -461,3 +461,13 @@ fn integer_parsing_qbe_matches_independent_expectations() {
         }
     }
 }
+
+#[test]
+fn optional_let_formatting_qbe_preserves_execution() {
+    for (p, expected) in super::formatting::cases() {
+        let Some((dir, exe)) = build(&artifact(&p, Limits::default()), None) else {
+            return;
+        };
+        super::formatting::check(&run(&dir, &exe, &[]), expected);
+    }
+}

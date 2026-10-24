@@ -38,6 +38,7 @@ Each document links to its Japanese counterpart.
 - [Language features and roadmap](design/language-roadmap.en.md)
 - [Responsibilities across projects](design/ecosystem.en.md)
 - [Arguments and integer parsing from real uses](design/dogfooding-inputs.en.md)
+- [Optional let and source formatting](design/formatting.en.md)
 - [Explicit integer parsing](design/integer-parsing.en.md)
 - [Rounding and saturation](design/rounding-conversions.en.md)
 - [Truncating conversions](design/truncating-conversions.en.md)

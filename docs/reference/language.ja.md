@@ -6,6 +6,8 @@
 
 ## 文法
 
+`let`は通常の束縛・for初期化・配列反復の各束縛で省略できます。`let mut total: infer = 0;`と`mut total: infer = 0;`は同じ意味です。`:`と型指定は必須で、定数・引数・フィールド・for更新節にはletを付けません。予約語ではなく、束縛位置で次が識別子または`mut`の場合だけ接頭辞として扱います。既存の`let: i64 = 1;`等の識別子は維持します。整形での保持・表示・非表示は[fmt](cli.ja.md#ソース整形)を参照してください。
+
 ```text
 program     := item* EOF
 
@@ -71,14 +73,14 @@ for_statement :=
     expression ";" binding_assignment_clause ")" block
 
 for_each_statement :=
-    "for" "(" (IDENT ":" type_spec ",")?
-    "mut"? IDENT ":" type_spec "in" expression ")" block
+    "for" "(" ("let"? IDENT ":" type_spec ",")?
+    "let"? "mut"? IDENT ":" type_spec "in" expression ")" block
 
 block       := "{" statement* "}"
 
-binding     := "mut"? IDENT ":" type_spec "=" expression ";"
+binding     := "let"? "mut"? IDENT ":" type_spec "=" expression ";"
 
-binding_clause := "mut"? IDENT ":" type_spec "=" expression
+binding_clause := "let"? "mut"? IDENT ":" type_spec "=" expression
 
 assignment  := assignment_target "=" expression ";"
 

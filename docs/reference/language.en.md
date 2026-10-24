@@ -6,6 +6,8 @@ This document defines the syntax and semantics of Cerune v0.1.
 
 ## Grammar
 
+`let` is optional on ordinary bindings, for initializers and each array-iteration binding. `let mut total: infer = 0;` and `mut total: infer = 0;` have the same meaning. The colon and type specification remain required; constants, parameters, fields and for updates do not accept the prefix. It is contextual: only an identifier or `mut` following it in a binding position makes it a prefix. Existing identifiers such as `let: i64 = 1;` remain valid. See [fmt](cli.en.md#source-formatting) for preserve/show/hide policies.
+
 ```text
 program     := item* EOF
 
@@ -71,14 +73,14 @@ for_statement :=
     expression ";" binding_assignment_clause ")" block
 
 for_each_statement :=
-    "for" "(" (IDENT ":" type_spec ",")?
-    "mut"? IDENT ":" type_spec "in" expression ")" block
+    "for" "(" ("let"? IDENT ":" type_spec ",")?
+    "let"? "mut"? IDENT ":" type_spec "in" expression ")" block
 
 block       := "{" statement* "}"
 
-binding     := "mut"? IDENT ":" type_spec "=" expression ";"
+binding     := "let"? "mut"? IDENT ":" type_spec "=" expression ";"
 
-binding_clause := "mut"? IDENT ":" type_spec "=" expression
+binding_clause := "let"? "mut"? IDENT ":" type_spec "=" expression
 
 assignment  := assignment_target "=" expression ";"
 

@@ -453,3 +453,7 @@ fn returned_strings_obey_the_heap_limit_and_release_between_calls() {
 }
 
 mod integer_parsing;
+
+// Share the required external-tool harnesses with source-formatting comparisons.
+#[path = "../formatting/routes.rs"]
+mod formatting;

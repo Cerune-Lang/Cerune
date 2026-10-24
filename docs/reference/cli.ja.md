@@ -17,6 +17,7 @@ IR・VM・Nativeの[build / release](../design/owned-routes.ja.md)と[Lean出力
 現在のCLIは次のコマンドを提供します。
 
 ```text
+cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]
 cerune check <file>
 cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>
 cerune emit-sources <file> [-o <sources.json>]
@@ -37,6 +38,22 @@ cerune run-vm <file> [--diagnostic-format runtime-v1]
 cerune --version
 ```
 
+## ソース整形
+
+`fmt`は指定した単一ファイルの構文だけを確認して整形します。import先の読込み・型検査・実行はしません。既定は標準出力で、ファイルを変更しません。
+
+| 選択 | 動作 |
+| --- | --- |
+| `--let preserve`（既定） | 元のlet有無を保持 |
+| `--let show` / `hide` | 束縛の接頭辞を追加／除去。識別子のletは保持 |
+| `--check` | 整形済みなら終了0、差分があれば終了1。stdout・ファイルは変更しない |
+| `--write` / `-o <file>` | 入力を置換／指定先へ保存。checkを含め相互に併用不可 |
+
+4空白、LF改行、コメント・リテラルの保持を基本とします。型指定の`infer`は省略しません。読込み上限は8 MiBで、構文・UTF-8・保存エラーも終了1です。保存は一時ファイルを経由し、リンク・ディレクトリ・読取り専用ファイルへの置換を拒否します。設定ファイル・import整列・再帰的整形は未対応です。
+
+[実行例](../../examples/formatting/README.md)と[設計](../design/formatting.ja.md)に意味と出自の検証を記載しています。
+
+
 ## 実行中の標準出力
 
 `run`・`run-ir`・`run-mir`（`--ssa`含む）・`run-vm`は、実行中に標準出力へ渡します。出力先のバッファリングは残り、プログラム終了前に全バイトの配送を保証するものではありません。接続が失敗していなければ、正常終了・言語停止の最後にflushします。先行出力を終了時に再表示しません。
@@ -47,7 +64,7 @@ cerune --version
 
 ## 動的文字列の予算
 
-`observe`・`run`・`run-ir`・`run-mir`・`run-vm`・`emit-ir`・`emit-mir`・`emit-bytecode`・`emit-c`・`emit-llvm`・`emit-qbe`・`emit-wat`・`emit-asm`・`emit-obj`では`--string-heap-limit <bytes>`を指定できます。既定は67108864（64 MiB）。値は0〜9223372036854775807の十進整数で、省略・重複・負数を拒否します。`check`・`emit-sources`では受け付けません。
+`observe`・`run`・`run-ir`・`run-mir`・`run-vm`・`emit-ir`・`emit-mir`・`emit-bytecode`・`emit-c`・`emit-llvm`・`emit-qbe`・`emit-wat`・`emit-asm`・`emit-obj`では`--string-heap-limit <bytes>`を指定できます。既定は67108864（64 MiB）。値は0〜9223372036854775807の十進整数で、省略・重複・負数を拒否します。`fmt`・`check`・`emit-sources`では受け付けません。
 
 生存する動的文字列の内容を数え、共有領域は一度だけ、静的文字列は数えません。再代入中に共存する旧値・新値は両方数えます。コンパイル時評価には独立した64 MiBがあり、この設定では変更しません。物理メモリ全体の上限ではありません。値は生成物に固定され、実行中に変更するAPIはありません。
 
@@ -58,7 +75,7 @@ cerune emit-llvm examples/string_concat.ceru --target x86_64-unknown-linux-gnu -
 
 ## 動的配列の予算
 
-同じコマンドで`--array-heap-limit <bytes>`も指定できます。既定値・数値形式は文字列予算と同じで、二つの予算は独立です。要素の計算幅に基づく生存領域を数え、物理メモリ全体の上限ではありません。`check`・`emit-sources`では受け付けません。
+同じコマンドで`--array-heap-limit <bytes>`も指定できます。既定値・数値形式は文字列予算と同じで、二つの予算は独立です。要素の計算幅に基づく生存領域を数え、物理メモリ全体の上限ではありません。`fmt`・`check`・`emit-sources`では受け付けません。
 
 動的配列は`run`／`run-ir`／`run-mir`／`run-vm`とIR・MIR・bytecode・C・LLVM・QBE・WAT・ASM・自前Object出力に対応しています。各成果物には使用した配列予算を記録します。LLVM・QBEは未使用の配列型も含め`--target`が必要です。ASM・Objectもターゲットを明示して生成し、外部ツールでリンクします。
 
@@ -69,7 +86,7 @@ cerune run-vm examples/dynamic_arrays/copy.ceru --array-heap-limit 1024
 
 ## 検証
 
-各コマンドの`<file>`は入口ファイルです。[モジュール](../design/modules.ja.md)のimportは宣言元のディレクトリから解決し、全依存を検査します。CLIを別ディレクトリから起動してもimport先は変わりません。対象の生成経路に必要な`--target`指定は従来通りです。
+`fmt`以外の各コマンドの`<file>`は入口ファイルです。[モジュール](../design/modules.ja.md)のimportは宣言元のディレクトリから解決し、全依存を検査します。CLIを別ディレクトリから起動してもimport先は変わりません。対象の生成経路に必要な`--target`指定は従来通りです。
 
 ### 依存ファイルの観測
 
