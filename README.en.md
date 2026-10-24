@@ -96,12 +96,13 @@ During development, replace `cerune` with `cargo run --quiet --`.
 
 - **Language:** Recursion, public string indexing, character counting and numeric parsing beyond i64, dynamic-array growth and borrowing, catching runtime stops, and generic `Option`/`Result`.
 - **I/O and modules:** File/network I/O APIs, module re-exports, and package management.
-- **Build and distribution:** Integrated `build`/`release` commands to link Cerune programs (ASM and object generation are supported).
+- **Build and distribution:** IR/VM `build` and per-route `release` (Native executable construction is supported).
 
 ## Execution and Output
 
 | Command | Result / artifact | Use / target |
 | --- | --- | --- |
+| `build native` | Executable and generation/link records | Explicit Windows/Linux target and Clang path |
 | `fmt` | Source formatting | Keep comments; preserve/show/hide let; check or explicitly save |
 | `check` | Syntax and type checking | Validate Cerune source (`.ceru`) |
 | `run` / `run-ir` | Direct IR execution | Execute Cerune source (`.ceru`) from common IR |

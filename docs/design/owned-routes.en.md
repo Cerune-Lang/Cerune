@@ -9,13 +9,13 @@ IR, VM, and Native are the three routes for which Cerune defines completed artif
 Neither operation selects an execution strategy or enables implicit optimization.
 
 Current commands include `run` / `run-ir`, `run-mir`, `run-vm`, `emit-*`, and [`observe` for observation bundles](observation-bundle.en.md).
-**Build / release, saved Image loading, and the Lean backend are not implemented.**
+**[Native build](native-build.en.md) is implemented. IR/VM build, per-route release, saved Image loading, and the Lean backend remain unimplemented.**
 Dashed edges below are plans; language-feature coverage is tracked separately.
 Dynamic arrays support IR/MIR/VM/C/LLVM/QBE/WAT, Windows/Linux ASM, and self-encoded objects. MIR generation and independent execution in the [stage design](ir-stages.en.md) are implemented; this does not establish another build/release distribution route.
 
 ## Issue #81 proposals versus current behavior
 
-The following organizes proposed responsibilities; it does not mark new CLI operations as implemented.
+The following records responsibilities and the implementation status of each operation.
 
 | Operation | Role and status |
 | --- | --- |
@@ -23,7 +23,8 @@ The following organizes proposed responsibilities; it does not mark new CLI oper
 | `emit-*`/`observe` | Implemented; generate/save representations. observe itself does not execute |
 | `show` | Unimplemented proposal: display Cerune semantics in a human-facing notation, distinct from generating actual Rust or other code |
 | `run --via` | Unimplemented proposal: additional backend plus external tools. Distinguish missing tools, generation/build/launch failures, timeout, and language stops |
-| `build`/`release` | Unimplemented; first define the completed-artifact and distribution contracts below |
+| `build native` | Implemented; explicit target/Clang produce an executable and generation/link records |
+| IR/VM `build`, per-route `release` | Unimplemented; define artifact/distribution contracts separately |
 
 Ownership of a route depends on Cerune managing conditions, artifacts, compatibility, failures, and execution, not on the absence of external tools. **Owned, implemented, available in this environment, buildable for the target, and executable here are separate states.** Route and artifact kind are also distinct.
 
@@ -49,10 +50,10 @@ flowchart LR
         IR --> MIR["Non-SSA MIR"]
         MIR --> RMIR["MIR Executor<br/>run-mir"]
         MIR --> X["x86-64 LIR<br/>selection, layout, calling convention"]
-        X --> A["Internal Assembly"]
-        A --> E["Cerune encoder"]
+        X --> A["Typed NativeProgram"]
+        A --> E["SASHIMI encoder"]
         E --> OBJ["COFF / ELF Object"]
-        OBJ -.-> NB["build native<br/>link → completed artifact (kind pending)"]
+        OBJ --> NB["build native<br/>Clang link → executable"]
         NB -.-> NP["release native → distribution"]
     end
     MIR --> OMIR["emit-mir"]
@@ -68,7 +69,7 @@ flowchart LR
 ```
 
 Execution and Image construction branch independently: building does not run the program.
-The current object encoder consumes internal Assembly. This diagram does not require an external assembler or claim an unimplemented machine IR exists.
+Assembly display and Object generation share the typed NativeProgram; neither Assembly text reparsing nor an external assembler is required.
 
 ## Operations and completed artifacts
 
@@ -76,15 +77,14 @@ The current object encoder consumes internal Assembly. This diagram does not req
 | --- | --- |
 | `emit-*` | Explicitly expose a representation at one stage for observation or downstream processing; it need not be a completed artifact |
 | Planned `build ir` / `build vm` | Construct a loadable Image with format/semantics versions, entry point, required definitions, resource contract, and origins |
-| Planned `build native` | Construct the Native route's completed artifact using an explicit target and tool selection |
+| `build native` | Explicit target/Clang produce an executable with generation/link records. [Contract](native-build.en.md) |
 | Planned `release` | Package that artifact, required dependencies, manifest, and compatibility conditions for distribution |
 
 Generation code may be shared. Simply renaming textual `.ceir` / `.cebc` output or an object is not build.
 Current observation text is not promised as a stable input format. Image extensions, containers, and compatibility versioning remain loader design decisions.
 
 IR and VM artifacts need compatible runtimes. Bundling a runtime versus requiring one from the environment must be an explicit distribution choice.
-An **executable is proposed** as the first Native completed artifact; linking would then be mandatory.
-Libraries would be a distinct artifact kind. That choice and the external linker contract remain open.
+The initial Native completed artifact is an **executable**, linked by the explicit Clang driver and requiring the target system runtime. Library artifacts, alternate linkers, and a custom linker are outside this change.
 
 ## External tools
 
@@ -121,7 +121,7 @@ The shared frontend, IR, and runtime semantics must not depend on individual opt
 Emitters depend on shared contracts; the CLI composes available routes. Do not prematurely freeze crate splitting or a plugin ABI.
 
 1. Record responsibilities and open questions here; begin Lean with a separate verification experiment.
-2. Decide Native artifact kind, linker selection, runtime dependencies, and build failure contracts; Native build can then be implemented independently.
+2. Native build is implemented. Next, separately design and verify Native release contents, execution requirements, and preserved origins.
 3. Design and implement IR/Bytecode Image formats, verifiers, and loaders.
 4. Implement IR/VM build and compare saved/reloaded execution. Specify release after artifacts stabilize, also clarifying its relationship to optimization selection and observation design. Implemented optimization passes do not gate build.
 5. Separate optional emitters at boundaries justified by actual use.
@@ -133,5 +133,5 @@ Dynamic arrays are supported by current compiled routes. Classification changes 
 
 ## Open decisions
 
-Before implementation, settle the initial Native artifact kind, linker configuration, runtime packaging, Image formats and compatibility, default build route, and detailed CLI syntax.
+Native build now specifies an executable, explicit Clang, and target system runtime requirements. Release packaging and IR/VM Image formats, compatibility, and CLI details remain separate decisions.
 Names such as `build ir` describe planned operations, not existing commands.

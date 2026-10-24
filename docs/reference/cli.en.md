@@ -4,7 +4,7 @@
 
 This document defines the command-line interface of Cerune v0.1.
 
-IR/VM/Native [build / release](../design/owned-routes.en.md) and [Lean output](../design/lean-verification.en.md) are at the design/experiment stage and are not current CLI commands.
+[Native build](../design/native-build.en.md) is implemented. IR/VM [build and per-route release](../design/owned-routes.en.md), and [Lean output](../design/lean-verification.en.md), remain at the design/experiment stage.
 
 `emit-lir` displays Native LIR with an explicit target and optional `--ssa`. See [LIR observation and validation](../design/lir-observation.en.md). `run-lir` is deferred; independent execution covers HIR, MIR, SSA, and Bytecode.
 
@@ -18,6 +18,7 @@ The current CLI provides the following commands:
 
 ```text
 cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]
+cerune build native <file> --target <triple> --linker <clang-path> -o <new-directory> [--ssa] [--include-sources]
 cerune check <file>
 cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>
 cerune emit-sources <file> [-o <sources.json>]
@@ -37,6 +38,14 @@ cerune run-mir <file> [--diagnostic-format runtime-v1]
 cerune run-vm <file> [--diagnostic-format runtime-v1]
 cerune --version
 ```
+
+## Native build
+
+`build native` links a self-generated Object through an explicitly selected Clang driver. The output directory contains `program` (Linux) or `program.exe` (Windows), unoptimized HIR/MIR, selected LIR/instructions/Object, origins and link logs. It does not run the result.
+
+The route, `--target`, `--linker` and `-o` are required. Use an actual driver path; no PATH search or implicit host target. Reject existing output and require its parent directory. `--ssa` retains baseline MIR; `--include-sources` adds exact source contents. `--link-timeout-seconds` is 1–3600 (default 60) for each tool phase. The four existing heap/argument limits are supported; program arguments after `--` are not.
+
+A failed link retains records with failed status. Generation failure creates no output directory. A successful build is not proof of executability on the host or portability to another OS/runtime version. [Contract](../design/native-build.en.md) · [Example](../../examples/build_native/README.en.md).
 
 ## Source formatting
 
@@ -64,7 +73,7 @@ Write/flush failures produce diagnostics and exit code 1. If both language execu
 
 ## Dynamic string budget
 
-`observe`, `run`, `run-ir`, `run-mir`, `run-vm`, `emit-ir`, `emit-mir`, `emit-bytecode`, `emit-c`, `emit-llvm`, `emit-qbe`, `emit-wat`, `emit-asm`, and `emit-obj` accept `--string-heap-limit <bytes>`. The default is 67108864 (64 MiB). Values are decimal integers from 0 through 9223372036854775807; missing, duplicate, and negative values are rejected. `fmt`, `check` and `emit-sources` do not accept this option.
+`observe`, `run`, `run-ir`, `run-mir`, `run-vm`, `emit-ir`, `emit-mir`, `emit-bytecode`, `emit-c`, `emit-llvm`, `emit-qbe`, `emit-wat`, `emit-asm`, `emit-obj`, and `build native` accept `--string-heap-limit <bytes>`. The default is 67108864 (64 MiB). Values are decimal integers from 0 through 9223372036854775807; missing, duplicate, and negative values are rejected. `fmt`, `check` and `emit-sources` do not accept this option.
 
 The budget counts live dynamic string payload, shared allocations once, and static strings never. Old and new values both count while reassignment keeps them alive. Compile-time evaluation has an independent 64 MiB budget unaffected by this setting. This is not a physical-memory cap. Generated artifacts fix the value; no API changes it during execution.
 

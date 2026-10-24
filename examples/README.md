@@ -10,6 +10,7 @@
 | [host_calls](host_calls/README.md) | 外部ホスト呼出しの比較にも使う小さな数値関数と、通常のCerune実行例 |
 | [dynamic_arrays](dynamic_arrays/README.md) | 動的配列の作成・範囲コピー・入れ子。IR・MIR・VM・C・LLVM・QBE・WAT・ASM・自前Objectで実行 |
 | [arguments](arguments/README.md) | プログラム引数・空文字・UTF-8バイト数・seed指定。全既存経路対応 |
+| [build_native](build_native/README.md) | Native実行ファイルのbuild・引数付き実行・リンク記録の観測 |
 | [formatting](formatting/README.md) | optional let・infer省略・整形・letの表示切替と実行結果の比較 |
 | [integer_parsing](integer_parsing/README.md) | 明示的なi64読取り・書式不正・範囲外 |
 | [stdin](stdin/README.md) | 実stdinの行・空行・EOF、promptのflush、UTF-8バイト数。全経路で比較 |

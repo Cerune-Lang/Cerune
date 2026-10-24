@@ -32,7 +32,7 @@ pub fn parse(
     if !executable
         && !matches!(
             command,
-            "emit-llvm" | "emit-qbe" | "emit-wat" | "emit-lir" | "emit-asm" | "emit-obj"
+            "emit-llvm" | "emit-qbe" | "emit-wat" | "emit-lir" | "emit-asm" | "emit-obj" | "build"
         )
     {
         return Ok((compiler, Arguments::unconfigured(), Limits::default()));

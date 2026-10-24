@@ -4,7 +4,7 @@
 
 この文書では、Cerune v0.1のコマンドラインインターフェースを定義します。
 
-IR・VM・Nativeの[build / release](../design/owned-routes.ja.md)と[Lean出力](../design/lean-verification.ja.md)は設計・検証段階です。現行CLIには追加されていません。
+[Native build](../design/native-build.ja.md)は実装済みです。IR/VMの[buildと各経路のrelease](../design/owned-routes.ja.md)、[Lean出力](../design/lean-verification.ja.md)は設計・検証段階です。
 
 `emit-lir`はNative生成のLIRを表示します。targetを明示し、`--ssa`でSSA経由も選べます。[LIRの観測・検証](../design/lir-observation.ja.md)を参照してください。`run-lir`は保留で、独立実行はHIR・MIR・SSA・Bytecodeです。
 
@@ -18,6 +18,7 @@ IR・VM・Nativeの[build / release](../design/owned-routes.ja.md)と[Lean出力
 
 ```text
 cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]
+cerune build native <file> --target <triple> --linker <clang-path> -o <new-directory> [--ssa] [--include-sources]
 cerune check <file>
 cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>
 cerune emit-sources <file> [-o <sources.json>]
@@ -37,6 +38,14 @@ cerune run-mir <file> [--diagnostic-format runtime-v1]
 cerune run-vm <file> [--diagnostic-format runtime-v1]
 cerune --version
 ```
+
+## Native build
+
+`build native`は自前Objectを明示したClang driverでリンクします。出力ディレクトリには`program`（Linux）または`program.exe`（Windows）、非最適化HIR/MIR、選択したLIR・命令・Object、出自とリンク記録を保存します。結果は実行しません。
+
+経路・`--target`・`--linker`・`-o`は必須です。driverの実ファイルのパスを指定し、PATH探索・暗黙のhost targetは使いません。既存出力を拒否し、親ディレクトリは事前に用意します。`--ssa`でも基準MIRを保持し、`--include-sources`で本文を追加できます。`--link-timeout-seconds`は各tool段階の上限1〜3600秒（既定60秒）です。既存のheap・argument上限4オプションに対応し、`--`以降のプログラム引数は受け付けません。
+
+リンク失敗時はfailed状態と記録を残します。生成失敗時は出力先を作りません。build成功はホスト上の実行可否や別OS/runtime版への可搬性を保証しません。[契約](../design/native-build.ja.md) · [実行例](../../examples/build_native/README.md)。
 
 ## ソース整形
 
@@ -64,7 +73,7 @@ cerune --version
 
 ## 動的文字列の予算
 
-`observe`・`run`・`run-ir`・`run-mir`・`run-vm`・`emit-ir`・`emit-mir`・`emit-bytecode`・`emit-c`・`emit-llvm`・`emit-qbe`・`emit-wat`・`emit-asm`・`emit-obj`では`--string-heap-limit <bytes>`を指定できます。既定は67108864（64 MiB）。値は0〜9223372036854775807の十進整数で、省略・重複・負数を拒否します。`fmt`・`check`・`emit-sources`では受け付けません。
+`observe`・`run`・`run-ir`・`run-mir`・`run-vm`・`emit-ir`・`emit-mir`・`emit-bytecode`・`emit-c`・`emit-llvm`・`emit-qbe`・`emit-wat`・`emit-asm`・`emit-obj`・`build native`では`--string-heap-limit <bytes>`を指定できます。既定は67108864（64 MiB）。値は0〜9223372036854775807の十進整数で、省略・重複・負数を拒否します。`fmt`・`check`・`emit-sources`では受け付けません。
 
 生存する動的文字列の内容を数え、共有領域は一度だけ、静的文字列は数えません。再代入中に共存する旧値・新値は両方数えます。コンパイル時評価には独立した64 MiBがあり、この設定では変更しません。物理メモリ全体の上限ではありません。値は生成物に固定され、実行中に変更するAPIはありません。
 

@@ -9,6 +9,7 @@ Normal examples are the `.ceru` files in this directory.
 | This directory | Standalone programs; included in the batch runner |
 | [host_calls](host_calls/README.en.md) | Small numeric functions also used for host-call comparisons, with an ordinary Cerune execution example |
 | [dynamic_arrays](dynamic_arrays/README.en.md) | Dynamic array copies, ranges, nesting; IR/MIR/VM/C/LLVM/QBE/WAT/ASM/native-object execution |
+| [build_native](build_native/README.en.md) | Build an executable with an explicit target/Clang; arguments, array copies, and generation records |
 | [arguments](arguments/README.en.md) | Program arguments, empty values, UTF-8 bytes and seed selection; all existing routes |
 | [formatting](formatting/README.en.md) | Optional let, infer omission, formatting, prefix policies and execution comparisons |
 | [integer_parsing](integer_parsing/README.en.md) | Explicit i64 parsing, invalid syntax and range errors |

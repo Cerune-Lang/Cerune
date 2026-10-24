@@ -9,13 +9,13 @@ Ceruneが完成成果物と実行契約を定義する経路はIR・VM・Native�
 実行方式や暗黙の最適化を選ぶ操作ではありません。
 
 現行実装には`run`／`run-ir`、`run-mir`、`run-vm`、各`emit-*`と、[観測bundleを保存する`observe`](observation-bundle.ja.md)があります。
-**build / release、Imageの保存・読み込み、Lean backendは未実装です。**
+**[Native build](native-build.ja.md)は実装済みです。IR/VMのbuild、各経路のrelease、Imageの保存・読み込み、Lean backendは未実装です。**
 以下の図の破線は計画を示します。言語機能の対応状況は経路ごとに別途管理します。
 動的配列はIR・MIR・VM・C・LLVM・QBE・WAT・Windows/Linux ASM・自前Objectで対応済みです。[IR段階設計](ir-stages.ja.md)のMIR生成・独立実行は実装済みです。これは新しいbuild／releaseの配布routeを確定するものではありません。
 
 ## Issue #81の提案と現在の区別
 
-以下は責務を整理する設計案です。新しいCLIを実装済みとするものではありません。
+以下は責務と各操作の実装状況です。
 
 | 操作 | 役割・状態 |
 | --- | --- |
@@ -23,7 +23,8 @@ Ceruneが完成成果物と実行契約を定義する経路はIR・VM・Native�
 | `emit-*`／`observe` | 実装済み。表現を生成・保存。observe自身は実行しない |
 | `show` | 未実装の案。Ceruneの意味を人間向けの別表記で表示。実際のRust等の生成とは別 |
 | `run --via` | 未実装の案。追加backendと外部ツールで実行。ツール欠落・生成失敗・build失敗・起動失敗・timeout・言語上の停止を区別 |
-| `build`／`release` | 未実装。下記の完成成果物・配布契約を設計してから追加 |
+| `build native` | 実装済み。明示target・Clangで実行ファイルと生成・リンク記録を構築 |
+| IR/VMの`build`・各経路の`release` | 未実装。完成成果物・配布契約を別途設計 |
 
 ownedかどうかは外部ツールの有無ではなく、成立条件・成果物・互換性・失敗・実行をCeruneがどこまで管理するかで判断します。**owned・実装済み・この環境で利用可能・指定targetへbuild可能・ここで実行可能は別の状態です。** routeと成果物種別も分けます。
 
@@ -49,10 +50,10 @@ flowchart LR
         IR --> MIR["非SSA MIR"]
         MIR --> RMIR["MIR Executor<br/>run-mir"]
         MIR --> X["x86-64 LIR<br/>命令選択・配置・呼出規約"]
-        X --> A["内部Assembly"]
-        A --> E["自前エンコーダ"]
+        X --> A["型付きNativeProgram"]
+        A --> E["SASHIMIエンコーダ"]
         E --> OBJ["COFF / ELF Object"]
-        OBJ -.-> NB["build native<br/>リンク → 完成成果物（形式は要確定）"]
+        OBJ --> NB["build native<br/>Clangリンク → 実行ファイル"]
         NB -.-> NP["release native → 配布構成"]
     end
     MIR --> OMIR["emit-mir"]
@@ -68,8 +69,7 @@ flowchart LR
 ```
 
 実行とImage構築は分岐します。buildのためにプログラムを実行しません。
-現在の自前Object生成は内部Assemblyをエンコーダへ渡します。
-図は外部アセンブラを必須にしたり、未実装の機械語IRを実装済みと示したりしません。
+型付きNativeProgramからAssembly表示とObjectを生成します。Assemblyテキストを再解析せず、外部アセンブラも必須にしません。
 
 ## 操作と完成成果物
 
@@ -77,7 +77,7 @@ flowchart LR
 | --- | --- |
 | `emit-*` | 特定段階の表現を明示的に取り出す。観測・後続処理の入力であり、完成品とは限らない |
 | `build ir` / `build vm`（計画） | 形式・意味の版、実行入口、必要な定義、資源契約、出自を持つ、load可能なImageを構築 |
-| `build native`（計画） | 明示ターゲットとツール選択に基づき、Native経路で使う完成成果物を構築 |
+| `build native` | 明示target・Clangで実行ファイルを構築し、生成過程とリンク記録を保存。[契約](native-build.ja.md) |
 | `release`（計画） | 対応する完成成果物、必要な依存物、manifest、互換条件を配布可能に構成 |
 
 生成処理の共有は可能です。ただし、テキスト`.ceir`／`.cebc`やObjectに別名を付けただけでbuildとはしません。
@@ -85,8 +85,7 @@ flowchart LR
 Imageの拡張子・コンテナ形式・互換性の版付けは、loader設計時に決定します。
 
 IR・VM成果物の実行には互換ランタイムが必要です。releaseにランタイムを同梱するか、利用環境へ要求するかは明示的な配布方式にします。
-Nativeの最初の完成成果物には**実行ファイルを提案**します。その場合、リンクは必須です。
-ライブラリを扱う場合は別の成果物種別を明示します。この選択と外部リンカの呼出契約は未確定です。
+Native初版の完成成果物は**実行ファイル**です。明示したClang driverでリンクし、対象OSのシステムruntimeを要求します。ライブラリ成果物、別リンカ、自作リンカは今回含みません。
 
 ## 外部ツールとの境界
 
@@ -123,7 +122,7 @@ manifestには入力・Cerune・形式の識別情報、経路、ターゲット
 emitterが共通契約を参照し、CLIが利用可能な経路を組み合わせます。現行crateの分割方法やplugin ABIを先行して固定しません。
 
 1. 本文書で責務と未確定事項を整理する。Leanは別の検証実験から開始する。
-2. Nativeの完成成果物・リンカ指定・runtime依存と、build失敗の契約を決める。これが決まればNativeのbuildを先に実装できる。
+2. Native buildを実装済み。次にNative releaseの配布構成・実行条件・出自の保持を別変更で設計・検証する。
 3. IR・BytecodeのImage形式、検証器、loaderを設計・実装する。
 4. IR・VMのbuildを実装し、保存・再読込後の実行を比較する。releaseの詳細は完成成果物の安定後に、最適化の選択・観測設計との関係も整理して決める。最適化pass実装の完了をbuildの条件にはしない。
 5. 必要な境界からoptional emitterを分離する。
@@ -135,5 +134,5 @@ emitterが共通契約を参照し、CLIが利用可能な経路を組み合わ�
 
 ## 未確定事項
 
-Nativeの最初の成果物種別、リンカ設定、runtimeの同梱方式、Image形式と互換方針、buildの既定経路とCLI構文の詳細は実装前に確定します。
+Native buildは実行ファイル・明示Clang・対象システムruntime要求で確定しました。releaseの配布方式、IR/VM Image形式・互換方針・CLIの詳細は別途確定します。
 `build ir`等は操作を説明する仮の表記で、現行CLIへ追加済みのコマンドではありません。

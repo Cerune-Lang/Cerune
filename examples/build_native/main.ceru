@@ -1,0 +1,25 @@
+import "std:env" as env;
+import "std:num" as num;
+
+fn number() -> num::ParseI64 {
+    match env::arg(0) {
+        env::Argument::Value { text: text } => { return num::parse_i64(text); },
+        env::Argument::Missing {} => { return num::ParseI64::InvalidFormat {}; },
+    }
+}
+fn twice(value: i64) -> i64 { return value * 2; }
+let mut values: = array_copy([2u8, 4u8]);
+let saved: = values;
+values[0] = 9u8;
+print(values);
+print(saved);
+if env::arg_count() == 0 {
+    print("pass an integer argument");
+} else {
+    let parsed: = number();
+    match parsed {
+        num::ParseI64::Value { value: value } => { print(twice(value)); },
+        num::ParseI64::InvalidFormat {} => { print("invalid integer"); },
+        num::ParseI64::OutOfRange {} => { print("outside i64 range"); },
+    }
+}

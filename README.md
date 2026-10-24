@@ -96,12 +96,13 @@ cerune emit-c examples/floating_point.ceru -o floating_point.c
 
 - **言語機能：** 再帰、文字列の公開添字参照・文字数取得・i64以外の数値読取り、動的配列の伸長・借用、実行時停止の捕捉、汎用`Option`/`Result`。
 - **入出力・モジュール：** ファイル・ネットワークI/O、モジュールの再エクスポート、パッケージ管理。
-- **ビルド・配布：** Ceruneプログラムをリンクする統合`build`/`release`コマンド（ASM・Objectの生成には対応）。
+- **ビルド・配布：** IR/VMの`build`、各経路の`release`（Nativeの実行ファイル構築には対応）。
 
 ## 実行と出力
 
 | コマンド | 結果・成果物 | 用途・対象 |
 | --- | --- | --- |
+| `build native` | 実行ファイル・生成過程・リンク記録 | Windows/Linux targetとClangパスを明示 |
 | `fmt` | ソース整形 | コメント保持、letの保持・表示・非表示、`--check`・明示保存 |
 | `check` | 構文・型検査 | Ceruneソース（`.ceru`）を検証 |
 | `run` / `run-ir` | IR直接実行 | Ceruneソース（`.ceru`）を共通IRから実行 |
