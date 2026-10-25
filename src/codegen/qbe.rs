@@ -1,5 +1,6 @@
 mod arguments;
 mod array;
+mod call;
 mod conversion;
 mod emit;
 mod failure;
@@ -71,6 +72,22 @@ pub fn emit_qbe_with_argument_limits(
     target: Option<Target>,
     limits: crate::runtime::arguments::Limits,
 ) -> Result<String, Diagnostic> {
+    emit_configured(program, target, limits, None)
+}
+/// ターゲットとソース関数の深さ上限を明示します。物理stackの安全範囲は保証しません。
+pub fn emit_qbe_with_call_limit(
+    program: &cerune_ir::Program,
+    target: Target,
+    limit: std::num::NonZeroU32,
+) -> Result<String, Diagnostic> {
+    emit_configured(program, Some(target), Default::default(), Some(limit))
+}
+fn emit_configured(
+    program: &cerune_ir::Program,
+    target: Option<Target>,
+    limits: crate::runtime::arguments::Limits,
+    call_limit: Option<std::num::NonZeroU32>,
+) -> Result<String, Diagnostic> {
     if let Some(span) = program.first_argument_span() {
         if target.is_none() {
             return Err(Diagnostic::new(
@@ -127,6 +144,7 @@ pub fn emit_qbe_with_argument_limits(
             span,
         ));
     }
+    module.call_limit = call_limit;
     module.target = target;
     module.argument_limits = limits;
 

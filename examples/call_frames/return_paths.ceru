@@ -1,0 +1,13 @@
+fn leaf(value: f64) -> f64 {
+    print("leaf");
+    return value + 0.5;
+}
+fn choose(value: f64, early: bool) -> f64 {
+    if early {
+        return leaf(value);
+    }
+    return leaf(value) + 1.0;
+}
+print(choose(1.0, true) == 1.5);
+print(choose(2.0, false) == 3.5);
+print("done");

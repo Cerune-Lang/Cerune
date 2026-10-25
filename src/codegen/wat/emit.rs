@@ -72,6 +72,7 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
         ));
     }
     super::frame::support(module, &mut output);
+    super::call::support(module, &mut output);
     if module.uses_write {
         super::output::support(module, &mut output);
     }
@@ -128,6 +129,7 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
         }
 
         if let Some(function_id) = module.explicit_main {
+            super::call::enter(module, function_id, None, "    ", &mut output);
             super::frame::allocate(
                 module.functions[function_id].frame_size,
                 None,
@@ -140,6 +142,7 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
                 function_name(&module.functions[function_id])
             )
             .unwrap();
+            super::call::leave(module, function_id, "    ", &mut output);
         }
 
         if module.entry_frame_size > 0 {
@@ -565,6 +568,7 @@ fn emit_instruction(
             function_id,
             origin,
         } => {
+            super::call::enter(module, *function_id, Some(*origin), &prefix, output);
             super::frame::allocate(
                 module.functions[*function_id].frame_size,
                 Some(*origin),
@@ -577,6 +581,7 @@ fn emit_instruction(
                 function_name(&module.functions[*function_id])
             )
             .unwrap();
+            super::call::leave(module, *function_id, &prefix, output);
         }
 
         Instruction::Return => {

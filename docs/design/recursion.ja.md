@@ -2,7 +2,7 @@
 
 [English](recursion.en.md)
 
-状態：WATの呼出し領域分離、HIR・MIR・SSA・VMの明示上限API・深さ超過診断、4実行器の明示frame、Cの明示上限API・深さ診断を実装。CLI設定・残る生成経路の共通上限・再帰ソースの受付は未実装です。
+状態：WATの呼出し領域分離、HIR・MIR・SSA・VMの明示上限API・深さ超過診断、4実行器の明示frame、C・LLVM・QBE・WAT・Nativeの明示上限API・深さ診断を実装。CLI設定・共通の設定範囲・再帰ソースの受付は未実装です。
 
 ## 調査結果と責務
 
@@ -13,11 +13,11 @@
 | frontend | 直接・間接再帰を拒否 | 実行経路の準備後に禁止を解除。再帰的な値型の禁止とは区別 |
 | generic展開 | 同じtemplateへの再入を拒否 | 同じ具体型への呼出しは既存の具体化を再利用。具体型が増え続ける展開の上限は維持 |
 | HIR | 元HIRへの参照と明示frameで実行。ソース関数・生成補助関数の呼出しをホスト再帰へ積まない | 他経路との一致、CLI設定・共通範囲の確定 |
-| VM | 元bytecodeの命令位置・operand stack・slotを明示frameで保持 | 生成経路との一致、資源検証とCLI設定 |
-| MIR / SSA | 元CFGのblock・命令位置・局所値／SSA値／slotを明示frameで保持 | 生成経路・設定範囲・CLIを揃えてから再帰ソースを許可 |
-| C | Rust APIで明示上限とcall-v1を生成。localは実行環境のstack上に配置 | 他の生成経路・設定範囲・CLIを揃える |
-| LLVM / QBE / Native | 関数のlocalは実行環境のstack上に配置 | 上限・call stack・出自を保持し、集約値と所有を全経路で比較 |
-| WAT | 今回、集約値と一時領域を呼出しごとのprivate memoryへ移動 | 共通上限・call stack診断を追加 |
+| VM | 元bytecodeの命令位置・operand stack・slotを明示frameで保持 | 資源検証とCLI設定 |
+| MIR / SSA | 元CFGのblock・命令位置・局所値／SSA値／slotを明示frameで保持 | 設定範囲・CLIを揃えてから再帰ソースを許可 |
+| C | Rust APIで明示上限とcall-v1を生成。localは実行環境のstack上に配置 | 物理資源の条件・設定範囲・CLIを整える |
+| LLVM / QBE / Native | 明示上限とcall-v1を生成。localは実行環境のstack上に配置 | 物理資源の条件と設定範囲・CLIを整える |
+| WAT | 集約値・一時領域と呼出し履歴をprivate memoryへ保持。明示上限とcall-v1に対応 | 物理資源の条件と設定範囲・CLIを整える |
 
 ## 合意した停止条件
 
@@ -46,7 +46,7 @@ HIR・MIR・SSA・VMにRust API `run_with_call_limit(program, NonZeroU32)`を追
 
 この段階の上限は物理stack・memory消費を保証しません。生成補助関数も資源を消費します。既存のheap確保失敗は別のruntime診断のままですが、Rust実行器のOSスタック枯渇・汎用メモリ不足を共通診断として捕捉する処理は未実装です。大きな上限を安全な設定とみなしてはいけません。実測に基づく範囲の確定と資源不足への対処は再帰解禁前に行います。
 
-深さ超過以外のすべての失敗にcall stackを添付する機能、残る生成経路の同一停止条件とCLI設定も後続です。MIR/SSAの内部再入は明示frameで対応済みです。フロントエンドの再帰禁止は維持します。
+深さ超過以外のすべての失敗にcall stackを添付する機能、共通の設定範囲とCLI設定も後続です。MIR/SSAの内部再入は明示frameで対応済みです。フロントエンドの再帰禁止は維持します。
 
 `cargo test --test ir_executor call_depth` は4実行器の上限前後、引数の左からの評価、短絡、main、generic、標準モジュール、生成補助関数の除外、通常／早期return、出自、先行出力、履歴順を比較します。heap上限の失敗が深さ超過へ変わらないことも検証します。[depthの実行例](../../examples/call_frames/depth.ceru)を含みます。
 
@@ -54,7 +54,7 @@ HIR・MIR・SSA・VMにRust API `run_with_call_limit(program, NonZeroU32)`を追
 
 [呼出し深さの実験](../../experiments/call_depth/README.md)でWindows/Linuxのdebug・releaseを比較しました。変更前のcommit 143aae0では、要求2 MiB・深さ32の構造体受渡しでdebugの4実行器すべてが深さ診断より先にstack枯渇で停止しました。これは有限例の実測であり、安全な設定範囲の証明ではありません。
 
-HIR・MIR・SSA・VMの明示frame化を実装しました。Cの明示上限と資源条件の有限例を先行検証しました。次はLLVM・QBE・WAT・Nativeを揃え、設定範囲とCLIを整えます。
+HIR・MIR・SSA・VMの明示frame化を実装しました。Cの明示上限と資源条件の有限例を先行検証しました。生成経路にも同じ停止条件を実装しました。次は物理資源の条件・設定範囲とCLIを整えます。
 
 ## 実装済み：HIRの明示frame
 
@@ -74,7 +74,7 @@ HIRの関数呼出し・文・式の進行を、Rustの再帰呼出しからル�
 
 Windows/Linuxのdebugで、整数・所有文字列と配列を含む構造体の深さ128を要求2 MiBのthread上で検証します。上限8・127は元callの出自付きで停止し、上限128と上限未指定では完走します。これは関数呼出しの構造改善を確認する有限例であり、全経路の既定値・安全範囲を決めるものではありません。
 
-[途中値の実行例](../../examples/call_frames/pending_values.ceru)と、4経路の評価順・ループ・添字検査比較、通常関数／生成補助関数の確保失敗注入を追加しました。テスト用IRに限って同じ関数への再入も作り、所有値を保持した親frameと100回実行後の領域解放を検証します。MIR・SSA・VMにも同じ検証を適用しています。再帰ソースの受付、共通上限のCLI設定、生成経路への適用は引き続き未対応です。
+[途中値の実行例](../../examples/call_frames/pending_values.ceru)と、4経路の評価順・ループ・添字検査比較、通常関数／生成補助関数の確保失敗注入を追加しました。テスト用IRに限って同じ関数への再入も作り、所有値を保持した親frameと100回実行後の領域解放を検証します。MIR・SSA・VMにも同じ検証を適用しています。再帰ソースの受付と共通上限のCLI設定は引き続き未対応です。生成経路の明示上限は後述します。
 
 ## 実装済み：MIR・SSA・VMの明示frame
 
@@ -108,7 +108,27 @@ Rust APIの `codegen::c::emit_c_with_call_limit(&program, NonZeroU32)` が、4�
 
 [生成Cの実験](../../experiments/call_depth/README.md)はターゲット・コンパイラ・stack量を明示します。整数と所有文字列・配列入り構造体の深さ32/128、上限N−1/N、O0/O2を検証し、プロセスの異常終了を深さ超過の成功に数えません。テストでは4実行器との診断全行、短絡・引数失敗の優先順、generic・標準モジュール、生成補助関数、所有値の100回実行とテスト用IRの直接／相互再入も比較します。
 
-このAPIは物理stackを制限しません。引数のコピー、callerの一時値、Cコンパイラの配置・最適化、生成補助関数も資源を消費します。OSによるstack枯渇をcall-v1へ変換せず、生成経路共通の安全範囲・既定値もまだ確定しません。次のLLVM・QBE・WAT・Nativeでも、意味上の深さ検査と物理資源の失敗を分けて検証します。
+このAPIは物理stackを制限しません。引数のコピー、callerの一時値、Cコンパイラの配置・最適化、生成補助関数も資源を消費します。OSによるstack枯渇をcall-v1へ変換せず、生成経路共通の安全範囲・既定値もまだ確定しません。LLVM・QBE・WAT・Nativeも、意味上の深さ検査と物理資源の失敗を分けて検証します。
+
+## 実装済み：生成経路で同じ停止条件
+
+深さを明示するRust APIは次のとおりです。通常のemit API・CLI・build/releaseは上限設定をまだ追加しません。Nativeは同じ上限付きLIRからASMと自前Objectを生成します。
+
+| 経路 | API | 履歴の保持 |
+| --- | --- | --- |
+| LLVM | `emit_llvm_with_call_limit(program, target, limit)` | 不変の呼出し位置を指す配列を必要時に拡張 |
+| QBE | `emit_qbe_with_call_limit(program, target, limit)` | 同上。`amd64_sysv` / `amd64_win`を明示 |
+| WAT | `emit_wat_with_call_limit(program, limit)` | 既存のprivate frame確保を使う双方向リスト。復帰時に返却して再利用 |
+| Native | `lower_mir_with_call_limit(program, target, limit)` → `emit_asm_from_lir` / `emit_object_from_lir` | 不変の位置を指す配列。型付き機械命令で検査・履歴を生成 |
+
+全経路で、引数の評価後・calleeへ入る前に上限を検査し、復帰後に深さを戻します。生成補助関数は数えません。戻り値や所有状態を壊さないよう、LLVM/QBEは既存の一時値、WATはoperand stack、Nativeは戻り値レジスタを保持します。深さ超過では同じcall-v1全行と先行出力を比較します。LLVM・QBE・Nativeは終了コード1、WATは診断後のunreachableで停止します。
+
+履歴は言語の文字列・配列の生存量とは別の処理系領域です。確保失敗は位置付きruntime-v1 allocation-failedで停止し、call-v1には変えません。WATはmemoryを公開せず、上限付き生成物だけが必要に応じて既存のwrite_error_byte importを要求します。失敗したinstanceの再開は保証しません。一般のOS stack枯渇・Wasmtime/ブラウザ等の物理call stack不足まで、この変更が共通診断へ変換するものではありません。
+
+`cargo test --test llvm_output --test qbe_output --test wat_output --test native_output call_depth`で4実行器と照合します。有限の32段、少数の関数を使う内部IRの128段再入、所有値、浮動小数点とstack引数、main/generic/標準モジュール、短絡、引数失敗、確保失敗を対象にします。NativeはASMと自前Objectを実行し、上限と関数分類はLIR表示にも残します。内部IRの再入テストはソースの再帰解禁ではありません。
+
+[実験用の生成コマンド](../../experiments/call_depth/README.md)から各表現を保存できます。残る作業は物理資源の条件・共通の設定範囲・既定値・CLIを決めることと、frontendの再帰対応です。
+
 
 ## 実装済み：WATの呼出し領域
 
@@ -133,7 +153,7 @@ Rust APIの `codegen::c::emit_c_with_call_limit(&program, NonZeroU32)` が、4�
 [call_framesの実行例](../../examples/call_frames/README.md)は現在の構文だけで入れ子呼出し・値更新・早期returnを試せます。HIR・MIR・SSA・VMとWATの出力を比較します。
 
 1. WAT領域の独立性を整える（実装済み）。
-2. 共通上限を全経路へ揃える。4実行器の明示APIと数え方は実装済み。物理stackの実測を受け、4実行器は明示frame管理へ移行済み。次に設定範囲・CLI・生成経路の診断を整える。
+2. 共通上限を全経路へ揃える。4実行器の明示APIと数え方は実装済み。物理stackの実測を受け、4実行器は明示frame管理へ移行済み。生成経路の明示上限・深さ診断も実装済み。次に物理資源の条件・設定範囲・CLIを整える。
 3. generic具体化の再利用とfrontendの禁止解除を行う。
 4. 直接／相互再帰、所有・解放、引数の評価順、上限前後と停止位置を全経路で比較し、再帰のexampleを追加する。
 

@@ -65,7 +65,7 @@ Linux等では先に同じshellで `ulimit -c 0` を実行し、意図的な異�
 2. frameの確保失敗を深さ超過と区別し、引数の評価順、所有の解放、NodeId/Span、早期returnを既存テストと比較する。MIR・SSA・VMにも適用済み。
 3. 生成経路の資源条件を検証し、共通の設定範囲・CLI・診断を整えてから再帰を解禁する。
 
-上の表とobservations.jsonは変更前のcommit 143aae0の測定記録です。後続の実装で4実行器は明示frameへ移行し、要求2 MiB・深さ128の成功／深さ上限と、frame確保失敗の診断をテストに追加しました。[現在の状態](../../docs/design/recursion.ja.md)を参照してください。次の対象は生成経路の資源条件・深さ診断です。IRの二重実装、観測APIによる実行制御、暗黙の末尾呼出し最適化は導入しません。
+上の表とobservations.jsonは変更前のcommit 143aae0の測定記録です。後続の実装で4実行器は明示frameへ移行し、要求2 MiB・深さ128の成功／深さ上限と、frame確保失敗の診断をテストに追加しました。[現在の状態](../../docs/design/recursion.ja.md)を参照してください。生成経路の明示上限・深さ診断も実装しました。次は物理資源の条件・共通範囲・CLI設定です。IRの二重実装、観測APIによる実行制御、暗黙の末尾呼出し最適化は導入しません。
 
 CIでは `node --test experiments/call_depth/probe.test.cjs` で判定器の誤成功を防ぎ、深さ4・要求16 MiBの浅い16ケースでfixture・4実行器・期待出力を照合します。
 
@@ -105,3 +105,26 @@ node experiments/call_depth/probe_c.cjs target/debug/examples/call_depth_emit_c 
 これは物理stackの最大消費量や、任意のプログラムの安全範囲の証明ではありません。大きな固定配列・別のcompiler/ABI・生成補助関数による消費は別途検証が必要です。Cの深さ上限と物理stack不足を別の事象として扱い、共通の既定値はまだ選びません。
 
 `cargo test --test c_output call_depth`は生成Cを4実行器と比較します。`node --test experiments/call_depth/probe_c.test.cjs`は、異常終了・余分な出力・欠落した履歴を誤成功にしないことを検証します。
+
+## 各生成経路を同じ上限で試す
+
+`call_depth_emit`は同じ完成HIRからLLVM・QBE・WATを生成し、NativeはMIR→LIR→型付きProgramからASM／Objectを生成します。LIR自体も保存できます。外部ツールは起動せず、既存ファイルは上書きしません。通常CLIへの上限設定追加は後続です。
+
+```sh
+cargo run --example call_depth_emit -- llvm x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.ll
+cargo run --example call_depth_emit -- qbe x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.ssa
+cargo run --example call_depth_emit -- wat wasm32 examples/call_frames/depth.ceru 2 target/depth.wat
+cargo run --example call_depth_emit -- lir x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.lir
+cargo run --example call_depth_emit -- asm x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.s
+cargo run --example call_depth_emit -- obj x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.obj
+```
+
+Linuxの生成物には`x86_64-unknown-linux-gnu`を指定します。LLVMはClang、QBEは指定targetのQBE→Clang、WATはwabt→Nodeの既存テストhost、ASM／ObjectはClangでリンクして実行します。上限2は[depth.stdout](../../examples/call_frames/depth.stdout)と一致し、上限1はcall-v1で停止します。[return_paths.ceru](../../examples/call_frames/return_paths.ceru)では早期／通常returnの浮動小数点結果も試せます。
+
+```sh
+cargo test --test llvm_output --test qbe_output --test wat_output --test native_output call_depth
+```
+
+検証ツールの指定には既存の`CERUNE_TEST_LLVM_CLANG`、`CERUNE_TEST_QBE`、`CERUNE_TEST_QBE_CLANG`、`CERUNE_TEST_ASM_CLANG`、`CERUNE_TEST_NODE`、`CERUNE_TEST_WAT2WASM_JS`を使います。明示したツールが使えない場合は失敗します。各試験の生成物は`target/call-depth-<経路>-<pid>-<番号>`に保持します。
+
+有限の32関数と、少数の関数を使う内部IRの128段再入を分けて検証します。後者は所有文字列を保ったまま、上限8・127・128の診断／完走を比較します。大量の関数を持つNativeの生成試験を常用CIへ重ねず、履歴の拡張・深い実行の検証は維持します。これらは通常のOS資源条件での意味の比較であり、物理stackの安全範囲を決定する実験とは区別します。

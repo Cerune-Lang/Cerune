@@ -2,7 +2,7 @@
 
 [日本語](recursion.ja.md)
 
-Status: WAT invocation storage, explicit depth-limit APIs/diagnostics for HIR, MIR, SSA, and VM, explicit frames in all four executors, and explicit C limits/diagnostics are implemented. CLI configuration, common limits in the remaining generated routes, and recursive source programs remain pending.
+Status: WAT invocation storage, explicit depth-limit APIs/diagnostics for HIR, MIR, SSA, and VM, explicit frames in all four executors, and explicit C/LLVM/QBE/WAT/Native limits/diagnostics are implemented. CLI configuration, common supported ranges, and recursive source programs remain pending.
 
 ## Findings and responsibilities
 
@@ -13,11 +13,11 @@ Use existing Cerune IR functions, calls, and returns. No recursion-specific IR o
 | Frontend | Rejects direct and indirect recursion | Lift the restriction after execution routes are ready; keep recursive value-type validation separate |
 | Generic expansion | Rejects re-entry into the same template | Reuse an existing specialization for identical concrete arguments; retain bounds on expansion that keeps creating new types |
 | HIR | Execute references into original HIR with explicit frames; source and generated calls do not add host-recursive frames | Cross-route agreement, CLI configuration, and common supported ranges |
-| VM | Explicit frames retain original bytecode PCs, operand stacks, and slots | Generated-route agreement, resource validation, and CLI configuration |
-| MIR / SSA | Explicit frames retain original CFG blocks/instruction positions and locals/SSA values/slots | Align generated routes, supported ranges, and CLI before enabling recursive source |
-| C | Rust API emits explicit limits and call-v1; locals use the execution environment's stack | Align remaining generated routes, supported ranges, and CLI |
-| LLVM / QBE / Native | Locals use the execution environment's stack | Retain limits, call stacks, and origins; compare aggregates and ownership across routes |
-| WAT | This change moves aggregates and temporaries to private per-invocation memory | Add common limits and call-stack diagnostics |
+| VM | Explicit frames retain original bytecode PCs, operand stacks, and slots | Resource validation and CLI configuration |
+| MIR / SSA | Explicit frames retain original CFG blocks/instruction positions and locals/SSA values/slots | Align supported ranges and CLI before enabling recursive source |
+| C | Rust API emits explicit limits and call-v1; locals use the execution environment's stack | Physical resource conditions, supported ranges, and CLI |
+| LLVM / QBE / Native | Explicit limits and call-v1; locals use the execution environment's stack | Physical resource conditions, supported ranges, and CLI |
+| WAT | Private invocation storage and call history; explicit limits and call-v1 | Physical resource conditions, supported ranges, and CLI |
 
 ## Agreed stopping condition
 
@@ -46,7 +46,7 @@ HIR, MIR, SSA, and VM expose the Rust API `run_with_call_limit(program, NonZeroU
 
 This increment does not bound physical stack or memory use. Generated helpers still consume resources. Existing heap allocation failures remain separate runtime diagnostics, but capturing Rust executor OS stack exhaustion or general memory exhaustion as common diagnostics is not implemented. Large limits are not guaranteed safe. Measure supported ranges and address resource exhaustion before enabling recursion.
 
-Attaching stacks to every other failure, matching stopping conditions in the remaining generated routes, and CLI configuration remain pending. Internal MIR/SSA re-entry is supported with explicit frames. Frontend recursion rejection stays in place.
+Attaching stacks to every other failure, common supported ranges, and CLI configuration remain pending. Internal MIR/SSA re-entry is supported with explicit frames. Frontend recursion rejection stays in place.
 
 `cargo test --test ir_executor call_depth` compares limit boundaries, left-to-right arguments, short circuiting, main, generics, standard modules, helper exclusion, normal/early returns, origins, prior output, and stack order across four executors. It also checks that heap-limit failures remain distinct from depth failures, and includes the [depth example](../../examples/call_frames/depth.ceru).
 
@@ -54,7 +54,7 @@ Attaching stacks to every other failure, matching stopping conditions in the rem
 
 The [call-depth experiment](../../experiments/call_depth/README.en.md) compares Windows/Linux debug and release builds. Before this change, commit 143aae0 exhausted the stack in all four debug executors for aggregate calls at depth 32 with a requested 2 MiB, before producing depth diagnostics. These finite measurements do not prove a safe configuration range.
 
-Explicit frames are implemented in HIR, MIR, SSA, and VM. Explicit C limits and finite resource fixtures are now verified first. Next align LLVM, QBE, WAT, and Native, then supported ranges and CLI configuration.
+Explicit frames are implemented in HIR, MIR, SSA, and VM. Explicit C limits and finite resource fixtures are now verified first. Generated routes now share the stopping condition. Next establish physical resource conditions, supported ranges, and CLI configuration.
 
 ## Implemented: explicit HIR frames
 
@@ -74,7 +74,7 @@ Shared call-history and depth-failure snapshot vectors now also return allocatio
 
 On Windows/Linux debug builds, tests execute depth-128 scalar and owned-string/array-product chains on a thread requesting 2 MiB. Limits 8 and 127 stop with the original call origin; limit 128 and execution without a limit complete. These finite fixtures verify the call structure improvement, not defaults or safe ranges across all routes.
 
-The [pending-values example](../../examples/call_frames/pending_values.ceru), four-route comparisons of order/loops/index checks, and injected frame-allocation failures for ordinary/generated functions are included. A test-only IR cycle also checks owned parent values and cleanup across 100 runs. The same validation now covers MIR, SSA, and VM. Recursive source programs, CLI configuration for common limits, and generated-route limits remain unavailable.
+The [pending-values example](../../examples/call_frames/pending_values.ceru), four-route comparisons of order/loops/index checks, and injected frame-allocation failures for ordinary/generated functions are included. A test-only IR cycle also checks owned parent values and cleanup across 100 runs. The same validation now covers MIR, SSA, and VM. Recursive source programs and CLI configuration for common limits remain unavailable. Generated-route limits are described below.
 
 ## Implemented: explicit MIR, SSA, and VM frames
 
@@ -108,7 +108,27 @@ History construction and execution control are internal. Records contain no path
 
 The [generated-C experiment](../../experiments/call_depth/README.en.md) explicitly selects target, compiler, and stack size. It checks scalar and owned-string/array-product chains at depths 32/128, limits N−1/N, and O0/O2, never accepting abnormal process termination as successful depth limiting. Tests also compare every diagnostic line with four executors, short circuiting, argument-failure precedence, generics, standard modules, helper exclusion, 100 owned-value runs, and test-only direct/mutual IR re-entry.
 
-This API does not bound physical stack use. Argument copies, caller temporaries, compiler layout/optimization, and generated helpers consume resources. OS stack exhaustion is not converted into call-v1, and no common safe range or default is established. LLVM, QBE, WAT, and Native will also validate logical depth and physical resource failures separately.
+This API does not bound physical stack use. Argument copies, caller temporaries, compiler layout/optimization, and generated helpers consume resources. OS stack exhaustion is not converted into call-v1, and no common safe range or default is established. LLVM, QBE, WAT, and Native also validate logical depth and physical resource failures separately.
+
+## Implemented: shared stopping conditions in generated routes
+
+The following Rust APIs explicitly select a depth limit. Ordinary emit APIs, CLI, and build/release do not yet add this setting. Native uses the same limited LIR to produce assembly and self-encoded objects.
+
+| Route | API | History storage |
+| --- | --- | --- |
+| LLVM | `emit_llvm_with_call_limit(program, target, limit)` | Grow an array of immutable call-site pointers on demand |
+| QBE | `emit_qbe_with_call_limit(program, target, limit)` | Same; explicitly select amd64_sysv or amd64_win |
+| WAT | `emit_wat_with_call_limit(program, limit)` | Linked records allocated through existing private frames; release and reuse on return |
+| Native | `lower_mir_with_call_limit(program, target, limit)` → `emit_asm_from_lir` / `emit_object_from_lir` | Array of immutable site pointers; checks and history use typed machine instructions |
+
+All routes check after argument evaluation and before entering the callee, then restore depth on return. Generated helpers are excluded. LLVM/QBE retain results in existing temporaries, WAT on its operand stack, and Native in return registers. Comparisons require every call-v1 line and prior output to match. LLVM/QBE/Native terminate with exit code 1; WAT emits diagnostics and traps with unreachable.
+
+History is runtime storage separate from language string/array live-byte budgets. Allocation failure stops with an origin-bearing runtime-v1 allocation-failed record, never a call-v1 overflow. WAT keeps memory private; limited artifacts require the existing write_error_byte import when needed. Resuming a failed instance is not supported. This change does not translate general OS stack exhaustion or a Wasm engine's physical call-stack exhaustion into common diagnostics.
+
+`cargo test --test llvm_output --test qbe_output --test wat_output --test native_output call_depth` compares four executors with finite depth-32 chains, depth-128 internal-IR re-entry using few functions, ownership, floating-point and stack arguments, main/generics/standard modules, short circuits, argument failures, and allocation failures. Native executes both assembly and self-encoded objects; LIR observations retain limits and function classification. Internal-IR re-entry tests do not enable recursive source programs.
+
+The [experiment emitter](../../experiments/call_depth/README.en.md) saves each representation. Remaining work establishes physical resource conditions, common supported ranges/defaults, and CLI configuration, followed by frontend recursion support.
+
 
 ## Implemented: WAT invocation storage
 
@@ -133,7 +153,7 @@ cargo test --test wat_output introduces recursion only in a test IR fixture and 
 The [call_frames example](../../examples/call_frames/README.en.md) uses current syntax for nested calls, value updates, and early returns. Its output is compared across HIR, MIR, SSA, VM, and WAT.
 
 1. Establish independent WAT invocation storage (implemented).
-2. Align common limits across routes. Counting and explicit APIs in four executors are implemented; all four executors now use explicit frames; next align configuration ranges, CLI settings, and generated-route diagnostics.
+2. Align common limits across routes. Counting and explicit APIs in four executors are implemented; all four executors now use explicit frames; generated-route limits and diagnostics are also implemented. Next align physical resource conditions, configuration ranges, and CLI settings.
 3. Reuse generic specializations and lift frontend restrictions.
 4. Compare direct/mutual recursion, ownership/cleanup, argument order, limit boundaries, and failure origins across routes; add recursive examples.
 

@@ -1,5 +1,6 @@
 mod arguments;
 mod array;
+mod call;
 mod conversion;
 mod emit;
 mod failure;
@@ -29,6 +30,20 @@ pub fn emit_wat_with_argument_limits(
     program: &cerune_ir::Program,
     limits: crate::runtime::arguments::Limits,
 ) -> Result<String, Diagnostic> {
+    emit_configured(program, limits, None)
+}
+/// 非公開memoryに呼出し履歴を保持します。Wasmエンジンの物理stackは制限しません。
+pub fn emit_wat_with_call_limit(
+    program: &cerune_ir::Program,
+    limit: std::num::NonZeroU32,
+) -> Result<String, Diagnostic> {
+    emit_configured(program, Default::default(), Some(limit))
+}
+fn emit_configured(
+    program: &cerune_ir::Program,
+    limits: crate::runtime::arguments::Limits,
+    call_limit: Option<std::num::NonZeroU32>,
+) -> Result<String, Diagnostic> {
     if let Some(span) = program.first_argument_span()
         && limits.max_count > i64::MAX as u64
     {
@@ -39,6 +54,13 @@ pub fn emit_wat_with_argument_limits(
     }
     let mut module = lower(program);
     module.argument_limits = limits;
+    module.call_limit = call_limit;
+    if call_limit.is_some() {
+        module.string_heap_start = module.string_heap_start.max(8).next_multiple_of(8);
+        module.memory_pages = module
+            .memory_pages
+            .max(module.string_heap_start.div_ceil(65_536) as u32);
+    }
 
     Ok(emit(&module))
 }

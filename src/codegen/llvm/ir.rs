@@ -12,6 +12,8 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    pub call_limit: Option<std::num::NonZeroU32>,
+    pub source_functions: Vec<bool>,
     pub argument_limits: crate::runtime::arguments::Limits,
     pub array_heap_limit: Option<u64>,
     pub string_heap_limit: Option<u64>,

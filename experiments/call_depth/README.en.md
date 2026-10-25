@@ -55,7 +55,7 @@ Measured runtime commit 143aae0 (PR #200), Rust 1.98.0, Windows x86_64 MSVC and 
 | Windows, debug, requested 16 MiB, depth 8/32/64 | Expected results in all four routes | Expected results in all four routes |
 | Windows / Linux, release, requested 2 MiB, depth 8/32/64 | Expected results in all four routes | Expected results in all four routes |
 
-This is not a search for minimum safe stack sizes or maximum safe depths. OS, compiler, optimization, expression shapes, and generated helpers affect results. Release success does not establish a universally safe limit; debug builds will not get different language depth semantics. Physical-resource measurements for C, LLVM, QBE, WAT, and Native are still pending.
+This is not a search for minimum safe stack sizes or maximum safe depths. OS, compiler, optimization, expression shapes, and generated helpers affect results. Release success does not establish a universally safe limit; debug builds will not get different language depth semantics. These earlier measurements do not include generated routes; the C experiment below records a later measurement.
 
 ## Implementation order and current progress
 
@@ -63,7 +63,7 @@ This is not a search for minimum safe stack sizes or maximum safe depths. OS, co
 2. Diagnose frame allocation failure separately from depth overflow; compare argument order, ownership cleanup, NodeId/Span, and early returns against existing tests. Applied to MIR, SSA, and VM as well.
 3. Validate generated-route resource conditions, then establish common ranges, CLI configuration, and diagnostics before enabling recursion.
 
-The table and observations.json retain measurements of the earlier runtime commit 143aae0. A subsequent implementation introduced explicit frames in all four executors, tests at depth 128 with a requested 2 MiB, and frame-allocation-failure diagnostics. See the [current status](../../docs/design/recursion.en.md). Generated-route resources and depth diagnostics are next. No duplicate IR, execution control through observation APIs, or implicit tail-call optimization is introduced.
+The table and observations.json retain measurements of the earlier runtime commit 143aae0. A subsequent implementation introduced explicit frames in all four executors, tests at depth 128 with a requested 2 MiB, and frame-allocation-failure diagnostics. See the [current status](../../docs/design/recursion.en.md). Explicit limits and depth diagnostics are also implemented in generated routes. Physical resource conditions, common ranges, and CLI settings are next. No duplicate IR, execution control through observation APIs, or implicit tail-call optimization is introduced.
 
 CI runs `node --test experiments/call_depth/probe.test.cjs` to prevent false success classifications, plus 16 shallow cases at depth 4 with a requested 16 MiB to compare fixtures, four executors, and known output.
 
@@ -103,3 +103,26 @@ The [2026-10-25 observations](observations-c.json) are summarized below. Each OS
 This is not a measurement of maximum stack consumption or a proof of safety for arbitrary programs. Large fixed arrays, other compilers/ABIs, and generated helpers require separate validation. Logical depth and physical stack exhaustion remain different events; no common default is selected.
 
 `cargo test --test c_output call_depth` compares generated C with four executors. `node --test experiments/call_depth/probe_c.test.cjs` rejects abnormal termination, extra output, and incomplete histories as successes.
+
+## Try the same limit in each generated route
+
+`call_depth_emit` emits LLVM/QBE/WAT from the same completed HIR. Native follows MIR → LIR → typed Program to produce assembly or objects; LIR itself can also be saved. It invokes no external tools and never overwrites an existing file. Depth configuration in the normal CLI remains follow-up work.
+
+```sh
+cargo run --example call_depth_emit -- llvm x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.ll
+cargo run --example call_depth_emit -- qbe x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.ssa
+cargo run --example call_depth_emit -- wat wasm32 examples/call_frames/depth.ceru 2 target/depth.wat
+cargo run --example call_depth_emit -- lir x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.lir
+cargo run --example call_depth_emit -- asm x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.s
+cargo run --example call_depth_emit -- obj x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.obj
+```
+
+Select x86_64-unknown-linux-gnu for Linux artifacts. Execute LLVM with Clang, QBE with the selected QBE target followed by Clang, WAT with wabt and the existing Node test host, and ASM/objects by linking with Clang. Limit 2 matches [depth.stdout](../../examples/call_frames/depth.stdout); limit 1 stops with call-v1. [return_paths.ceru](../../examples/call_frames/return_paths.ceru) also exercises floating-point results through early and normal returns.
+
+```sh
+cargo test --test llvm_output --test qbe_output --test wat_output --test native_output call_depth
+```
+
+Use the existing CERUNE_TEST_LLVM_CLANG, CERUNE_TEST_QBE, CERUNE_TEST_QBE_CLANG, CERUNE_TEST_ASM_CLANG, CERUNE_TEST_NODE, and CERUNE_TEST_WAT2WASM_JS environment settings. Unavailable explicitly configured tools fail tests. Artifacts remain in target/call-depth-<route>-<pid>-<number>.
+
+Finite 32-function chains and depth-128 internal-IR re-entry using few functions are separate tests. The latter retains owned strings and compares limits 8/127/128. This avoids repeating costly Native generation for many-function fixtures in routine CI while retaining history growth and deep-execution coverage. These comparisons use ordinary OS resource conditions; they do not establish a safe physical stack range.

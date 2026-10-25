@@ -32,6 +32,12 @@ pub fn lower_with_argument_limits(
     }
     mir::validate(program).map_err(|e| e.diagnostic())?;
     let mut module = Module {
+        call_limit: None,
+        source_functions: program
+            .functions
+            .iter()
+            .map(|f| f.lowering.is_none())
+            .collect(),
         argument_limits,
         target,
         strings: vec![],
