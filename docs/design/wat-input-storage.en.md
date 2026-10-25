@@ -38,6 +38,17 @@ A split remainder cannot satisfy the next 1 MiB reservation. Live short strings 
 
 This is a capacity evaluation at a fixed input scale, not an RSS/speed benchmark or proof that no workload benefits. The prototype repeatedly scans the list; its complexity has not been validated as a production allocator.
 
+## After invocation storage was introduced (PR #197)
+
+The initial measurements above used fixed-address temporaries. With per-invocation frames, a retained frame block separates the first string from the remaining seven even without arrays. The prototype merges free string blocks only; it cannot cross separately managed frame storage.
+
+| Split + coalesce case | String blocks after full release | Total free payload capacity | Largest free payload capacity |
+| --- | ---: | ---: | ---: |
+| No arrays | 2 | 8,388,752 bytes | 7,340,176 bytes |
+| Array retained after each line | 8 | 8,388,608 bytes | 1,048,576 bytes |
+
+Page progression, input operations, and output remain as reported above, so the decision not to adopt the prototype is unchanged. Besides checking block counts and capacities, tests require that no adjacent free string blocks remain after coalescing. Frame and array storage is not included in free string capacity.
+
 ## Semantics and observation checks
 
 - Compare output, consumed bytes, and read/write/flush traces across plain output, measurement-only output, and both prototypes; also compare with IR Executor results.

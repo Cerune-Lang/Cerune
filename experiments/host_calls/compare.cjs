@@ -50,6 +50,9 @@ const {performance}=require('node:perf_hooks');
   assert.deepEqual(WebAssembly.Module.exports(module).map(e=>e.name).sort(),['checked','echo_f32','echo_u64','increment','step']);
   assert.deepEqual(WebAssembly.Module.imports(module),[{module:'cerune',name:'write_error_byte',kind:'function'}]);
   const raw=await WebAssembly.instantiate(module,{cerune:{write_error_byte(){}}});
+  for (const [name, arity] of [['step',3],['checked',1],['increment',1],['echo_u64',1],['echo_f32',1]]) {
+    assert.equal(raw.exports[name].length,arity,`${name}: private frame parameter leaked`);
+  }
   assert.equal(raw.exports.increment(4294967296),1);
   assert.equal(raw.exports.increment(1.5),2);
   assert.equal(raw.exports.echo_u64(-1n),-1n);

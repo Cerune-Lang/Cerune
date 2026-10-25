@@ -4,7 +4,7 @@ use cerune_lang::{
     embedding::{self, HostValue},
     modules,
 };
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{fmt::Write, fs, path::PathBuf, sync::Arc};
 fn main() {
     let dir = PathBuf::from(std::env::args().nth(1).expect("output directory"));
     fs::create_dir_all(&dir).unwrap();
@@ -52,10 +52,29 @@ fn main() {
         let f = find(n);
         format!("cerune_fn_{}_{}", f.name.replace('$', "_"), f.id.0)
     };
-    for n in ["step", "checked", "echo_u64", "echo_f32"] {
-        wrappers.push_str(&format!("  (export \"{n}\" (func ${}))\n", name(n)));
+    // This fixed scalar experiment must not silently bypass required frame allocation.
+    assert!(!wat.contains("call $cerune_frame_allocate"));
+    assert_eq!(
+        wat.matches("private-frame-bytes=0\n").count(),
+        hir.function_definitions.len()
+    );
+    for (n, parameters, result) in [
+        ("step", &["f64", "f64", "f64"][..], "f64"),
+        ("checked", &["f64"][..], "f64"),
+        ("echo_u64", &["i64"][..], "i64"),
+        ("echo_f32", &["f32"][..], "f32"),
+    ] {
+        write!(wrappers, "  (func (export \"{n}\")").unwrap();
+        for ty in parameters {
+            write!(wrappers, " (param {ty})").unwrap();
+        }
+        writeln!(wrappers, " (result {result})").unwrap();
+        for i in 0..parameters.len() {
+            writeln!(wrappers, "    local.get {i}").unwrap();
+        }
+        writeln!(wrappers, "    i32.const 0\n    call ${}\n  )", name(n)).unwrap();
     }
-    wrappers.push_str(&format!("  (func (export \"increment\") (param i32) (result i32) local.get 0 i64.extend_i32_s call ${} i32.wrap_i64)\n",name("increment")));
+    wrappers.push_str(&format!("  (func (export \"increment\") (param i32) (result i32) local.get 0 i64.extend_i32_s i32.const 0 call ${} i32.wrap_i64)\n",name("increment")));
     let end = wat.rfind(')').unwrap();
     wat.insert_str(end, &wrappers);
     fs::write(dir.join("exports.wat"), wat).unwrap();
