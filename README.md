@@ -50,43 +50,30 @@ cargo run --quiet -- run examples/floating_point.ceru
 cargo install --path .
 ```
 
-同じ足し算でも、型によって結果が変わります。コメントは実行結果です。
-
-```cerune
-a: f32 = 0.1 + 0.2;
-b: f64 = 0.1 + 0.2;
-c: infer = 0.1 + 0.2;
-
-print(a); // 0.300000012
-print(b); // 0.30000000000000004
-print(c); // 0.30000000000000004（inferでf64に推論）
-```
-
-```sh
-cerune emit-ir examples/floating_point.ceru
-cerune emit-c examples/floating_point.ceru -o floating_point.c
-```
-
-開発中は`cerune`を`cargo run --quiet --`に置き換えられます。
-
 ### 実行方法と意味を確認する
 
-次のプログラムを異なる実行経路で試せます。
-
 ```cerune
-print(7);
+print("Hello, Cerune!");
+a: f32 = 0.1 + 0.2;
+b: f64 = 0.1 + 0.2;
+print(a);
+print(b);
+
 limit: u8 = 255;
 unused: u8 = limit + 1;
 print(99);
 ```
 
 ```sh
-cerune run examples/runtime_failures/constant_overflow.ceru
-cerune run-mir examples/runtime_failures/constant_overflow.ceru
-cerune run-vm examples/runtime_failures/constant_overflow.ceru
+cerune run examples/runtime_failures/hello_cerune.ceru
+cerune run-mir examples/runtime_failures/hello_cerune.ceru
+cerune run-vm examples/runtime_failures/hello_cerune.ceru
+cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 ```
 
-`unused`は使われませんが、どの経路でも`7`を表示した後、`limit + 1`の`integer-overflow`で停止します。`99`は表示されません。
+最初に`Hello, Cerune!`と型ごとの計算結果を表示します。どの実行経路でも、使われない`unused`の加算で`integer-overflow`となり、`99`は表示されません。
+
+開発中は`cerune`を`cargo run --quiet --`に置き換えられます。
 
 ## 機能
 
