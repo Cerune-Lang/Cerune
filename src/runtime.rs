@@ -1,5 +1,6 @@
 pub mod arguments;
 pub(crate) mod array_heap;
+pub mod call;
 pub(crate) mod float_output;
 pub mod input;
 pub(crate) mod numeric;

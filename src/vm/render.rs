@@ -52,6 +52,7 @@ pub fn render_compact_with_sources(error: &VmError, sources: &SourceMap, span: S
 
 fn render_message(error: &VmError) -> String {
     match error.kind() {
+        VmErrorKind::CallDepth(failure) => failure.to_string(),
         VmErrorKind::Arguments(failure) => failure.to_string(),
         VmErrorKind::Input(failure) => failure.to_string(),
         VmErrorKind::ArgumentOriginMissing => "argument operation lacks source origin".into(),

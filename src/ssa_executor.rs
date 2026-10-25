@@ -1,6 +1,7 @@
 //! SSAのblock・辺の引数・値・残存slotを直接実行します。
 //! 元MIRへの逆変換や、HIR/VM実行へのfallbackは行いません。
 use crate::runtime::arguments::Arguments;
+use crate::runtime::call;
 use crate::runtime::input;
 use crate::runtime::output::{self, Capture, Sink};
 use crate::{
@@ -16,6 +17,7 @@ use crate::{
     runtime::{RuntimeFailure, value::Value},
 };
 pub use mir_executor::ErrorKind;
+use std::num::NonZeroU32;
 
 /// blockはSSA側の番号です。元MIRの位置は別フィールドに保持します。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +33,9 @@ pub struct ExecutionError {
     location: Option<Location>,
 }
 impl ExecutionError {
+    pub fn call_failure(&self) -> Option<&call::Failure> {
+        self.inner.call_failure()
+    }
     pub fn kind(&self) -> &ErrorKind {
         self.inner.kind()
     }
@@ -144,6 +149,15 @@ pub fn run(program: &ssa::Program) -> std::result::Result<String, ExecutionError
     run_sink(program, &mut Capture::default())
 }
 
+/// ソース関数の同時呼出し数を明示した上限で検査します。既定値は選びません。
+/// 物理stack・memory消費を制限するAPIではありません。
+pub fn run_with_call_limit(
+    program: &ssa::Program,
+    limit: NonZeroU32,
+) -> std::result::Result<String, ExecutionError> {
+    run_connections_with_limit(program, &mut Capture::default(), None, None, Some(limit))
+}
+
 /// 接続先へ逐次出力し、ソースのflush命令を実行します。終了時の自動flushや再収集は行いません。
 pub fn run_with_output<W: std::io::Write>(
     program: &ssa::Program,
@@ -184,10 +198,20 @@ fn run_connections<'o>(
     input: Option<&'o mut dyn input::Source>,
     arguments: Option<&'o Arguments>,
 ) -> std::result::Result<String, ExecutionError> {
+    run_connections_with_limit(program, output, input, arguments, None)
+}
+fn run_connections_with_limit<'o>(
+    program: &ssa::Program,
+    output: &'o mut dyn Sink,
+    input: Option<&'o mut dyn input::Source>,
+    arguments: Option<&'o Arguments>,
+    limit: Option<NonZeroU32>,
+) -> std::result::Result<String, ExecutionError> {
     ssa::validate(program).map_err(|e| error(program, mir_executor::validation_error(e)))?;
     let mut executor = Executor::new(program, output);
     executor.state.input = input;
     executor.state.arguments = arguments;
+    executor.state.calls = limit.map(call::Stack::new);
     let result = executor.entry();
     mir_executor::finish(result, executor.state).map_err(|e| error(program, e))
 }
@@ -307,8 +331,38 @@ impl<'o> Calls<'o> for Executor<'_, 'o> {
     fn types(&self) -> &[mir::TypeDefinition] {
         &self.program.original.types
     }
-    fn call(&mut self, id: ir::FunctionId, args: Vec<Value>) -> Result<Option<Value>> {
-        self.function(Some(id), args)
+    fn call(
+        &mut self,
+        id: ir::FunctionId,
+        args: Vec<Value>,
+        origin: Option<mir::SourceOrigin>,
+    ) -> Result<Option<Value>> {
+        let f = self
+            .program
+            .original
+            .functions
+            .get(id.0)
+            .ok_or_else(|| Fault::invalid("unknown SSA function"))?;
+        let counted = f.lowering.is_none() && self.state.calls.is_some();
+        if counted {
+            self.state
+                .calls
+                .as_mut()
+                .unwrap()
+                .enter(call::Frame {
+                    function: id,
+                    origin: origin.map(|o| call::Origin {
+                        node_id: o.node_id,
+                        span: o.span,
+                    }),
+                })
+                .map_err(Fault::call_failure)?;
+        }
+        let result = self.function(Some(id), args);
+        if counted {
+            self.state.calls.as_mut().unwrap().leave();
+        }
+        result
     }
 }
 #[cfg(test)]

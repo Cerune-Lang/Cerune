@@ -343,3 +343,5 @@ fn structured_flow_evaluation_order_and_scalar_edges() {
         assert_eq!(compare(&compile_to_ir(source).unwrap()).unwrap(), expected);
     }
 }
+
+mod call_depth;

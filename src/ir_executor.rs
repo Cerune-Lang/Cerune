@@ -1,6 +1,7 @@
 //! 完成済みのCerune IRを直接実行します。命令列や別のIRへ変換しません。
 use crate::runtime::arguments::{self, Arguments};
 use crate::runtime::array_heap::{ArrayError, ArrayHeap};
+use crate::runtime::call;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::value::{self, write_quoted};
@@ -15,6 +16,7 @@ use crate::{
     types::IntegerType,
 };
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 use value::Value;
 
 /// IR上の要素と、その由来となるソース位置です。
@@ -26,6 +28,7 @@ pub struct Origin {
 /// 言語の異常停止と、不正なIRによる内部問題を区別します。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
+    CallDepth(Box<call::Failure>),
     Arguments(Box<arguments::Failure>),
     Input(Box<input::Failure>),
     Output(Box<output::Failure>),
@@ -39,6 +42,12 @@ pub struct ExecutionError {
     output: String,
 }
 impl ExecutionError {
+    pub fn call_failure(&self) -> Option<&call::Failure> {
+        match &self.kind {
+            ErrorKind::CallDepth(f) => Some(f),
+            _ => None,
+        }
+    }
     pub fn kind(&self) -> &ErrorKind {
         &self.kind
     }
@@ -60,6 +69,7 @@ impl ExecutionError {
     }
     pub fn diagnostic(&self) -> crate::diagnostic::Diagnostic {
         let message = match &self.kind {
+            ErrorKind::CallDepth(failure) => failure.to_string(),
             ErrorKind::Arguments(failure) => failure.to_string(),
             ErrorKind::Input(failure) => failure.to_string(),
             ErrorKind::Output(failure) => failure.to_string(),
@@ -143,6 +153,7 @@ enum Flow {
     Return(Option<Value>),
 }
 struct Executor<'a, 'o> {
+    calls: Option<call::Stack>,
     program: &'a ir::Program,
     output: &'o mut dyn Sink,
     input: &'o mut dyn Source,
@@ -155,6 +166,21 @@ struct Executor<'a, 'o> {
 /// IRは変更しません。失敗時にも、それまでの出力と元の式の位置を保持します。
 pub fn run(program: &ir::Program) -> std::result::Result<String, ExecutionError> {
     run_sink(program, &mut Capture::default())
+}
+
+/// ソース関数の同時呼出し数を明示した上限で検査します。既定値は選びません。
+/// 物理stack・memory消費を制限するAPIではありません。
+pub fn run_with_call_limit(
+    program: &ir::Program,
+    limit: NonZeroU32,
+) -> std::result::Result<String, ExecutionError> {
+    run_connections_with_limit(
+        program,
+        &mut Capture::default(),
+        &mut input::unconfigured(),
+        &Arguments::unconfigured(),
+        Some(limit),
+    )
 }
 
 /// 実行中に接続先へ出力します。失敗時のoutput()は空で、受理済みの出力は接続先に残ります。
@@ -208,7 +234,17 @@ fn run_connections(
     input: &mut dyn Source,
     program_arguments: &Arguments,
 ) -> std::result::Result<String, ExecutionError> {
+    run_connections_with_limit(program, output, input, program_arguments, None)
+}
+fn run_connections_with_limit(
+    program: &ir::Program,
+    output: &mut dyn Sink,
+    input: &mut dyn Source,
+    program_arguments: &Arguments,
+    limit: Option<NonZeroU32>,
+) -> std::result::Result<String, ExecutionError> {
     let mut executor = Executor {
+        calls: limit.map(call::Stack::new),
         program,
         output,
         input,
@@ -249,11 +285,46 @@ impl Executor<'_, '_> {
                     "main must have no parameters and return void",
                 ));
             }
-            self.call(main.id, vec![])?;
+            self.call(main.id, vec![], None)?;
         }
         Ok(())
     }
-    fn call(&mut self, id: ir::FunctionId, arguments: Vec<Value>) -> Result<Option<Value>> {
+    fn call(
+        &mut self,
+        id: ir::FunctionId,
+        arguments: Vec<Value>,
+        origin: Option<call::Origin>,
+    ) -> Result<Option<Value>> {
+        let f = self
+            .program
+            .function_definitions
+            .get(id.0)
+            .filter(|f| f.id == id)
+            .ok_or_else(|| Fault::invalid("unknown function"))?;
+        let counted = f.lowering.is_none() && self.calls.is_some();
+        if counted {
+            self.calls
+                .as_mut()
+                .unwrap()
+                .enter(call::Frame {
+                    function: id,
+                    origin,
+                })
+                .map_err(|failure| Fault {
+                    kind: ErrorKind::CallDepth(failure),
+                    origin: origin.map(|o| Origin {
+                        node_id: o.node_id,
+                        span: o.span,
+                    }),
+                })?;
+        }
+        let result = self.call_body(id, arguments);
+        if counted {
+            self.calls.as_mut().unwrap().leave();
+        }
+        result
+    }
+    fn call_body(&mut self, id: ir::FunctionId, arguments: Vec<Value>) -> Result<Option<Value>> {
         let program = self.program;
         let f = program
             .function_definitions
@@ -421,7 +492,17 @@ impl Executor<'_, '_> {
                 ..
             } => {
                 let args = self.arguments(arguments, frame)?;
-                if self.call(*function_id, args)?.is_some() {
+                if self
+                    .call(
+                        *function_id,
+                        args,
+                        Some(call::Origin {
+                            node_id: s.id,
+                            span: s.span,
+                        }),
+                    )?
+                    .is_some()
+                {
                     return Err(Fault::invalid("value returned to a void call"));
                 }
             }
@@ -810,8 +891,15 @@ impl Executor<'_, '_> {
                 ..
             } => {
                 let args = self.arguments(arguments, frame)?;
-                self.call(*function_id, args)?
-                    .ok_or_else(|| Fault::invalid("void call used as a value"))?
+                self.call(
+                    *function_id,
+                    args,
+                    Some(call::Origin {
+                        node_id: e.id,
+                        span: e.span,
+                    }),
+                )?
+                .ok_or_else(|| Fault::invalid("void call used as a value"))?
             }
             E::Let { .. } | E::Conditional { .. } => {
                 return Err(Fault::invalid("IR must have completed common expansion"));
@@ -882,6 +970,7 @@ mod tests {
         let program = crate::compile_to_ir(source).unwrap();
         let mut captured = Capture::default();
         let mut executor = Executor {
+            calls: None,
             program: &program,
             output: &mut captured,
             input: &mut crate::runtime::input::unconfigured(),
@@ -927,6 +1016,7 @@ mod tests {
         let p = crate::compile_to_ir(source).unwrap();
         let mut captured = Capture::default();
         let mut executor = Executor {
+            calls: None,
             program: &p,
             output: &mut captured,
             input: &mut crate::runtime::input::unconfigured(),

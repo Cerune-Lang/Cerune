@@ -1,6 +1,7 @@
 //! 型付きMIRの局所値・命令・CFGを直接実行します。
 //! HIR実行器やbytecode/VMの実行には委譲しません。
 use crate::runtime::arguments::{self, Arguments};
+use crate::runtime::call;
 use crate::{
     ir,
     mir::{self, TerminatorKind as T},
@@ -11,6 +12,7 @@ use crate::{
         value::{self, Value},
     },
 };
+use std::num::NonZeroU32;
 
 pub(crate) mod semantics;
 use crate::runtime::input;
@@ -26,6 +28,7 @@ pub struct Location {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
+    CallDepth(Box<call::Failure>),
     Arguments(Box<arguments::Failure>),
     Input(Box<input::Failure>),
     Output(Box<output::Failure>),
@@ -41,6 +44,12 @@ pub struct ExecutionError {
     output: String,
 }
 impl ExecutionError {
+    pub fn call_failure(&self) -> Option<&call::Failure> {
+        match &self.kind {
+            ErrorKind::CallDepth(f) => Some(f),
+            _ => None,
+        }
+    }
     pub fn kind(&self) -> &ErrorKind {
         &self.kind
     }
@@ -68,6 +77,7 @@ impl ExecutionError {
             return e.diagnostic();
         }
         let message = match &self.kind {
+            ErrorKind::CallDepth(failure) => failure.to_string(),
             ErrorKind::Arguments(failure) => failure.to_string(),
             ErrorKind::Input(failure) => failure.to_string(),
             ErrorKind::Output(failure) => failure.to_string(),
@@ -96,6 +106,13 @@ pub(crate) struct Fault {
 }
 pub(crate) type Result<T> = std::result::Result<T, Fault>;
 impl Fault {
+    pub(crate) fn call_failure(failure: Box<call::Failure>) -> Self {
+        Self {
+            kind: ErrorKind::CallDepth(failure),
+            origin: None,
+            location: None,
+        }
+    }
     pub(crate) fn output(failure: output::Failure) -> Self {
         Self {
             kind: ErrorKind::Output(Box::new(failure)),
@@ -198,6 +215,15 @@ pub fn run(program: &mir::Program) -> std::result::Result<String, ExecutionError
     run_sink(program, &mut Capture::default())
 }
 
+/// ソース関数の同時呼出し数を明示した上限で検査します。既定値は選びません。
+/// 物理stack・memory消費を制限するAPIではありません。
+pub fn run_with_call_limit(
+    program: &mir::Program,
+    limit: NonZeroU32,
+) -> std::result::Result<String, ExecutionError> {
+    run_connections_with_limit(program, &mut Capture::default(), None, None, Some(limit))
+}
+
 /// 接続先へ逐次出力し、ソースのflush命令を実行します。終了時の自動flushや再収集は行いません。
 pub fn run_with_output<W: std::io::Write>(
     program: &mir::Program,
@@ -238,10 +264,20 @@ fn run_connections<'o>(
     input: Option<&'o mut dyn input::Source>,
     arguments: Option<&'o Arguments>,
 ) -> std::result::Result<String, ExecutionError> {
+    run_connections_with_limit(program, output, input, arguments, None)
+}
+fn run_connections_with_limit<'o>(
+    program: &mir::Program,
+    output: &'o mut dyn Sink,
+    input: Option<&'o mut dyn input::Source>,
+    arguments: Option<&'o Arguments>,
+    limit: Option<NonZeroU32>,
+) -> std::result::Result<String, ExecutionError> {
     mir::validate(program).map_err(validation_error)?;
     let mut executor = Executor::new(program, output);
     executor.state.input = input;
     executor.state.arguments = arguments;
+    executor.state.calls = limit.map(call::Stack::new);
     let result = executor.entry();
     finish(result, executor.state)
 }
@@ -280,14 +316,38 @@ impl<'a, 'o> Executor<'a, 'o> {
         self.function(&program.main, vec![])?;
         self.state.check_released()
     }
-    fn call(&mut self, id: ir::FunctionId, args: Vec<Value>) -> Result<Option<Value>> {
+    fn call(
+        &mut self,
+        id: ir::FunctionId,
+        args: Vec<Value>,
+        origin: Option<mir::SourceOrigin>,
+    ) -> Result<Option<Value>> {
         let program = self.program;
         let f = program
             .functions
             .get(id.0)
             .filter(|f| f.id == Some(id))
             .ok_or_else(|| Fault::invalid("unknown MIR function"))?;
-        self.function(f, args)
+        let counted = f.lowering.is_none() && self.state.calls.is_some();
+        if counted {
+            self.state
+                .calls
+                .as_mut()
+                .unwrap()
+                .enter(call::Frame {
+                    function: id,
+                    origin: origin.map(|o| call::Origin {
+                        node_id: o.node_id,
+                        span: o.span,
+                    }),
+                })
+                .map_err(Fault::call_failure)?;
+        }
+        let result = self.function(f, args);
+        if counted {
+            self.state.calls.as_mut().unwrap().leave();
+        }
+        result
     }
     fn function(&mut self, f: &mir::Function, args: Vec<Value>) -> Result<Option<Value>> {
         if self.active.contains(&f.id) {
@@ -372,8 +432,13 @@ impl<'o> Calls<'o> for Executor<'_, 'o> {
     fn types(&self) -> &[mir::TypeDefinition] {
         &self.program.types
     }
-    fn call(&mut self, id: ir::FunctionId, args: Vec<Value>) -> Result<Option<Value>> {
-        Executor::call(self, id, args)
+    fn call(
+        &mut self,
+        id: ir::FunctionId,
+        args: Vec<Value>,
+        origin: Option<mir::SourceOrigin>,
+    ) -> Result<Option<Value>> {
+        Executor::call(self, id, args, origin)
     }
 }
 #[cfg(test)]
