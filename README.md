@@ -8,7 +8,8 @@ Ceruneは、静的型付け・IR直接実行・VM実行・複数形式へのコ�
 
 [![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
 
-[まず試す](#まず試す) · [サンプル](examples/README.md) · [言語仕様](docs/reference/language.ja.md) · [設計](docs/design/architecture.ja.md)
+[型・用途別サンプル](examples/README.md) · [言語仕様](docs/reference/language.ja.md) · [CLI](docs/reference/cli.ja.md)  
+[設計文書](docs/README.md) · [今後の計画](docs/design/language-roadmap.ja.md) · [Primerからの移行](docs/design/naming.ja.md)
 
 </div>
 
@@ -160,11 +161,6 @@ cerune run-vm examples/runtime_failures/constant_overflow.ceru
 | fmt・Clippy・全テスト（WSL / Bash） | `bash scripts/test.sh` |
 
 WSL側にもRustが必要です。`.sh`のビルド先は既定で`target/unix`です。
-
-## 文書
-
-- [型・用途別サンプル](examples/README.md) · [言語仕様](docs/reference/language.ja.md) · [CLI](docs/reference/cli.ja.md)
-- [設計文書](docs/README.md) · [今後の計画](docs/design/language-roadmap.ja.md) · [Primerからの移行](docs/design/naming.ja.md)
 
 ## 関連リポジトリ
 
