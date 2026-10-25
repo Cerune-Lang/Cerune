@@ -48,6 +48,12 @@ Attaching stacks to every other failure, matching stopping conditions in generat
 
 `cargo test --test ir_executor call_depth` compares limit boundaries, left-to-right arguments, short circuiting, main, generics, standard modules, helper exclusion, normal/early returns, origins, prior output, and stack order across four executors. It also checks that heap-limit failures remain distinct from depth failures, and includes the [depth example](../../examples/call_frames/depth.ceru).
 
+## Physical stack validation and next steps
+
+The [call-depth experiment](../../experiments/call_depth/README.en.md) compares Windows/Linux debug and release builds. With a requested 2 MiB at depth 32, aggregate calls exhaust the stack in all four debug executors before producing depth diagnostics. These finite measurements do not prove a safe configuration range.
+
+Before extending limits through the CLI, start with the standard HIR executor and replace host recursion with explicit frames and continuation positions. Include generated helpers in physical frame management and distinguish allocation failure from depth overflow. Preserve evaluation order, ownership, and origins, extend the approach to the other executors, then align generated routes, supported ranges, and CLI configuration. This execution-structure change is not implemented yet.
+
 ## Implemented: WAT invocation storage
 
 | Item | Mechanism |
@@ -71,7 +77,7 @@ cargo test --test wat_output introduces recursion only in a test IR fixture and 
 The [call_frames example](../../examples/call_frames/README.en.md) uses current syntax for nested calls, value updates, and early returns. Its output is compared across HIR, MIR, SSA, VM, and WAT.
 
 1. Establish independent WAT invocation storage (implemented).
-2. Align common limits across routes. Counting and explicit APIs in four executors are implemented; next validate physical resources, establish configuration ranges, and add CLI configuration and generated-route diagnostics.
+2. Align common limits across routes. Counting and explicit APIs in four executors are implemented; measurements make explicit frame management, starting with HIR, the next prerequisite before configuration ranges, CLI settings, and generated-route diagnostics.
 3. Reuse generic specializations and lift frontend restrictions.
 4. Compare direct/mutual recursion, ownership/cleanup, argument order, limit boundaries, and failure origins across routes; add recursive examples.
 

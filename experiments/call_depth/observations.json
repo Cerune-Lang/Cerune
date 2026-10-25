@@ -1,0 +1,398 @@
+{
+  "date": "2026-10-25",
+  "runtimeCommit": "143aae038092aca910544507e0144bbe5d2f2d32",
+  "rust": "1.98.0",
+  "note": "Finite fixtures; requested thread stack size, not actual usage or a supported language limit.",
+  "routes": [
+    "hir",
+    "mir",
+    "ssa",
+    "vm"
+  ],
+  "legend": {
+    "D": "depth-limit",
+    "C": "completed",
+    "S": "host-stack-exhausted"
+  },
+  "measurements": [
+    {
+      "os": "windows",
+      "osRelease": "10.0.26100",
+      "arch": "x64",
+      "profile": "debug",
+      "node": "v26.8.1",
+      "binarySha256": "a89acb0ccf6d65962184c0f157f6758d72baf793e4eb9208f96ab101e5f00aa0",
+      "requestedStackBytes": 2097152,
+      "total": 48,
+      "matched": 22,
+      "rows": [
+        {
+          "depth": 8,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 8,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "scalar",
+          "outcomes": [
+            "S/S",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "aggregate",
+          "outcomes": [
+            "S/S",
+            "S/S",
+            "S/S",
+            "S/S"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "scalar",
+          "outcomes": [
+            "S/S",
+            "S/S",
+            "S/S",
+            "S/S"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "aggregate",
+          "outcomes": [
+            "S/S",
+            "S/S",
+            "S/S",
+            "S/S"
+          ]
+        }
+      ],
+      "representativeFailure": {
+        "case": "scalar-32-hir-31",
+        "status": 3221225725,
+        "signal": null,
+        "stage": "executing",
+        "stderr": "thread 'cerune-depth-probe' (50400) has overflowed its stack"
+      }
+    },
+    {
+      "os": "linux",
+      "osRelease": "4.4.0-26100-Microsoft",
+      "arch": "x64",
+      "profile": "debug",
+      "node": "v20.20.2",
+      "binarySha256": "d4094b28b9e21641e25d89193d1718b62cef4041c6b3b3ce24f1bf3d072ca589",
+      "requestedStackBytes": 2097152,
+      "total": 48,
+      "matched": 22,
+      "rows": [
+        {
+          "depth": 8,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 8,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "scalar",
+          "outcomes": [
+            "S/S",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "aggregate",
+          "outcomes": [
+            "S/S",
+            "S/S",
+            "S/S",
+            "S/S"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "scalar",
+          "outcomes": [
+            "S/S",
+            "S/S",
+            "S/S",
+            "S/S"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "aggregate",
+          "outcomes": [
+            "S/S",
+            "S/S",
+            "S/S",
+            "S/S"
+          ]
+        }
+      ],
+      "representativeFailure": {
+        "case": "scalar-32-hir-31",
+        "status": null,
+        "signal": "SIGABRT",
+        "stage": "executing",
+        "stderr": "thread 'cerune-depth-probe' (168) has overflowed its stack\nfatal runtime error: stack overflow, aborting"
+      }
+    },
+    {
+      "os": "windows",
+      "osRelease": "10.0.26100",
+      "arch": "x64",
+      "profile": "debug",
+      "node": "v26.8.1",
+      "binarySha256": "a89acb0ccf6d65962184c0f157f6758d72baf793e4eb9208f96ab101e5f00aa0",
+      "requestedStackBytes": 16777216,
+      "total": 48,
+      "matched": 48,
+      "rows": [
+        {
+          "depth": 8,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 8,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        }
+      ]
+    },
+    {
+      "os": "windows",
+      "osRelease": "10.0.26100",
+      "arch": "x64",
+      "profile": "release",
+      "node": "v26.8.1",
+      "binarySha256": "8037cf0167dd425cca58dd4ace7544549313b5f5cb6a8299ff0268e62b6182ba",
+      "requestedStackBytes": 2097152,
+      "total": 48,
+      "matched": 48,
+      "rows": [
+        {
+          "depth": 8,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 8,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        }
+      ]
+    },
+    {
+      "os": "linux",
+      "osRelease": "4.4.0-26100-Microsoft",
+      "arch": "x64",
+      "profile": "release",
+      "node": "v20.20.2",
+      "binarySha256": "37d99f933b1c1c6738b0683af1d218295df6de83b3fb5fe72a062980e7d735df",
+      "requestedStackBytes": 2097152,
+      "total": 48,
+      "matched": 48,
+      "rows": [
+        {
+          "depth": 8,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 8,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 32,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "scalar",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        },
+        {
+          "depth": 64,
+          "shape": "aggregate",
+          "outcomes": [
+            "D/C",
+            "D/C",
+            "D/C",
+            "D/C"
+          ]
+        }
+      ]
+    }
+  ]
+}
