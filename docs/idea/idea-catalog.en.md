@@ -365,6 +365,29 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Reproducible-build toy** — Verify artifact identity from source/hash/target inputs.
 - **"A compiler that stays explainable after optimization"** — Treat optimization provenance as a first-class output.
 
+## Experiments with Distributed Artifacts
+
+Focus on the boundary where **a completed artifact leaves its build environment, then is validated, reloaded, and executed**. This is different from testing backends against each other, verifying bytecode in memory, checking reproducible builds, or tracing source-to-machine provenance alone.
+
+The first Native build / release implementation is available; IR/VM Image formats, validators, loaders, and build / release are not. See [execution routes and build / release](../design/owned-routes.en.md). These are experiment ideas, not promises of implementation dates, compatibility, or security.
+
+### With the Current Native Release
+
+- **Release relocation test** — Move the release directory away from the build environment and check launch behavior under the target and system-runtime conditions recorded in its manifest.
+- **Distribution provenance checker** — Audit the released executable's SHA-256, direct runtime requirements, and build provenance against its manifest.
+
+### Once IR/VM Images and Loaders Exist
+
+- **Image round-trip** — Save IR/VM as an Image, validate/load it in another process, execute it, and compare against execution before serialization.
+- **Compiler-free minimal package** — Deliver only an Image and compatible runtime; measure the smallest working distribution layout and its dependencies.
+- **Image compatibility lab** — Cross format, semantic, and runtime versions to tabulate acceptance, rejection, and diagnostics.
+- **Malformed-Image acceptance boundary** — Construct saved Images with invalid types, references, ownership metadata, and resource limits; ensure rejection before execution. Format validation does not replace sandboxing.
+- **Post-distribution fault provenance** — Map a failure in a released Image back to its source location and build record using saved provenance.
+
+### Once Embedding APIs and Host Integration Exist
+
+- **Replaceable VM logic** — Distribute game or simulation computations as Images for a host to load, call, and swap; test typed host APIs, version compatibility, and resource limits.
+
 ## Future: Once External I/O Exists
 
 - **grep-like tool** — A practical byte/string-processing utility.
@@ -379,35 +402,6 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Network packet analyzer** — Byte parsing plus protocol state.
 - **REPL** — Makes Cerune immediately feel more like an interactive language.
 - **Cerune compiler frontend in Cerune** — A major step toward self-hosting.
-
-## Distributable Images, Execution Environments, and Applications (Now and Later)
-
-These ideas focus not on *what to implement in Cerune*, but on *how to save, distribute, reload, execute, and embed programs written in Cerune*. Unlike existing compiler differential-testing and reproducible-build experiments, these start from **completed artifacts delivered to users**.
-
-The first [Native build / release](../design/owned-routes.en.md) implementation already exists. IR/VM Image formats, validators, loaders, and build/release are not implemented yet. The following are experiment ideas, not implementation or compatibility promises.
-
-### Possible with the Current Native Build / Release
-
-- **Native release smoke test** — Move a released executable to another directory and check launch and exit behavior on a compatible OS/CPU with the required system runtime.
-- **Distribution manifest audit** — Check that target, direct runtime requirements, SHA-256, and build provenance match the released artifact.
-- **Native release vs. IR/VM execution** — Compare outputs and termination behavior from the source executors with a released executable launched on its target system.
-
-### After IR/VM Images and Loaders Exist
-
-- **IR Image runner** — Load, validate, and execute a saved IR Image in another process, independently from compiler-driven execution.
-- **VM Bytecode Image runner** — Distribute a Bytecode Image that runs with only a compatible Cerune VM runtime.
-- **Image round-trip tests** — Build, save, reload, and execute an Image, then compare with execution before serialization.
-- **Image compatibility matrix** — Vary format, semantic, and runtime versions to study acceptance, rejection, and diagnostics.
-- **Malformed-Image rejection tests** — Check safe rejection of invalid references, types, control flow, ownership metadata, and resource limits.
-- **IR/VM/Native distribution comparison** — Release the same program through each route and compare runtime dependencies, artifact size, launch behavior, and observable termination.
-- **Post-distribution provenance explorer** — Connect diagnostics from released Images and executables back to source locations and build records.
-
-### Requiring Additional I/O, Host APIs, or Isolation Design
-
-- **Embeddable Cerune VM** — Load Images and call functions from a host application, requiring an embedding API and value interchange.
-- **Replaceable application logic** — Ship game, simulation, or extension logic as VM Images; explore host interaction and upgrade compatibility.
-- **Constrained execution host** — Define execution budgets, exposed I/O, permissions, and isolation. Image format/type validation alone is not a sandbox.
-- **Packaged I/O tools and services** — Once file/network I/O exists, test build/release, dependencies, and failure diagnostics for practical applications.
 
 ## Future: GPU
 
