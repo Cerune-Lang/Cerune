@@ -13,6 +13,7 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    pub call_limit: Option<std::num::NonZeroU32>,
     pub array_heap_limit: Option<u64>,
     pub string_heap_limit: Option<u64>,
     pub uses_write: bool,
@@ -28,6 +29,7 @@ pub struct Module {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
+    pub source_function: bool,
     pub temporaries: Vec<Type>,
     pub id: usize,
     pub name: String,
@@ -98,6 +100,7 @@ pub enum Statement {
         value: Expr,
     },
     Call {
+        origin: Origin,
         evaluation: Vec<(usize, Expr)>,
         function_id: usize,
         function_name: String,
@@ -252,6 +255,7 @@ pub enum ExprKind {
         index: Box<Expr>,
     },
     Call {
+        result_temp: Option<usize>,
         function_id: usize,
         function_name: String,
         arguments: Vec<Expr>,

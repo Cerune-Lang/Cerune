@@ -2,7 +2,7 @@
 
 [English](recursion.en.md)
 
-状態：WATの呼出し領域分離、HIR・MIR・SSA・VMの明示上限API・深さ超過診断、4実行器の明示frameを実装。CLI設定・生成経路の共通上限・再帰ソースの受付は未実装です。
+状態：WATの呼出し領域分離、HIR・MIR・SSA・VMの明示上限API・深さ超過診断、4実行器の明示frame、Cの明示上限API・深さ診断を実装。CLI設定・残る生成経路の共通上限・再帰ソースの受付は未実装です。
 
 ## 調査結果と責務
 
@@ -15,7 +15,8 @@
 | HIR | 元HIRへの参照と明示frameで実行。ソース関数・生成補助関数の呼出しをホスト再帰へ積まない | 他経路との一致、CLI設定・共通範囲の確定 |
 | VM | 元bytecodeの命令位置・operand stack・slotを明示frameで保持 | 生成経路との一致、資源検証とCLI設定 |
 | MIR / SSA | 元CFGのblock・命令位置・局所値／SSA値／slotを明示frameで保持 | 生成経路・設定範囲・CLIを揃えてから再帰ソースを許可 |
-| C / LLVM / QBE / Native | 関数のlocalは実行環境のstack上に配置 | 上限・call stack・出自を保持し、集約値と所有を全経路で比較 |
+| C | Rust APIで明示上限とcall-v1を生成。localは実行環境のstack上に配置 | 他の生成経路・設定範囲・CLIを揃える |
+| LLVM / QBE / Native | 関数のlocalは実行環境のstack上に配置 | 上限・call stack・出自を保持し、集約値と所有を全経路で比較 |
 | WAT | 今回、集約値と一時領域を呼出しごとのprivate memoryへ移動 | 共通上限・call stack診断を追加 |
 
 ## 合意した停止条件
@@ -45,7 +46,7 @@ HIR・MIR・SSA・VMにRust API `run_with_call_limit(program, NonZeroU32)`を追
 
 この段階の上限は物理stack・memory消費を保証しません。生成補助関数も資源を消費します。既存のheap確保失敗は別のruntime診断のままですが、Rust実行器のOSスタック枯渇・汎用メモリ不足を共通診断として捕捉する処理は未実装です。大きな上限を安全な設定とみなしてはいけません。実測に基づく範囲の確定と資源不足への対処は再帰解禁前に行います。
 
-深さ超過以外のすべての失敗にcall stackを添付する機能、生成経路の同一停止条件、CLI設定、MIR/SSAの再入許可も後続です。フロントエンドの再帰禁止は維持します。
+深さ超過以外のすべての失敗にcall stackを添付する機能、残る生成経路の同一停止条件とCLI設定も後続です。MIR/SSAの内部再入は明示frameで対応済みです。フロントエンドの再帰禁止は維持します。
 
 `cargo test --test ir_executor call_depth` は4実行器の上限前後、引数の左からの評価、短絡、main、generic、標準モジュール、生成補助関数の除外、通常／早期return、出自、先行出力、履歴順を比較します。heap上限の失敗が深さ超過へ変わらないことも検証します。[depthの実行例](../../examples/call_frames/depth.ceru)を含みます。
 
@@ -53,7 +54,7 @@ HIR・MIR・SSA・VMにRust API `run_with_call_limit(program, NonZeroU32)`を追
 
 [呼出し深さの実験](../../experiments/call_depth/README.md)でWindows/Linuxのdebug・releaseを比較しました。変更前のcommit 143aae0では、要求2 MiB・深さ32の構造体受渡しでdebugの4実行器すべてが深さ診断より先にstack枯渇で停止しました。これは有限例の実測であり、安全な設定範囲の証明ではありません。
 
-HIR・MIR・SSA・VMの明示frame化を実装しました。次は生成経路の資源条件・深さ診断を検証し、設定範囲とCLIを整えます。
+HIR・MIR・SSA・VMの明示frame化を実装しました。Cの明示上限と資源条件の有限例を先行検証しました。次はLLVM・QBE・WAT・Nativeを揃え、設定範囲とCLIを整えます。
 
 ## 実装済み：HIRの明示frame
 
@@ -88,6 +89,26 @@ MIR・SSA・VMも関数呼出しをホストの再帰へ積まず、呼出し先
 生成補助関数も物理frameを持ちますが、論理的な深さには含めません。frame・局所領域・引数・SSA辺引数のコンテナ確保とVM stack拡張にはtry_reserveを使い、返された確保失敗はallocation-failedにします。呼出し先の通常の失敗はその命令位置、calleeのframe確保失敗は呼出し元のcall位置を保持します。失敗後は後続処理を実行せず、残る深さ計数を外します。
 
 4実行器の深さ128／要求2 MiB、上限8・127・128、評価途中の値、loop・早期return、所有値を持つテスト用の再入、通常／生成関数の確保失敗を比較します。MIR・SSAだけにあった内部の再入拒否は取り除きましたが、公開ソースの再帰禁止は維持します。上限なしのAPIは不正なIRの無限実行を防ぐsandboxではありません。一般的なメモリ不足をすべて捕捉する保証や、全経路の安全範囲はまだありません。
+
+## 実装済み：生成Cの明示上限
+
+Rust APIの `codegen::c::emit_c_with_call_limit(&program, NonZeroU32)` が、4実行器と同じ数え方・call-v1記録を持つCを生成します。通常のemit_c、CLI、ソースの再帰禁止は維持します。
+
+| 項目 | 動作 |
+| --- | --- |
+| 引数・呼出し | ソース関数の全引数を左から一時値へ評価し終えてから、callerでenterを検査して実際のC関数へ入る |
+| 戻り値 | callerの一時値に保存してからleaveする。void、早期return、集約戻り値でもcalleeの復帰後に一度だけ深さを戻す |
+| 分類 | C用IRへ元関数のsource/generated区分を保持。生成補助関数は数えず、明示mainはhost出自で数える |
+| 履歴 | FunctionIdと不変の位置文字列だけを保持。履歴の確保量は必要に応じて拡張し、上限分を先に一括確保しない。正常終了時に解放 |
+| 履歴の確保失敗 | runtime-v1 allocation-failedとしてcall位置で停止。文字列／配列の言語上の生存量とは別の処理系領域 |
+| 深さ超過 | stderrへ拒否したcall、外側から順の有効なcallを出し、終了コード1で停止。先行出力を保持し、callee本体・後続処理を実行しない |
+| 観測 | 生成Cに上限、一時値、enter／leave、履歴確保、call-v1の描画を残す。履歴や実行制御の外部APIは追加しない |
+
+履歴の生成と実行制御は内部の処理です。診断にはパス・本文・引数・実行値を含めません。Cのstderrは対象のC runtimeに従うため、記録の照合ではCRLF/LFを正規化し、生のstderrも実験に保存します。文字列本文やstdoutのバイトを正規化するものではありません。
+
+[生成Cの実験](../../experiments/call_depth/README.md)はターゲット・コンパイラ・stack量を明示します。整数と所有文字列・配列入り構造体の深さ32/128、上限N−1/N、O0/O2を検証し、プロセスの異常終了を深さ超過の成功に数えません。テストでは4実行器との診断全行、短絡・引数失敗の優先順、generic・標準モジュール、生成補助関数、所有値の100回実行とテスト用IRの直接／相互再入も比較します。
+
+このAPIは物理stackを制限しません。引数のコピー、callerの一時値、Cコンパイラの配置・最適化、生成補助関数も資源を消費します。OSによるstack枯渇をcall-v1へ変換せず、生成経路共通の安全範囲・既定値もまだ確定しません。次のLLVM・QBE・WAT・Nativeでも、意味上の深さ検査と物理資源の失敗を分けて検証します。
 
 ## 実装済み：WATの呼出し領域
 

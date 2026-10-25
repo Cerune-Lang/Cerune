@@ -68,3 +68,40 @@ Linux等では先に同じshellで `ulimit -c 0` を実行し、意図的な異�
 上の表とobservations.jsonは変更前のcommit 143aae0の測定記録です。後続の実装で4実行器は明示frameへ移行し、要求2 MiB・深さ128の成功／深さ上限と、frame確保失敗の診断をテストに追加しました。[現在の状態](../../docs/design/recursion.ja.md)を参照してください。次の対象は生成経路の資源条件・深さ診断です。IRの二重実装、観測APIによる実行制御、暗黙の末尾呼出し最適化は導入しません。
 
 CIでは `node --test experiments/call_depth/probe.test.cjs` で判定器の誤成功を防ぎ、深さ4・要求16 MiBの浅い16ケースでfixture・4実行器・期待出力を照合します。
+
+## 生成Cの上限と資源条件
+
+Rust API `codegen::c::emit_c_with_call_limit` を試す入口として、`call_depth_emit_c`を用意しています。既存のCLIに上限設定を加えるものではありません。出力先は新規ファイルだけを受け付けます。
+
+```powershell
+cargo run --example call_depth_emit_c -- examples/call_frames/depth.ceru 2 target/depth-limit-2.c
+clang --target=x86_64-pc-windows-msvc -std=c11 -O0 target/depth-limit-2.c -o target/depth-limit-2.exe
+.\target\depth-limit-2.exe
+```
+
+上限2なら[depth.stdout](../../examples/call_frames/depth.stdout)と一致します。上限1で別のCを生成すると、outerからmark(10)へ入る直前にcall-v1をstderrへ記録し、終了コード1で停止します。本文の出力はありません。生成Cには引数用一時値、enter／leave、履歴確保、上限が残ります。
+
+物理stackの条件を揃える実験では、ターゲット・Cコンパイラ・上限を明示します。Windowsはリンカの`/STACK`で予約上限、Linuxは`prlimit --stack`でOS上限を指定します。これらは実験用の制御で、Ceruneの観測APIではありません。
+
+```powershell
+cargo build --example call_depth_emit_c
+node experiments/call_depth/probe_c.cjs target/debug/examples/call_depth_emit_c.exe clang windows-msvc target/c-depth-windows 32,128 2097152
+```
+
+```sh
+cargo build --example call_depth_emit_c
+node experiments/call_depth/probe_c.cjs target/debug/examples/call_depth_emit_c clang linux-gnu target/c-depth-linux 32,128 2097152
+```
+
+`probe_c.cjs`は実行環境からターゲットを選ばず、指定ターゲットと実行環境が違えば拒否します。Linuxではprlimitが必要です。新規ディレクトリへソース・C・実行ファイル、正確なコマンド、コンパイラ版、生成物のSHA-256、生のstdout/stderr、終了状態、期待値との一致を保存します。子プロセスは生成30秒・コンパイル120秒・実行30秒で打ち切ります。中断や異常終了を深さ超過の成功に数えず、失敗時も記録を残します。
+
+2026-10-25の[測定結果](observations-c.json)は次のとおりです。両OSの16ケースずつで、上限N−1はcall-v1と先行出力が一致し、上限Nは期待した値を返しました。
+
+| 実行条件 | 値と深さ | 結果 |
+| --- | --- | --- |
+| Windows x86_64 MSVC、Clang 22.1.8、予約stack 2 MiB、O0/O2 | 整数／所有文字列と配列入り構造体、深さ32/128 | 16ケース一致 |
+| Linux x86_64 GNU、Clang 10.0.0、stack上限2 MiB、O0/O2 | 同上 | 16ケース一致 |
+
+これは物理stackの最大消費量や、任意のプログラムの安全範囲の証明ではありません。大きな固定配列・別のcompiler/ABI・生成補助関数による消費は別途検証が必要です。Cの深さ上限と物理stack不足を別の事象として扱い、共通の既定値はまだ選びません。
+
+`cargo test --test c_output call_depth`は生成Cを4実行器と比較します。`node --test experiments/call_depth/probe_c.test.cjs`は、異常終了・余分な出力・欠落した履歴を誤成功にしないことを検証します。

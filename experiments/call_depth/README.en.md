@@ -66,3 +66,40 @@ This is not a search for minimum safe stack sizes or maximum safe depths. OS, co
 The table and observations.json retain measurements of the earlier runtime commit 143aae0. A subsequent implementation introduced explicit frames in all four executors, tests at depth 128 with a requested 2 MiB, and frame-allocation-failure diagnostics. See the [current status](../../docs/design/recursion.en.md). Generated-route resources and depth diagnostics are next. No duplicate IR, execution control through observation APIs, or implicit tail-call optimization is introduced.
 
 CI runs `node --test experiments/call_depth/probe.test.cjs` to prevent false success classifications, plus 16 shallow cases at depth 4 with a requested 16 MiB to compare fixtures, four executors, and known output.
+
+## Generated C limits and resource conditions
+
+`call_depth_emit_c` demonstrates the Rust API `codegen::c::emit_c_with_call_limit`. It does not add depth configuration to the normal CLI. Output files must be new.
+
+```powershell
+cargo run --example call_depth_emit_c -- examples/call_frames/depth.ceru 2 target/depth-limit-2.c
+clang --target=x86_64-pc-windows-msvc -std=c11 -O0 target/depth-limit-2.c -o target/depth-limit-2.exe
+.\target\depth-limit-2.exe
+```
+
+Limit 2 matches [depth.stdout](../../examples/call_frames/depth.stdout). Emit a separate C file with limit 1 to stop before outer enters mark(10), writing call-v1 to stderr and exiting with code 1 without program output. Emitted C retains argument temporaries, enter/leave, history allocation, and the limit.
+
+The resource experiment explicitly selects target, C compiler, and bounds. Windows uses the linker's `/STACK` reservation; Linux uses the OS limit through `prlimit --stack`. These are experiment controls, not Cerune observation APIs.
+
+```powershell
+cargo build --example call_depth_emit_c
+node experiments/call_depth/probe_c.cjs target/debug/examples/call_depth_emit_c.exe clang windows-msvc target/c-depth-windows 32,128 2097152
+```
+
+```sh
+cargo build --example call_depth_emit_c
+node experiments/call_depth/probe_c.cjs target/debug/examples/call_depth_emit_c clang linux-gnu target/c-depth-linux 32,128 2097152
+```
+
+`probe_c.cjs` never infers a target from the execution environment: a mismatch is rejected. Linux requires prlimit. A new output directory retains source, C, executables, exact commands, compiler version, artifact SHA-256 hashes, raw stdout/stderr, exit status, and comparisons with expectations. Child processes have 30-second emission, 120-second compilation, and 30-second execution timeouts. Interruption or abnormal exit is not accepted as successful depth limiting; records survive failures.
+
+The [2026-10-25 observations](observations-c.json) are summarized below. Each OS matched 16 cases: limit N−1 produced the expected call-v1/prior output; limit N returned expected values.
+
+| Conditions | Values and depth | Result |
+| --- | --- | --- |
+| Windows x86_64 MSVC, Clang 22.1.8, 2 MiB reserved stack, O0/O2 | Scalar and owned-string/array products, depth 32/128 | 16 matching cases |
+| Linux x86_64 GNU, Clang 10.0.0, 2 MiB stack limit, O0/O2 | Same | 16 matching cases |
+
+This is not a measurement of maximum stack consumption or a proof of safety for arbitrary programs. Large fixed arrays, other compilers/ABIs, and generated helpers require separate validation. Logical depth and physical stack exhaustion remain different events; no common default is selected.
+
+`cargo test --test c_output call_depth` compares generated C with four executors. `node --test experiments/call_depth/probe_c.test.cjs` rejects abnormal termination, extra output, and incomplete histories as successes.

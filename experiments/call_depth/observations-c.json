@@ -1,0 +1,1015 @@
+{
+  "date": "2026-10-25",
+  "scope": "Finite generated-C fixtures; logical depth is not a physical stack bound. No common default or safety range is inferred.",
+  "baseCommit": "4653a3ff546222981bfb01d4a5ba65a2d9545fd6",
+  "implementationFiles": {
+    "src/codegen/c.rs": "ab6bbdbfe838a3e6b6bff6828293686b2164f57c80770a6d22fbf001fb9369fa",
+    "src/codegen/c/ir.rs": "9d5a4f631a8d554b84fb6d67bd3ab861bc6fc85d4702b4f102b8083524471f7a",
+    "src/codegen/c/lower.rs": "e2ce7d771a6af1d191fce18671451f2315d764b96676dec6cf2c7e1ad5141691",
+    "src/codegen/c/sequence.rs": "1173d8b4097b348fcf5586dc02a6a1d6eb813b8b5e4cb04996356e4e17403a15",
+    "src/codegen/c/emit.rs": "c75a083708915f6d445208b509a18fbadf80dcb65f2c8f9c7d011645a63f34f0",
+    "src/codegen/c/call.rs": "61edad53a13370bbec78f748126534dbfb49ba6f825cc12971bb5b95576e557c"
+  },
+  "runs": [
+    {
+      "target": "windows-msvc",
+      "compiler": "clang version 22.1.8 (https://github.com/llvm/llvm-project ca7933e47d3a3451d81e72ac174dcb5aa28b59d1)\nTarget: x86_64-pc-windows-msvc\nThread model: posix",
+      "requestedStackBytes": 2097152,
+      "depths": [
+        32,
+        128
+      ],
+      "emitterSha256": "83de4622ea484f34f4c75a165ae3af3f17eb11d9f9c39723bc46cfc1d0257839",
+      "cases": [
+        {
+          "name": "scalar-32-31-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O0",
+            "<output>/scalar-32-31-O0.c",
+            "-o",
+            "<output>/scalar-32-31-O0.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/scalar-32-31-O0.exe"
+          ],
+          "generatedCSha256": "a88f5d94d230b6f712276034ff461bde3fa1f34e021d38587038082f67fb4eb5",
+          "executableSha256": "7b22c87c058cb324737424af61956bce66be2f61859b49fa8e3940d46c1c94ad",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 31,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-32-31-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O2",
+            "<output>/scalar-32-31-O2.c",
+            "-o",
+            "<output>/scalar-32-31-O2.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/scalar-32-31-O2.exe"
+          ],
+          "generatedCSha256": "a88f5d94d230b6f712276034ff461bde3fa1f34e021d38587038082f67fb4eb5",
+          "executableSha256": "341d060ac4a131a6720530121bf2f6db4aba2686de6374a314c1e4fe108bdb68",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 31,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-32-32-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O0",
+            "<output>/scalar-32-32-O0.c",
+            "-o",
+            "<output>/scalar-32-32-O0.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/scalar-32-32-O0.exe"
+          ],
+          "generatedCSha256": "1d23b32e7086ebdf93970b2a010a5ab751edbed1825820c69708993ab226cfa3",
+          "executableSha256": "76fd3a739f8619dacb1c75e4f49e823aec3e448a2db11d3ef1fc50a91123a2e4",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n32\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-32-32-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O2",
+            "<output>/scalar-32-32-O2.c",
+            "-o",
+            "<output>/scalar-32-32-O2.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/scalar-32-32-O2.exe"
+          ],
+          "generatedCSha256": "1d23b32e7086ebdf93970b2a010a5ab751edbed1825820c69708993ab226cfa3",
+          "executableSha256": "752aa7eb9257e3a637ca13e709666651278d04ce30c7bb7b96701b540d293cd4",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n32\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-32-31-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O0",
+            "<output>/aggregate-32-31-O0.c",
+            "-o",
+            "<output>/aggregate-32-31-O0.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/aggregate-32-31-O0.exe"
+          ],
+          "generatedCSha256": "c4890377763c9b7e44351dca3fbd4c041ac175c6e54bf53e2bb255a6fb0fc90c",
+          "executableSha256": "35aff5a885f91bd1c432b721ec0e08ce916d7f7ca355b56f11bd7790eae5ef06",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 31,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-32-31-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O2",
+            "<output>/aggregate-32-31-O2.c",
+            "-o",
+            "<output>/aggregate-32-31-O2.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/aggregate-32-31-O2.exe"
+          ],
+          "generatedCSha256": "c4890377763c9b7e44351dca3fbd4c041ac175c6e54bf53e2bb255a6fb0fc90c",
+          "executableSha256": "969998a8d81d902c3d899040fcfe0a267b9a85a8956e8e995bd05bd78e8cd2af",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 31,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-32-32-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O0",
+            "<output>/aggregate-32-32-O0.c",
+            "-o",
+            "<output>/aggregate-32-32-O0.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/aggregate-32-32-O0.exe"
+          ],
+          "generatedCSha256": "ace7dcb44741e9c0d5cb5d92b0125012a7fccd6d70f527c7da7741e69f20afe5",
+          "executableSha256": "cf83d68b73c699916d1f222a2eb45e1a3992e380e8f3d9a31debee085499209f",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n32\nab\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-32-32-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O2",
+            "<output>/aggregate-32-32-O2.c",
+            "-o",
+            "<output>/aggregate-32-32-O2.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/aggregate-32-32-O2.exe"
+          ],
+          "generatedCSha256": "ace7dcb44741e9c0d5cb5d92b0125012a7fccd6d70f527c7da7741e69f20afe5",
+          "executableSha256": "03e6840fa0975fd2bd2e4ed80fa8ed744500aa237d881fb53bf1424c710beca6",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n32\nab\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-128-127-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O0",
+            "<output>/scalar-128-127-O0.c",
+            "-o",
+            "<output>/scalar-128-127-O0.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/scalar-128-127-O0.exe"
+          ],
+          "generatedCSha256": "7dc00b453a827782ba0398461a0544b025340a2b3c740ee8ab8393e4531a3d0a",
+          "executableSha256": "36951e73f35589e64ba23a31199f6dc3bd4732f13821a99dd37cb2c4a9344ade",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 127,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-128-127-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O2",
+            "<output>/scalar-128-127-O2.c",
+            "-o",
+            "<output>/scalar-128-127-O2.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/scalar-128-127-O2.exe"
+          ],
+          "generatedCSha256": "7dc00b453a827782ba0398461a0544b025340a2b3c740ee8ab8393e4531a3d0a",
+          "executableSha256": "9b8c7f5e09f87e3c07923637cc20ce0e95ec43d1be59f6ac8b1f026ddcbf341c",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 127,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-128-128-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O0",
+            "<output>/scalar-128-128-O0.c",
+            "-o",
+            "<output>/scalar-128-128-O0.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/scalar-128-128-O0.exe"
+          ],
+          "generatedCSha256": "bf0c040021a4062e270bd4ce02ab2ee81942e5c5f35eedc5f8691468952992e0",
+          "executableSha256": "58138746b73b5d3633a285ecc2c4a800e45eb00e643f3ec944f5ded7d7a23e63",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n128\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-128-128-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O2",
+            "<output>/scalar-128-128-O2.c",
+            "-o",
+            "<output>/scalar-128-128-O2.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/scalar-128-128-O2.exe"
+          ],
+          "generatedCSha256": "bf0c040021a4062e270bd4ce02ab2ee81942e5c5f35eedc5f8691468952992e0",
+          "executableSha256": "14e08c9a8da76d29daabaf5a4199f9988fb5a3279c21cb9a0115c2a522084572",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n128\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-128-127-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O0",
+            "<output>/aggregate-128-127-O0.c",
+            "-o",
+            "<output>/aggregate-128-127-O0.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/aggregate-128-127-O0.exe"
+          ],
+          "generatedCSha256": "c5d2d85d835e5326163731b79c28cbdc7f19d95090c9587d10320d96b8274b32",
+          "executableSha256": "709f715146accfdbc47b8eb9d70d09964aba595915616a5abee728d65a9c440c",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 127,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-128-127-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O2",
+            "<output>/aggregate-128-127-O2.c",
+            "-o",
+            "<output>/aggregate-128-127-O2.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/aggregate-128-127-O2.exe"
+          ],
+          "generatedCSha256": "c5d2d85d835e5326163731b79c28cbdc7f19d95090c9587d10320d96b8274b32",
+          "executableSha256": "6e0b7029c064ad3949421aefd98a7530b0c5e1a69370d185e1afefd5ad1a99f9",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 127,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-128-128-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O0",
+            "<output>/aggregate-128-128-O0.c",
+            "-o",
+            "<output>/aggregate-128-128-O0.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/aggregate-128-128-O0.exe"
+          ],
+          "generatedCSha256": "fcbbf3de477f41833cb7658eadd3a207216bbb1ffc18c17199952234195d6f41",
+          "executableSha256": "d2c501af45b0b04abf4310b73e76feb3eb32d41415e4e916f760a596cb809d2d",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n128\nab\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-128-128-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-pc-windows-msvc",
+            "-std=c11",
+            "-O2",
+            "<output>/aggregate-128-128-O2.c",
+            "-o",
+            "<output>/aggregate-128-128-O2.exe",
+            "-Xlinker",
+            "/STACK:2097152"
+          ],
+          "runCommand": [
+            "<output>/aggregate-128-128-O2.exe"
+          ],
+          "generatedCSha256": "fcbbf3de477f41833cb7658eadd3a207216bbb1ffc18c17199952234195d6f41",
+          "executableSha256": "480e1e3a4c11a0eb7cf9eebd5e372bd10f313944a7deae56d70483342d856d48",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n128\nab\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        }
+      ]
+    },
+    {
+      "target": "linux-gnu",
+      "compiler": "clang version 10.0.0-4ubuntu1 \nTarget: x86_64-pc-linux-gnu\nThread model: posix",
+      "requestedStackBytes": 2097152,
+      "depths": [
+        32,
+        128
+      ],
+      "emitterSha256": "243b10cdd6e4e90ed613ffee6346e5d803cdb28725a68947a689f66b161629c4",
+      "cases": [
+        {
+          "name": "scalar-32-31-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O0",
+            "<output>/scalar-32-31-O0.c",
+            "-o",
+            "<output>/scalar-32-31-O0.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/scalar-32-31-O0.bin"
+          ],
+          "generatedCSha256": "a88f5d94d230b6f712276034ff461bde3fa1f34e021d38587038082f67fb4eb5",
+          "executableSha256": "ee2c9ef6de27061640ee3f20aaf6568fd3456d5926f3d260f18c832c6b5fb39b",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 31,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-32-31-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O2",
+            "<output>/scalar-32-31-O2.c",
+            "-o",
+            "<output>/scalar-32-31-O2.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/scalar-32-31-O2.bin"
+          ],
+          "generatedCSha256": "a88f5d94d230b6f712276034ff461bde3fa1f34e021d38587038082f67fb4eb5",
+          "executableSha256": "fa2802f34975ae2b1e5f15e70734f99565d5c24bb434059bf2a72592f081ebda",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 31,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-32-32-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O0",
+            "<output>/scalar-32-32-O0.c",
+            "-o",
+            "<output>/scalar-32-32-O0.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/scalar-32-32-O0.bin"
+          ],
+          "generatedCSha256": "1d23b32e7086ebdf93970b2a010a5ab751edbed1825820c69708993ab226cfa3",
+          "executableSha256": "e5c15e40b5ac2c0cb22ad681fd4a2274bfdf813868c7f0de392a5ce16beeae31",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n32\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-32-32-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O2",
+            "<output>/scalar-32-32-O2.c",
+            "-o",
+            "<output>/scalar-32-32-O2.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/scalar-32-32-O2.bin"
+          ],
+          "generatedCSha256": "1d23b32e7086ebdf93970b2a010a5ab751edbed1825820c69708993ab226cfa3",
+          "executableSha256": "7879db526ff759392f6334cf507c41fec91b4f12a6681605cfc4e9677e96f7bc",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n32\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-32-31-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O0",
+            "<output>/aggregate-32-31-O0.c",
+            "-o",
+            "<output>/aggregate-32-31-O0.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/aggregate-32-31-O0.bin"
+          ],
+          "generatedCSha256": "c4890377763c9b7e44351dca3fbd4c041ac175c6e54bf53e2bb255a6fb0fc90c",
+          "executableSha256": "e319c79f59b54c586d39cff39269e7192b8ce1adc2c10bd55599acb1e898da31",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 31,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-32-31-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O2",
+            "<output>/aggregate-32-31-O2.c",
+            "-o",
+            "<output>/aggregate-32-31-O2.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/aggregate-32-31-O2.bin"
+          ],
+          "generatedCSha256": "c4890377763c9b7e44351dca3fbd4c041ac175c6e54bf53e2bb255a6fb0fc90c",
+          "executableSha256": "31a87f6606376fc20ff3c5c3574eae9bcbe6e0aee6554fc9738ff0625daffe93",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 31,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-32-32-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O0",
+            "<output>/aggregate-32-32-O0.c",
+            "-o",
+            "<output>/aggregate-32-32-O0.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/aggregate-32-32-O0.bin"
+          ],
+          "generatedCSha256": "ace7dcb44741e9c0d5cb5d92b0125012a7fccd6d70f527c7da7741e69f20afe5",
+          "executableSha256": "f2e32d24d98e58dd1e66a09e8496ce3c5a37590e4ae8fd147ec53f718e5de003",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n32\nab\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-32-32-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O2",
+            "<output>/aggregate-32-32-O2.c",
+            "-o",
+            "<output>/aggregate-32-32-O2.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/aggregate-32-32-O2.bin"
+          ],
+          "generatedCSha256": "ace7dcb44741e9c0d5cb5d92b0125012a7fccd6d70f527c7da7741e69f20afe5",
+          "executableSha256": "48965b7ea533cb441f0040f556c37ff79c06e75d30ea6a53f17d29ef429c77a0",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n32\nab\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-128-127-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O0",
+            "<output>/scalar-128-127-O0.c",
+            "-o",
+            "<output>/scalar-128-127-O0.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/scalar-128-127-O0.bin"
+          ],
+          "generatedCSha256": "7dc00b453a827782ba0398461a0544b025340a2b3c740ee8ab8393e4531a3d0a",
+          "executableSha256": "00c7368e95f69dd9f5cf34bc5be09a56ef9218a435531c53177dbe8379e38204",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 127,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-128-127-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O2",
+            "<output>/scalar-128-127-O2.c",
+            "-o",
+            "<output>/scalar-128-127-O2.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/scalar-128-127-O2.bin"
+          ],
+          "generatedCSha256": "7dc00b453a827782ba0398461a0544b025340a2b3c740ee8ab8393e4531a3d0a",
+          "executableSha256": "5841c6317642f7f45ac6a3a9c3bf708713061b6d8058cc79c7c79eeaafb051c7",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 127,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-128-128-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O0",
+            "<output>/scalar-128-128-O0.c",
+            "-o",
+            "<output>/scalar-128-128-O0.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/scalar-128-128-O0.bin"
+          ],
+          "generatedCSha256": "bf0c040021a4062e270bd4ce02ab2ee81942e5c5f35eedc5f8691468952992e0",
+          "executableSha256": "212e413dc1f3d562d5db9615f85436cbdef4f9e6e7d2852e0b351cbbf7e92982",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n128\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "scalar-128-128-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O2",
+            "<output>/scalar-128-128-O2.c",
+            "-o",
+            "<output>/scalar-128-128-O2.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/scalar-128-128-O2.bin"
+          ],
+          "generatedCSha256": "bf0c040021a4062e270bd4ce02ab2ee81942e5c5f35eedc5f8691468952992e0",
+          "executableSha256": "2bc84013f83986b9604a4818781115fd1e419e271bdec3be06a9d8ad991c9b54",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n128\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-128-127-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O0",
+            "<output>/aggregate-128-127-O0.c",
+            "-o",
+            "<output>/aggregate-128-127-O0.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/aggregate-128-127-O0.bin"
+          ],
+          "generatedCSha256": "c5d2d85d835e5326163731b79c28cbdc7f19d95090c9587d10320d96b8274b32",
+          "executableSha256": "6ac6a480dcbf8568aa76b9419daf747ac1cb649650e94e5a5d1dc4ad19dd9913",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 127,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-128-127-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O2",
+            "<output>/aggregate-128-127-O2.c",
+            "-o",
+            "<output>/aggregate-128-127-O2.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/aggregate-128-127-O2.bin"
+          ],
+          "generatedCSha256": "c5d2d85d835e5326163731b79c28cbdc7f19d95090c9587d10320d96b8274b32",
+          "executableSha256": "813986869171c24ee1b30f6693f5e3cfd508b2f0139eef375fca0a1889a4f1ca",
+          "status": 1,
+          "signal": null,
+          "expected": {
+            "kind": "depth-limit",
+            "limit": 127,
+            "output": "before\n"
+          },
+          "observation": {
+            "kind": "depth-limit",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-128-128-O0",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O0",
+            "<output>/aggregate-128-128-O0.c",
+            "-o",
+            "<output>/aggregate-128-128-O0.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/aggregate-128-128-O0.bin"
+          ],
+          "generatedCSha256": "fcbbf3de477f41833cb7658eadd3a207216bbb1ffc18c17199952234195d6f41",
+          "executableSha256": "dbd21975839f8ebb0a0f2db8ef91c961ccfd15e6acafb69b4fb40c91ef432f9f",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n128\nab\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        },
+        {
+          "name": "aggregate-128-128-O2",
+          "compileCommand": [
+            "clang",
+            "--target=x86_64-unknown-linux-gnu",
+            "-std=c11",
+            "-O2",
+            "<output>/aggregate-128-128-O2.c",
+            "-o",
+            "<output>/aggregate-128-128-O2.bin"
+          ],
+          "runCommand": [
+            "prlimit",
+            "--stack=2097152:2097152",
+            "--core=0:0",
+            "--",
+            "<output>/aggregate-128-128-O2.bin"
+          ],
+          "generatedCSha256": "fcbbf3de477f41833cb7658eadd3a207216bbb1ffc18c17199952234195d6f41",
+          "executableSha256": "048b6aa0706c5ba1dcb320dd4c8979bda7e27e2cbb5d3e7a6e4c73479e4c3d86",
+          "status": 0,
+          "signal": null,
+          "expected": {
+            "kind": "completed",
+            "output": "before\n128\nab\nafter\n"
+          },
+          "observation": {
+            "kind": "completed",
+            "matched": true
+          }
+        }
+      ]
+    }
+  ]
+}

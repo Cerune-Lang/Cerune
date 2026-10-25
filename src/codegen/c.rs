@@ -1,5 +1,6 @@
 mod arguments;
 mod array;
+mod call;
 mod conversion;
 mod emit;
 mod failure;
@@ -24,6 +25,15 @@ pub fn emit_c(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
     let module = lower(program);
 
     Ok(emit(&module))
+}
+
+/// 呼出し深さを明示したCを生成します。物理stackの安全範囲を保証しません。
+/// 通常のemit_cとCLIの動作は変更しません。
+pub fn emit_c_with_call_limit(
+    program: &cerune_ir::Program,
+    limit: std::num::NonZeroU32,
+) -> Result<String, Diagnostic> {
+    Ok(emit(&lower::lower_with_call_limit(program, Some(limit))))
 }
 
 #[cfg(test)]
