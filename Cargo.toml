@@ -34,6 +34,10 @@ path = "experiments/host_calls/library.rs"
 name = "call_depth_probe"
 path = "experiments/call_depth/main.rs"
 
+[[example]]
+name = "call_depth_emit_c"
+path = "experiments/call_depth/emit_c.rs"
+
 [dependencies]
 serde_json = "1.0"
 sha2 = "0.10"

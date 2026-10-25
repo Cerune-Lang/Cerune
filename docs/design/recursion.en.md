@@ -2,7 +2,7 @@
 
 [日本語](recursion.ja.md)
 
-Status: WAT invocation storage, explicit depth-limit APIs/diagnostics for HIR, MIR, SSA, and VM, and explicit frames in all four executors are implemented. CLI configuration, common limits in generated routes, and recursive source programs remain pending.
+Status: WAT invocation storage, explicit depth-limit APIs/diagnostics for HIR, MIR, SSA, and VM, explicit frames in all four executors, and explicit C limits/diagnostics are implemented. CLI configuration, common limits in the remaining generated routes, and recursive source programs remain pending.
 
 ## Findings and responsibilities
 
@@ -15,7 +15,8 @@ Use existing Cerune IR functions, calls, and returns. No recursion-specific IR o
 | HIR | Execute references into original HIR with explicit frames; source and generated calls do not add host-recursive frames | Cross-route agreement, CLI configuration, and common supported ranges |
 | VM | Explicit frames retain original bytecode PCs, operand stacks, and slots | Generated-route agreement, resource validation, and CLI configuration |
 | MIR / SSA | Explicit frames retain original CFG blocks/instruction positions and locals/SSA values/slots | Align generated routes, supported ranges, and CLI before enabling recursive source |
-| C / LLVM / QBE / Native | Locals use the execution environment's stack | Retain limits, call stacks, and origins; compare aggregates and ownership across routes |
+| C | Rust API emits explicit limits and call-v1; locals use the execution environment's stack | Align remaining generated routes, supported ranges, and CLI |
+| LLVM / QBE / Native | Locals use the execution environment's stack | Retain limits, call stacks, and origins; compare aggregates and ownership across routes |
 | WAT | This change moves aggregates and temporaries to private per-invocation memory | Add common limits and call-stack diagnostics |
 
 ## Agreed stopping condition
@@ -45,7 +46,7 @@ HIR, MIR, SSA, and VM expose the Rust API `run_with_call_limit(program, NonZeroU
 
 This increment does not bound physical stack or memory use. Generated helpers still consume resources. Existing heap allocation failures remain separate runtime diagnostics, but capturing Rust executor OS stack exhaustion or general memory exhaustion as common diagnostics is not implemented. Large limits are not guaranteed safe. Measure supported ranges and address resource exhaustion before enabling recursion.
 
-Attaching stacks to every other failure, matching stopping conditions in generated routes, CLI configuration, and MIR/SSA re-entry remain pending. Frontend recursion rejection stays in place.
+Attaching stacks to every other failure, matching stopping conditions in the remaining generated routes, and CLI configuration remain pending. Internal MIR/SSA re-entry is supported with explicit frames. Frontend recursion rejection stays in place.
 
 `cargo test --test ir_executor call_depth` compares limit boundaries, left-to-right arguments, short circuiting, main, generics, standard modules, helper exclusion, normal/early returns, origins, prior output, and stack order across four executors. It also checks that heap-limit failures remain distinct from depth failures, and includes the [depth example](../../examples/call_frames/depth.ceru).
 
@@ -53,7 +54,7 @@ Attaching stacks to every other failure, matching stopping conditions in generat
 
 The [call-depth experiment](../../experiments/call_depth/README.en.md) compares Windows/Linux debug and release builds. Before this change, commit 143aae0 exhausted the stack in all four debug executors for aggregate calls at depth 32 with a requested 2 MiB, before producing depth diagnostics. These finite measurements do not prove a safe configuration range.
 
-Explicit frames are implemented in HIR, MIR, SSA, and VM. Next validate generated-route resources and depth diagnostics, then supported ranges and CLI configuration.
+Explicit frames are implemented in HIR, MIR, SSA, and VM. Explicit C limits and finite resource fixtures are now verified first. Next align LLVM, QBE, WAT, and Native, then supported ranges and CLI configuration.
 
 ## Implemented: explicit HIR frames
 
@@ -88,6 +89,26 @@ MIR, SSA, and VM calls now push an explicit callee frame and resume the saved po
 Generated helpers have physical frames but do not consume logical depth. Frame/local/argument/SSA-edge containers and VM stack growth use try_reserve and report returned allocation failures as allocation-failed. Ordinary callee failures retain the failing instruction location; callee frame-allocation failures retain the caller's call location. Failure stops subsequent execution and unwinds remaining internal depth counters.
 
 Tests compare all four executors at depth 128 on a requested 2 MiB thread, with limits 8/127/128, suspended values, loops/early returns, test-only re-entry with owned values, and injected frame-allocation failures for source/generated functions. The internal MIR/SSA re-entry rejection is removed; recursive source programs remain prohibited. Unbounded APIs are not a sandbox against infinite execution in invalid IR. General allocation recovery and safe cross-route ranges are not guaranteed.
+
+## Implemented: explicit limits in generated C
+
+The Rust API `codegen::c::emit_c_with_call_limit(&program, NonZeroU32)` emits C with the same counting and call-v1 records as the four executors. Ordinary emit_c, CLI behavior, and recursive-source rejection remain unchanged.
+
+| Item | Behavior |
+| --- | --- |
+| Arguments/calls | Evaluate all source-function arguments into temporaries from left to right, then check enter in the caller before calling the C function |
+| Results | Save the result in a caller temporary before leave. Void calls, early returns, and aggregate returns decrement depth exactly once after the callee returns |
+| Classification | Preserve source/generated classification in C IR. Exclude generated helpers; count explicit main with host origin |
+| History | Retain only FunctionId and immutable origin strings. Grow on demand rather than allocating the full limit up front; release on successful completion |
+| History allocation failure | Stop with runtime-v1 allocation-failed at the call site. History is runtime storage separate from language string/array live-size limits |
+| Depth overflow | Write the rejected call and outermost-first active calls to stderr, then exit with code 1. Preserve prior output and skip the callee body and subsequent operations |
+| Observation | Emitted C retains the limit, temporaries, enter/leave, history allocation and call-v1 rendering. No external history/control API is added |
+
+History construction and execution control are internal. Records contain no paths, source text, arguments, or values. C stderr follows the target C runtime: comparisons normalize CRLF/LF and experiments retain raw stderr. String contents and stdout bytes are not normalized.
+
+The [generated-C experiment](../../experiments/call_depth/README.en.md) explicitly selects target, compiler, and stack size. It checks scalar and owned-string/array-product chains at depths 32/128, limits N−1/N, and O0/O2, never accepting abnormal process termination as successful depth limiting. Tests also compare every diagnostic line with four executors, short circuiting, argument-failure precedence, generics, standard modules, helper exclusion, 100 owned-value runs, and test-only direct/mutual IR re-entry.
+
+This API does not bound physical stack use. Argument copies, caller temporaries, compiler layout/optimization, and generated helpers consume resources. OS stack exhaustion is not converted into call-v1, and no common safe range or default is established. LLVM, QBE, WAT, and Native will also validate logical depth and physical resource failures separately.
 
 ## Implemented: WAT invocation storage
 

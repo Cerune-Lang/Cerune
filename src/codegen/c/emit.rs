@@ -4,6 +4,9 @@ use std::fmt::Write;
 pub fn emit(module: &Module) -> String {
     let mut output = String::new();
     let support = required_support(module);
+    if module.call_limit.is_some() {
+        output.push_str("#include <stdlib.h>\n#include <stddef.h>\n");
+    }
     fn has_flush(s: &Statement) -> bool {
         match s {
             Statement::Flush { .. } => true,
@@ -49,7 +52,10 @@ pub fn emit(module: &Module) -> String {
     if writes || strings || module.array_heap_limit.is_some() {
         output.push_str("#ifdef _WIN32\n#include <io.h>\n#include <fcntl.h>\n#endif\n");
     }
-    if module.string_heap_limit.is_some() || !module.array_types.is_empty() || support.any_numeric()
+    if module.string_heap_limit.is_some()
+        || !module.array_types.is_empty()
+        || support.any_numeric()
+        || module.call_limit.is_some()
     {
         output.push_str("#include <stdlib.h>\n");
     }
@@ -59,9 +65,15 @@ pub fn emit(module: &Module) -> String {
     output.push_str("#if defined(__clang__)\n#pragma clang fp contract(off)\n#elif defined(__GNUC__)\n#pragma GCC optimize (\"fp-contract=off\")\n#endif\n");
     output.push('\n');
 
-    if module.string_heap_limit.is_some() || !module.array_types.is_empty() || support.any_numeric()
+    if module.string_heap_limit.is_some()
+        || !module.array_types.is_empty()
+        || support.any_numeric()
+        || module.call_limit.is_some()
     {
         output.push_str(super::failure::SUPPORT);
+    }
+    if let Some(limit) = module.call_limit {
+        output.push_str(&super::call::support(limit));
     }
     let string_byte_at = support.string_byte_at;
     emit_i64_operation_support(support, &mut output);
@@ -177,11 +189,22 @@ pub fn emit(module: &Module) -> String {
 
     if let Some(function_id) = module.explicit_main {
         let function = &module.functions[function_id];
+        if module.call_limit.is_some() && function.source_function {
+            output.push_str("    ");
+            super::call::enter(function.id, None, &mut output);
+            output.push_str(";\n");
+        }
         output.push_str("    ");
         output.push_str(&function_name(function.id, &function.name));
         output.push_str("();\n");
+        if module.call_limit.is_some() && function.source_function {
+            output.push_str("    cerune_call_leave();\n");
+        }
     }
 
+    if module.call_limit.is_some() {
+        output.push_str("    cerune_call_finish();\n");
+    }
     output.push_str("    return 0;\n");
     output.push_str("}\n");
 
@@ -384,6 +407,7 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
         }
 
         Statement::Call {
+            origin,
             evaluation,
             function_id,
             function_name,
@@ -394,9 +418,19 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
                 emit_expr(value, module, output);
                 output.push_str(";\n");
             }
+            let counted =
+                module.call_limit.is_some() && module.functions[*function_id].source_function;
+            if counted {
+                output.push_str(&prefix);
+                super::call::enter(*function_id, Some(*origin), output);
+                output.push_str(";\n");
+            }
             output.push_str(&prefix);
             emit_call(*function_id, function_name, arguments, module, output);
             output.push_str(";\n");
+            if counted {
+                writeln!(output, "{prefix}cerune_call_leave();").unwrap();
+            }
         }
 
         Statement::Return(value) => {
@@ -774,10 +808,21 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
         }
 
         ExprKind::Call {
+            result_temp,
             function_id,
             function_name,
             arguments,
-        } => emit_call(*function_id, function_name, arguments, module, output),
+        } => {
+            if let Some(id) = result_temp {
+                output.push('(');
+                super::call::enter(*function_id, Some(expr.origin), output);
+                write!(output, ", _cerune_eval_{id} = ").unwrap();
+                emit_call(*function_id, function_name, arguments, module, output);
+                write!(output, ", cerune_call_leave(), _cerune_eval_{id})").unwrap();
+            } else {
+                emit_call(*function_id, function_name, arguments, module, output);
+            }
+        }
 
         ExprKind::Unary { op, value } => {
             if *op == UnaryOp::CheckedI64Negate {

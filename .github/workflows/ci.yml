@@ -29,7 +29,7 @@ jobs:
           node --test scripts/check-docs.test.cjs
       - name: Call-depth probe contract and shallow smoke test
         run: |
-          node --test experiments/call_depth/probe.test.cjs
+          node --test experiments/call_depth/probe.test.cjs experiments/call_depth/probe_c.test.cjs
           cargo build --example call_depth_probe
           node experiments/call_depth/probe.cjs target/debug/examples/call_depth_probe target/call-depth-smoke 4 16777216
       - name: Format

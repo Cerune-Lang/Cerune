@@ -6,7 +6,14 @@ use super::ir::{
 };
 
 pub fn lower(program: &cerune_ir::Program) -> Module {
+    lower_with_call_limit(program, None)
+}
+pub(super) fn lower_with_call_limit(
+    program: &cerune_ir::Program,
+    call_limit: Option<std::num::NonZeroU32>,
+) -> Module {
     let mut module = Module {
+        call_limit,
         array_heap_limit: program
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
@@ -21,6 +28,7 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
             .function_definitions
             .iter()
             .map(|function| Function {
+                source_function: function.lowering.is_none(),
                 temporaries: Vec::new(),
                 id: function.id.0,
                 name: function.name.clone(),
@@ -273,6 +281,10 @@ fn lower_statement(statement: &cerune_ir::Statement) -> Statement {
             function_name,
             arguments,
         } => Statement::Call {
+            origin: super::ir::Origin {
+                node_id: statement.id,
+                span: statement.span,
+            },
             evaluation: Vec::new(),
             function_id: function_id.0,
             function_name: function_name.clone(),
@@ -526,6 +538,7 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
             function_name,
             arguments,
         } => ExprKind::Call {
+            result_temp: None,
             function_id: function_id.0,
             function_name: function_name.clone(),
             arguments: arguments.iter().map(lower_expr).collect(),

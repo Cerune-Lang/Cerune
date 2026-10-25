@@ -2,24 +2,29 @@ use super::ir::{BinaryOp, Expr, ExprKind, Module, Statement, Type, UnaryOp};
 
 /// Cが順序を保証しない場所で、作用や失敗の順番をCeruneに合わせます。
 pub(super) fn lower(module: &mut Module) {
+    let counted: Vec<bool> = module
+        .functions
+        .iter()
+        .map(|f| module.call_limit.is_some() && f.source_function)
+        .collect();
     for function in &mut module.functions {
-        statements(&mut function.body, &mut function.temporaries);
+        statements(&mut function.body, &mut function.temporaries, &counted);
     }
-    statements(&mut module.statements, &mut module.temporaries);
+    statements(&mut module.statements, &mut module.temporaries, &counted);
 }
 
-fn statements(body: &mut [Statement], temporaries: &mut Vec<Type>) {
+fn statements(body: &mut [Statement], temporaries: &mut Vec<Type>, counted: &[bool]) {
     for statement in body {
         match statement {
             Statement::ArrayInitialize { array, value } => {
-                expression(array, temporaries);
-                expression(value, temporaries);
+                expression(array, temporaries, counted);
+                expression(value, temporaries, counted);
             }
             Statement::ArrayRangeCheck {
                 length, start, end, ..
             } => {
                 for value in [length, start, end] {
-                    expression(value, temporaries);
+                    expression(value, temporaries, counted);
                 }
             }
             Statement::ArrayManage { value, .. }
@@ -27,27 +32,32 @@ fn statements(body: &mut [Statement], temporaries: &mut Vec<Type>) {
             | Statement::StringManage { value, .. }
             | Statement::Write { value, .. }
             | Statement::Print { value, .. } => {
-                expression(value, temporaries);
+                expression(value, temporaries, counted);
             }
             Statement::Assignment { target, value } => {
                 for projection in &mut target.projections {
-                    expression(&mut projection.index, temporaries);
+                    expression(&mut projection.index, temporaries, counted);
                 }
-                expression(value, temporaries);
+                expression(value, temporaries, counted);
             }
             Statement::Call {
                 evaluation,
+                function_id,
                 arguments,
                 ..
             } => {
                 for argument in arguments.iter_mut() {
-                    expression(argument, temporaries);
+                    expression(argument, temporaries, counted);
                 }
-                *evaluation = order(arguments.iter_mut().collect(), temporaries);
+                *evaluation = order(
+                    arguments.iter_mut().collect(),
+                    temporaries,
+                    counted[*function_id],
+                );
             }
             Statement::Return(value) => {
                 if let Some(value) = value {
-                    expression(value, temporaries);
+                    expression(value, temporaries, counted);
                 }
             }
             Statement::If {
@@ -55,13 +65,13 @@ fn statements(body: &mut [Statement], temporaries: &mut Vec<Type>) {
                 then_body,
                 else_body,
             } => {
-                expression(condition, temporaries);
-                statements(then_body, temporaries);
-                statements(else_body, temporaries);
+                expression(condition, temporaries, counted);
+                statements(then_body, temporaries, counted);
+                statements(else_body, temporaries, counted);
             }
             Statement::While { condition, body } => {
-                expression(condition, temporaries);
-                statements(body, temporaries);
+                expression(condition, temporaries, counted);
+                statements(body, temporaries, counted);
             }
             Statement::For {
                 initializer,
@@ -69,17 +79,17 @@ fn statements(body: &mut [Statement], temporaries: &mut Vec<Type>) {
                 update,
                 body,
             } => {
-                statements(std::slice::from_mut(initializer), temporaries);
-                expression(condition, temporaries);
-                statements(std::slice::from_mut(update), temporaries);
-                statements(body, temporaries);
+                statements(std::slice::from_mut(initializer), temporaries, counted);
+                expression(condition, temporaries, counted);
+                statements(std::slice::from_mut(update), temporaries, counted);
+                statements(body, temporaries, counted);
             }
             Statement::Flush { .. } | Statement::Break | Statement::Continue => {}
         }
     }
 }
 
-fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
+fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>, counted: &[bool]) {
     if let ExprKind::Construct {
         base: Some(base),
         fields,
@@ -87,15 +97,16 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
         ..
     } = &mut expr.kind
     {
-        expression(base, temporaries);
+        expression(base, temporaries, counted);
         for field in fields {
-            expression(&mut field.value, temporaries);
+            expression(&mut field.value, temporaries, counted);
         }
         // Cのカンマ式でコピー、明示フィールド、結果の順序を固定します。
         *copy_temp = Some(temporaries.len());
         temporaries.push(expr.ty.clone());
         return;
     }
+    let guarded = matches!(&expr.kind,ExprKind::Call {function_id,..} if counted[*function_id]);
     let mut children: Vec<&mut Expr> = match &mut expr.kind {
         ExprKind::StringByteAt {
             value: left,
@@ -118,8 +129,8 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
         } => values.iter_mut().collect(),
         ExprKind::Logical { left, right, .. } | ExprKind::IntegerBinary { left, right, .. } => {
             // 短絡評価と、既にカンマ式で順序を持つ整数演算は、その位置を保ちます。
-            expression(left, temporaries);
-            expression(right, temporaries);
+            expression(left, temporaries, counted);
+            expression(right, temporaries, counted);
             return;
         }
         ExprKind::ArrayAllocate { length: value, .. }
@@ -132,7 +143,7 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
         | ExprKind::CheckIntegerRange { value, .. }
         | ExprKind::Unary { value, .. }
         | ExprKind::FieldAccess { base: value, .. } => {
-            expression(value, temporaries);
+            expression(value, temporaries, counted);
             return;
         }
         ExprKind::Sequence { .. } => unreachable!("C sequencing runs once after lowering"),
@@ -145,9 +156,16 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
         | ExprKind::Temporary(_) => return,
     };
     for child in &mut children {
-        expression(child, temporaries);
+        expression(child, temporaries, counted);
     }
-    let bindings = order(children, temporaries);
+    let bindings = order(children, temporaries, guarded);
+    if guarded {
+        let ExprKind::Call { result_temp, .. } = &mut expr.kind else {
+            unreachable!()
+        };
+        *result_temp = Some(temporaries.len());
+        temporaries.push(expr.ty.clone());
+    }
     if !bindings.is_empty() {
         let value = std::mem::replace(&mut expr.kind, ExprKind::Boolean(false));
         expr.kind = ExprKind::Sequence {
@@ -161,8 +179,8 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>) {
     }
 }
 
-fn order(children: Vec<&mut Expr>, temporaries: &mut Vec<Type>) -> Vec<(usize, Expr)> {
-    if children.iter().filter(|child| observable(child)).count() < 2 {
+fn order(children: Vec<&mut Expr>, temporaries: &mut Vec<Type>, force: bool) -> Vec<(usize, Expr)> {
+    if !force && children.iter().filter(|child| observable(child)).count() < 2 {
         return Vec::new();
     }
     children
