@@ -1,0 +1,13 @@
+fn mark(value: i64) -> i64 {
+    print(value);
+    return value;
+}
+fn pair(left: i64, right: i64) -> i64 {
+    print("pair");
+    return left + right;
+}
+fn outer() -> i64 {
+    return pair(mark(10), mark(20));
+}
+print(outer());
+print("done");

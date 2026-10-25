@@ -2,7 +2,7 @@
 
 [日本語](recursion.ja.md)
 
-Status: WAT invocation storage is separated. Recursive source programs, the common depth limit, and call-stack diagnostics remain unimplemented.
+Status: WAT invocation storage and explicit depth-limit APIs/diagnostics for HIR, MIR, SSA, and VM are implemented. CLI configuration, common limits in generated routes, and recursive source programs remain pending.
 
 ## Findings and responsibilities
 
@@ -12,12 +12,12 @@ Use existing Cerune IR functions, calls, and returns. No recursion-specific IR o
 | --- | --- | --- |
 | Frontend | Rejects direct and indirect recursion | Lift the restriction after execution routes are ready; keep recursive value-type validation separate |
 | Generic expansion | Rejects re-entry into the same template | Reuse an existing specialization for identical concrete arguments; retain bounds on expansion that keeps creating new types |
-| HIR / VM | Independent values per call; execution uses Rust recursion | Common limits/diagnostics; verify structures and ranges that stop before physical stack exhaustion |
-| MIR / SSA | Independent frames; reject re-entry into the same function | Implement common limits/diagnostics before allowing re-entry |
+| HIR / VM | Independent values per call; explicit depth-limit APIs implemented; execution uses Rust recursion | CLI configuration; verify structures and ranges that stop before physical stack exhaustion |
+| MIR / SSA | Independent frames; explicit depth-limit APIs implemented; reject re-entry into the same function | Validate resources and prepare all routes before allowing re-entry |
 | C / LLVM / QBE / Native | Locals use the execution environment's stack | Retain limits, call stacks, and origins; compare aggregates and ownership across routes |
 | WAT | This change moves aggregates and temporaries to private per-invocation memory | Add common limits and call-stack diagnostics |
 
-## Agreed stopping condition (not implemented)
+## Agreed stopping condition
 
 Bound the number of simultaneously active function calls. Evaluate arguments from left to right, then check immediately before entering the callee. On exceeding the bound, do not execute the callee body; stop with the caller NodeId/Span and call stack.
 
@@ -27,7 +27,26 @@ Bound the number of simultaneously active function calls. Evaluate arguments fro
 | Physical stack / memory exhaustion | An execution-environment resource failure, not a depth-limit failure |
 | Observation | Read call stacks and source locations without an API to mutate active frames |
 
-Choose defaults and supported ranges after measuring all routes. The next common contract must also define counting for entry points, shared-IR-generated functions, and backend helpers. Backend implementation details must not change semantic depth. No implicit tail-call optimization is introduced.
+Choose defaults and supported ranges after measuring all routes. Count each actual invocation of a source-declared function, including standard modules, generic specializations, and explicit main, as one level. Exclude shared-IR/backend-generated helpers and the implicit top-level entry. Backend implementation details must not change semantic depth. No implicit tail-call optimization is introduced.
+
+## Implemented: explicit limits in four executors
+
+HIR, MIR, SSA, and VM expose the Rust API `run_with_call_limit(program, NonZeroU32)`. Allow calls exactly at the limit; reject the next before executing its body. Return restores the depth. Bytecode retains generated-helper identity rather than guessing from function names.
+
+| Item | Current contract |
+| --- | --- |
+| Configuration | Caller supplies a positive limit; ordinary run, CLI, and I/O connection APIs retain their behavior |
+| Access | Error call_failure() exposes the limit, rejected call, and active source-function frames ordered outermost first |
+| Origins | Each call retains FunctionId and caller NodeId/Span; explicit main starts with origin=host |
+| Record | record() starts with call-v1 reason=depth-limit limit=N function=F; subsequent lines use call-v1 frame=I function=F, each followed by origin fields |
+| Content protection | Origins use node=N [file=S] bytes=A..B; omit file for anonymous SourceId. No paths, source text, arguments, or runtime values |
+| Observation/control | Configure limits before execution. Failure records are read-only snapshots; reading/rendering them does not resume execution |
+
+This increment does not bound physical stack or memory use. Generated helpers still consume resources. Existing heap allocation failures remain separate runtime diagnostics, but capturing Rust executor OS stack exhaustion or general memory exhaustion as common diagnostics is not implemented. Large limits are not guaranteed safe. Measure supported ranges and address resource exhaustion before enabling recursion.
+
+Attaching stacks to every other failure, matching stopping conditions in generated routes, CLI configuration, and MIR/SSA re-entry remain pending. Frontend recursion rejection stays in place.
+
+`cargo test --test ir_executor call_depth` compares limit boundaries, left-to-right arguments, short circuiting, main, generics, standard modules, helper exclusion, normal/early returns, origins, prior output, and stack order across four executors. It also checks that heap-limit failures remain distinct from depth failures, and includes the [depth example](../../examples/call_frames/depth.ceru).
 
 ## Implemented: WAT invocation storage
 
@@ -51,8 +70,8 @@ cargo test --test wat_output introduces recursion only in a test IR fixture and 
 
 The [call_frames example](../../examples/call_frames/README.en.md) uses current syntax for nested calls, value updates, and early returns. Its output is compared across HIR, MIR, SSA, VM, and WAT.
 
-1. Establish independent WAT invocation storage (this change).
-2. Define common counting, configuration, diagnostics, and call stacks; implement them across executors and generated routes.
+1. Establish independent WAT invocation storage (implemented).
+2. Align common limits across routes. Counting and explicit APIs in four executors are implemented; next validate physical resources, establish configuration ranges, and add CLI configuration and generated-route diagnostics.
 3. Reuse generic specializations and lift frontend restrictions.
 4. Compare direct/mutual recursion, ownership/cleanup, argument order, limit boundaries, and failure origins across routes; add recursive examples.
 

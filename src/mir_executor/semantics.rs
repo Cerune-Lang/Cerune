@@ -1,6 +1,7 @@
 //! MIRとSSAで共有する個々の演算・所有操作です。CFGの実行や値の参照方式は含みません。
 use super::{Fault, Result};
 use crate::runtime::arguments::Arguments;
+use crate::runtime::call;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Sink};
 use crate::{
@@ -17,6 +18,7 @@ use crate::{
 };
 
 pub(crate) struct State<'a> {
+    pub calls: Option<call::Stack>,
     pub output: &'a mut dyn Sink,
     pub input: Option<&'a mut dyn Source>,
     pub arguments: Option<&'a Arguments>,
@@ -26,6 +28,7 @@ pub(crate) struct State<'a> {
 impl<'a> State<'a> {
     pub fn new(string_limit: u64, array_limit: u64, output: &'a mut dyn Sink) -> Self {
         Self {
+            calls: None,
             output,
             input: None,
             arguments: None,
@@ -54,7 +57,12 @@ pub(crate) trait Frame<R: Copy> {
 pub(crate) trait Calls<'a> {
     fn state(&mut self) -> &mut State<'a>;
     fn types(&self) -> &[mir::TypeDefinition];
-    fn call(&mut self, id: ir::FunctionId, args: Vec<Value>) -> Result<Option<Value>>;
+    fn call(
+        &mut self,
+        id: ir::FunctionId,
+        args: Vec<Value>,
+        origin: Option<mir::SourceOrigin>,
+    ) -> Result<Option<Value>>;
 }
 pub(crate) fn instruction<'a, R: Copy>(
     executor: &mut impl Calls<'a>,
@@ -74,7 +82,7 @@ pub(crate) fn instruction<'a, R: Copy>(
             arguments,
             ..
         } => {
-            executor.call(*function, frame.arguments(arguments)?)?;
+            executor.call(*function, frame.arguments(arguments)?, origin.source())?;
         }
         I::CheckIndex { root, path } => {
             // 最後の要素を読まず、長さで検査します。未初期化要素の読取りとは区別します。
@@ -325,7 +333,7 @@ fn operation<'a, R: Copy>(
             arguments,
             ..
         } => executor
-            .call(*function, frame.arguments(arguments)?)?
+            .call(*function, frame.arguments(arguments)?, origin.source())?
             .ok_or_else(|| Fault::invalid("void call used as value"))?,
         O::ArrayLength(v) => Value::Number(Number::Integer(
             array_length(&frame.get(*v)?)? as i128,

@@ -1,10 +1,12 @@
 use crate::runtime::arguments::{self, Arguments};
+use crate::runtime::call;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::{
     array_heap::{ArrayError, ArrayHeap, ArrayValue},
     float_output,
 };
+use std::num::NonZeroU32;
 mod string_heap;
 use string_heap::{StringHeap, StringValue};
 mod numeric;
@@ -27,6 +29,7 @@ pub enum IntegerOperation {
 /// Cerune VMの実行中に発生した問題の種類を表します。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VmErrorKind {
+    CallDepth(Box<call::Failure>),
     Arguments(Box<arguments::Failure>),
     Input(Box<input::Failure>),
     InputOriginMissing,
@@ -170,6 +173,12 @@ pub struct VmError {
 }
 
 impl VmError {
+    pub fn call_failure(&self) -> Option<&call::Failure> {
+        match &self.kind {
+            VmErrorKind::CallDepth(f) => Some(f),
+            _ => None,
+        }
+    }
     fn new(kind: VmErrorKind, instruction_index: usize) -> Self {
         Self {
             kind,
@@ -264,6 +273,21 @@ pub fn run(program: &BytecodeProgram) -> Result<String, VmError> {
     run_sink(program, &mut Capture::default())
 }
 
+/// ソース関数の同時呼出し数を明示した上限で検査します。既定値は選びません。
+/// 物理stack・memory消費を制限するAPIではありません。
+pub fn run_with_call_limit(
+    program: &BytecodeProgram,
+    limit: NonZeroU32,
+) -> std::result::Result<String, VmError> {
+    run_connections_with_limit(
+        program,
+        &mut Capture::default(),
+        &mut input::unconfigured(),
+        &Arguments::unconfigured(),
+        Some(limit),
+    )
+}
+
 /// 接続先へ逐次出力し、ソースのflush命令を実行します。終了時の自動flushや再収集は行いません。
 pub fn run_with_output<W: std::io::Write>(
     program: &BytecodeProgram,
@@ -306,6 +330,7 @@ pub fn run_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
     run_connections(program, output, input, arguments).map(|_| ())
 }
 struct ExecutionInput<'a> {
+    calls: Option<call::Stack>,
     stdin: &'a mut dyn Source,
     arguments: &'a Arguments,
 }
@@ -314,6 +339,15 @@ fn run_connections(
     output: &mut dyn Sink,
     input: &mut dyn Source,
     arguments: &Arguments,
+) -> Result<String, VmError> {
+    run_connections_with_limit(program, output, input, arguments, None)
+}
+fn run_connections_with_limit(
+    program: &BytecodeProgram,
+    output: &mut dyn Sink,
+    input: &mut dyn Source,
+    arguments: &Arguments,
+    limit: Option<NonZeroU32>,
 ) -> Result<String, VmError> {
     let mut heap = StringHeap::new(program.string_heap_limit);
     let mut arrays = ArrayHeap::new(program.array_heap_limit);
@@ -325,6 +359,7 @@ fn run_connections(
         &mut heap,
         &mut arrays,
         &mut ExecutionInput {
+            calls: limit.map(call::Stack::new),
             stdin: input,
             arguments,
         },
@@ -362,6 +397,7 @@ pub(crate) fn execute_function(
         &mut StringHeap::new(program.string_heap_limit),
         &mut ArrayHeap::new(program.array_heap_limit),
         &mut crate::vm::ExecutionInput {
+            calls: None,
             stdin: &mut crate::runtime::input::unconfigured(),
             arguments: &crate::runtime::arguments::Arguments::unconfigured(),
         },
@@ -1027,7 +1063,25 @@ fn execute_frame_inner(
                 }
                 arguments.reverse();
 
-                if let Some(value) = execute_frame(
+                let counted = function.lowering.is_none() && input.calls.is_some();
+                if counted {
+                    let origin = match instruction.origin {
+                        crate::bytecode::InstructionOrigin::Source { node_id, span } => {
+                            Some(call::Origin { node_id, span })
+                        }
+                        crate::bytecode::InstructionOrigin::Synthetic => None,
+                    };
+                    input
+                        .calls
+                        .as_mut()
+                        .unwrap()
+                        .enter(call::Frame {
+                            function: crate::ir::FunctionId(*function_id),
+                            origin,
+                        })
+                        .map_err(|f| VmError::new(VmErrorKind::CallDepth(f), pc))?;
+                }
+                let result = execute_frame(
                     program,
                     Frame::Function(*function_id),
                     arguments,
@@ -1035,7 +1089,11 @@ fn execute_frame_inner(
                     heap,
                     arrays,
                     input,
-                )? {
+                );
+                if counted {
+                    input.calls.as_mut().unwrap().leave();
+                }
+                if let Some(value) = result? {
                     stack.push(value);
                 }
             }
@@ -2062,6 +2120,7 @@ mod tests {
             &mut heap,
             &mut arrays,
             &mut crate::vm::ExecutionInput {
+                calls: None,
                 stdin: &mut crate::runtime::input::unconfigured(),
                 arguments: &crate::runtime::arguments::Arguments::unconfigured(),
             },

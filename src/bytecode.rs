@@ -44,6 +44,8 @@ pub struct BytecodeProgram {
 
 #[derive(Debug, Clone)]
 pub struct BytecodeFunction {
+    /// 名前で推測せず、生成補助関数の区分を保持します。
+    pub lowering: Option<ir::LoweringKind>,
     pub name: String,
     pub parameter_count: usize,
     pub return_type: ReturnType,
@@ -297,6 +299,7 @@ pub fn lower(program: &Program) -> Result<BytecodeProgram, Diagnostic> {
                     }));
             }
             BytecodeFunction {
+                lowering: function.lowering,
                 name: function.name.clone(),
                 parameter_count: function.parameters.len(),
                 return_type: match &function.return_type {
