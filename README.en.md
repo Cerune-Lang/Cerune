@@ -50,43 +50,30 @@ To install from source:
 cargo install --path .
 ```
 
-The same addition produces different results depending on the type. Comments show the output.
-
-```cerune
-a: f32 = 0.1 + 0.2;
-b: f64 = 0.1 + 0.2;
-c: infer = 0.1 + 0.2;
-
-print(a); // 0.300000012
-print(b); // 0.30000000000000004
-print(c); // 0.30000000000000004 (infer resolves to f64)
-```
-
-```sh
-cerune emit-ir examples/floating_point.ceru
-cerune emit-c examples/floating_point.ceru -o floating_point.c
-```
-
-During development, replace `cerune` with `cargo run --quiet --`.
-
 ### Compare execution and semantics
 
-Run this program through different execution paths.
-
 ```cerune
-print(7);
+print("Hello, Cerune!");
+a: f32 = 0.1 + 0.2;
+b: f64 = 0.1 + 0.2;
+print(a);
+print(b);
+
 limit: u8 = 255;
 unused: u8 = limit + 1;
 print(99);
 ```
 
 ```sh
-cerune run examples/runtime_failures/constant_overflow.ceru
-cerune run-mir examples/runtime_failures/constant_overflow.ceru
-cerune run-vm examples/runtime_failures/constant_overflow.ceru
+cerune run examples/runtime_failures/hello_cerune.ceru
+cerune run-mir examples/runtime_failures/hello_cerune.ceru
+cerune run-vm examples/runtime_failures/hello_cerune.ceru
+cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 ```
 
-Although `unused` is never used, every path prints `7`, then stops with `integer-overflow` at `limit + 1`. `99` is not printed.
+The program first prints `Hello, Cerune!` and the results for two floating-point types. Every execution path then stops with `integer-overflow` at the unused `unused` assignment, before printing `99`.
+
+During development, replace `cerune` with `cargo run --quiet --`.
 
 ## Capabilities
 
