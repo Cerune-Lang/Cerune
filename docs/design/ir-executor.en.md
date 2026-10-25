@@ -34,6 +34,8 @@ CLI `run <file>` and its alias `run-ir <file>` select direct execution; `run-vm 
 
 Private values contain typed numbers, bools, immutable string handles, and value arrays/products, without VM Value or bytecode Type. Keep nested mutable aggregate values independent while sharing immutable strings. Dynamic array element copies run through explicit common-IR loops rather than an opaque host deep copy. Execute enums as the common IR's tags and fields rather than introducing another language interpretation.
 
+Execution retains references to original statements/expressions, BindingId bindings, intermediate values, and continuation positions in explicit frames. Function calls do not add host-recursive Rust frames. See the [recursion design](recursion.en.md) for allocation-failure handling and remaining resource limits.
+
 ## Shared semantics and ownership
 
 Numeric conversion, float formatting, and string allocation management are extracted into small runtime components. The VM uses compatible adapters, preserving its public APIs and errors. Do not share instruction dispatch, stacks, slots, or function execution.
@@ -74,4 +76,4 @@ The stages above are implemented for current completed IR.
 
 Textual IR loading, an embedding API for arbitrary function invocation, and pause/resume are unsupported. No intervention API is introduced. Recursion remains unsupported. [Dynamic arrays](owned-arrays.en.md) were added subsequently to IR/VM; allocation, copy loops, and release execute from common IR. The public Rust API expects frontend-completed IR, not arbitrary hand-built IR requiring full validation. Detected structure/type/ownership inconsistencies produce `InvalidIr`; unexpanded `Let`/`Conditional` nodes are not silently expanded or delegated to the VM.
 
-Implementation is split into `src/ir_executor.rs` (control, frames, diagnostics), `src/runtime/value.rs` (private values and atomic operators shared with MIR), and `src/runtime/{numeric,float_output,string_heap,array_heap}.rs` (shared components). VM adapters remain under `src/vm`; direct execution does not depend on VM values or instruction sequences.
+Implementation is split into `src/ir_executor/machine.rs` (frames, continuation positions, structured control), `src/ir_executor.rs` (evaluated-operand operations and diagnostics), `src/runtime/value.rs` (private values and atomic operators shared with MIR), and `src/runtime/{numeric,float_output,string_heap,array_heap}.rs` (shared components). VM adapters remain under `src/vm`; direct execution does not depend on VM values or instruction sequences.

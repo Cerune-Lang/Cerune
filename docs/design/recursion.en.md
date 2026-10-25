@@ -2,7 +2,7 @@
 
 [日本語](recursion.ja.md)
 
-Status: WAT invocation storage and explicit depth-limit APIs/diagnostics for HIR, MIR, SSA, and VM are implemented. CLI configuration, common limits in generated routes, and recursive source programs remain pending.
+Status: WAT invocation storage, explicit depth-limit APIs/diagnostics for HIR, MIR, SSA, and VM, and explicit HIR frames are implemented. CLI configuration, common limits in generated routes, and recursive source programs remain pending.
 
 ## Findings and responsibilities
 
@@ -12,7 +12,8 @@ Use existing Cerune IR functions, calls, and returns. No recursion-specific IR o
 | --- | --- | --- |
 | Frontend | Rejects direct and indirect recursion | Lift the restriction after execution routes are ready; keep recursive value-type validation separate |
 | Generic expansion | Rejects re-entry into the same template | Reuse an existing specialization for identical concrete arguments; retain bounds on expansion that keeps creating new types |
-| HIR / VM | Independent values per call; explicit depth-limit APIs implemented; execution uses Rust recursion | CLI configuration; verify structures and ranges that stop before physical stack exhaustion |
+| HIR | Execute references into original HIR with explicit frames; source and generated calls do not add host-recursive frames | Cross-route agreement, CLI configuration, and common supported ranges |
+| VM | Independent values per call; explicit limits; function execution still uses Rust recursion | Explicit frames, resource validation, and CLI configuration |
 | MIR / SSA | Independent frames; explicit depth-limit APIs implemented; reject re-entry into the same function | Validate resources and prepare all routes before allowing re-entry |
 | C / LLVM / QBE / Native | Locals use the execution environment's stack | Retain limits, call stacks, and origins; compare aggregates and ownership across routes |
 | WAT | This change moves aggregates and temporaries to private per-invocation memory | Add common limits and call-stack diagnostics |
@@ -50,9 +51,29 @@ Attaching stacks to every other failure, matching stopping conditions in generat
 
 ## Physical stack validation and next steps
 
-The [call-depth experiment](../../experiments/call_depth/README.en.md) compares Windows/Linux debug and release builds. With a requested 2 MiB at depth 32, aggregate calls exhaust the stack in all four debug executors before producing depth diagnostics. These finite measurements do not prove a safe configuration range.
+The [call-depth experiment](../../experiments/call_depth/README.en.md) compares Windows/Linux debug and release builds. Before this change, commit 143aae0 exhausted the stack in all four debug executors for aggregate calls at depth 32 with a requested 2 MiB, before producing depth diagnostics. These finite measurements do not prove a safe configuration range.
 
-Before extending limits through the CLI, start with the standard HIR executor and replace host recursion with explicit frames and continuation positions. Include generated helpers in physical frame management and distinguish allocation failure from depth overflow. Preserve evaluation order, ownership, and origins, extend the approach to the other executors, then align generated routes, supported ranges, and CLI configuration. This execution-structure change is not implemented yet.
+Explicit HIR frames are implemented. Next align MIR, SSA, and VM execution structures, then generated routes, supported ranges, and CLI configuration.
+
+## Implemented: explicit HIR frames
+
+HIR function calls and statement/expression progression now use a loop instead of host-recursive dispatch. Each frame retains references into the original HIR, continuation positions, BindingId bindings, intermediate values, and the return destination. No execution IR or bytecode is constructed; source IR and origins remain unchanged.
+
+| Item | Behavior |
+| --- | --- |
+| Calls | Evaluate arguments left to right, check logical depth, then add the callee frame |
+| Generated helpers | Use the same physical frame management without consuming source-function depth |
+| Return | Check the result, transfer it to caller intermediate values, and discard callee continuations and bindings; early returns follow the same rule |
+| Control | Advance only the selected branch of if/short circuiting; for-continue runs the update; break/return discard irrelevant continuations |
+| Indexed assignment | Evaluate and bounds-check each index before advancing to later indices or the right-hand side |
+| Allocation failure | Check frame, continuation, intermediate-value, and binding container growth with try_reserve. Report returned failures as runtime-v1 allocation-failed, separate from call-v1 depth overflow |
+| Failure | Stop subsequent source operations and retain origins/prior output. Unwinding internal depth counters is not source rollback or re-execution |
+
+Shared call-history and depth-failure snapshot vectors now also return allocation failures, mapped to allocation-failed by all four executors. This does not make every Rust allocation recoverable: ordinary value copies, diagnostic Box/String allocations, nested-value processing, OS termination, and general memory exhaustion are not universally covered.
+
+On Windows/Linux debug builds, tests execute depth-128 scalar and owned-string/array-product chains on a thread requesting 2 MiB. Limits 8 and 127 stop with the original call origin; limit 128 and execution without a limit complete. These finite fixtures verify the call structure improvement, not defaults or safe ranges across all routes.
+
+The [pending-values example](../../examples/call_frames/pending_values.ceru), four-route comparisons of order/loops/index checks, and injected frame-allocation failures for ordinary/generated functions are included. A test-only IR cycle also checks owned parent values and cleanup across 100 runs. Explicit frames in MIR, SSA, and VM are next. Recursive source programs, CLI configuration for common limits, and generated-route limits remain unavailable.
 
 ## Implemented: WAT invocation storage
 
@@ -77,7 +98,7 @@ cargo test --test wat_output introduces recursion only in a test IR fixture and 
 The [call_frames example](../../examples/call_frames/README.en.md) uses current syntax for nested calls, value updates, and early returns. Its output is compared across HIR, MIR, SSA, VM, and WAT.
 
 1. Establish independent WAT invocation storage (implemented).
-2. Align common limits across routes. Counting and explicit APIs in four executors are implemented; measurements make explicit frame management, starting with HIR, the next prerequisite before configuration ranges, CLI settings, and generated-route diagnostics.
+2. Align common limits across routes. Counting and explicit APIs in four executors are implemented; HIR now uses explicit frames; next align MIR, SSA, and VM before configuration ranges, CLI settings, and generated-route diagnostics.
 3. Reuse generic specializations and lift frontend restrictions.
 4. Compare direct/mutual recursion, ownership/cleanup, argument order, limit boundaries, and failure origins across routes; add recursive examples.
 

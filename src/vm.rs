@@ -1079,7 +1079,15 @@ fn execute_frame_inner(
                             function: crate::ir::FunctionId(*function_id),
                             origin,
                         })
-                        .map_err(|f| VmError::new(VmErrorKind::CallDepth(f), pc))?;
+                        .map_err(|f| {
+                            VmError::new(
+                                match f {
+                                    call::EnterError::Depth(f) => VmErrorKind::CallDepth(f),
+                                    call::EnterError::Allocation => VmErrorKind::AllocationFailed,
+                                },
+                                pc,
+                            )
+                        })?;
                 }
                 let result = execute_frame(
                     program,

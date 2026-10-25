@@ -66,6 +66,11 @@ impl fmt::Display for Failure {
 }
 impl std::error::Error for Failure {}
 
+pub(crate) enum EnterError {
+    Depth(Box<Failure>),
+    Allocation,
+}
+
 pub(crate) struct Stack {
     limit: NonZeroU32,
     active: Vec<Frame>,
@@ -77,14 +82,22 @@ impl Stack {
             active: vec![],
         }
     }
-    pub fn enter(&mut self, frame: Frame) -> Result<(), Box<Failure>> {
+    pub fn enter(&mut self, frame: Frame) -> Result<(), EnterError> {
         if self.active.len() >= self.limit.get() as usize {
-            return Err(Box::new(Failure {
+            let mut active = Vec::new();
+            active
+                .try_reserve(self.active.len())
+                .map_err(|_| EnterError::Allocation)?;
+            active.extend_from_slice(&self.active);
+            return Err(EnterError::Depth(Box::new(Failure {
                 limit: self.limit,
                 attempted: frame,
-                active: self.active.clone(),
-            }));
+                active,
+            })));
         }
+        self.active
+            .try_reserve(1)
+            .map_err(|_| EnterError::Allocation)?;
         self.active.push(frame);
         Ok(())
     }

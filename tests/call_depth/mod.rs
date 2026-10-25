@@ -232,3 +232,5 @@ fn argument_failure_precedes_depth_check_and_skips_later_arguments() {
         assert_eq!(output, "before\n");
     }
 }
+
+mod hir_frames;
