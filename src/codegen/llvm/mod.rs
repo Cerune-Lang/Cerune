@@ -1,5 +1,6 @@
 mod arguments;
 mod array;
+mod call;
 mod conversion;
 mod emit;
 mod failure;
@@ -80,6 +81,30 @@ pub fn emit_llvm_with_argument_limits(
     options: Options,
     limits: crate::runtime::arguments::Limits,
 ) -> Result<String, Diagnostic> {
+    emit_configured(program, options, limits, None)
+}
+/// 明示ターゲット上でソース関数の呼出し深さを検査します。
+pub fn emit_llvm_with_call_limit(
+    program: &cerune_ir::Program,
+    target: Target,
+    limit: std::num::NonZeroU32,
+) -> Result<String, Diagnostic> {
+    emit_configured(
+        program,
+        Options {
+            target: Some(target),
+            annotate_origins: false,
+        },
+        Default::default(),
+        Some(limit),
+    )
+}
+fn emit_configured(
+    program: &cerune_ir::Program,
+    options: Options,
+    limits: crate::runtime::arguments::Limits,
+    call_limit: Option<std::num::NonZeroU32>,
+) -> Result<String, Diagnostic> {
     let target = options.target;
     if let Some(span) = program.first_argument_span() {
         if target.is_none() {
@@ -145,6 +170,7 @@ pub fn emit_llvm_with_argument_limits(
             span,
         ));
     }
+    module.call_limit = call_limit;
     module.target = target;
     module.argument_limits = limits;
     module.uses_strings = string_span.is_some();

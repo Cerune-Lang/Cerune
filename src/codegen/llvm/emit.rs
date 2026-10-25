@@ -156,14 +156,20 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     emit_origin(Origin::Synthetic, annotate_origins, &mut output);
     if let Some(function_id) = module.explicit_main {
         let function = &module.functions[function_id];
+        super::call::enter(module, function_id, Origin::Synthetic, &mut output);
         writeln!(output, "  call void @{}()", function_name(function)).unwrap();
+        super::call::leave(module, function_id, &mut output);
     }
 
+    if module.call_limit.is_some() {
+        output.push_str("  call void @cerune_call_finish()\n");
+    }
     output.push_str("  ret i32 0\n");
     output.push_str("}\n");
 
     super::arguments::emit_entry(module, &mut output);
     crate::codegen::output::llvm(module, &mut output);
+    super::call::support(module, &mut output);
     output
 }
 
@@ -563,6 +569,7 @@ fn emit_instruction(
             return_type,
             arguments,
         } => {
+            super::call::enter(module, *function_id, origin, output);
             output.push_str("  ");
             if let Some(dest) = dest {
                 write!(output, "{} = ", temp(*dest)).unwrap();
@@ -584,6 +591,7 @@ fn emit_instruction(
                 write!(output, "{} {}", type_name(ty, module), operand(*argument)).unwrap();
             }
             output.push_str(")\n");
+            super::call::leave(module, *function_id, output);
         }
 
         Instruction::Return { value } => match value {

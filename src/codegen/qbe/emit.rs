@@ -15,6 +15,7 @@ pub fn emit(module: &Module) -> String {
         )
         .unwrap();
     }
+    super::call::support(module, &mut output);
     super::output::emit(module, &mut output);
     super::input::emit(module, &mut output);
     super::arguments::emit_support(module, &mut output);
@@ -66,6 +67,7 @@ pub fn emit(module: &Module) -> String {
     }
 
     if let Some(function_id) = module.explicit_main {
+        super::call::enter(module, function_id, None, &mut output);
         writeln!(
             output,
             "  call ${}()",
@@ -74,6 +76,12 @@ pub fn emit(module: &Module) -> String {
         .unwrap();
     }
 
+    if let Some(id) = module.explicit_main {
+        super::call::leave(module, id, &mut output);
+    }
+    if module.call_limit.is_some() {
+        output.push_str("  call $cerune_call_finish()\n");
+    }
     output.push_str("  ret 0\n");
     output.push_str("}\n");
 
@@ -637,11 +645,13 @@ fn emit_instruction(
         }
 
         Instruction::Call {
+            origin,
             dest,
             function_id,
             return_type,
             arguments,
         } => {
+            super::call::enter(module, *function_id, Some(*origin), output);
             for (index, (ty, argument)) in arguments.iter().enumerate() {
                 if let Some(bits) = stack_float_bits(module, index, *ty) {
                     writeln!(
@@ -673,6 +683,7 @@ fn emit_instruction(
                 }
             }
             output.push_str(")\n");
+            super::call::leave(module, *function_id, output);
         }
 
         Instruction::Return { value } => match value {

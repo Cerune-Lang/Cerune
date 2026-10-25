@@ -26,6 +26,7 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
         output.comment("target: x86_64-unknown-linux-gnu");
     }
     super::data::append(&mut output.program, module);
+    super::call::support(module, &mut output);
     output.push(EntryKind::Section(Section::Text));
     if module.uses_write {
         super::output::append(&mut output.program);
@@ -129,6 +130,10 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
         output.comment("cerune-origin: synthetic");
     }
 
+    if module.call_limit.is_some() {
+        let symbol = output.symbol("cerune_call_finish", Linkage::Local);
+        output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+    }
     emit_epilogue(module.frame_size, true, &mut output);
 
     if super::arguments::used(module) {
@@ -1027,6 +1032,7 @@ fn emit_instruction(
             arguments,
             aggregate_result_offset,
         } => {
+            super::call::enter(module, *function_id, reporter.origin, output);
             let mut locations = super::abi::Arguments::new(module.target);
             for argument in arguments {
                 let location = locations.next(matches!(
@@ -1074,6 +1080,7 @@ fn emit_instruction(
                 Linkage::Local,
             );
             output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+            super::call::leave(module, *function_id, output);
         }
 
         Instruction::ObserveOnly => {}

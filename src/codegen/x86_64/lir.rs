@@ -5,6 +5,11 @@ use std::{collections::BTreeSet, fmt::Write};
 
 /// 内部snapshotの構造を検証します。値の初期化・pointerの生存期間・意味の同値性は対象外です。
 pub fn validate(module: &Module) -> Result<(), Diagnostic> {
+    if module.source_functions.len() != module.functions.len() {
+        return Err(Diagnostic::without_span(
+            "LIR: source-function classifications must match functions",
+        ));
+    }
     if module.argument_limits.max_count > i64::MAX as u64 {
         return Err(Diagnostic::without_span(
             "LIR: argument count limit must not exceed i64::MAX",
@@ -442,6 +447,14 @@ pub fn emit(module: &Module) -> Result<String, Diagnostic> {
         module.uses_strings,
         module.uses_write
     );
+    if let Some(limit) = module.call_limit {
+        writeln!(
+            out,
+            "call-depth-limit {limit}\nsource-functions {:?}",
+            module.source_functions
+        )
+        .unwrap();
+    }
     if super::arguments::used(module) {
         writeln!(
             out,

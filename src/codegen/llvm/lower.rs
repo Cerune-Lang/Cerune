@@ -38,6 +38,12 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
     lowerer.lower_statements(&program.statements);
 
     Module {
+        call_limit: None,
+        source_functions: program
+            .function_definitions
+            .iter()
+            .map(|f| f.lowering.is_none())
+            .collect(),
         argument_limits: Default::default(),
         array_heap_limit: program
             .first_dynamic_array_span()

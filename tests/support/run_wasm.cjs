@@ -68,7 +68,11 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]), imports).then(({ insta
   process.stdout.write(Buffer.concat(output));
   const record = Buffer.concat(diagnostics);
   process.stderr.write(record);
-  const valid = parseRuntimeFailure(record) !== null ||
+  const lines = record.toString('utf8').trimEnd().split('\n');
+  const callHeader = /^call-v1 reason=depth-limit limit=(\d+) function=\d+(?: node=\d+(?: file=\d+)? bytes=\d+\.\.\d+| origin=host)$/.exec(lines[0]);
+  const callFailure = callHeader && Number(callHeader[1]) > 0 && lines.length === Number(callHeader[1]) + 1 &&
+    lines.slice(1).every((line, i) => new RegExp('^call-v1 frame=' + i + ' function=\\d+(?: node=\\d+(?: file=\\d+)? bytes=\\d+\\.\\.\\d+| origin=host)$').test(line));
+  const valid = callFailure || parseRuntimeFailure(record) !== null ||
     record.toString('utf8') === 'cerune: runtime-v1 code=allocation-failed origin=host\n' ||
     /^cerune: output formatting failed node=\d+(?: file=\d+)? bytes=\d+\.\.\d+\n$/.test(record.toString('utf8')) ||
     /^cerune: io-v1 operation=(?:write|flush) requested=\d+ accepted=\d+ node=\d+(?: file=\d+)? bytes=\d+\.\.\d+\n$/.test(record.toString('utf8'));

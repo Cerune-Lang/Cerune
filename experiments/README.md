@@ -8,7 +8,7 @@
 | --- | --- |
 | [lean](lean/README.md) | 有限例のHIR／MIR／SSAとLeanモデルの対応、プログラムの性質、実行比較 |
 | [host_calls](host_calls/README.md) | 同じ関数をVM埋め込みと生成WATから呼び、値・停止・型変換・サイズを比較 |
-| [call_depth](call_depth/README.md) | 4実行器と生成Cの深さ上限・物理スタックを分離。OS・値の形・ビルド条件による違いを測定 |
+| [call_depth](call_depth/README.md) | 4実行器と生成経路の深さ上限を比較。各表現の保存、物理スタックと意味上の深さを分けた実測 |
 | [ssa](ssa/README.md) | SSA構築・観測・直接実行のRust API例。公開CLIの代わりに別の言語仕様を作るものではない |
 
 LIR直接実行の実験はありません。[全体の現状](../docs/design/development-status.ja.md)で実装・観測・証明範囲を区別します。

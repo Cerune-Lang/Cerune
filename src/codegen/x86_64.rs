@@ -1,6 +1,7 @@
 mod abi;
 mod arguments;
 mod array;
+mod call;
 mod conversion;
 mod data;
 mod emit;
@@ -33,6 +34,16 @@ mod utf8;
 pub use emit::emit;
 /// MIRから直接Native LIRを作ります。ターゲットは必須です。
 pub use lower::{lower as lower_mir, lower_with_argument_limits as lower_mir_with_argument_limits};
+/// 同じ上限付きLIRからASM・自前Objectの両方を生成できます。
+pub fn lower_mir_with_call_limit(
+    program: &crate::mir::Program,
+    target: Target,
+    limit: std::num::NonZeroU32,
+) -> Result<ir::Module, crate::diagnostic::Diagnostic> {
+    let mut module = lower_mir(program, target)?;
+    module.call_limit = Some(limit);
+    Ok(module)
+}
 
 #[cfg(test)]
 fn lower(program: &crate::ir::Program) -> ir::Module {

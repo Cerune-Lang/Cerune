@@ -14,6 +14,8 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    pub call_limit: Option<std::num::NonZeroU32>,
+    pub source_functions: Vec<bool>,
     pub entry_frame_size: usize,
     pub entry_origin: Option<Origin>,
     pub uses_arguments: bool,

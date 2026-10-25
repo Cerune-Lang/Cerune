@@ -4,7 +4,9 @@ use super::ir::{Module, Origin};
 use std::fmt::Write;
 
 pub(super) fn used(module: &Module) -> bool {
-    module.entry_frame_size > 0 || module.functions.iter().any(|f| f.frame_size > 0)
+    module.call_limit.is_some()
+        || module.entry_frame_size > 0
+        || module.functions.iter().any(|f| f.frame_size > 0)
 }
 pub(super) fn support(module: &Module, out: &mut String) {
     if !used(module) {

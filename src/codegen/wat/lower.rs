@@ -57,6 +57,12 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
         static_address = static_address.div_ceil(8) * 8 + 8;
     }
     Module {
+        call_limit: None,
+        source_functions: program
+            .function_definitions
+            .iter()
+            .map(|f| f.lowering.is_none())
+            .collect(),
         entry_frame_size,
         entry_origin: program.statements.first().map(|s| Origin {
             node_id: s.id,

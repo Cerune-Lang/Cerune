@@ -40,6 +40,12 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
     lowerer.lower_statements(&program.statements);
 
     Module {
+        call_limit: None,
+        source_functions: program
+            .function_definitions
+            .iter()
+            .map(|f| f.lowering.is_none())
+            .collect(),
         argument_limits: Default::default(),
         array_heap_limit: program
             .first_dynamic_array_span()
@@ -516,7 +522,15 @@ impl Lowerer<'_> {
                 arguments,
                 ..
             } => {
-                self.lower_call(function_id.0, arguments, None);
+                self.lower_call(
+                    function_id.0,
+                    arguments,
+                    None,
+                    FailureOrigin {
+                        node: statement.id,
+                        span: statement.span,
+                    },
+                );
                 false
             }
             cerune_ir::StatementKind::Return { value } => {
@@ -1190,7 +1204,7 @@ impl Lowerer<'_> {
                 arguments,
                 ..
             } => self
-                .lower_call(function_id.0, arguments, Some(&expr.ty))
+                .lower_call(function_id.0, arguments, Some(&expr.ty), expr.into())
                 .expect("call expressions produce a value"),
         }
     }
@@ -1325,6 +1339,7 @@ impl Lowerer<'_> {
         function_id: usize,
         arguments: &[cerune_ir::Expr],
         result_type: Option<&cerune_ir::Type>,
+        origin: FailureOrigin,
     ) -> Option<Value> {
         let mut lowered_arguments = Vec::new();
         let aggregate_result = result_type.and_then(|ty| match ty {
@@ -1369,6 +1384,7 @@ impl Lowerer<'_> {
         };
 
         self.instructions.push(Instruction::Call {
+            origin,
             dest,
             function_id,
             return_type,

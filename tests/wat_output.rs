@@ -474,3 +474,8 @@ fn library_exports_execute_typed_functions_and_preserve_dependency_failure_origi
 
 #[path = "wat_frames/mod.rs"]
 mod frames;
+
+mod call_depth {
+    const ROUTE: &str = "wat";
+    include!("call_depth/generated.rs");
+}

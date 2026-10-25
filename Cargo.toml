@@ -38,6 +38,10 @@ path = "experiments/call_depth/main.rs"
 name = "call_depth_emit_c"
 path = "experiments/call_depth/emit_c.rs"
 
+[[example]]
+name = "call_depth_emit"
+path = "experiments/call_depth/emit.rs"
+
 [dependencies]
 serde_json = "1.0"
 sha2 = "0.10"
