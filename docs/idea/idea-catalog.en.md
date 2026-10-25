@@ -365,6 +365,29 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Reproducible-build toy** — Verify artifact identity from source/hash/target inputs.
 - **"A compiler that stays explainable after optimization"** — Treat optimization provenance as a first-class output.
 
+## Experiments with Distributed Artifacts
+
+Focus on the boundary where **a completed artifact leaves its build environment, then is validated, reloaded, and executed**. This is different from testing backends against each other, verifying bytecode in memory, checking reproducible builds, or tracing source-to-machine provenance alone.
+
+The first Native build / release implementation is available; IR/VM Image formats, validators, loaders, and build / release are not. See [execution routes and build / release](../design/owned-routes.en.md). These are experiment ideas, not promises of implementation dates, compatibility, or security.
+
+### With the Current Native Release
+
+- **Release relocation test** — Move the release directory away from the build environment and check launch behavior under the target and system-runtime conditions recorded in its manifest.
+- **Distribution provenance checker** — Audit the released executable's SHA-256, direct runtime requirements, and build provenance against its manifest.
+
+### Once IR/VM Images and Loaders Exist
+
+- **Image round-trip** — Save IR/VM as an Image, validate/load it in another process, execute it, and compare against execution before serialization.
+- **Compiler-free minimal package** — Deliver only an Image and compatible runtime; measure the smallest working distribution layout and its dependencies.
+- **Image compatibility lab** — Cross format, semantic, and runtime versions to tabulate acceptance, rejection, and diagnostics.
+- **Malformed-Image acceptance boundary** — Construct saved Images with invalid types, references, ownership metadata, and resource limits; ensure rejection before execution. Format validation does not replace sandboxing.
+- **Post-distribution fault provenance** — Map a failure in a released Image back to its source location and build record using saved provenance.
+
+### Once Embedding APIs and Host Integration Exist
+
+- **Replaceable VM logic** — Distribute game or simulation computations as Images for a host to load, call, and swap; test typed host APIs, version compatibility, and resource limits.
+
 ## Future: Once External I/O Exists
 
 - **grep-like tool** — A practical byte/string-processing utility.

@@ -365,6 +365,29 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **reproducible build toy** — source/hash/targetから成果物同一性を検証。
 - **「最適化しても説明できるコンパイラ」** — optimization provenanceを第一級の出力にする。
 
+## 配布された成果物を題材にする
+
+Ceruneで書いた処理そのものではなく、**完成成果物をbuild環境の外へ持ち出し、検証・再読込・実行する境界**を実験する。通常のbackend差分検証、bytecode verifier、再現可能ビルド、source→machine追跡とは、この境界が異なる。
+
+[実行経路とbuild / release](../design/owned-routes.ja.md)ではNative build / release初版が実装済み。IR/VMのImage形式・検証器・loader・build / releaseは未実装。以下は実験案であり、互換性・安全性・実装時期の約束ではない。
+
+### 現行Native releaseで試す
+
+- **release持ち出しテスト** — 配布ディレクトリをbuild環境から切り離し、manifestに記録されたtarget・system runtimeの条件下で起動できるか確認。
+- **配布証跡checker** — 配布された実行ファイルのSHA-256、直接runtime要件、build出自とmanifestの整合性を監査。
+
+### IR/VM Imageとloaderができたら
+
+- **Image round-trip** — IR/VMをImageに保存→別プロセスで検証・load→実行し、保存前の実行と比較。
+- **compiler不要の小型配布物** — Image＋互換runtimeだけを渡し、compiler抜きで動く最小配布構成と依存条件を測る。
+- **Image互換性試験場** — 形式版・意味版・runtime版を交差させ、受理・拒否・診断を表にする。
+- **壊れたImageの受入境界** — 不正な型・参照・所有情報・資源上限を持つ保存物を作り、実行前に安全に拒否するか検査。形式検証はsandboxの代わりではない。
+- **配布後の停止位置逆引き** — 配布Imageで生じた停止・診断を、保存された出自情報から元のsource位置とbuild記録へ戻す。
+
+### 埋め込みAPI・ホスト連携が追加されたら
+
+- **差し替え可能なVMロジック** — ゲームやsimulationの計算部分をImageで配り、host側でload・呼出し・差し替え。型付きhost API、version互換、資源制限も実験対象。
+
 ## 将来: I/Oが入ったら
 
 - **grep風ツール** — byte/string処理の実用品。
