@@ -35,3 +35,5 @@ examples/host_calls/*.ceru text eol=lf
 
 tests/support/native_runtime_reference/*.s text eol=lf -linguist-detectable
 examples/call_frames/*.stdout text eol=lf
+
+experiments/call_depth/*.cjs text eol=lf -linguist-detectable

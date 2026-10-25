@@ -48,6 +48,12 @@ HIR・MIR・SSA・VMにRust API `run_with_call_limit(program, NonZeroU32)`を追
 
 `cargo test --test ir_executor call_depth` は4実行器の上限前後、引数の左からの評価、短絡、main、generic、標準モジュール、生成補助関数の除外、通常／早期return、出自、先行出力、履歴順を比較します。heap上限の失敗が深さ超過へ変わらないことも検証します。[depthの実行例](../../examples/call_frames/depth.ceru)を含みます。
 
+## 物理スタックの検証と次の作業
+
+[呼出し深さの実験](../../experiments/call_depth/README.md)でWindows/Linuxのdebug・releaseを比較しました。要求2 MiB・深さ32の構造体受渡しではdebugの4実行器すべてが深さ診断より先にstack枯渇で停止します。これは有限例の実測であり、安全な設定範囲の証明ではありません。
+
+CLIへ上限を広げる前に、標準のHIR実行器からホスト再帰を明示frame・継続位置の管理へ置き換えます。生成補助関数も物理frameとして管理し、確保失敗を深さ超過と区別します。式の評価順・所有・出自を保って他の実行器へ進め、その後に生成経路・設定範囲・CLIを揃えます。この実行構造の変更は未実装です。
+
 ## 実装済み：WATの呼出し領域
 
 | 項目 | 仕組み |
@@ -71,7 +77,7 @@ HIR・MIR・SSA・VMにRust API `run_with_call_limit(program, NonZeroU32)`を追
 [call_framesの実行例](../../examples/call_frames/README.md)は現在の構文だけで入れ子呼出し・値更新・早期returnを試せます。HIR・MIR・SSA・VMとWATの出力を比較します。
 
 1. WAT領域の独立性を整える（実装済み）。
-2. 共通上限を全経路へ揃える。4実行器の明示APIと数え方は実装済み。次に物理資源の検証・設定範囲・CLI・生成経路の診断を整える。
+2. 共通上限を全経路へ揃える。4実行器の明示APIと数え方は実装済み。物理stackの実測を受け、次はHIRから明示frame管理へ移す。その後に設定範囲・CLI・生成経路の診断を整える。
 3. generic具体化の再利用とfrontendの禁止解除を行う。
 4. 直接／相互再帰、所有・解放、引数の評価順、上限前後と停止位置を全経路で比較し、再帰のexampleを追加する。
 

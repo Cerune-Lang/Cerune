@@ -8,6 +8,7 @@ Models, transformations, and external-tool verification live separately from the
 | --- | --- |
 | [lean](lean/README.en.md) | Finite-fixture HIR/MIR/SSA correspondence with Lean models, program properties, and execution comparisons |
 | [host_calls](host_calls/README.en.md) | Compare values, failures, type adaptation and size when calling the same functions through VM embedding and generated WAT |
+| [call_depth](call_depth/README.en.md) | Measure logical depth versus physical stack across four executors, builds, operating systems, and value shapes |
 | [ssa](ssa/README.en.md) | Rust API examples for SSA construction, observation, and direct execution; not a separate language specification replacing public CLI behavior |
 
 There is no LIR direct-execution experiment. The [overall inventory](../docs/design/development-status.en.md) distinguishes implementation, observation, and proof coverage.

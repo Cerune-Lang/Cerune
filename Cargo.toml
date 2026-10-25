@@ -30,6 +30,10 @@ path = "experiments/host_calls/main.rs"
 name = "wat_library"
 path = "experiments/host_calls/library.rs"
 
+[[example]]
+name = "call_depth_probe"
+path = "experiments/call_depth/main.rs"
+
 [dependencies]
 serde_json = "1.0"
 sha2 = "0.10"
