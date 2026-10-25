@@ -12,7 +12,7 @@ use crate::{
     },
     mir_executor::{
         self, Fault, Result,
-        semantics::{self, Calls, Frame as _, State},
+        semantics::{self, Context, Frame as _, State},
     },
     runtime::{RuntimeFailure, value::Value},
 };
@@ -127,11 +127,11 @@ impl Frame<'_> {
             return Err(Fault::invalid("SSA edge argument count"));
         }
         // 入力をすべて読んでから書きます。自己ループの入替えでも古い値を失いません。
-        let incoming = edge
-            .arguments
-            .iter()
-            .map(|v| self.get(Operand::Value(*v)))
-            .collect::<Result<Vec<_>>>()?;
+        let mut incoming = Vec::new();
+        semantics::reserve(&mut incoming, edge.arguments.len())?;
+        for v in &edge.arguments {
+            incoming.push(self.get(Operand::Value(*v))?);
+        }
         for (&arg, value) in target.arguments.iter().zip(incoming) {
             self.set(Operand::Value(arg), value)?;
         }
@@ -141,7 +141,6 @@ impl Frame<'_> {
 struct Executor<'a, 'o> {
     program: &'a ssa::Program,
     state: State<'o>,
-    active: Vec<Option<ir::FunctionId>>,
 }
 /// 検証済みのSSAを新しいheapとframeで直接実行します。
 /// 時間制限や外部Imageのsandboxを提供するAPIではありません。
@@ -224,145 +223,185 @@ impl<'a, 'o> Executor<'a, 'o> {
                 program.original.array_heap_limit,
                 output,
             ),
-            active: vec![],
         }
     }
     fn entry(&mut self) -> Result<()> {
-        self.function(None, vec![])?;
+        let mut active = Vec::new();
+        semantics::reserve(&mut active, 1)?;
+        active.push(self.activation(None, vec![], None)?);
+        let result = (|| {
+            while let Some(frame) = active.last_mut() {
+                let block = frame
+                    .function
+                    .blocks
+                    .get(frame.block.0)
+                    .ok_or_else(|| Fault::invalid("unknown SSA block"))?;
+                if let Some(instruction) = block.instructions.get(frame.next) {
+                    let location = mir_executor::Location {
+                        function: frame.data.original.id,
+                        block: block.original_block,
+                        instruction: instruction.original_instruction,
+                    };
+                    let fault = |e: Fault| e.at(location, instruction.origin);
+                    frame.next += 1;
+                    if let Some((id, destination, arguments)) =
+                        semantics::call_site(&instruction.kind)
+                    {
+                        let args = frame.data.arguments(arguments).map_err(fault)?;
+                        let callee = self
+                            .activation(
+                                Some(id),
+                                args,
+                                Some(semantics::ReturnTo {
+                                    destination,
+                                    location,
+                                    origin: instruction.origin,
+                                }),
+                            )
+                            .map_err(fault)?;
+                        if let Err(e) = semantics::reserve(&mut active, 1) {
+                            self.state.leave(callee.counted);
+                            return Err(fault(e));
+                        }
+                        active.push(callee);
+                    } else {
+                        semantics::instruction(
+                            self,
+                            &instruction.kind,
+                            instruction.origin,
+                            &mut frame.data,
+                        )
+                        .map_err(fault)?;
+                    }
+                    continue;
+                }
+                let terminator = &block.terminator;
+                let location = mir_executor::Location {
+                    function: frame.data.original.id,
+                    block: block.original_block,
+                    instruction: terminator.original_instruction,
+                };
+                let fault = |e: Fault| e.at(location, terminator.origin);
+                match &terminator.kind {
+                    T::Jump(edge) => frame.block = frame.data.transfer(edge).map_err(fault)?,
+                    T::Branch {
+                        condition,
+                        then_edge,
+                        else_edge,
+                    } => {
+                        let yes = frame
+                            .data
+                            .get(Operand::Value(*condition))
+                            .and_then(|v| v.boolean().map_err(Into::into))
+                            .map_err(fault)?;
+                        frame.block = frame
+                            .data
+                            .transfer(if yes { then_edge } else { else_edge })
+                            .map_err(fault)?;
+                    }
+                    T::Return(value) => {
+                        let result = value
+                            .map(|v| frame.data.get(v))
+                            .transpose()
+                            .map_err(fault)?;
+                        match (&frame.data.original.return_type, &result) {
+                            (ir::ReturnType::Void, None) => {}
+                            (ir::ReturnType::Value(ty), Some(v)) => {
+                                v.check(ty).map_err(Fault::from).map_err(fault)?
+                            }
+                            _ => return Err(fault(Fault::invalid("SSA return signature"))),
+                        }
+                        let finished = active.pop().unwrap();
+                        self.state.leave(finished.counted);
+                        if let Some(return_to) = finished.return_to {
+                            return_to.resume(&mut active.last_mut().unwrap().data, result)?;
+                        }
+                        continue;
+                    }
+                }
+                frame.next = 0;
+            }
+            Ok(())
+        })();
+        // 停止後はソースを再実行せず、残る内部の深さ計数だけを外します。
+        while let Some(frame) = active.pop() {
+            self.state.leave(frame.counted);
+        }
+        result?;
         self.state.check_released()
     }
-    fn function(&mut self, id: Option<ir::FunctionId>, args: Vec<Value>) -> Result<Option<Value>> {
-        if self.active.contains(&id) {
-            return Err(Fault::invalid("recursive SSA call is not supported"));
-        }
-        let program = self.program;
-        let (function, original) = match id {
-            None => (&program.main, &program.original.main),
-            Some(id) => (
-                program
-                    .functions
-                    .get(id.0)
-                    .ok_or_else(|| Fault::invalid("unknown SSA function"))?,
-                program
-                    .original
-                    .functions
-                    .get(id.0)
-                    .ok_or_else(|| Fault::invalid("unknown SSA signature"))?,
-            ),
+    fn activation(
+        &mut self,
+        id: Option<ir::FunctionId>,
+        args: Vec<Value>,
+        return_to: Option<semantics::ReturnTo<Operand>>,
+    ) -> Result<Activation<'a>> {
+        let function = match id {
+            None => &self.program.main,
+            Some(id) => self
+                .program
+                .functions
+                .get(id.0)
+                .ok_or_else(|| Fault::invalid("unknown SSA function"))?,
+        };
+        let original = match id {
+            None => &self.program.original.main,
+            Some(id) => self
+                .program
+                .original
+                .functions
+                .get(id.0)
+                .ok_or_else(|| Fault::invalid("unknown SSA signature"))?,
         };
         if function.parameters.len() != args.len() {
             return Err(Fault::invalid("SSA argument count"));
         }
-        let mut frame = Frame {
-            function,
-            original,
-            values: vec![None; function.values.len()],
-            slots: vec![None; original.locals.len()],
-        };
-        for (&parameter, value) in function.parameters.iter().zip(args) {
-            frame.set(parameter, value)?;
+        let counted = self
+            .state
+            .enter(original, return_to.as_ref().and_then(|r| r.origin.source()))?;
+        let result = (|| {
+            // 暗黙入口を除いたcalleeの確保失敗をテストで注入できます。
+            if id.is_some() {
+                self.state.prepare_frame()?;
+            }
+            let mut frame = Frame {
+                function,
+                original,
+                values: semantics::empty_values(function.values.len())?,
+                slots: semantics::empty_values(original.locals.len())?,
+            };
+            for (parameter, value) in function.parameters.iter().zip(args) {
+                frame.set(*parameter, value)?;
+            }
+            Ok(Activation {
+                function,
+                data: frame,
+                block: function.entry,
+                next: 0,
+                return_to,
+                counted,
+            })
+        })();
+        if result.is_err() {
+            self.state.leave(counted);
         }
-        self.active.push(id);
-        let result = self.blocks(&mut frame);
-        self.active.pop();
         result
     }
-    fn blocks(&mut self, frame: &mut Frame<'_>) -> Result<Option<Value>> {
-        let f = frame.function;
-        let mut current = f.entry;
-        loop {
-            let b = f
-                .blocks
-                .get(current.0)
-                .ok_or_else(|| Fault::invalid("unknown SSA block"))?;
-            for i in &b.instructions {
-                semantics::instruction(self, &i.kind, i.origin, frame).map_err(|e| {
-                    e.at(
-                        mir_executor::Location {
-                            function: frame.original.id,
-                            block: b.original_block,
-                            instruction: i.original_instruction,
-                        },
-                        i.origin,
-                    )
-                })?;
-            }
-            let t = &b.terminator;
-            let location = mir_executor::Location {
-                function: frame.original.id,
-                block: b.original_block,
-                instruction: t.original_instruction,
-            };
-            let fault = |e: Fault| e.at(location, t.origin);
-            match &t.kind {
-                T::Jump(edge) => current = frame.transfer(edge).map_err(fault)?,
-                T::Branch {
-                    condition,
-                    then_edge,
-                    else_edge,
-                } => {
-                    let yes = frame
-                        .get(Operand::Value(*condition))
-                        .and_then(|v| v.boolean().map_err(Into::into))
-                        .map_err(fault)?;
-                    current = frame
-                        .transfer(if yes { then_edge } else { else_edge })
-                        .map_err(fault)?;
-                }
-                T::Return(value) => {
-                    let result = value.map(|v| frame.get(v)).transpose().map_err(fault)?;
-                    match (&frame.original.return_type, &result) {
-                        (ir::ReturnType::Void, None) => {}
-                        (ir::ReturnType::Value(ty), Some(v)) => {
-                            v.check(ty).map_err(Fault::from).map_err(fault)?
-                        }
-                        _ => return Err(fault(Fault::invalid("SSA return signature"))),
-                    }
-                    return Ok(result);
-                }
-            }
-        }
-    }
 }
-impl<'o> Calls<'o> for Executor<'_, 'o> {
+struct Activation<'a> {
+    function: &'a ssa::Function,
+    data: Frame<'a>,
+    block: mir::BlockId,
+    next: usize,
+    return_to: Option<semantics::ReturnTo<Operand>>,
+    counted: bool,
+}
+impl<'o> Context<'o> for Executor<'_, 'o> {
     fn state(&mut self) -> &mut State<'o> {
         &mut self.state
     }
     fn types(&self) -> &[mir::TypeDefinition] {
         &self.program.original.types
-    }
-    fn call(
-        &mut self,
-        id: ir::FunctionId,
-        args: Vec<Value>,
-        origin: Option<mir::SourceOrigin>,
-    ) -> Result<Option<Value>> {
-        let f = self
-            .program
-            .original
-            .functions
-            .get(id.0)
-            .ok_or_else(|| Fault::invalid("unknown SSA function"))?;
-        let counted = f.lowering.is_none() && self.state.calls.is_some();
-        if counted {
-            self.state
-                .calls
-                .as_mut()
-                .unwrap()
-                .enter(call::Frame {
-                    function: id,
-                    origin: origin.map(|o| call::Origin {
-                        node_id: o.node_id,
-                        span: o.span,
-                    }),
-                })
-                .map_err(Fault::call_failure)?;
-        }
-        let result = self.function(Some(id), args);
-        if counted {
-            self.state.calls.as_mut().unwrap().leave();
-        }
-        result
     }
 }
 #[cfg(test)]
@@ -466,6 +505,58 @@ mod tests {
             assert_eq!(&source[origin.span.start()..origin.span.end()], expected);
             assert!(e.location().is_some());
             assert!(run(&p).is_ok());
+        }
+    }
+
+    #[test]
+    fn frame_allocation_failure_keeps_call_site_and_balances_depth() {
+        for (source, site, after, limit, prior) in [
+            (
+                r#"fn leaf()->void {print("body");} print("before"); leaf(); print("after");"#,
+                "leaf();",
+                0,
+                1,
+                "before\n",
+            ),
+            (
+                r#"print("before"); values:[string]=array_copy(["a"]); print(values);"#,
+                "array_copy([\"a\"])",
+                0,
+                1,
+                "before\n",
+            ),
+            (
+                r#"fn leaf()->void {print("body");} fn outer()->void {print("inside");leaf();} print("before");outer();print("after");"#,
+                "leaf();",
+                1,
+                2,
+                "before\ninside\n",
+            ),
+        ] {
+            let p = program(source);
+            let mut captured = Capture::default();
+            let mut executor = Executor::new(&p, &mut captured);
+            executor.state.calls = Some(call::Stack::new(NonZeroU32::new(limit).unwrap()));
+            executor.state.fail_frame_after = Some(after);
+            let result = executor.entry();
+            assert_eq!(executor.state.output.captured(), prior);
+            executor.state.fail_frame_after = None;
+            executor.entry().unwrap();
+            assert!(
+                executor
+                    .state
+                    .output
+                    .captured()
+                    .starts_with(&format!("{prior}{prior}"))
+            );
+            let e = mir_executor::finish(result, executor.state).unwrap_err();
+            assert_eq!(
+                e.kind(),
+                &ErrorKind::Runtime(crate::runtime::FailureCode::AllocationFailed)
+            );
+            let origin = e.origin().unwrap();
+            assert_eq!(&source[origin.span.start()..origin.span.end()], site);
+            assert!(e.location().is_some());
         }
     }
 }

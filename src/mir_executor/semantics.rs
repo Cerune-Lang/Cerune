@@ -19,6 +19,8 @@ use crate::{
 
 pub(crate) struct State<'a> {
     pub calls: Option<call::Stack>,
+    #[cfg(test)]
+    pub fail_frame_after: Option<usize>,
     pub output: &'a mut dyn Sink,
     pub input: Option<&'a mut dyn Source>,
     pub arguments: Option<&'a Arguments>,
@@ -29,6 +31,8 @@ impl<'a> State<'a> {
     pub fn new(string_limit: u64, array_limit: u64, output: &'a mut dyn Sink) -> Self {
         Self {
             calls: None,
+            #[cfg(test)]
+            fail_frame_after: None,
             output,
             input: None,
             arguments: None,
@@ -51,21 +55,20 @@ pub(crate) trait Frame<R: Copy> {
     fn set(&mut self, id: R, value: Value) -> Result<()>;
     fn ty(&self, id: R) -> Result<&ir::Type>;
     fn arguments(&self, args: &[R]) -> Result<Vec<Value>> {
-        args.iter().map(|id| self.get(*id)).collect()
+        let mut values = Vec::new();
+        reserve(&mut values, args.len())?;
+        for id in args {
+            values.push(self.get(*id)?);
+        }
+        Ok(values)
     }
 }
-pub(crate) trait Calls<'a> {
+pub(crate) trait Context<'a> {
     fn state(&mut self) -> &mut State<'a>;
     fn types(&self) -> &[mir::TypeDefinition];
-    fn call(
-        &mut self,
-        id: ir::FunctionId,
-        args: Vec<Value>,
-        origin: Option<mir::SourceOrigin>,
-    ) -> Result<Option<Value>>;
 }
 pub(crate) fn instruction<'a, R: Copy>(
-    executor: &mut impl Calls<'a>,
+    executor: &mut impl Context<'a>,
     i: &I<R>,
     origin: mir::Origin,
     frame: &mut impl Frame<R>,
@@ -77,13 +80,7 @@ pub(crate) fn instruction<'a, R: Copy>(
             v.check(&ty)?;
             frame.set(*destination, v)?;
         }
-        I::Call {
-            function,
-            arguments,
-            ..
-        } => {
-            executor.call(*function, frame.arguments(arguments)?, origin.source())?;
-        }
+        I::Call { .. } => return Err(Fault::invalid("call reached scalar semantics")),
         I::CheckIndex { root, path } => {
             // 最後の要素を読まず、長さで検査します。未初期化要素の読取りとは区別します。
             let mut v = frame.get(*root)?;
@@ -176,7 +173,7 @@ pub(crate) fn instruction<'a, R: Copy>(
     Ok(())
 }
 fn operation<'a, R: Copy>(
-    executor: &mut impl Calls<'a>,
+    executor: &mut impl Context<'a>,
     op: &O<R>,
     ty: &ir::Type,
     frame: &impl Frame<R>,
@@ -328,13 +325,7 @@ fn operation<'a, R: Copy>(
             )?;
             array_get(base, index)?
         }
-        O::Call {
-            function,
-            arguments,
-            ..
-        } => executor
-            .call(*function, frame.arguments(arguments)?, origin.source())?
-            .ok_or_else(|| Fault::invalid("void call used as value"))?,
+        O::Call { .. } => return Err(Fault::invalid("call reached scalar semantics")),
         O::ArrayLength(v) => Value::Number(Number::Integer(
             array_length(&frame.get(*v)?)? as i128,
             IntegerType::I64,
@@ -427,5 +418,89 @@ fn set_path(v: &mut Value, path: &[usize], replacement: Value) -> Result<()> {
             Ok(())
         }
         _ => Err(Fault::invalid("invalid array path")),
+    }
+}
+
+// 呼出しの検査と戻り先は共有し、各CFGの進行はそれぞれの実行器が扱います。
+pub(crate) fn reserve<T>(values: &mut Vec<T>, additional: usize) -> Result<()> {
+    values
+        .try_reserve(additional)
+        .map_err(|_| Fault::failure(FailureCode::AllocationFailed))
+}
+pub(crate) fn empty_values(len: usize) -> Result<Vec<Option<Value>>> {
+    let mut values = Vec::new();
+    reserve(&mut values, len)?;
+    values.resize_with(len, || None);
+    Ok(values)
+}
+pub(crate) struct ReturnTo<R> {
+    pub destination: Option<R>,
+    pub location: super::Location,
+    pub origin: mir::Origin,
+}
+impl<R: Copy> ReturnTo<R> {
+    pub fn resume(&self, frame: &mut impl Frame<R>, value: Option<Value>) -> Result<()> {
+        let result = (|| match (self.destination, value) {
+            (Some(id), Some(value)) => {
+                value.check(frame.ty(id)?)?;
+                frame.set(id, value)
+            }
+            (None, None) => Ok(()),
+            _ => Err(Fault::invalid("call result does not match use")),
+        })();
+        result.map_err(|e: Fault| e.at(self.location, self.origin))
+    }
+}
+pub(crate) fn call_site<R: Copy>(instruction: &I<R>) -> Option<(ir::FunctionId, Option<R>, &[R])> {
+    match instruction {
+        I::Call {
+            function,
+            arguments,
+            ..
+        } => Some((*function, None, arguments)),
+        I::Assign {
+            destination,
+            value:
+                O::Call {
+                    function,
+                    arguments,
+                    ..
+                },
+        } => Some((*function, Some(*destination), arguments)),
+        _ => None,
+    }
+}
+impl State<'_> {
+    pub fn enter(&mut self, f: &mir::Function, origin: Option<mir::SourceOrigin>) -> Result<bool> {
+        let counted = f.id.is_some() && f.lowering.is_none() && self.calls.is_some();
+        if counted {
+            self.calls
+                .as_mut()
+                .unwrap()
+                .enter(call::Frame {
+                    function: f.id.unwrap(),
+                    origin: origin.map(|o| call::Origin {
+                        node_id: o.node_id,
+                        span: o.span,
+                    }),
+                })
+                .map_err(Fault::call_failure)?;
+        }
+        Ok(counted)
+    }
+    pub fn leave(&mut self, counted: bool) {
+        if counted {
+            self.calls.as_mut().unwrap().leave();
+        }
+    }
+    pub fn prepare_frame(&mut self) -> Result<()> {
+        #[cfg(test)]
+        if let Some(left) = &mut self.fail_frame_after {
+            if *left == 0 {
+                return Err(Fault::failure(FailureCode::AllocationFailed));
+            }
+            *left -= 1;
+        }
+        Ok(())
     }
 }

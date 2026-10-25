@@ -233,4 +233,4 @@ fn argument_failure_precedes_depth_check_and_skips_later_arguments() {
     }
 }
 
-mod hir_frames;
+mod frames;

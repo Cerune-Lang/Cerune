@@ -17,7 +17,7 @@ use std::num::NonZeroU32;
 pub(crate) mod semantics;
 use crate::runtime::input;
 use crate::runtime::output::{self, Capture, Sink};
-use semantics::{Calls, Frame as _, State};
+use semantics::{Context, Frame as _, State};
 
 /// emit-mir内の関数・ブロック・命令を識別します。Noneは入口の本体です。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -209,7 +209,6 @@ impl semantics::Frame<mir::LocalId> for Frame<'_> {
 struct Executor<'a, 'o> {
     program: &'a mir::Program,
     state: State<'o>,
-    active: Vec<Option<ir::FunctionId>>,
 }
 /// コンパイラ内で構築したMIRを検証後、新しい実行状態で実行します。
 /// 成功時にも論理的な領域が残っていたら内部不整合として返します。
@@ -311,137 +310,176 @@ impl<'a, 'o> Executor<'a, 'o> {
         Self {
             program,
             state: State::new(program.string_heap_limit, program.array_heap_limit, output),
-            active: vec![],
         }
     }
     fn entry(&mut self) -> Result<()> {
-        let program = self.program;
-        self.function(&program.main, vec![])?;
+        let mut active = Vec::new();
+        semantics::reserve(&mut active, 1)?;
+        active.push(self.activation(None, vec![], None)?);
+        let result = (|| {
+            while let Some(frame) = active.last_mut() {
+                let block = frame
+                    .function
+                    .blocks
+                    .get(frame.block.0)
+                    .ok_or_else(|| Fault::invalid("unknown MIR block"))?;
+                if let Some(instruction) = block.instructions.get(frame.next) {
+                    let location = Location {
+                        function: frame.function.id,
+                        block: frame.block,
+                        instruction: instruction.id,
+                    };
+                    let fault = |e: Fault| e.at(location, instruction.origin);
+                    frame.next += 1;
+                    if let Some((id, destination, arguments)) =
+                        semantics::call_site(&instruction.kind)
+                    {
+                        let args = frame.data.arguments(arguments).map_err(fault)?;
+                        let callee = self
+                            .activation(
+                                Some(id),
+                                args,
+                                Some(semantics::ReturnTo {
+                                    destination,
+                                    location,
+                                    origin: instruction.origin,
+                                }),
+                            )
+                            .map_err(fault)?;
+                        if let Err(e) = semantics::reserve(&mut active, 1) {
+                            self.state.leave(callee.counted);
+                            return Err(fault(e));
+                        }
+                        active.push(callee);
+                    } else {
+                        semantics::instruction(
+                            self,
+                            &instruction.kind,
+                            instruction.origin,
+                            &mut frame.data,
+                        )
+                        .map_err(fault)?;
+                    }
+                    continue;
+                }
+                let terminator = &block.terminator;
+                let location = Location {
+                    function: frame.function.id,
+                    block: frame.block,
+                    instruction: terminator.id,
+                };
+                let fault = |e: Fault| e.at(location, terminator.origin);
+                match &terminator.kind {
+                    T::Jump(next) => frame.block = *next,
+                    T::Branch {
+                        condition,
+                        then_block,
+                        else_block,
+                    } => {
+                        let yes = frame
+                            .data
+                            .get(*condition)
+                            .and_then(|v| v.boolean().map_err(Into::into))
+                            .map_err(fault)?;
+                        frame.block = if yes { *then_block } else { *else_block };
+                    }
+                    T::Unreachable => {
+                        return Err(fault(Fault::invalid("reached unreachable MIR block")));
+                    }
+                    T::Return(value) => {
+                        let result = value
+                            .map(|v| frame.data.get(v))
+                            .transpose()
+                            .map_err(fault)?;
+                        match (&frame.function.return_type, &result) {
+                            (ir::ReturnType::Void, None) => {}
+                            (ir::ReturnType::Value(ty), Some(v)) => {
+                                v.check(ty).map_err(Fault::from).map_err(fault)?
+                            }
+                            _ => return Err(fault(Fault::invalid("MIR return signature"))),
+                        }
+                        let finished = active.pop().unwrap();
+                        self.state.leave(finished.counted);
+                        if let Some(return_to) = finished.return_to {
+                            return_to.resume(&mut active.last_mut().unwrap().data, result)?;
+                        }
+                        continue;
+                    }
+                }
+                frame.next = 0;
+            }
+            Ok(())
+        })();
+        // 停止後はソースを再実行せず、残る内部の深さ計数だけを外します。
+        while let Some(frame) = active.pop() {
+            self.state.leave(frame.counted);
+        }
+        result?;
         self.state.check_released()
     }
-    fn call(
+    fn activation(
         &mut self,
-        id: ir::FunctionId,
+        id: Option<ir::FunctionId>,
         args: Vec<Value>,
-        origin: Option<mir::SourceOrigin>,
-    ) -> Result<Option<Value>> {
-        let program = self.program;
-        let f = program
-            .functions
-            .get(id.0)
-            .filter(|f| f.id == Some(id))
-            .ok_or_else(|| Fault::invalid("unknown MIR function"))?;
-        let counted = f.lowering.is_none() && self.state.calls.is_some();
-        if counted {
-            self.state
-                .calls
-                .as_mut()
-                .unwrap()
-                .enter(call::Frame {
-                    function: id,
-                    origin: origin.map(|o| call::Origin {
-                        node_id: o.node_id,
-                        span: o.span,
-                    }),
-                })
-                .map_err(Fault::call_failure)?;
-        }
-        let result = self.function(f, args);
-        if counted {
-            self.state.calls.as_mut().unwrap().leave();
-        }
-        result
-    }
-    fn function(&mut self, f: &mir::Function, args: Vec<Value>) -> Result<Option<Value>> {
-        if self.active.contains(&f.id) {
-            return Err(Fault::invalid("recursive MIR call is not supported"));
-        }
-        if f.parameters.len() != args.len() {
+        return_to: Option<semantics::ReturnTo<mir::LocalId>>,
+    ) -> Result<Activation<'a>> {
+        let function = match id {
+            None => &self.program.main,
+            Some(id) => self
+                .program
+                .functions
+                .get(id.0)
+                .ok_or_else(|| Fault::invalid("unknown MIR function"))?,
+        };
+        let original = function;
+        if function.parameters.len() != args.len() {
             return Err(Fault::invalid("MIR argument count"));
         }
-        let mut frame = Frame {
-            locals: &f.locals,
-            values: vec![None; f.locals.len()],
-        };
-        for (id, v) in f.parameters.iter().zip(args) {
-            v.check(&f.locals[id.0].ty)?;
-            frame.set(*id, v)?;
+        let counted = self
+            .state
+            .enter(original, return_to.as_ref().and_then(|r| r.origin.source()))?;
+        let result = (|| {
+            // 暗黙入口を除いたcalleeの確保失敗をテストで注入できます。
+            if id.is_some() {
+                self.state.prepare_frame()?;
+            }
+            let mut frame = Frame {
+                locals: &function.locals,
+                values: semantics::empty_values(function.locals.len())?,
+            };
+            for (parameter, value) in function.parameters.iter().zip(args) {
+                value.check(frame.ty(*parameter)?)?;
+                frame.set(*parameter, value)?;
+            }
+            Ok(Activation {
+                function,
+                data: frame,
+                block: function.entry,
+                next: 0,
+                return_to,
+                counted,
+            })
+        })();
+        if result.is_err() {
+            self.state.leave(counted);
         }
-        self.active.push(f.id);
-        let result = self.blocks(f, &mut frame);
-        self.active.pop();
         result
     }
-    fn blocks(&mut self, f: &mir::Function, frame: &mut Frame<'_>) -> Result<Option<Value>> {
-        let mut current = f.entry;
-        loop {
-            let b = f
-                .blocks
-                .get(current.0)
-                .ok_or_else(|| Fault::invalid("unknown MIR block"))?;
-            for i in &b.instructions {
-                semantics::instruction(self, &i.kind, i.origin, frame).map_err(|e| {
-                    e.at(
-                        Location {
-                            function: f.id,
-                            block: current,
-                            instruction: i.id,
-                        },
-                        i.origin,
-                    )
-                })?;
-            }
-            let location = Location {
-                function: f.id,
-                block: current,
-                instruction: b.terminator.id,
-            };
-            let fault = |e: Fault| e.at(location, b.terminator.origin);
-            match &b.terminator.kind {
-                T::Jump(next) => current = *next,
-                T::Branch {
-                    condition,
-                    then_block,
-                    else_block,
-                } => {
-                    let yes = frame
-                        .get(*condition)
-                        .and_then(|v| v.boolean().map_err(Into::into))
-                        .map_err(fault)?;
-                    current = if yes { *then_block } else { *else_block };
-                }
-                T::Return(v) => {
-                    let result = v.map(|v| frame.get(v)).transpose().map_err(fault)?;
-                    match (&f.return_type, &result) {
-                        (ir::ReturnType::Void, None) => {}
-                        (ir::ReturnType::Value(t), Some(v)) => {
-                            v.check(t).map_err(Fault::from).map_err(fault)?
-                        }
-                        _ => return Err(fault(Fault::invalid("MIR return signature"))),
-                    }
-                    return Ok(result);
-                }
-                T::Unreachable => {
-                    return Err(fault(Fault::invalid("reached unreachable MIR block")));
-                }
-            }
-        }
-    }
 }
-impl<'o> Calls<'o> for Executor<'_, 'o> {
+struct Activation<'a> {
+    function: &'a mir::Function,
+    data: Frame<'a>,
+    block: mir::BlockId,
+    next: usize,
+    return_to: Option<semantics::ReturnTo<mir::LocalId>>,
+    counted: bool,
+}
+impl<'o> Context<'o> for Executor<'_, 'o> {
     fn state(&mut self) -> &mut State<'o> {
         &mut self.state
     }
     fn types(&self) -> &[mir::TypeDefinition] {
         &self.program.types
-    }
-    fn call(
-        &mut self,
-        id: ir::FunctionId,
-        args: Vec<Value>,
-        origin: Option<mir::SourceOrigin>,
-    ) -> Result<Option<Value>> {
-        Executor::call(self, id, args, origin)
     }
 }
 #[cfg(test)]
@@ -478,6 +516,58 @@ mod tests {
             assert!(executor.state.arrays.is_empty());
             assert!(executor.state.strings.is_empty());
             assert!(run(&p).is_ok());
+        }
+    }
+
+    #[test]
+    fn frame_allocation_failure_keeps_call_site_and_balances_depth() {
+        for (source, site, after, limit, prior) in [
+            (
+                r#"fn leaf()->void {print("body");} print("before"); leaf(); print("after");"#,
+                "leaf();",
+                0,
+                1,
+                "before\n",
+            ),
+            (
+                r#"print("before"); values:[string]=array_copy(["a"]); print(values);"#,
+                "array_copy([\"a\"])",
+                0,
+                1,
+                "before\n",
+            ),
+            (
+                r#"fn leaf()->void {print("body");} fn outer()->void {print("inside");leaf();} print("before");outer();print("after");"#,
+                "leaf();",
+                1,
+                2,
+                "before\ninside\n",
+            ),
+        ] {
+            let p = crate::mir::lower(&crate::compile_to_ir(source).unwrap()).unwrap();
+            let mut captured = Capture::default();
+            let mut executor = Executor::new(&p, &mut captured);
+            executor.state.calls = Some(call::Stack::new(NonZeroU32::new(limit).unwrap()));
+            executor.state.fail_frame_after = Some(after);
+            let result = executor.entry();
+            assert_eq!(executor.state.output.captured(), prior);
+            executor.state.fail_frame_after = None;
+            executor.entry().unwrap();
+            assert!(
+                executor
+                    .state
+                    .output
+                    .captured()
+                    .starts_with(&format!("{prior}{prior}"))
+            );
+            let e = finish(result, executor.state).unwrap_err();
+            assert_eq!(
+                e.kind(),
+                &ErrorKind::Runtime(crate::runtime::FailureCode::AllocationFailed)
+            );
+            let origin = e.origin().unwrap();
+            assert_eq!(&source[origin.span.start()..origin.span.end()], site);
+            assert!(e.location().is_some());
         }
     }
 }

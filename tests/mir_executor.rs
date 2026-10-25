@@ -101,7 +101,7 @@ fn missing_cleanup_is_an_internal_failure_not_a_success() {
     assert_eq!(e.runtime_failure(), None);
 }
 #[test]
-fn malformed_recursive_call_is_an_internal_failure() {
+fn test_ir_reentry_stops_at_explicit_depth_limit() {
     let mut p = program("fn f()->i64{return 1;} print(f());");
     for i in p.functions[0]
         .blocks
@@ -118,8 +118,15 @@ fn malformed_recursive_call_is_an_internal_failure() {
             };
         }
     }
-    let e = executor::run(&p).unwrap_err();
-    assert!(matches!(e.kind(), executor::ErrorKind::InvalidMir(_)));
+    let e = executor::run_with_call_limit(&p, std::num::NonZeroU32::new(8).unwrap()).unwrap_err();
+    assert_eq!(e.call_failure().unwrap().active().len(), 8);
+    assert_eq!(
+        e.call_failure().unwrap().attempted().function,
+        ir::FunctionId(0)
+    );
+    assert!(e.output().is_empty());
+    assert!(e.location().is_some());
+    assert!(e.origin().is_some());
     assert_eq!(e.runtime_failure(), None);
 }
 #[test]

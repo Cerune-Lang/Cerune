@@ -57,6 +57,7 @@ mod lifetime_tests {
                 &mut crate::runtime::array_heap::ArrayHeap::new(code.array_heap_limit),
                 &mut crate::vm::ExecutionInput {
                     calls: None,
+                    fail_frame_after: None,
                     stdin: &mut crate::runtime::input::unconfigured(),
                     arguments: &crate::runtime::arguments::Arguments::unconfigured(),
                 },
