@@ -1,10 +1,16 @@
-[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
+<div align="center">
 
 # Cerune
 
 [日本語](README.md) | English
 
 Cerune is an experimental programming language with static typing, direct IR execution, VM execution, and code generation in multiple formats.
+
+[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
+
+[Try it](#try-it) · [Examples](examples/README.en.md) · [Language](docs/reference/language.en.md) · [Design](docs/design/architecture.en.md)
+
+</div>
 
 ## Try It
 
@@ -58,6 +64,25 @@ cerune emit-c examples/floating_point.ceru -o floating_point.c
 ```
 
 During development, replace `cerune` with `cargo run --quiet --`.
+
+### Compare execution and semantics
+
+On the latest `master`, run this program through different execution paths.
+
+```cerune
+print(7);
+limit: u8 = 255;
+unused: u8 = limit + 1;
+print(99);
+```
+
+```sh
+cerune run examples/runtime_failures/constant_overflow.ceru
+cerune run-mir examples/runtime_failures/constant_overflow.ceru
+cerune run-vm examples/runtime_failures/constant_overflow.ceru
+```
+
+Although `unused` is never used, every path prints `7`, then stops with `integer-overflow` at `limit + 1`. `99` is not printed.
 
 ## Capabilities
 
