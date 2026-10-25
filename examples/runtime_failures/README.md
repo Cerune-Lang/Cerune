@@ -2,10 +2,11 @@
 
 [English](README.en.md)
 
-この5例は正常終了せず、指定した理由で停止することを確認します。ルートの正常終了サンプル一括実行には含めません。
+この6例は正常終了せず、指定した理由で停止することを確認します。ルートの正常終了サンプル一括実行には含めません。
 
 | 例 | 停止前の出力 | 停止理由・観測する箇所 |
 | --- | --- | --- |
+| [hello_cerune.ceru](hello_cerune.ceru) | `Hello, Cerune!`、`0.300000012`、`0.30000000000000004` | `integer-overflow`、`limit + 1`。型ごとの浮動小数点計算後に停止 |
 | [constant_overflow.ceru](constant_overflow.ceru) | `7` | `integer-overflow`、`limit + 1`。結果が未使用でも実行時に停止する |
 | [overflow.ceru](overflow.ceru) | `カウンタを更新` | `integer-overflow`、`counter + 1` |
 | [array_update.ceru](array_update.ceru) | `4` | `array-index-out-of-bounds`、代入先の`[2]`。右辺を実行しない |
