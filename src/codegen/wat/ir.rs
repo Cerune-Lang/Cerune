@@ -14,6 +14,8 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    pub entry_frame_size: usize,
+    pub entry_origin: Option<Origin>,
     pub uses_arguments: bool,
     pub argument_limits: crate::runtime::arguments::Limits,
     pub string_heap_start: usize,
@@ -33,6 +35,7 @@ pub struct Module {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
+    pub frame_size: usize,
     pub id: usize,
     pub name: String,
     pub parameters: Vec<Local>,
@@ -106,6 +109,8 @@ pub enum Instruction {
         ty: crate::types::IntegerType,
         failure: crate::runtime::FailureCode,
     },
+    /// Offset in the private frame belonging to this invocation.
+    FrameAddress(usize),
     I32Const(i32),
     I64Const(i64),
     F32Const(String),
@@ -170,6 +175,7 @@ pub enum Instruction {
     },
     Call {
         function_id: usize,
+        origin: Origin,
     },
     Return,
 

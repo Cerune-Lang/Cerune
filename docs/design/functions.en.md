@@ -75,7 +75,7 @@ In this section, "aggregate value" means either a product value or a fixed array
 - C emits typed functions and prototypes and passes aggregates as C values.
 - LLVM IR emits typed parameters and results and stores received values in observable local slots.
 - QBE IR receives aggregate argument addresses and copies them into callee stack storage at function entry. An aggregate result uses a caller-provided destination as a hidden first argument.
-- WebAssembly Text represents the same scheme with addresses in linear memory.
+- WebAssembly Text represents the same scheme with addresses in linear memory. It allocates private storage per invocation, passes its base as a final internal parameter, and makes the storage reusable after copying the return value.
 - Windows/Linux x86-64 lower scalars and aggregate addresses to argument registers or stack slots for the explicit target. The callee copies aggregate arguments; the internal Cerune convention passes an aggregate result destination in `RAX`.
 - Cerune bytecode and the VM create an independent frame for every call and clone aggregate values into it.
 
@@ -101,7 +101,7 @@ There is no fixed language-level parameter-count limit. Scalars, named product t
 
 Finite stack/memory and external tool constraints still apply. This does not introduce variadic or default arguments: argument counts and types must exactly match the declaration.
 
-Both direct and indirect recursion produce a diagnostic. The current WebAssembly backend does not yet separate product temporary memory per invocation, so enabling recursion could corrupt values in only some routes.
+Both direct and indirect recursion still produce a diagnostic. WAT aggregate and temporary storage is now separated per invocation, but the common call-depth limit and call-stack diagnostics are not implemented across routes. [Recursion design and implementation order](recursion.en.md) tracks the prerequisites for enabling recursion.
 
 Before recursion is enabled, all of the following must hold:
 

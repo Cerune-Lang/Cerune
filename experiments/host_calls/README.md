@@ -38,6 +38,7 @@ WindowsとLinux/WSLのNodeで比較済みです。CIの「Typed host call compar
 `create(bytes, 'vm' | 'wat')`が返す `api.step(10, 2, 0.5)`は11を返します。コンパイル済みコードを保持し、呼出しごとのソースコンパイルは行いません。
 
 - 共通f64関数は既知の期待値と比較し、`checked(1.5)`のruntime-v1・出自も一致させます。正常なNaNを失敗と取り違えません。
+- 固定関数の公開wrapperは内部frame引数を隠し、従来の引数数・型を維持します。この実験の関数がframe領域を必要としないことも生成時に検査し、必要になった場合は停止します。
 - WAT側ではi32 wrapperとu64の範囲検査も試します。f32は生のWasm exportで丸めを確認するだけで、共通APIの対応型ではありません。
 - JSの実行時検査とTSの静的検査は別です。raw Wasmが受け付ける暗黙変換を、そのまま公開契約にしません。
 - 呼出し時の失敗はarguments/language/trap/host/closedを区別します。compile/instantiate失敗の共通エラー化は未実装です。

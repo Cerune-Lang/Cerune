@@ -538,7 +538,8 @@
     (if (i64.ge_u (local.get $value) (i64.const 10))
       (then (call $cerune_output_error_u64 (i64.div_u (local.get $value) (i64.const 10)))))
     (call $write_error_byte (i32.add (i32.wrap_i64 (i64.rem_u (local.get $value) (i64.const 10))) (i32.const 48))))
-  (func $cerune_fn_value_0 (result i64)
+  (func $cerune_fn_value_0 (param $cerune.frame.base i32) (result i64)
+    ;; function=0 private-frame-bytes=0
     i64.const 7
     call $cerune_output_i64_lf1_n0_b24_33
     i64.const 42
@@ -548,6 +549,7 @@
     (local $cerune_compact i64)
     (local $cerune_explicit i64)
 
+    i32.const 0
     call $cerune_fn_value_0
     local.set $cerune_compact
     local.get $cerune_compact

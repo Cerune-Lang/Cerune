@@ -476,6 +476,47 @@
   )
   (memory 1)
 
+  (global $cerune_heap_end (mut i64) (i64.const 136))
+
+  ;; frame block: next:u32, padding:u32, capacity:u64, payload (8-byte aligned).
+  (global $cerune_frame_free (mut i32) (i32.const 0))
+  (func $cerune_frame_allocate (param $size i64) (result i32)
+    (local $p i32) (local $prev i32) (local $next i32)
+    (local $bytes i64) (local $end i64) (local $pages i64)
+    (if (i64.gt_u (local.get $size) (i64.const 4294967272))
+      (then (return (i32.const 0))))
+    (local.set $p (global.get $cerune_frame_free))
+    (block $new
+      (loop $search
+        (br_if $new (i32.eqz (local.get $p)))
+        (if (i64.ge_u (i64.load offset=8 (local.get $p)) (local.get $size))
+          (then
+            (local.set $next (i32.load (local.get $p)))
+            (if (i32.eqz (local.get $prev))
+              (then (global.set $cerune_frame_free (local.get $next)))
+              (else (i32.store (local.get $prev) (local.get $next))))
+            (return (i32.add (local.get $p) (i32.const 16)))))
+        (local.set $prev (local.get $p))
+        (local.set $p (i32.load (local.get $p)))
+        (br $search)))
+    (local.set $bytes (i64.and (i64.add (local.get $size) (i64.const 23)) (i64.const -8)))
+    (local.set $end (i64.add (global.get $cerune_heap_end) (local.get $bytes)))
+    (if (i64.gt_u (local.get $end) (i64.const 4294967296))
+      (then (return (i32.const 0))))
+    (local.set $pages (i64.div_u (i64.add (local.get $end) (i64.const 65535)) (i64.const 65536)))
+    (if (i64.gt_u (local.get $pages) (i64.extend_i32_u (memory.size)))
+      (then
+        (if (i32.eq (memory.grow (i32.wrap_i64 (i64.sub (local.get $pages) (i64.extend_i32_u (memory.size))))) (i32.const -1))
+          (then (return (i32.const 0))))))
+    (local.set $p (i32.wrap_i64 (global.get $cerune_heap_end)))
+    (global.set $cerune_heap_end (local.get $end))
+    (i64.store offset=8 (local.get $p) (i64.sub (local.get $bytes) (i64.const 16)))
+    (i32.add (local.get $p) (i32.const 16)))
+  (func $cerune_frame_release (param $base i32) (local $p i32)
+    (if (i32.eqz (local.get $base)) (then (return)))
+    (local.set $p (i32.sub (local.get $base) (i32.const 16)))
+    (i32.store (local.get $p) (global.get $cerune_frame_free))
+    (global.set $cerune_frame_free (local.get $p)))
 
   (func $cerune_output_send (param $bits i64) (param $count i32) (result i32 i32)
     (local $accepted i32) (local $n i32)
@@ -545,166 +586,448 @@
       (then (call $cerune_output_error_u64 (i64.div_u (local.get $value) (i64.const 10)))))
     (call $write_error_byte (i32.add (i32.wrap_i64 (i64.rem_u (local.get $value) (i64.const 10))) (i32.const 48))))
   (func $main
-    i32.const 272
+    (local $cerune.frame.base i32) (local $cerune.frame.next i32)
+    ;; invocation frame: 328 bytes
+    i64.const 328
+    call $cerune_frame_allocate
+    local.tee $cerune.frame.next
+    i32.eqz
+    if
+      ;; cerune: runtime-v1 code=allocation-failed node=0 bytes=0..51
+      i32.const 99
+      call $write_error_byte
+      i32.const 101
+      call $write_error_byte
+      i32.const 114
+      call $write_error_byte
+      i32.const 117
+      call $write_error_byte
+      i32.const 110
+      call $write_error_byte
+      i32.const 101
+      call $write_error_byte
+      i32.const 58
+      call $write_error_byte
+      i32.const 32
+      call $write_error_byte
+      i32.const 114
+      call $write_error_byte
+      i32.const 117
+      call $write_error_byte
+      i32.const 110
+      call $write_error_byte
+      i32.const 116
+      call $write_error_byte
+      i32.const 105
+      call $write_error_byte
+      i32.const 109
+      call $write_error_byte
+      i32.const 101
+      call $write_error_byte
+      i32.const 45
+      call $write_error_byte
+      i32.const 118
+      call $write_error_byte
+      i32.const 49
+      call $write_error_byte
+      i32.const 32
+      call $write_error_byte
+      i32.const 99
+      call $write_error_byte
+      i32.const 111
+      call $write_error_byte
+      i32.const 100
+      call $write_error_byte
+      i32.const 101
+      call $write_error_byte
+      i32.const 61
+      call $write_error_byte
+      i32.const 97
+      call $write_error_byte
+      i32.const 108
+      call $write_error_byte
+      i32.const 108
+      call $write_error_byte
+      i32.const 111
+      call $write_error_byte
+      i32.const 99
+      call $write_error_byte
+      i32.const 97
+      call $write_error_byte
+      i32.const 116
+      call $write_error_byte
+      i32.const 105
+      call $write_error_byte
+      i32.const 111
+      call $write_error_byte
+      i32.const 110
+      call $write_error_byte
+      i32.const 45
+      call $write_error_byte
+      i32.const 102
+      call $write_error_byte
+      i32.const 97
+      call $write_error_byte
+      i32.const 105
+      call $write_error_byte
+      i32.const 108
+      call $write_error_byte
+      i32.const 101
+      call $write_error_byte
+      i32.const 100
+      call $write_error_byte
+      i32.const 32
+      call $write_error_byte
+      i32.const 110
+      call $write_error_byte
+      i32.const 111
+      call $write_error_byte
+      i32.const 100
+      call $write_error_byte
+      i32.const 101
+      call $write_error_byte
+      i32.const 61
+      call $write_error_byte
+      i32.const 48
+      call $write_error_byte
+      i32.const 32
+      call $write_error_byte
+      i32.const 98
+      call $write_error_byte
+      i32.const 121
+      call $write_error_byte
+      i32.const 116
+      call $write_error_byte
+      i32.const 101
+      call $write_error_byte
+      i32.const 115
+      call $write_error_byte
+      i32.const 61
+      call $write_error_byte
+      i32.const 48
+      call $write_error_byte
+      i32.const 46
+      call $write_error_byte
+      i32.const 46
+      call $write_error_byte
+      i32.const 53
+      call $write_error_byte
+      i32.const 49
+      call $write_error_byte
+      i32.const 10
+      call $write_error_byte
+      unreachable
+    end
+    local.get $cerune.frame.next
+    local.set $cerune.frame.base
+    local.get $cerune.frame.base
+    i32.const 144
+    i32.add
     i64.const 1
     i64.store
-    i32.const 280
+    local.get $cerune.frame.base
+    i32.const 152
+    i32.add
     i64.const 2
     i64.store
-    i32.const 288
+    local.get $cerune.frame.base
+    i32.const 160
+    i32.add
     i64.const 3
     i64.store
-    i32.const 224
-    i32.const 272
+    local.get $cerune.frame.base
+    i32.const 96
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 144
+    i32.add
     i64.load
     i64.store
-    i32.const 232
-    i32.const 280
+    local.get $cerune.frame.base
+    i32.const 104
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 152
+    i32.add
     i64.load
     i64.store
-    i32.const 240
-    i32.const 288
+    local.get $cerune.frame.base
+    i32.const 112
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 160
+    i32.add
     i64.load
     i64.store
-    i32.const 296
+    local.get $cerune.frame.base
+    i32.const 168
+    i32.add
     i64.const 4
     i64.store
-    i32.const 304
+    local.get $cerune.frame.base
+    i32.const 176
+    i32.add
     i64.const 5
     i64.store
-    i32.const 312
+    local.get $cerune.frame.base
+    i32.const 184
+    i32.add
     i64.const 6
     i64.store
-    i32.const 248
-    i32.const 296
-    i64.load
-    i64.store
-    i32.const 256
-    i32.const 304
-    i64.load
-    i64.store
-    i32.const 264
-    i32.const 312
-    i64.load
-    i64.store
-    i32.const 128
-    i32.const 224
-    i64.load
-    i64.store
-    i32.const 136
-    i32.const 232
-    i64.load
-    i64.store
-    i32.const 144
-    i32.const 240
-    i64.load
-    i64.store
-    i32.const 152
-    i32.const 248
-    i64.load
-    i64.store
-    i32.const 160
-    i32.const 256
-    i64.load
-    i64.store
+    local.get $cerune.frame.base
+    i32.const 120
+    i32.add
+    local.get $cerune.frame.base
     i32.const 168
-    i32.const 264
+    i32.add
     i64.load
     i64.store
+    local.get $cerune.frame.base
+    i32.const 128
+    i32.add
+    local.get $cerune.frame.base
     i32.const 176
-    i32.const 128
+    i32.add
     i64.load
     i64.store
-    i32.const 184
+    local.get $cerune.frame.base
     i32.const 136
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 184
+    i32.add
     i64.load
     i64.store
-    i32.const 192
-    i32.const 144
+    local.get $cerune.frame.base
+    i32.const 0
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 96
+    i32.add
     i64.load
     i64.store
-    i32.const 200
-    i32.const 152
+    local.get $cerune.frame.base
+    i32.const 8
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 104
+    i32.add
     i64.load
     i64.store
-    i32.const 208
-    i32.const 160
+    local.get $cerune.frame.base
+    i32.const 16
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 112
+    i32.add
     i64.load
     i64.store
-    i32.const 216
-    i32.const 168
+    local.get $cerune.frame.base
+    i32.const 24
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 120
+    i32.add
     i64.load
     i64.store
-    i32.const 368
+    local.get $cerune.frame.base
+    i32.const 32
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 128
+    i32.add
+    i64.load
+    i64.store
+    local.get $cerune.frame.base
+    i32.const 40
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 136
+    i32.add
+    i64.load
+    i64.store
+    local.get $cerune.frame.base
+    i32.const 48
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 0
+    i32.add
+    i64.load
+    i64.store
+    local.get $cerune.frame.base
+    i32.const 56
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 8
+    i32.add
+    i64.load
+    i64.store
+    local.get $cerune.frame.base
+    i32.const 64
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 16
+    i32.add
+    i64.load
+    i64.store
+    local.get $cerune.frame.base
+    i32.const 72
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 24
+    i32.add
+    i64.load
+    i64.store
+    local.get $cerune.frame.base
+    i32.const 80
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 32
+    i32.add
+    i64.load
+    i64.store
+    local.get $cerune.frame.base
+    i32.const 88
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 40
+    i32.add
+    i64.load
+    i64.store
+    local.get $cerune.frame.base
+    i32.const 240
+    i32.add
     i64.const 7
     i64.store
-    i32.const 376
+    local.get $cerune.frame.base
+    i32.const 248
+    i32.add
     i64.const 8
     i64.store
-    i32.const 384
+    local.get $cerune.frame.base
+    i32.const 256
+    i32.add
     i64.const 9
     i64.store
-    i32.const 320
-    i32.const 368
+    local.get $cerune.frame.base
+    i32.const 192
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 240
+    i32.add
     i64.load
     i64.store
-    i32.const 328
-    i32.const 376
+    local.get $cerune.frame.base
+    i32.const 200
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 248
+    i32.add
     i64.load
     i64.store
-    i32.const 336
-    i32.const 384
+    local.get $cerune.frame.base
+    i32.const 208
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 256
+    i32.add
     i64.load
     i64.store
-    i32.const 392
+    local.get $cerune.frame.base
+    i32.const 264
+    i32.add
     i64.const 10
     i64.store
-    i32.const 400
+    local.get $cerune.frame.base
+    i32.const 272
+    i32.add
     i64.const 11
     i64.store
-    i32.const 408
+    local.get $cerune.frame.base
+    i32.const 280
+    i32.add
     i64.const 12
     i64.store
-    i32.const 344
-    i32.const 392
+    local.get $cerune.frame.base
+    i32.const 216
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 264
+    i32.add
     i64.load
     i64.store
-    i32.const 352
-    i32.const 400
+    local.get $cerune.frame.base
+    i32.const 224
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 272
+    i32.add
     i64.load
     i64.store
-    i32.const 360
-    i32.const 408
+    local.get $cerune.frame.base
+    i32.const 232
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 280
+    i32.add
     i64.load
     i64.store
-    i32.const 128
-    i32.const 320
+    local.get $cerune.frame.base
+    i32.const 0
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 192
+    i32.add
     i64.load
     i64.store
-    i32.const 136
-    i32.const 328
+    local.get $cerune.frame.base
+    i32.const 8
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 200
+    i32.add
     i64.load
     i64.store
-    i32.const 144
-    i32.const 336
+    local.get $cerune.frame.base
+    i32.const 16
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 208
+    i32.add
     i64.load
     i64.store
-    i32.const 152
-    i32.const 344
+    local.get $cerune.frame.base
+    i32.const 24
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 216
+    i32.add
     i64.load
     i64.store
-    i32.const 160
-    i32.const 352
+    local.get $cerune.frame.base
+    i32.const 32
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 224
+    i32.add
     i64.load
     i64.store
-    i32.const 168
-    i32.const 360
+    local.get $cerune.frame.base
+    i32.const 40
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 232
+    i32.add
     i64.load
     i64.store
-    i32.const 416
+    local.get $cerune.frame.base
+    i32.const 288
+    i32.add
     i64.const 1
     i64.store
-    i32.const 416
+    local.get $cerune.frame.base
+    i32.const 288
+    i32.add
     i64.load
     i64.const 0
     i64.lt_s
@@ -858,7 +1181,9 @@
       call $write_error_byte
       unreachable
     end
-    i32.const 416
+    local.get $cerune.frame.base
+    i32.const 288
+    i32.add
     i64.load
     i64.const 2
     i64.ge_s
@@ -1012,19 +1337,29 @@
       call $write_error_byte
       unreachable
     end
-    i32.const 424
-    i32.const 176
-    i32.const 416
+    local.get $cerune.frame.base
+    i32.const 296
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 48
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 288
+    i32.add
     i64.load
     i32.wrap_i64
     i32.const 24
     i32.mul
     i32.add
     i32.store
-    i32.const 428
+    local.get $cerune.frame.base
+    i32.const 300
+    i32.add
     i64.const 2
     i64.store
-    i32.const 428
+    local.get $cerune.frame.base
+    i32.const 300
+    i32.add
     i64.load
     i64.const 0
     i64.lt_s
@@ -1178,7 +1513,9 @@
       call $write_error_byte
       unreachable
     end
-    i32.const 428
+    local.get $cerune.frame.base
+    i32.const 300
+    i32.add
     i64.load
     i64.const 3
     i64.ge_s
@@ -1332,9 +1669,13 @@
       call $write_error_byte
       unreachable
     end
-    i32.const 424
+    local.get $cerune.frame.base
+    i32.const 296
+    i32.add
     i32.load
-    i32.const 428
+    local.get $cerune.frame.base
+    i32.const 300
+    i32.add
     i64.load
     i32.wrap_i64
     i32.const 8
@@ -1342,10 +1683,14 @@
     i32.add
     i64.load
     call $cerune_output_i64_lf1_n22_b119_137
-    i32.const 436
+    local.get $cerune.frame.base
+    i32.const 308
+    i32.add
     i64.const 0
     i64.store
-    i32.const 436
+    local.get $cerune.frame.base
+    i32.const 308
+    i32.add
     i64.load
     i64.const 0
     i64.lt_s
@@ -1499,7 +1844,9 @@
       call $write_error_byte
       unreachable
     end
-    i32.const 436
+    local.get $cerune.frame.base
+    i32.const 308
+    i32.add
     i64.load
     i64.const 2
     i64.ge_s
@@ -1653,19 +2000,29 @@
       call $write_error_byte
       unreachable
     end
-    i32.const 444
-    i32.const 128
-    i32.const 436
+    local.get $cerune.frame.base
+    i32.const 316
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 0
+    i32.add
+    local.get $cerune.frame.base
+    i32.const 308
+    i32.add
     i64.load
     i32.wrap_i64
     i32.const 24
     i32.mul
     i32.add
     i32.store
-    i32.const 448
+    local.get $cerune.frame.base
+    i32.const 320
+    i32.add
     i64.const 1
     i64.store
-    i32.const 448
+    local.get $cerune.frame.base
+    i32.const 320
+    i32.add
     i64.load
     i64.const 0
     i64.lt_s
@@ -1819,7 +2176,9 @@
       call $write_error_byte
       unreachable
     end
-    i32.const 448
+    local.get $cerune.frame.base
+    i32.const 320
+    i32.add
     i64.load
     i64.const 3
     i64.ge_s
@@ -1973,9 +2332,13 @@
       call $write_error_byte
       unreachable
     end
-    i32.const 444
+    local.get $cerune.frame.base
+    i32.const 316
+    i32.add
     i32.load
-    i32.const 448
+    local.get $cerune.frame.base
+    i32.const 320
+    i32.add
     i64.load
     i32.wrap_i64
     i32.const 8
@@ -1983,6 +2346,8 @@
     i32.add
     i64.load
     call $cerune_output_i64_lf1_n28_b138_158
+    local.get $cerune.frame.base
+    call $cerune_frame_release
   )
   (export "main" (func $main))
 )

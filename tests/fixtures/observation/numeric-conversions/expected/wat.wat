@@ -4903,7 +4903,8 @@
       (local.set $offset (i32.add (local.get $offset) (i32.const 1)))
       (br_if $validate (i32.lt_u (local.get $offset) (local.get $length))))
     (call $cerune_output_bytes (i32.const 0) (local.get $length) (local.get $newline)))
-  (func $cerune_fn_measure_0 (param $cerune_value i64) (result f64)
+  (func $cerune_fn_measure_0 (param $cerune_value i64) (param $cerune.frame.base i32) (result f64)
+    ;; function=0 private-frame-bytes=0
     local.get $cerune_value
     call $cerune_convert_i16_f64_n2_b43_53
     i64.const 2
@@ -4937,6 +4938,7 @@
     call $cerune_convert_u32_f32_n24_b205_215
     call $cerune_output_f32_lf1_n23_b199_217
     i64.const 3
+    i32.const 0
     call $cerune_fn_measure_0
     call $cerune_output_f64_lf1_n26_b218_236
     f64.const 0.0

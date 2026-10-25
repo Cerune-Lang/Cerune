@@ -291,6 +291,24 @@ fn wat_host_requires_a_valid_record_and_an_unreachable_trap() {
     for (label, diagnostic, tail, accepted) in [
         ("reported-unreachable", record, "unreachable", true),
         (
+            "host-frame-failure",
+            "cerune: runtime-v1 code=allocation-failed origin=host\n",
+            "unreachable",
+            true,
+        ),
+        (
+            "host-frame-without-trap",
+            "cerune: runtime-v1 code=allocation-failed origin=host\n",
+            "",
+            false,
+        ),
+        (
+            "host-wrong-code",
+            "cerune: runtime-v1 code=division-by-zero origin=host\n",
+            "unreachable",
+            false,
+        ),
+        (
             "reported-file",
             "cerune: runtime-v1 code=division-by-zero node=7 file=2 bytes=0..1\n",
             "unreachable",

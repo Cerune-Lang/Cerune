@@ -38,6 +38,7 @@ Records size, Wasm compile, instantiate, VM source preparation and 10,000 calls 
 `api.step(10, 2, 0.5)` on the result of `create(bytes, 'vm' | 'wat')` returns 11. Compiled code is retained without recompiling source for every call.
 
 - Shared f64 calls use known expected results; `checked(1.5)` must produce the same runtime-v1 record and origins. Valid NaN is distinct from failure.
+- Fixed-function export wrappers hide the internal frame parameter and retain the previous arity and types. Generation verifies that these experimental functions need no frame storage and stops if that assumption changes.
 - WAT also exercises an i32 wrapper and u64 range checks. f32 rounding is tested only on a raw Wasm export, not supported by the common API.
 - JS runtime checks and TS static checks are separate. Raw Wasm coercions do not automatically become the public contract.
 - Call failures distinguish arguments/language/trap/host/closed. Compile/instantiate failures do not yet have a common error representation.

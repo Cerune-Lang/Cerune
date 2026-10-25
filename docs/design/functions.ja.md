@@ -75,7 +75,7 @@ VMエラーは、関数番号とその関数内の命令番号を保持します
 - Cは型付き関数とprototypeを生成し、Cの値として受け渡す
 - LLVM IRは型付きparameterと戻り値を生成し、受け取った値を観測しやすいlocal slotへ保存する
 - QBE IRは集約引数の場所を受け取り、関数の開始時に自身のstack領域へコピーする。集約戻り値には、呼び出し側が用意した戻り先を隠れた先頭引数として使う
-- WebAssembly TextはQBEと同じ形をlinear memory上のaddressで表す
+- WebAssembly TextはQBEと同じ形をlinear memory上のaddressで表す。呼出しごとの非公開領域を確保し、内部の末尾引数で基点を渡す。戻り値をコピーしてから領域を再利用可能にする
 - Windows/Linux x86-64はscalarと集約値の場所を、明示したターゲットの引数registerまたはstackへloweringする。集約引数は受け取り側でコピーし、集約戻り値の戻り先は内部規約として`RAX`で渡す
 - Cerune bytecodeとVMは呼び出しごとに独立したframeを作り、集約値を複製して渡す
 
@@ -101,7 +101,7 @@ registerとstackの基本規則は[Microsoft x64 calling convention](https://lea
 
 有限のstack・memoryと外部ツールの制約は引き続き適用されます。可変長引数やデフォルト引数を導入する変更ではなく、宣言と呼び出しの引数数・型は完全に一致させます。
 
-再帰は直接呼び出しと間接呼び出しの両方を診断します。現在のWebAssembly backendではproduct型の一時memoryを呼び出しごとに分離していないためです。再帰を許可すると、一部の出力経路だけで値が壊れる可能性があります。
+再帰は直接呼び出しと間接呼び出しの両方を引き続き診断します。WATの集約値・一時領域は呼出しごとに分離しましたが、全経路共通の呼出し深さ上限とcall stack診断は未実装です。[再帰の設計と実装順](recursion.ja.md)で解禁条件を管理します。
 
 再帰を追加するときは、少なくとも次を同時に満たします。
 

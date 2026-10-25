@@ -22,7 +22,13 @@ fn variant(plain: &str, mode: &str) -> String {
         .replace(READ_HOOK, &format!("{READ_HOOK}\n{split}    (call $trial_snapshot (i32.const 1))"))
         .replace(RELEASE_HOOK, &format!("{RELEASE_HOOK}\n{merge}            i32.const 2\n            call $trial_snapshot"));
     let end = text.rfind(')').unwrap();
-    text.insert_str(end, PROTOTYPE);
+    let prototype = PROTOTYPE.replace("@CHECK_COALESCED@", if mode == "coalesce" {
+        r#"        (if (i32.and (i32.eq (local.get $phase) (i32.const 2))
+          (i32.and (i32.eqz (i32.load offset=4 (local.get $p))) (i32.eqz (i32.load offset=4 (local.get $q)))))
+          (then (if (i32.or (i64.eq (local.get $end) (i64.extend_i32_u (local.get $q)))
+            (i64.eq (local.get $other_end) (local.get $start))) (then unreachable))))"#
+    } else { "" });
+    text.insert_str(end, &prototype);
     assert!(!text.contains("(export \"memory\""));
     text
 }
@@ -107,15 +113,19 @@ fn wat_storage_policy_repeated_retention_and_array_gaps() {
             }
             // この固定規模では、再結合も初回の大きな予約8本を減らせません。
             assert_eq!(pages[0], 129);
+            // A retained frame block separates the first string from the other seven.
+            // Coalescing must not absorb a block owned by the frame allocator.
             if !mixed && mode == "coalesce" {
+                assert!(released.iter().all(|r| r[6] == 2
+                    && r[3] == 8 * 1_048_576 + 6 * 24
+                    && r[7] == 7 * (1_048_576 + 24) - 24));
+            }
+            if mixed && mode == "coalesce" {
                 assert!(
                     released
                         .iter()
-                        .all(|r| r[6] == 1 && r[7] == 8 * (1_048_576 + 24) - 24)
+                        .all(|r| r[6] == 8 && r[3] == 8 * 1_048_576 && r[7] == 1_048_576)
                 );
-            }
-            if mixed && mode == "coalesce" {
-                assert!(released.iter().all(|r| r[6] == 8 && r[7] == 1_048_576));
             }
             println!("{stem}: pages={pages:?}, final={:?}", rows.last().unwrap());
         }
@@ -258,6 +268,7 @@ const PROTOTYPE: &str = r#"
         (local.set $other_end (i64.add (i64.extend_i32_u (local.get $q)) (i64.add (i64.const 24) (i64.load offset=8 (local.get $q)))))
         (if (i32.and (i64.lt_u (local.get $start) (local.get $other_end))
           (i64.lt_u (i64.extend_i32_u (local.get $q)) (local.get $end))) (then unreachable))
+@CHECK_COALESCED@
         (local.set $q (i32.load (local.get $q)))
         (br $pair)))
       (if (i32.load offset=4 (local.get $p))

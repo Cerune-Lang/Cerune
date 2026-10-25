@@ -47,6 +47,7 @@
 - [小数部分の切り捨て](design/truncating-conversions.ja.md)
 - [型・長さを引数にする関数](design/generic-functions.ja.md)
 - [関数](design/functions.ja.md)
+- [再帰の設計・呼出し領域](design/recursion.ja.md)
 - [名前付きproduct type](design/product-types.ja.md)
 - [複合値とmatch式](design/aggregate-values.ja.md)
 - [直和型と分岐](design/sum-types.ja.md)

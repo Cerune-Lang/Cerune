@@ -450,13 +450,15 @@
     (if (i64.ge_u (local.get $value) (i64.const 10))
       (then (call $cerune_output_error_u64 (i64.div_u (local.get $value) (i64.const 10)))))
     (call $write_error_byte (i32.add (i32.wrap_i64 (i64.rem_u (local.get $value) (i64.const 10))) (i32.const 48))))
-  (func $cerune_fn_add_0 (param $cerune_left i64) (param $cerune_right i64) (result i64)
+  (func $cerune_fn_add_0 (param $cerune_left i64) (param $cerune_right i64) (param $cerune.frame.base i32) (result i64)
+    ;; function=0 private-frame-bytes=0
     local.get $cerune_left
     local.get $cerune_right
     call $cerune_i64_add_n1_b50_62
     return
   )
-  (func $cerune_fn_show_1 (param $cerune_value i64)
+  (func $cerune_fn_show_1 (param $cerune_value i64) (param $cerune.frame.base i32)
+    ;; function=1 private-frame-bytes=0
     local.get $cerune_value
     call $cerune_output_i64_lf1_n4_b101_114
     return
@@ -466,9 +468,11 @@
 
     i64.const 20
     i64.const 22
+    i32.const 0
     call $cerune_fn_add_0
     local.set $cerune_answer
     local.get $cerune_answer
+    i32.const 0
     call $cerune_fn_show_1
   )
   (export "main" (func $main))
