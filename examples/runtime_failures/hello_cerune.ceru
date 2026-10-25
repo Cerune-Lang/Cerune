@@ -1,0 +1,9 @@
+print("Hello, Cerune!");
+a: f32 = 0.1 + 0.2;
+b: f64 = 0.1 + 0.2;
+print(a);
+print(b);
+
+limit: u8 = 255;
+unused: u8 = limit + 1;
+print(99);

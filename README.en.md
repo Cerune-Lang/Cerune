@@ -1,10 +1,20 @@
-[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
+<div align="center">
 
 # Cerune
 
 [日本語](README.md) | English
 
 Cerune is an experimental programming language with static typing, direct IR execution, VM execution, and code generation in multiple formats.
+
+[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Cerune-Lang/Cerune?label=release)](https://github.com/Cerune-Lang/Cerune/releases/latest)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
+[![Prebuilt: Windows, Linux, macOS](https://img.shields.io/badge/prebuilt-Windows%20%7C%20Linux%20%7C%20macOS-555)](https://github.com/Cerune-Lang/Cerune/releases/latest)
+
+[Examples by type and purpose](examples/README.en.md) · [Language](docs/reference/language.en.md) · [CLI](docs/reference/cli.en.md)  
+[Design docs](docs/README.en.md) · [Roadmap](docs/design/language-roadmap.en.md) · [Migrating from Primer](docs/design/naming.en.md)
+
+</div>
 
 ## Try It
 
@@ -40,22 +50,28 @@ To install from source:
 cargo install --path .
 ```
 
-The same addition produces different results depending on the type. Comments show the output.
+### Compare execution and semantics
 
 ```cerune
+print("Hello, Cerune!");
 a: f32 = 0.1 + 0.2;
 b: f64 = 0.1 + 0.2;
-c: infer = 0.1 + 0.2;
+print(a);
+print(b);
 
-print(a); // 0.300000012
-print(b); // 0.30000000000000004
-print(c); // 0.30000000000000004 (infer resolves to f64)
+limit: u8 = 255;
+unused: u8 = limit + 1;
+print(99);
 ```
 
 ```sh
-cerune emit-ir examples/floating_point.ceru
-cerune emit-c examples/floating_point.ceru -o floating_point.c
+cerune run examples/runtime_failures/hello_cerune.ceru
+cerune run-mir examples/runtime_failures/hello_cerune.ceru
+cerune run-vm examples/runtime_failures/hello_cerune.ceru
+cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 ```
+
+The program first prints `Hello, Cerune!` and the results for two floating-point types. Every execution path then stops with `integer-overflow` at the unused `unused` assignment, before printing `99`.
 
 During development, replace `cerune` with `cargo run --quiet --`.
 
@@ -135,11 +151,6 @@ Text goes to stdout; use `-o` to save it. LLVM / QBE strings and dynamic arrays,
 | Run fmt, Clippy, and all tests (WSL / Bash) | `bash scripts/test.sh` |
 
 WSL needs its own Rust installation. Shell scripts default to `target/unix` for builds.
-
-## Documentation
-
-- [Examples by type and purpose](examples/README.en.md) · [Language](docs/reference/language.en.md) · [CLI](docs/reference/cli.en.md)
-- [Design docs](docs/README.en.md) · [Roadmap](docs/design/language-roadmap.en.md) · [Migrating from Primer](docs/design/naming.en.md)
 
 ## Related Repositories
 

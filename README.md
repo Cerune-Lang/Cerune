@@ -1,10 +1,20 @@
-[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
+<div align="center">
 
 # Cerune
 
 日本語 | [English](README.en.md)
 
 Ceruneは、静的型付け・IR直接実行・VM実行・複数形式へのコード生成に対応する実験用プログラミング言語です。
+
+[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Cerune-Lang/Cerune?label=release)](https://github.com/Cerune-Lang/Cerune/releases/latest)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#ライセンス)
+[![Prebuilt: Windows, Linux, macOS](https://img.shields.io/badge/prebuilt-Windows%20%7C%20Linux%20%7C%20macOS-555)](https://github.com/Cerune-Lang/Cerune/releases/latest)
+
+[型・用途別サンプル](examples/README.md) · [言語仕様](docs/reference/language.ja.md) · [CLI](docs/reference/cli.ja.md)  
+[設計文書](docs/README.md) · [今後の計画](docs/design/language-roadmap.ja.md) · [Primerからの移行](docs/design/naming.ja.md)
+
+</div>
 
 ## まず試す
 
@@ -40,22 +50,28 @@ cargo run --quiet -- run examples/floating_point.ceru
 cargo install --path .
 ```
 
-同じ足し算でも、型によって結果が変わります。コメントは実行結果です。
+### 実行方法と意味を確認する
 
 ```cerune
+print("Hello, Cerune!");
 a: f32 = 0.1 + 0.2;
 b: f64 = 0.1 + 0.2;
-c: infer = 0.1 + 0.2;
+print(a);
+print(b);
 
-print(a); // 0.300000012
-print(b); // 0.30000000000000004
-print(c); // 0.30000000000000004（inferでf64に推論）
+limit: u8 = 255;
+unused: u8 = limit + 1;
+print(99);
 ```
 
 ```sh
-cerune emit-ir examples/floating_point.ceru
-cerune emit-c examples/floating_point.ceru -o floating_point.c
+cerune run examples/runtime_failures/hello_cerune.ceru
+cerune run-mir examples/runtime_failures/hello_cerune.ceru
+cerune run-vm examples/runtime_failures/hello_cerune.ceru
+cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 ```
+
+最初に`Hello, Cerune!`と型ごとの計算結果を表示します。どの実行経路でも、使われない`unused`の加算で`integer-overflow`となり、`99`は表示されません。
 
 開発中は`cerune`を`cargo run --quiet --`に置き換えられます。
 
@@ -135,11 +151,6 @@ cerune emit-c examples/floating_point.ceru -o floating_point.c
 | fmt・Clippy・全テスト（WSL / Bash） | `bash scripts/test.sh` |
 
 WSL側にもRustが必要です。`.sh`のビルド先は既定で`target/unix`です。
-
-## 文書
-
-- [型・用途別サンプル](examples/README.md) · [言語仕様](docs/reference/language.ja.md) · [CLI](docs/reference/cli.ja.md)
-- [設計文書](docs/README.md) · [今後の計画](docs/design/language-roadmap.ja.md) · [Primerからの移行](docs/design/naming.ja.md)
 
 ## 関連リポジトリ
 

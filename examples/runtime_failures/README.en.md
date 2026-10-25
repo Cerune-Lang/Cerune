@@ -2,10 +2,11 @@
 
 [日本語](README.md)
 
-These five examples must stop for the specified reason. They are excluded from the root directory's successful-example batch.
+These six examples must stop for the specified reason. They are excluded from the root directory's successful-example batch.
 
 | Example | Output before failure | Reason and source location |
 | --- | --- | --- |
+| [hello_cerune.ceru](hello_cerune.ceru) | `Hello, Cerune!`, `0.300000012`, `0.30000000000000004` | `integer-overflow` at `limit + 1` after floating-point output |
 | [constant_overflow.ceru](constant_overflow.ceru) | `7` | `integer-overflow`, `limit + 1`; unused results must still fail at runtime |
 | [overflow.ceru](overflow.ceru) | `カウンタを更新` | `integer-overflow`, `counter + 1` |
 | [array_update.ceru](array_update.ceru) | `4` | `array-index-out-of-bounds`, assignment's `[2]`; the right-hand side does not execute |
