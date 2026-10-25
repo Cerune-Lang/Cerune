@@ -136,14 +136,25 @@ cerune emit-c examples/floating_point.ceru -o floating_point.c
 
 WSL側にもRustが必要です。`.sh`のビルド先は既定で`target/unix`です。
 
-## 文書・関連ツール
+## 文書
 
 - [型・用途別サンプル](examples/README.md) · [言語仕様](docs/reference/language.ja.md) · [CLI](docs/reference/cli.ja.md)
 - [設計文書](docs/README.md) · [今後の計画](docs/design/language-roadmap.ja.md) · [Primerからの移行](docs/design/naming.ja.md)
-- [Tint\*](https://github.com/Hokutaka/Tint-St.)：ソースと生成表現を並べて観察する環境。
-- [Whitebase](https://github.com/Hokutaka/Whitebase)：Rust・C++・Assembly・Ceruneの演算を測定・比較する環境。
-- [Stelle](https://github.com/Hokutaka/stelle)：Ceruneだけで小さなCLI RPGを作るdogfooding実験。まだ初期段階です。
-- [Cisa](https://github.com/Hokutaka/Cisa)：Ceruneで32bit程度の仮想CPUを作るdogfooding実験。まだ初期段階です。
+
+## 関連リポジトリ
+
+[Organization一覧](https://github.com/Cerune-Lang) · [各プロジェクトの役割](docs/design/ecosystem.ja.md)
+
+| 用途 | リポジトリ | 内容 |
+| --- | --- | --- |
+| Native生成 | [Sashimi](https://github.com/Cerune-Lang/Sashimi) | 型付き命令からASM・Objectを生成し、出自とバイト位置を対応付ける |
+| 開発支援 | [Tint\*](https://github.com/Cerune-Lang/Tint-St) / [Cerune-vscode](https://github.com/Cerune-Lang/Cerune-vscode) | ソース・生成表現の観測環境 / VS Codeの構文色分け・snippet |
+| 検証・研究 | [Parallax](https://github.com/Cerune-Lang/Parallax) / [Fracta](https://github.com/Cerune-Lang/Fracta) | 実行経路の差分検証 / 安全性の研究 |
+| ライブラリ実験 | [Quantelia](https://github.com/Cerune-Lang/Quantelia) / [Nerune](https://github.com/Cerune-Lang/Nerune) | 数値計算 / 機械学習 |
+| Ceruneでの利用例 | [Stelle](https://github.com/Cerune-Lang/stelle) / [Cisa](https://github.com/Cerune-Lang/Cisa) | 小さなCLI RPG / 32bit程度の仮想CPU。ともに初期の実験 |
+| 文書・案内 | [website](https://github.com/Cerune-Lang/website) / [.github](https://github.com/Cerune-Lang/.github) | ドキュメントサイト / Organizationの案内 |
+| 用途未掲載 | [Symnexa](https://github.com/Cerune-Lang/Symnexa) | 用途・実装の公開説明は未掲載 |
+| 外部の計測環境 | [Whitebase](https://github.com/Hokutaka/Whitebase) | Rust・C++・Assembly・Ceruneの演算を測定・比較 |
 
 ## ライセンス
 

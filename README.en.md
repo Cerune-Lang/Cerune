@@ -136,14 +136,25 @@ Text goes to stdout; use `-o` to save it. LLVM / QBE strings and dynamic arrays,
 
 WSL needs its own Rust installation. Shell scripts default to `target/unix` for builds.
 
-## Documentation and Related Tools
+## Documentation
 
 - [Examples by type and purpose](examples/README.en.md) · [Language](docs/reference/language.en.md) · [CLI](docs/reference/cli.en.md)
 - [Design docs](docs/README.en.md) · [Roadmap](docs/design/language-roadmap.en.md) · [Migrating from Primer](docs/design/naming.en.md)
-- [Tint\*](https://github.com/Hokutaka/Tint-St.): inspect source and generated representations side by side.
-- [Whitebase](https://github.com/Hokutaka/Whitebase): measure and compare Rust, C++, Assembly, and Cerune execution paths.
-- [Stelle](https://github.com/Hokutaka/stelle): an early dogfooding experiment building a tiny CLI RPG entirely in Cerune.
-- [Cisa](https://github.com/Hokutaka/Cisa): an early dogfooding experiment building a small 32-bit virtual CPU in Cerune.
+
+## Related Repositories
+
+[Organization](https://github.com/Cerune-Lang) · [Project responsibilities](docs/design/ecosystem.en.md)
+
+| Purpose | Repository | Role |
+| --- | --- | --- |
+| Native generation | [Sashimi](https://github.com/Cerune-Lang/Sashimi) | Generate ASM/objects from typed instructions and map origins to byte ranges |
+| Development tools | [Tint\*](https://github.com/Cerune-Lang/Tint-St) / [Cerune-vscode](https://github.com/Cerune-Lang/Cerune-vscode) | Inspect source and generated representations / VS Code syntax highlighting and snippets |
+| Testing and research | [Parallax](https://github.com/Cerune-Lang/Parallax) / [Fracta](https://github.com/Cerune-Lang/Fracta) | Differential testing across execution routes / safety research |
+| Library experiments | [Quantelia](https://github.com/Cerune-Lang/Quantelia) / [Nerune](https://github.com/Cerune-Lang/Nerune) | Numerical computing / machine learning |
+| Programs written in Cerune | [Stelle](https://github.com/Cerune-Lang/stelle) / [Cisa](https://github.com/Cerune-Lang/Cisa) | A tiny CLI RPG / a small 32-bit virtual CPU; both early experiments |
+| Documentation and navigation | [website](https://github.com/Cerune-Lang/website) / [.github](https://github.com/Cerune-Lang/.github) | Documentation site / Organization overview |
+| Purpose not documented | [Symnexa](https://github.com/Cerune-Lang/Symnexa) | No published description of purpose or implementation yet |
+| External measurement environment | [Whitebase](https://github.com/Hokutaka/Whitebase) | Measure and compare Rust, C++, Assembly, and Cerune execution |
 
 ## License
 
