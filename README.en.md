@@ -8,7 +8,8 @@ Cerune is an experimental programming language with static typing, direct IR exe
 
 [![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
 
-[Try it](#try-it) · [Examples](examples/README.en.md) · [Language](docs/reference/language.en.md) · [Design](docs/design/architecture.en.md)
+[Examples by type and purpose](examples/README.en.md) · [Language](docs/reference/language.en.md) · [CLI](docs/reference/cli.en.md)  
+[Design docs](docs/README.en.md) · [Roadmap](docs/design/language-roadmap.en.md) · [Migrating from Primer](docs/design/naming.en.md)
 
 </div>
 
@@ -160,11 +161,6 @@ Text goes to stdout; use `-o` to save it. LLVM / QBE strings and dynamic arrays,
 | Run fmt, Clippy, and all tests (WSL / Bash) | `bash scripts/test.sh` |
 
 WSL needs its own Rust installation. Shell scripts default to `target/unix` for builds.
-
-## Documentation
-
-- [Examples by type and purpose](examples/README.en.md) · [Language](docs/reference/language.en.md) · [CLI](docs/reference/cli.en.md)
-- [Design docs](docs/README.en.md) · [Roadmap](docs/design/language-roadmap.en.md) · [Migrating from Primer](docs/design/naming.en.md)
 
 ## Related Repositories
 
