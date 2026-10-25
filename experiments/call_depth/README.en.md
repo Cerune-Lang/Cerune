@@ -57,12 +57,12 @@ Measured runtime commit 143aae0 (PR #200), Rust 1.98.0, Windows x86_64 MSVC and 
 
 This is not a search for minimum safe stack sizes or maximum safe depths. OS, compiler, optimization, expression shapes, and generated helpers affect results. Release success does not establish a universally safe limit; debug builds will not get different language depth semantics. Physical-resource measurements for C, LLVM, QBE, WAT, and Native are still pending.
 
-## Next implementation steps
+## Implementation order and current progress
 
-1. Start with the standard HIR execution route: replace host-recursive function calls with frames and continuation positions explicitly managed by the executor. Keep logical counting restricted to source functions while including generated helpers in physical frame management.
+1. Replace host-recursive HIR calls with explicit frames and continuation positions (implemented). Keep logical counting restricted to source functions while including generated helpers in physical frame management.
 2. Diagnose frame allocation failure separately from depth overflow; compare argument order, ownership cleanup, NodeId/Span, and early returns against existing tests. Apply the approach to MIR, SSA, and VM in turn.
 3. Validate generated-route resource conditions, then establish common ranges, CLI configuration, and diagnostics before enabling recursion.
 
-This change adds measurements and establishes the order only. Explicit frame execution and new resource diagnostics remain unimplemented. No duplicate IR, execution control through observation APIs, or implicit tail-call optimization is introduced.
+The table and observations.json retain measurements of the earlier runtime commit 143aae0. A subsequent implementation introduced explicit HIR frames, tests at depth 128 with a requested 2 MiB, and frame-allocation-failure diagnostics. See the [current status](../../docs/design/recursion.en.md). MIR, SSA, and VM are next. No duplicate IR, execution control through observation APIs, or implicit tail-call optimization is introduced.
 
 CI runs `node --test experiments/call_depth/probe.test.cjs` to prevent false success classifications, plus 16 shallow cases at depth 4 with a requested 16 MiB to compare fixtures, four executors, and known output.

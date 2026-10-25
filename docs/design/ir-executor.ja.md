@@ -26,13 +26,15 @@ IR Executorは、既存のCerune IRの意味を直接実行する公式の基準
 
 CLIは`run <file>`または同じ意味の`run-ir <file>`で選びます。VM実行は`run-vm <file>`で明示します。import・診断・文字列予算は既存の共通フロントエンドと設定を使い、`--diagnostic-format runtime-v1`に対応します。ソースからのAPIは`run_ir(source) -> Result<String, IrRunError>`です。`IrRunError`はコンパイル失敗と実行失敗を区別します。実行先を黙って変更しません。
 
-- 文・式を直接辿り、関数ごとの束縛をBindingIdで管理する。
+- 元の文・式への参照を辿り、明示frameにBindingIdの束縛・途中値・継続位置を保持する。関数呼出しをRustの再帰呼出しへ積まない。
 - if/while/forを構造のまま実行し、return/break/continueを区別する。forのcontinueでも更新部を実行する。
 - トップレベル文と明示mainの起動規則は既存と一致させる。
 - 引数・演算子・配列要素・構築フィールドを左から一度ずつ評価し、短絡する右辺は評価しない。
 - 添字代入では各段の検査を次の添字や右辺より先に行う。
 
 内部値は型付き数値、bool、不変文字列ハンドル、値としての配列と構造体です。VMのValueやbytecodeのTypeを利用しません。配列・構造体は入れ子も独立した値として扱い、不変の文字列内容は共有します。動的配列の要素コピーは、ホストの暗黙コピーではなく共通IRのループが担います。enumは共通IRのタグとフィールドとして実行し、独自の言語解釈を加えません。
+
+明示frameの確保失敗と残る資源上の制約は[再帰の設計](recursion.ja.md)にまとめています。
 
 ## 共有する意味論と所有
 
@@ -74,4 +76,4 @@ Executorのエラーは、言語の停止理由と不正IR等の内部問題を�
 
 未対応は、テキストIRの読み込み、任意関数を外部から呼ぶ埋め込みAPI、実行の一時停止・再開です。実行途中の介入APIは設けません。再帰は未対応です。[動的配列](owned-arrays.ja.md)は後続の言語機能としてIR・VMで実装し、確保・コピー・解放を共通IRから実行します。公開Rust APIはフロントエンドの完成済みIRを前提とし、手作りIRの完全な検証器ではありません。検出した構造・型・所有の不整合は`InvalidIr`とし、未展開の`Let`/`Conditional`を黙って展開・VMへ委譲しません。
 
-実装は`src/ir_executor.rs`（制御・フレーム・診断）、`src/runtime/value.rs`（MIRと共有する内部値・原子的演算）、`src/runtime/{numeric,float_output,string_heap,array_heap}.rs`（共有部品）に分けています。VM用の変換は`src/vm`に残し、直接実行からVMの値・命令列へ依存しません。
+実装は`src/ir_executor/machine.rs`（frame・継続位置・構造化制御）、`src/ir_executor.rs`（評価済みオペランドの処理・診断）、`src/runtime/value.rs`（MIRと共有する内部値・原子的演算）、`src/runtime/{numeric,float_output,string_heap,array_heap}.rs`（共有部品）に分けています。VM用の変換は`src/vm`に残し、直接実行からVMの値・命令列へ依存しません。

@@ -106,9 +106,12 @@ pub(crate) struct Fault {
 }
 pub(crate) type Result<T> = std::result::Result<T, Fault>;
 impl Fault {
-    pub(crate) fn call_failure(failure: Box<call::Failure>) -> Self {
+    pub(crate) fn call_failure(failure: call::EnterError) -> Self {
         Self {
-            kind: ErrorKind::CallDepth(failure),
+            kind: match failure {
+                call::EnterError::Depth(f) => ErrorKind::CallDepth(f),
+                call::EnterError::Allocation => ErrorKind::Runtime(FailureCode::AllocationFailed),
+            },
             origin: None,
             location: None,
         }

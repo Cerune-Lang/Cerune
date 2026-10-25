@@ -27,3 +27,5 @@ cargo test --test wat_output frames::call_frames_example compares HIR, MIR, SSA,
 [depth.ceru](depth.ceru) evaluates the left and right arguments before entering pair. Run it with `cargo run --quiet -- run examples/call_frames/depth.ceru`; output matches [depth.stdout](depth.stdout).
 
 Depth limits are currently available only through the Rust run_with_call_limit API. Limit 2 completes the example; limit 1 stops immediately before outer enters the first mark(10). CLI configuration is pending. `cargo test --test ir_executor call_depth` compares prior output, failure origins, and call snapshots across four executors.
+
+[pending_values.ceru](pending_values.ceru) retains the result of price(1) while calling subtotal, then adds the returned value. Run `cargo run --quiet -- run examples/call_frames/pending_values.ceru`; output matches [pending_values.stdout](pending_values.stdout). Internal frames retain original HIR references and intermediate values without changing emit-ir output.

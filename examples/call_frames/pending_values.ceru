@@ -1,0 +1,8 @@
+fn price(units: i64) -> i64 {
+    print(units);
+    return units * 100;
+}
+fn subtotal() -> i64 {
+    return price(2) + price(3) * 2;
+}
+print(price(1) + subtotal());

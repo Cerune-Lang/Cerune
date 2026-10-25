@@ -146,12 +146,7 @@ struct Binding {
     initializer: Option<ir::NodeId>,
 }
 type Frame = HashMap<ir::BindingId, Binding>;
-enum Flow {
-    Next,
-    Break,
-    Continue,
-    Return(Option<Value>),
-}
+mod machine;
 struct Executor<'a, 'o> {
     calls: Option<call::Stack>,
     program: &'a ir::Program,
@@ -270,128 +265,27 @@ fn run_connections_with_limit(
 }
 impl Executor<'_, '_> {
     fn entry(&mut self) -> Result<()> {
-        let program = self.program;
-        match self.body(&program.statements, &mut Frame::new())? {
-            Flow::Next => {}
-            _ => return Err(Fault::invalid("control flow escaped the entry body")),
-        }
-        if let Some(main) = program
-            .function_definitions
-            .iter()
-            .find(|f| f.name == "main")
-        {
-            if !main.parameters.is_empty() || main.return_type != ir::ReturnType::Void {
-                return Err(Fault::invalid(
-                    "main must have no parameters and return void",
-                ));
-            }
-            self.call(main.id, vec![], None)?;
-        }
-        Ok(())
+        machine::execute(self)
     }
-    fn call(
+    fn apply_statement(
         &mut self,
-        id: ir::FunctionId,
-        arguments: Vec<Value>,
-        origin: Option<call::Origin>,
-    ) -> Result<Option<Value>> {
-        let f = self
-            .program
-            .function_definitions
-            .get(id.0)
-            .filter(|f| f.id == id)
-            .ok_or_else(|| Fault::invalid("unknown function"))?;
-        let counted = f.lowering.is_none() && self.calls.is_some();
-        if counted {
-            self.calls
-                .as_mut()
-                .unwrap()
-                .enter(call::Frame {
-                    function: id,
-                    origin,
-                })
-                .map_err(|failure| Fault {
-                    kind: ErrorKind::CallDepth(failure),
-                    origin: origin.map(|o| Origin {
-                        node_id: o.node_id,
-                        span: o.span,
-                    }),
-                })?;
-        }
-        let result = self.call_body(id, arguments);
-        if counted {
-            self.calls.as_mut().unwrap().leave();
-        }
-        result
-    }
-    fn call_body(&mut self, id: ir::FunctionId, arguments: Vec<Value>) -> Result<Option<Value>> {
-        let program = self.program;
-        let f = program
-            .function_definitions
-            .get(id.0)
-            .filter(|f| f.id == id)
-            .ok_or_else(|| Fault::invalid("unknown function"))?;
-        if f.parameters.len() != arguments.len() {
-            return Err(Fault::invalid("incorrect argument count"));
-        }
-        let mut frame = Frame::new();
-        for (p, value) in f.parameters.iter().zip(arguments) {
-            value.check(&p.ty)?;
-            if frame
-                .insert(
-                    p.id,
-                    Binding {
-                        value,
-                        mutable: false,
-                        initializer: None,
-                    },
-                )
-                .is_some()
-            {
-                return Err(Fault::invalid("duplicate parameter binding"));
-            }
-        }
-        let result = match self.body(&f.body, &mut frame)? {
-            Flow::Next => None,
-            Flow::Return(value) => value,
-            _ => return Err(Fault::invalid("loop control escaped a function")),
-        };
-        match (&f.return_type, &result) {
-            (ir::ReturnType::Void, None) => {}
-            (ir::ReturnType::Value(ty), Some(value)) => value.check(ty)?,
-            _ => return Err(Fault::invalid("return value does not match the function")),
-        }
-        Ok(result)
-    }
-    fn arguments(&mut self, args: &[Expr], frame: &mut Frame) -> Result<Vec<Value>> {
-        args.iter().map(|e| self.expr(e, frame)).collect()
-    }
-    fn body(&mut self, body: &[Statement], frame: &mut Frame) -> Result<Flow> {
-        for s in body {
-            match self.statement(s, frame)? {
-                Flow::Next => {}
-                flow => return Ok(flow),
-            }
-        }
-        Ok(Flow::Next)
-    }
-    fn statement(&mut self, s: &Statement, frame: &mut Frame) -> Result<Flow> {
-        self.statement_inner(s, frame)
-            .map_err(|e| e.at(s.id, s.span))
-    }
-    fn statement_inner(&mut self, s: &Statement, frame: &mut Frame) -> Result<Flow> {
+        s: &Statement,
+        frame: &mut Frame,
+        values: &mut impl Iterator<Item = Value>,
+    ) -> Result<()> {
         match &s.kind {
             S::Binding {
-                id,
-                mutable,
-                ty,
-                value,
-                ..
+                id, mutable, ty, ..
             } => {
-                let value = self.expr(value, frame)?;
+                let value = operand(values)?;
                 value.check(ty)?;
                 if frame.get(id).is_some_and(|b| b.initializer != Some(s.id)) {
                     return Err(Fault::invalid("duplicate binding"));
+                }
+                if !frame.contains_key(id) {
+                    frame
+                        .try_reserve(1)
+                        .map_err(|_| Fault::failure(FailureCode::AllocationFailed))?;
                 }
                 frame.insert(
                     *id,
@@ -402,21 +296,19 @@ impl Executor<'_, '_> {
                     },
                 );
             }
-            S::Assignment { target, value } => {
-                self.assignment(s, target, value, frame)?;
-            }
-            S::ArrayInitialize { array, value } => {
-                let Value::DynamicArray { element, storage } = self.expr(array, frame)? else {
+
+            S::ArrayInitialize { .. } => {
+                let Value::DynamicArray { element, storage } = operand(values)? else {
                     return Err(Fault::invalid("array initialize"));
                 };
-                let value = self.expr(value, frame)?;
+                let value = operand(values)?;
                 value.check(&element)?;
                 self.arrays
                     .initialize(&storage, value)
                     .map_err(array_error)?;
             }
-            S::ArrayRetain { value } | S::ArrayFree { value } => {
-                let Value::DynamicArray { storage, .. } = self.expr(value, frame)? else {
+            S::ArrayRetain { .. } | S::ArrayFree { .. } => {
+                let Value::DynamicArray { storage, .. } = operand(values)? else {
                     return Err(Fault::invalid("array ownership"));
                 };
                 if matches!(s.kind, S::ArrayRetain { .. }) {
@@ -426,20 +318,20 @@ impl Executor<'_, '_> {
                 }
                 .map_err(array_error)?;
             }
-            S::ArrayRangeCheck { length, start, end } => {
-                let length = self.expr(length, frame)?.integer(IntegerType::I64)?;
-                let start = self.expr(start, frame)?.integer(IntegerType::I64)?;
-                let end = self.expr(end, frame)?.integer(IntegerType::I64)?;
+            S::ArrayRangeCheck { .. } => {
+                let length = operand(values)?.integer(IntegerType::I64)?;
+                let start = operand(values)?.integer(IntegerType::I64)?;
+                let end = operand(values)?.integer(IntegerType::I64)?;
                 if start < 0 || start > end || end > length {
                     return Err(Fault::failure(FailureCode::ArrayRangeOutOfBounds));
                 }
             }
-            S::StringManage { value, retain } => {
-                let value = self.expr(value, frame)?.string()?;
+            S::StringManage { retain, .. } => {
+                let value = operand(values)?.string()?;
                 self.heap.manage(&value, *retain).map_err(heap_error)?;
             }
-            S::Write { value, quoted } => {
-                let text = self.expr(value, frame)?.text()?;
+            S::Write { quoted, .. } => {
+                let text = operand(values)?.text()?;
                 let mut rendered = String::new();
                 if *quoted {
                     write_quoted(&mut rendered, &text);
@@ -470,8 +362,8 @@ impl Executor<'_, '_> {
                         origin: None,
                     })?;
             }
-            S::Print { value } => {
-                let mut text = self.expr(value, frame)?.text()?;
+            S::Print { .. } => {
+                let mut text = operand(values)?.text()?;
                 text.push('\n');
                 self.output
                     .write(
@@ -486,158 +378,25 @@ impl Executor<'_, '_> {
                         origin: None,
                     })?;
             }
-            S::Call {
-                function_id,
-                arguments,
-                ..
-            } => {
-                let args = self.arguments(arguments, frame)?;
-                if self
-                    .call(
-                        *function_id,
-                        args,
-                        Some(call::Origin {
-                            node_id: s.id,
-                            span: s.span,
-                        }),
-                    )?
-                    .is_some()
-                {
-                    return Err(Fault::invalid("value returned to a void call"));
-                }
-            }
-            S::Return { value } => {
-                return Ok(Flow::Return(
-                    value.as_ref().map(|e| self.expr(e, frame)).transpose()?,
-                ));
-            }
-            S::If {
-                condition,
-                then_body,
-                else_body,
-            } => {
-                let condition = self.expr(condition, frame)?.boolean()?;
-                return self.body(if condition { then_body } else { else_body }, frame);
-            }
-            S::While { condition, body } => {
-                while self.expr(condition, frame)?.boolean()? {
-                    match self.body(body, frame)? {
-                        Flow::Next | Flow::Continue => {}
-                        Flow::Break => break,
-                        flow @ Flow::Return(_) => return Ok(flow),
-                    }
-                }
-            }
-            S::For {
-                initializer,
-                condition,
-                update,
-                body,
-            } => {
-                if !matches!(self.statement(initializer, frame)?, Flow::Next) {
-                    return Err(Fault::invalid("invalid for initializer"));
-                }
-                while self.expr(condition, frame)?.boolean()? {
-                    match self.body(body, frame)? {
-                        Flow::Next | Flow::Continue => {}
-                        Flow::Break => break,
-                        flow @ Flow::Return(_) => return Ok(flow),
-                    }
-                    if !matches!(self.statement(update, frame)?, Flow::Next) {
-                        return Err(Fault::invalid("invalid for update"));
-                    }
-                }
-            }
-            S::Break => return Ok(Flow::Break),
-            S::Continue => return Ok(Flow::Continue),
+            _ => return Err(Fault::invalid("control statement reached value operation")),
         }
-        Ok(Flow::Next)
+        Ok(())
     }
-    fn assignment(
+    fn apply_expr(
         &mut self,
-        s: &Statement,
-        target: &ir::AssignmentTarget,
-        value: &Expr,
-        frame: &mut Frame,
-    ) -> Result<()> {
-        let binding = frame
-            .get(&target.id)
-            .ok_or_else(|| Fault::invalid("assignment to unknown binding"))?;
-        if !binding.mutable {
-            return Err(Fault::invalid("assignment to immutable binding"));
-        }
-        binding.value.check(&target.root_ty)?;
-        let mut path = vec![];
-        // 各添字の評価・検査を完了してから、次の添字や右辺へ進みます。
-        for projection in &target.projections {
-            let (index, element, fixed, span) = match projection {
-                ir::AssignmentProjection::Index {
-                    index,
-                    element,
-                    length,
-                    span,
-                } => (index, element, Some(*length), span),
-                ir::AssignmentProjection::DynamicIndex {
-                    index,
-                    element,
-                    span,
-                } => (index, element, None, span),
-            };
-            let index = self.expr(index, frame)?.integer(IntegerType::I64)?;
-            let root = &frame
-                .get(&target.id)
-                .ok_or_else(|| Fault::invalid("unknown assignment root"))?
-                .value;
-            let current = at_path(root, &path)?;
-            current.check(&match fixed {
-                Some(length) => ir::Type::Array {
-                    element: Box::new(element.clone()),
-                    length,
-                },
-                None => ir::Type::DynamicArray {
-                    element: Box::new(element.clone()),
-                },
-            })?;
-            let length = match current {
-                Value::Array { values, .. } => values.len(),
-                Value::DynamicArray { storage, .. } => storage.len(),
-                _ => return Err(Fault::invalid("array assignment type")),
-            };
-            path.push(checked_index(index, length).map_err(|e| e.at(s.id, *span))?);
-        }
-        let replacement = self.expr(value, frame)?;
-        replacement.check(&target.ty)?;
-        let root = &mut frame
-            .get_mut(&target.id)
-            .ok_or_else(|| Fault::invalid("unknown assignment root"))?
-            .value;
-        let destination = at_path(root, &path)?;
-        replacement.check(&destination.ty())?;
-        set_path(root, &path, replacement)
-    }
-    fn expr(&mut self, e: &Expr, frame: &mut Frame) -> Result<Value> {
-        let value = self
-            .expr_inner(e, frame)
-            .map_err(|error| error.at(e.id, e.span))?;
-        value
-            .check(&e.ty)
-            .map_err(Fault::from)
-            .map_err(|error| error.at(e.id, e.span))?;
-        Ok(value)
-    }
-    fn expr_inner(&mut self, e: &Expr, frame: &mut Frame) -> Result<Value> {
+        e: &Expr,
+        frame: &Frame,
+        values: &mut impl Iterator<Item = Value>,
+    ) -> Result<Value> {
         Ok(match &e.kind {
             E::ArrayCopy { .. } | E::ArrayRepeat { .. } => {
                 return Err(Fault::invalid("array copy must be lowered"));
             }
-            E::ArrayAllocate {
-                length,
-                element_width,
-            } => {
+            E::ArrayAllocate { element_width, .. } => {
                 let ir::Type::DynamicArray { element } = &e.ty else {
                     return Err(Fault::invalid("array allocation type"));
                 };
-                let count = self.expr(length, frame)?.integer(IntegerType::I64)?;
+                let count = operand(values)?.integer(IntegerType::I64)?;
                 let count = u64::try_from(count)
                     .map_err(|_| Fault::failure(FailureCode::ArrayLengthOutOfRange))?;
                 let storage = self
@@ -649,8 +408,8 @@ impl Executor<'_, '_> {
                     storage,
                 }
             }
-            E::ArrayReleaseOwner { value } => {
-                let Value::DynamicArray { storage, .. } = self.expr(value, frame)? else {
+            E::ArrayReleaseOwner { .. } => {
+                let Value::DynamicArray { storage, .. } = operand(values)? else {
                     return Err(Fault::invalid("array release"));
                 };
                 Value::Bool(self.arrays.release_owner(&storage).map_err(array_error)?)
@@ -682,7 +441,7 @@ impl Executor<'_, '_> {
                 .ok_or_else(|| Fault::invalid("read of unknown binding"))?
                 .value
                 .clone(),
-            E::Constant { value, .. } => self.expr(value, frame)?,
+            E::Constant { .. } => operand(values)?,
             E::ArgumentCount => Value::Number(Number::Integer(
                 self.program_arguments
                     .count_at(output::Origin {
@@ -695,8 +454,8 @@ impl Executor<'_, '_> {
                     })? as i128,
                 IntegerType::I64,
             )),
-            E::ArgumentGet { index } => {
-                let index = self.expr(index, frame)?.integer(IntegerType::I64)? as i64;
+            E::ArgumentGet { .. } => {
+                let index = operand(values)?.integer(IntegerType::I64)? as i64;
                 Value::String(
                     self.program_arguments
                         .get_value(
@@ -713,8 +472,8 @@ impl Executor<'_, '_> {
                         })?,
                 )
             }
-            E::ReadLine { max_bytes } => {
-                let limit = self.expr(max_bytes, frame)?.integer(IntegerType::I64)? as i64;
+            E::ReadLine { .. } => {
+                let limit = operand(values)?.integer(IntegerType::I64)? as i64;
                 Value::String(
                     self.input
                         .read_value(
@@ -731,33 +490,31 @@ impl Executor<'_, '_> {
                         })?,
                 )
             }
-            E::StringConcat { left, right } => {
-                let left = self.expr(left, frame)?.string()?;
-                let right = self.expr(right, frame)?.string()?;
+            E::StringConcat { .. } => {
+                let left = operand(values)?.string()?;
+                let right = operand(values)?.string()?;
                 Value::String(self.heap.concat(&left, &right).map_err(heap_error)?)
             }
-            E::StringByteAt { value, index } => {
-                let value = self.expr(value, frame)?.string()?;
-                let index = self.expr(index, frame)?.integer(IntegerType::I64)?;
+            E::StringByteAt { .. } => {
+                let value = operand(values)?.string()?;
+                let index = operand(values)?.integer(IntegerType::I64)?;
                 let byte = value.byte_at(index);
                 Value::Number(Number::Integer(byte, IntegerType::I64))
             }
-            E::StringByteLength { value } => {
-                let value = self.expr(value, frame)?.string()?;
+            E::StringByteLength { .. } => {
+                let value = operand(values)?.string()?;
                 Value::Number(Number::Integer(value.len() as i128, IntegerType::I64))
             }
-            E::ArrayLength { value } => {
-                let len = match self.expr(value, frame)? {
+            E::ArrayLength { .. } => {
+                let len = match operand(values)? {
                     Value::Array { values, .. } => values.len(),
                     Value::DynamicArray { storage, .. } => storage.len(),
                     _ => return Err(Fault::invalid("array_len of non-array")),
                 };
                 Value::Number(Number::Integer(len as i128, IntegerType::I64))
             }
-            E::ConvertInteger {
-                value, from, to, ..
-            } => {
-                let v = self.expr(value, frame)?.integer(*from)?;
+            E::ConvertInteger { from, to, .. } => {
+                let v = operand(values)?.integer(*from)?;
                 if !to.contains(v) {
                     return Err(Fault::failure(FailureCode::IntegerConversionOutOfRange));
                 }
@@ -773,26 +530,26 @@ impl Executor<'_, '_> {
                 if value::numeric_type(&value.ty) != Some(*from) {
                     return Err(Fault::invalid("conversion source type"));
                 }
-                let v = self.expr(value, frame)?.number()?;
+                let v = operand(values)?.number()?;
                 Value::Number(
                     numeric::convert_with_mode(v, *from, *to, *mode)
                         .map_err(value::numeric_error)?,
                 )
             }
-            E::Logical { op, left, right } => {
-                let left = self.expr(left, frame)?.boolean()?;
+            E::Logical { op, .. } => {
+                let left = operand(values)?.boolean()?;
                 Value::Bool(match op {
-                    ir::LogicalOp::And => left && self.expr(right, frame)?.boolean()?,
-                    ir::LogicalOp::Or => left || self.expr(right, frame)?.boolean()?,
+                    ir::LogicalOp::And => left && operand(values)?.boolean()?,
+                    ir::LogicalOp::Or => left || operand(values)?.boolean()?,
                 })
             }
-            E::Unary { op, value } => {
-                let value = self.expr(value, frame)?;
+            E::Unary { op, .. } => {
+                let value = operand(values)?;
                 value::unary(*op, value)?
             }
-            E::Binary { op, left, right } => {
-                let left = self.expr(left, frame)?;
-                let right = self.expr(right, frame)?;
+            E::Binary { op, .. } => {
+                let left = operand(values)?;
+                let right = operand(values)?;
                 value::binary(*op, left, right)?
             }
             E::Array(elements) => {
@@ -802,20 +559,23 @@ impl Executor<'_, '_> {
                 if *length != elements.len() {
                     return Err(Fault::invalid("array literal length"));
                 }
-                let mut values = Vec::with_capacity(elements.len());
-                for item in elements {
-                    let v = self.expr(item, frame)?;
+                let mut items = Vec::new();
+                items
+                    .try_reserve(elements.len())
+                    .map_err(|_| Fault::failure(FailureCode::AllocationFailed))?;
+                for _ in elements {
+                    let v = operand(values)?;
                     v.check(element)?;
-                    values.push(v);
+                    items.push(v);
                 }
                 Value::Array {
                     element: *element.clone(),
-                    values,
+                    values: items,
                 }
             }
-            E::Index { base, index } => {
-                let base = self.expr(base, frame)?;
-                let index = self.expr(index, frame)?.integer(IntegerType::I64)?;
+            E::Index { .. } => {
+                let base = operand(values)?;
+                let index = operand(values)?.integer(IntegerType::I64)?;
                 match base {
                     Value::Array { values, .. } => {
                         values[checked_index(index, values.len())?].clone()
@@ -838,8 +598,8 @@ impl Executor<'_, '_> {
                     .get(type_id.0)
                     .filter(|d| d.id == *type_id)
                     .ok_or_else(|| Fault::invalid("unknown product type"))?;
-                let mut values = if let Some(base) = base {
-                    let base = self.expr(base, frame)?;
+                let mut fields_values = if base.is_some() {
+                    let base = operand(values)?;
                     base.check(&ir::Type::Named(*type_id))?;
                     let Value::Aggregate { fields, .. } = base else {
                         return Err(Fault::invalid("product base"));
@@ -849,18 +609,18 @@ impl Executor<'_, '_> {
                     vec![None; def.fields.len()]
                 };
                 for field in fields {
-                    let value = self.expr(&field.value, frame)?;
+                    let value = operand(values)?;
                     let expected = def
                         .fields
                         .get(field.id.0)
                         .ok_or_else(|| Fault::invalid("unknown constructor field"))?;
                     value.check(&expected.ty)?;
-                    let slot = values
+                    let slot = fields_values
                         .get_mut(field.id.0)
                         .ok_or_else(|| Fault::invalid("invalid product base layout"))?;
                     *slot = Some(value);
                 }
-                let fields = values
+                let fields = fields_values
                     .into_iter()
                     .map(|v| v.ok_or_else(|| Fault::invalid("missing constructor field")))
                     .collect::<Result<Vec<_>>>()?;
@@ -870,12 +630,9 @@ impl Executor<'_, '_> {
                 }
             }
             E::FieldAccess {
-                type_id,
-                field_id,
-                base,
-                ..
+                type_id, field_id, ..
             } => {
-                let base = self.expr(base, frame)?;
+                let base = operand(values)?;
                 base.check(&ir::Type::Named(*type_id))?;
                 let Value::Aggregate { fields, .. } = base else {
                     return Err(Fault::invalid("field of non-product"));
@@ -885,27 +642,17 @@ impl Executor<'_, '_> {
                     .ok_or_else(|| Fault::invalid("unknown product field"))?
                     .clone()
             }
-            E::Call {
-                function_id,
-                arguments,
-                ..
-            } => {
-                let args = self.arguments(arguments, frame)?;
-                self.call(
-                    *function_id,
-                    args,
-                    Some(call::Origin {
-                        node_id: e.id,
-                        span: e.span,
-                    }),
-                )?
-                .ok_or_else(|| Fault::invalid("void call used as a value"))?
-            }
+            E::Call { .. } => return Err(Fault::invalid("call reached value operation")),
             E::Let { .. } | E::Conditional { .. } => {
                 return Err(Fault::invalid("IR must have completed common expansion"));
             }
         })
     }
+}
+fn operand(values: &mut impl Iterator<Item = Value>) -> Result<Value> {
+    values
+        .next()
+        .ok_or_else(|| Fault::invalid("missing evaluated operand"))
 }
 fn checked_index(index: i128, length: usize) -> Result<usize> {
     usize::try_from(index)
