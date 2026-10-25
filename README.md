@@ -1,10 +1,16 @@
-[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
+<div align="center">
 
 # Cerune
 
 日本語 | [English](README.en.md)
 
 Ceruneは、静的型付け・IR直接実行・VM実行・複数形式へのコード生成に対応する実験用プログラミング言語です。
+
+[![CI](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerune-Lang/Cerune/actions/workflows/ci.yml)
+
+[まず試す](#まず試す) · [サンプル](examples/README.md) · [言語仕様](docs/reference/language.ja.md) · [設計](docs/design/architecture.ja.md)
+
+</div>
 
 ## まず試す
 
@@ -58,6 +64,25 @@ cerune emit-c examples/floating_point.ceru -o floating_point.c
 ```
 
 開発中は`cerune`を`cargo run --quiet --`に置き換えられます。
+
+### 実行方法と意味を確認する
+
+最新の`master`では、次のプログラムを異なる実行経路で試せます。
+
+```cerune
+print(7);
+limit: u8 = 255;
+unused: u8 = limit + 1;
+print(99);
+```
+
+```sh
+cerune run examples/runtime_failures/constant_overflow.ceru
+cerune run-mir examples/runtime_failures/constant_overflow.ceru
+cerune run-vm examples/runtime_failures/constant_overflow.ceru
+```
+
+`unused`は使われませんが、どの経路でも`7`を表示した後、`limit + 1`の`integer-overflow`で停止します。`99`は表示されません。
 
 ## 機能
 
