@@ -380,6 +380,35 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **REPL** — 言語処理系として一気に“使ってる感”が出る。
 - **CeruneでCerune compiler frontend** — self-hostingの本格化。
 
+## 配布用Image・実行環境・アプリケーション（現在と将来）
+
+ここでは「Ceruneで何を書くか」ではなく、「Ceruneで作ったプログラムをどう保存・配布・再実行・組み込みできるか」を題材にする。既存のcompiler差分検証や再現可能ビルドの実験とは、**配布された完成成果物を起点にする**点が異なる。
+
+現時点で[Native build / release](../design/owned-routes.ja.md)の初版は実装済み。IR/VM Imageの形式・検証器・loader・build/releaseは未実装。以下は実験アイデアであり、機能の実装や互換性を約束するものではない。
+
+### 現行Native build / releaseから着手可能
+
+- **Native配布物のスモークテスト** — release成果物を別ディレクトリへ移し、対象OS・CPU・runtime要件を満たす環境で起動・終了状態を確認。
+- **配布manifest監査** — target・直接runtime要件・SHA-256・buildの出自が配布物と一致するか確認。
+- **Native配布物とIR/VM実行の照合** — 元ソースを各実行器で評価し、対象環境で起動した配布実行ファイルと出力・停止理由を比較。
+
+### IR/VM Imageとloaderの完成後
+
+- **IR Image runner** — 保存したIR Imageを別プロセスでload・検証・実行し、コンパイラ実行から独立させる。
+- **VM Bytecode Image runner** — Bytecode Imageと互換VM runtimeだけでプログラムを実行する配布模型。
+- **Image round-trip試験** — build→保存→再読込→実行を繰り返し、保存前のIR/VM実行と結果を照合。
+- **Image互換性マトリクス** — 形式版・意味版・runtime版を組み合わせ、受理・拒否・診断の境界を調べる。
+- **不正Imageの拒否テスト** — 壊れた参照・型・制御フロー・所有情報・資源上限を持つImageを安全に拒否できるか検査。
+- **IR/VM/Nativeの配布経路比較** — 同じ入力から各経路でreleaseし、依存runtime・成果物サイズ・起動・停止の観測可能性を比較。
+- **配布後provenance explorer** — 配布したImageや実行ファイルの診断を元のソース位置・build記録へ結び直す。
+
+### 追加のI/O・ホストAPI・隔離設計が必要
+
+- **組み込みCerune VM** — 外部アプリからImageを読み込んで関数を呼ぶ。VMの埋め込みAPIとホスト側の値受け渡しが前提。
+- **差し替え可能なアプリロジック** — ゲーム・シミュレータ・拡張機能のロジックをVM Imageとして配る。ホスト連携と更新時の互換条件を検討。
+- **制限付き実行ホスト** — 実行予算・公開するI/O・権限・隔離を設計してImageを実行する。Imageの形式・型検証だけではサンドボックスにはならない。
+- **入出力付きCLIやサービスの配布** — ファイルI/O・ネットワークI/Oなどが追加された後、実用品のbuild/release・依存関係・障害診断を試す。
+
 ## 将来: GPU
 
 - **matrix kernel CPU/GPU比較** — 既存ロードマップと直結。
