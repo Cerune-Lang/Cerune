@@ -28,4 +28,4 @@ Cerune!
 
 深さ上限は現在Rust API `run_with_call_limit` でのみ指定できます。上限2なら完走し、上限1ならouterから最初のmark(10)へ入る直前に停止します。CLI設定は後続です。`cargo test --test ir_executor call_depth` で4実行器の先行出力・停止位置・呼出し履歴を比較します。
 
-[pending_values.ceru](pending_values.ceru)は、先に評価したprice(1)を保持したままsubtotalへ入り、戻ってから加算します。`cargo run --quiet -- run examples/call_frames/pending_values.ceru` の出力は[pending_values.stdout](pending_values.stdout)です。内部のframeは元HIRへの参照と途中値を保持し、emit-irの内容を変えません。
+[pending_values.ceru](pending_values.ceru)は、先に評価したprice(1)を保持したままsubtotalへ入り、戻ってから加算します。`cargo run --quiet -- run examples/call_frames/pending_values.ceru` の出力は[pending_values.stdout](pending_values.stdout)です。4実行器はそれぞれの表現を保持して明示frameで呼び出します。run-mir、run-mir --ssa、run-vmでも同じ出力になります。emit-ir／emit-mir／emit-bytecodeの表現と出自は変えません。

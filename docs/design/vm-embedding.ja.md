@@ -87,7 +87,7 @@ Ceruneへ以下を追加しません。
 
 ## 既存VMとの関係
 
-VM内部では、関数呼び出し時に関数ID、引数、出力状態を使って関数frameを実行しています。
+VM内部では、関数ID・PC・operand stack・slot・初期化位置を呼出しごとの明示frameに保存し、call／returnを反復処理します。元bytecodeの命令と出自は保持します。[深さ上限と確保失敗](recursion.ja.md)は4実行器で共有します。
 
 埋め込みAPIでは、この既存処理を再実装しません。
 

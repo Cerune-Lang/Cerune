@@ -59,10 +59,10 @@ This is not a search for minimum safe stack sizes or maximum safe depths. OS, co
 
 ## Implementation order and current progress
 
-1. Replace host-recursive HIR calls with explicit frames and continuation positions (implemented). Keep logical counting restricted to source functions while including generated helpers in physical frame management.
-2. Diagnose frame allocation failure separately from depth overflow; compare argument order, ownership cleanup, NodeId/Span, and early returns against existing tests. Apply the approach to MIR, SSA, and VM in turn.
+1. Replace host-recursive calls in all four executors with explicit frames and continuation positions (implemented). Keep logical counting restricted to source functions while including generated helpers in physical frame management.
+2. Diagnose frame allocation failure separately from depth overflow; compare argument order, ownership cleanup, NodeId/Span, and early returns against existing tests. Applied to MIR, SSA, and VM as well.
 3. Validate generated-route resource conditions, then establish common ranges, CLI configuration, and diagnostics before enabling recursion.
 
-The table and observations.json retain measurements of the earlier runtime commit 143aae0. A subsequent implementation introduced explicit HIR frames, tests at depth 128 with a requested 2 MiB, and frame-allocation-failure diagnostics. See the [current status](../../docs/design/recursion.en.md). MIR, SSA, and VM are next. No duplicate IR, execution control through observation APIs, or implicit tail-call optimization is introduced.
+The table and observations.json retain measurements of the earlier runtime commit 143aae0. A subsequent implementation introduced explicit frames in all four executors, tests at depth 128 with a requested 2 MiB, and frame-allocation-failure diagnostics. See the [current status](../../docs/design/recursion.en.md). Generated-route resources and depth diagnostics are next. No duplicate IR, execution control through observation APIs, or implicit tail-call optimization is introduced.
 
 CI runs `node --test experiments/call_depth/probe.test.cjs` to prevent false success classifications, plus 16 shallow cases at depth 4 with a requested 16 MiB to compare fixtures, four executors, and known output.

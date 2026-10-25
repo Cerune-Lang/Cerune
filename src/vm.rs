@@ -331,6 +331,8 @@ pub fn run_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
 }
 struct ExecutionInput<'a> {
     calls: Option<call::Stack>,
+    #[cfg(test)]
+    fail_frame_after: Option<usize>,
     stdin: &'a mut dyn Source,
     arguments: &'a Arguments,
 }
@@ -360,6 +362,8 @@ fn run_connections_with_limit(
         &mut arrays,
         &mut ExecutionInput {
             calls: limit.map(call::Stack::new),
+            #[cfg(test)]
+            fail_frame_after: None,
             stdin: input,
             arguments,
         },
@@ -398,6 +402,8 @@ pub(crate) fn execute_function(
         &mut ArrayHeap::new(program.array_heap_limit),
         &mut crate::vm::ExecutionInput {
             calls: None,
+            #[cfg(test)]
+            fail_frame_after: None,
             stdin: &mut crate::runtime::input::unconfigured(),
             arguments: &crate::runtime::arguments::Arguments::unconfigured(),
         },
@@ -410,6 +416,111 @@ pub(crate) fn execute_function(
     }
 }
 
+// 元bytecodeの位置と、呼出しごとのoperand stack/slotを保持します。
+struct Activation<'a> {
+    frame: Frame,
+    instructions: &'a [crate::bytecode::Instruction],
+    slot_info: &'a [crate::bytecode::Slot],
+    return_type: ReturnType,
+    stack: Vec<Value>,
+    slots: Vec<Option<Value>>,
+    initializers: Vec<Option<usize>>,
+    pc: usize,
+    counted: bool,
+}
+fn empty_slots<T>(len: usize) -> Result<Vec<Option<T>>, VmError> {
+    let mut values = Vec::new();
+    values
+        .try_reserve(len)
+        .map_err(|_| VmError::new(VmErrorKind::AllocationFailed, 0))?;
+    values.resize_with(len, || None);
+    Ok(values)
+}
+impl Frame {
+    fn at(self, error: VmError) -> VmError {
+        match self {
+            Self::Entry => error,
+            Self::Function(id) => error.in_function(id),
+        }
+    }
+}
+impl<'a> Activation<'a> {
+    fn new(
+        program: &'a BytecodeProgram,
+        frame: Frame,
+        arguments: Vec<Value>,
+    ) -> Result<Self, VmError> {
+        let (instructions, slot_info, parameter_count, return_type) = match frame {
+            Frame::Entry => (
+                program.instructions.as_slice(),
+                program.slots.as_slice(),
+                0,
+                ReturnType::Void,
+            ),
+            Frame::Function(function_id) => {
+                let function = program
+                    .functions
+                    .get(function_id)
+                    .ok_or_else(|| VmError::new(VmErrorKind::InvalidFunction { function_id }, 0))?;
+                (
+                    function.instructions.as_slice(),
+                    function.slots.as_slice(),
+                    function.parameter_count,
+                    function.return_type.clone(),
+                )
+            }
+        };
+
+        if arguments.len() != parameter_count {
+            return Err(VmError::new(
+                VmErrorKind::InvalidArgumentCount {
+                    expected: parameter_count,
+                    actual: arguments.len(),
+                },
+                0,
+            ));
+        }
+
+        let stack: Vec<Value> = Vec::new();
+        let mut slots = empty_slots(slot_info.len())?;
+        let mut initializers = empty_slots(slot_info.len())?;
+
+        for (index, argument) in arguments.into_iter().enumerate() {
+            let expected = slot_info[index].ty.clone();
+            if argument.ty() != expected {
+                return Err(VmError::new(
+                    VmErrorKind::TypeMismatch {
+                        expected,
+                        actual: argument.ty(),
+                    },
+                    0,
+                ));
+            }
+            slots[index] = Some(argument);
+            initializers[index] = Some(usize::MAX);
+        }
+
+        Ok(Self {
+            frame,
+            instructions,
+            slot_info,
+            return_type,
+            stack,
+            slots,
+            initializers,
+            pc: 0,
+            counted: false,
+        })
+    }
+}
+enum FrameEvent {
+    Call {
+        function_id: usize,
+        arguments: Vec<Value>,
+        pc: usize,
+    },
+    Return(Option<Value>),
+}
 fn execute_frame(
     program: &BytecodeProgram,
     frame: Frame,
@@ -419,85 +530,140 @@ fn execute_frame(
     arrays: &mut ArrayHeap<Value>,
     input: &mut ExecutionInput<'_>,
 ) -> Result<Option<Value>, VmError> {
-    let result = execute_frame_inner(program, frame, arguments, output, heap, arrays, input);
-    match (frame, result) {
-        (Frame::Function(function_id), Err(error)) => Err(error.in_function(function_id)),
-        (_, result) => result,
+    let mut active = Vec::new();
+    active
+        .try_reserve(1)
+        .map_err(|_| frame.at(VmError::new(VmErrorKind::AllocationFailed, 0)))?;
+    active.push(Activation::new(program, frame, arguments).map_err(|e| frame.at(e))?);
+    let result = (|| {
+        loop {
+            let current = active.last_mut().unwrap();
+            let caller = current.frame;
+            let event = execute_until_event(program, current, output, heap, arrays, input)
+                .map_err(|e| caller.at(e))?;
+            match event {
+                FrameEvent::Call {
+                    function_id,
+                    arguments,
+                    pc,
+                } => {
+                    let function = &program.functions[function_id];
+                    let origin = match current.instructions[pc].origin {
+                        crate::bytecode::InstructionOrigin::Source { node_id, span } => {
+                            Some(call::Origin { node_id, span })
+                        }
+                        crate::bytecode::InstructionOrigin::Synthetic => None,
+                    };
+                    let fault = |kind| caller.at(VmError::new(kind, pc));
+                    let counted = function.lowering.is_none() && input.calls.is_some();
+                    if counted {
+                        input
+                            .calls
+                            .as_mut()
+                            .unwrap()
+                            .enter(call::Frame {
+                                function: crate::ir::FunctionId(function_id),
+                                origin,
+                            })
+                            .map_err(|f| {
+                                fault(match f {
+                                    call::EnterError::Depth(f) => VmErrorKind::CallDepth(f),
+                                    call::EnterError::Allocation => VmErrorKind::AllocationFailed,
+                                })
+                            })?;
+                    }
+                    let callee = (|| {
+                        active
+                            .try_reserve(1)
+                            .map_err(|_| fault(VmErrorKind::AllocationFailed))?;
+                        #[cfg(test)]
+                        if let Some(left) = &mut input.fail_frame_after {
+                            if *left == 0 {
+                                return Err(fault(VmErrorKind::AllocationFailed));
+                            }
+                            *left -= 1;
+                        }
+                        Activation::new(program, Frame::Function(function_id), arguments).map_err(
+                            |e| {
+                                if matches!(e.kind, VmErrorKind::AllocationFailed) {
+                                    fault(VmErrorKind::AllocationFailed)
+                                } else {
+                                    e.in_function(function_id)
+                                }
+                            },
+                        )
+                    })();
+                    match callee {
+                        Ok(mut callee) => {
+                            callee.counted = counted;
+                            active.push(callee);
+                        }
+                        Err(e) => {
+                            if counted {
+                                input.calls.as_mut().unwrap().leave();
+                            }
+                            return Err(e);
+                        }
+                    }
+                }
+                FrameEvent::Return(value) => {
+                    let finished = active.pop().unwrap();
+                    if finished.counted {
+                        input.calls.as_mut().unwrap().leave();
+                    }
+                    if let Some(parent) = active.last_mut() {
+                        if let Some(value) = value {
+                            parent.stack.try_reserve(1).map_err(|_| {
+                                parent
+                                    .frame
+                                    .at(VmError::new(VmErrorKind::AllocationFailed, parent.pc - 1))
+                            })?;
+                            parent.stack.push(value);
+                        }
+                    } else {
+                        return Ok(value);
+                    }
+                }
+            }
+        }
+    })();
+    while let Some(frame) = active.pop() {
+        if frame.counted {
+            input.calls.as_mut().unwrap().leave();
+        }
     }
+    result
 }
-
-fn execute_frame_inner(
+fn execute_until_event(
     program: &BytecodeProgram,
-    frame: Frame,
-    arguments: Vec<Value>,
+    activation: &mut Activation<'_>,
     output: &mut dyn Sink,
     heap: &mut StringHeap,
     arrays: &mut ArrayHeap<Value>,
     input: &mut ExecutionInput<'_>,
-) -> Result<Option<Value>, VmError> {
-    let (instructions, slot_info, parameter_count, return_type) = match frame {
-        Frame::Entry => (
-            program.instructions.as_slice(),
-            program.slots.as_slice(),
-            0,
-            ReturnType::Void,
-        ),
-        Frame::Function(function_id) => {
-            let function = program
-                .functions
-                .get(function_id)
-                .ok_or_else(|| VmError::new(VmErrorKind::InvalidFunction { function_id }, 0))?;
-            (
-                function.instructions.as_slice(),
-                function.slots.as_slice(),
-                function.parameter_count,
-                function.return_type.clone(),
-            )
-        }
-    };
-
-    if arguments.len() != parameter_count {
-        return Err(VmError::new(
-            VmErrorKind::InvalidArgumentCount {
-                expected: parameter_count,
-                actual: arguments.len(),
-            },
-            0,
-        ));
-    }
-
-    let mut stack: Vec<Value> = Vec::new();
-    let mut slots: Vec<Option<Value>> = vec![None; slot_info.len()];
-    let mut initializers: Vec<Option<usize>> = vec![None; slot_info.len()];
-
-    for (index, argument) in arguments.into_iter().enumerate() {
-        let expected = slot_info[index].ty.clone();
-        if argument.ty() != expected {
-            return Err(VmError::new(
-                VmErrorKind::TypeMismatch {
-                    expected,
-                    actual: argument.ty(),
-                },
-                0,
-            ));
-        }
-        slots[index] = Some(argument);
-        initializers[index] = Some(usize::MAX);
-    }
-
-    let mut pc = 0;
-
+) -> Result<FrameEvent, VmError> {
+    let frame = activation.frame;
+    let instructions = activation.instructions;
+    let slot_info = activation.slot_info;
+    let return_type = &activation.return_type;
+    let stack = &mut activation.stack;
+    let slots = &mut activation.slots;
+    let initializers = &mut activation.initializers;
+    let mut pc = activation.pc;
     loop {
         let instruction = instructions
             .get(pc)
             .ok_or_else(|| VmError::new(VmErrorKind::InstructionOutOfBounds, pc))?;
 
+        stack
+            .try_reserve(1)
+            .map_err(|_| VmError::new(VmErrorKind::AllocationFailed, pc))?;
         match &instruction.kind {
             InstructionKind::ArrayAllocate {
                 element,
                 element_width,
             } => {
-                let n = at_instruction(pop_i64(&mut stack), pc)?;
+                let n = at_instruction(pop_i64(stack), pc)?;
                 let n = u64::try_from(n)
                     .map_err(|_| VmError::new(VmErrorKind::ArrayLengthOutOfRange, pc))?;
                 let storage =
@@ -508,8 +674,8 @@ fn execute_frame_inner(
                 });
             }
             InstructionKind::ArrayInitialize => {
-                let value = at_instruction(pop_value(&mut stack), pc)?;
-                let (element, storage) = at_instruction(pop_dynamic_array(&mut stack), pc)?;
+                let value = at_instruction(pop_value(stack), pc)?;
+                let (element, storage) = at_instruction(pop_dynamic_array(stack), pc)?;
                 if value.ty() != element {
                     return Err(VmError::new(
                         VmErrorKind::TypeMismatch {
@@ -524,7 +690,7 @@ fn execute_frame_inner(
             InstructionKind::ArrayRetain
             | InstructionKind::ArrayFree
             | InstructionKind::ArrayReleaseOwner => {
-                let (_, storage) = at_instruction(pop_dynamic_array(&mut stack), pc)?;
+                let (_, storage) = at_instruction(pop_dynamic_array(stack), pc)?;
                 match instruction.kind {
                     InstructionKind::ArrayRetain => {
                         at_instruction(arrays.retain(&storage).map_err(array_error), pc)?
@@ -542,9 +708,9 @@ fn execute_frame_inner(
                 }
             }
             InstructionKind::ArrayRangeCheck => {
-                let end = at_instruction(pop_i64(&mut stack), pc)?;
-                let start = at_instruction(pop_i64(&mut stack), pc)?;
-                let length = at_instruction(pop_i64(&mut stack), pc)?;
+                let end = at_instruction(pop_i64(stack), pc)?;
+                let start = at_instruction(pop_i64(stack), pc)?;
+                let length = at_instruction(pop_i64(stack), pc)?;
                 if start < 0 || start > end || end > length {
                     return Err(VmError::new(VmErrorKind::ArrayRangeOutOfBounds, pc));
                 }
@@ -552,11 +718,11 @@ fn execute_frame_inner(
             InstructionKind::DynamicArrayLength { element }
             | InstructionKind::DynamicIndex { element } => {
                 let index = if matches!(instruction.kind, InstructionKind::DynamicIndex { .. }) {
-                    Some(at_instruction(pop_i64(&mut stack), pc)?)
+                    Some(at_instruction(pop_i64(stack), pc)?)
                 } else {
                     None
                 };
-                let (actual, storage) = at_instruction(pop_dynamic_array(&mut stack), pc)?;
+                let (actual, storage) = at_instruction(pop_dynamic_array(stack), pc)?;
                 if actual != *element {
                     return Err(VmError::new(
                         VmErrorKind::TypeMismatch {
@@ -578,7 +744,7 @@ fn execute_frame_inner(
                 }
             }
             InstructionKind::ArrayLength { element, length } => {
-                let value = at_instruction(pop_value(&mut stack), pc)?;
+                let value = at_instruction(pop_value(stack), pc)?;
                 let expected = Type::Array {
                     element: Box::new(element.clone()),
                     length: *length,
@@ -605,8 +771,7 @@ fn execute_frame_inner(
                         .count_at(origin)
                         .map(|n| Value::Integer(n as i128, IntegerType::I64))
                 } else {
-                    let index =
-                        at_instruction(pop_integer(&mut stack, IntegerType::I64), pc)? as i64;
+                    let index = at_instruction(pop_integer(stack, IntegerType::I64), pc)? as i64;
                     input
                         .arguments
                         .get_value(heap, index, origin)
@@ -618,7 +783,7 @@ fn execute_frame_inner(
                 )?);
             }
             InstructionKind::ReadLine => {
-                let limit = at_instruction(pop_integer(&mut stack, IntegerType::I64), pc)? as i64;
+                let limit = at_instruction(pop_integer(stack, IntegerType::I64), pc)? as i64;
                 let crate::bytecode::InstructionOrigin::Source { node_id, span } =
                     instruction.origin
                 else {
@@ -634,36 +799,36 @@ fn execute_frame_inner(
                 stack.push(Value::String(value));
             }
             InstructionKind::StringConcat => {
-                let right = at_instruction(string_heap::pop(&mut stack), pc)?;
-                let left = at_instruction(string_heap::pop(&mut stack), pc)?;
+                let right = at_instruction(string_heap::pop(stack), pc)?;
+                let left = at_instruction(string_heap::pop(stack), pc)?;
                 let value =
                     at_instruction(heap.concat(&left, &right).map_err(string_heap::error), pc)?;
                 stack.push(Value::String(value));
             }
             InstructionKind::StringManage { retain } => {
-                let value = at_instruction(string_heap::pop(&mut stack), pc)?;
+                let value = at_instruction(string_heap::pop(stack), pc)?;
                 at_instruction(heap.manage(&value, *retain).map_err(string_heap::error), pc)?;
             }
             InstructionKind::StringByteAt => {
-                let index = at_instruction(pop_integer(&mut stack, IntegerType::I64), pc)?;
-                let value = at_instruction(pop_string(&mut stack), pc)?;
+                let index = at_instruction(pop_integer(stack, IntegerType::I64), pc)?;
+                let value = at_instruction(pop_string(stack), pc)?;
                 let byte = value.byte_at(index);
                 stack.push(Value::Integer(byte, IntegerType::I64));
             }
             InstructionKind::StringByteLength => {
-                let value = at_instruction(pop_string(&mut stack), pc)?;
+                let value = at_instruction(pop_string(stack), pc)?;
                 // 対応する32/64ビット環境のRust文字列はisize::MAXを超えません。
                 stack.push(Value::Integer(value.len() as i128, IntegerType::I64));
             }
             InstructionKind::ConvertNumeric { from, to, mode } => {
-                let value = at_instruction(pop_value(&mut stack), pc)?;
+                let value = at_instruction(pop_value(stack), pc)?;
                 stack.push(at_instruction(
                     numeric::convert_with_mode(value, *from, *to, *mode),
                     pc,
                 )?);
             }
             InstructionKind::ConvertInteger { from, to } => {
-                let value = at_instruction(pop_integer(&mut stack, *from), pc)?;
+                let value = at_instruction(pop_integer(stack, *from), pc)?;
                 if !to.contains(value) {
                     return Err(VmError::new(
                         VmErrorKind::IntegerConversionOutOfRange {
@@ -713,7 +878,7 @@ fn execute_frame_inner(
             }
 
             InstructionKind::Store(slot) => {
-                let value = at_instruction(pop_value(&mut stack), pc)?;
+                let value = at_instruction(pop_value(stack), pc)?;
 
                 let expected = slot_info
                     .get(*slot)
@@ -751,7 +916,7 @@ fn execute_frame_inner(
             }
 
             InstructionKind::Assign(slot) => {
-                let value = at_instruction(pop_value(&mut stack), pc)?;
+                let value = at_instruction(pop_value(stack), pc)?;
 
                 let slot_definition = slot_info
                     .get(*slot)
@@ -791,10 +956,10 @@ fn execute_frame_inner(
             }
 
             InstructionKind::ArrayAssign { slot, path } => {
-                let replacement = at_instruction(pop_value(&mut stack), pc)?;
+                let replacement = at_instruction(pop_value(stack), pc)?;
                 let mut indices = Vec::with_capacity(path.len());
                 for _ in 0..path.len() {
-                    indices.push(at_instruction(pop_i64(&mut stack), pc)?);
+                    indices.push(at_instruction(pop_i64(stack), pc)?);
                 }
                 indices.reverse();
 
@@ -864,7 +1029,7 @@ fn execute_frame_inner(
                 let mut values = vec![None; definition.fields.len()];
 
                 for field in fields.iter().rev() {
-                    let value = at_instruction(pop_value(&mut stack), pc)?;
+                    let value = at_instruction(pop_value(stack), pc)?;
                     let expected = definition
                         .fields
                         .get(field.field_id)
@@ -892,7 +1057,7 @@ fn execute_frame_inner(
                 }
 
                 if *has_base {
-                    let base = at_instruction(pop_value(&mut stack), pc)?;
+                    let base = at_instruction(pop_value(stack), pc)?;
                     let actual = base.ty();
                     if actual != Type::Named(*type_id) {
                         return Err(VmError::new(
@@ -938,7 +1103,7 @@ fn execute_frame_inner(
             }
 
             InstructionKind::FieldGet { type_id, field_id } => {
-                let value = at_instruction(pop_value(&mut stack), pc)?;
+                let value = at_instruction(pop_value(stack), pc)?;
                 let actual_type = value.ty();
                 let Value::Aggregate {
                     type_id: aggregate_type,
@@ -977,7 +1142,7 @@ fn execute_frame_inner(
             InstructionKind::ConstructArray { element, length } => {
                 let mut values = Vec::with_capacity(*length);
                 for _ in 0..*length {
-                    let value = at_instruction(pop_value(&mut stack), pc)?;
+                    let value = at_instruction(pop_value(stack), pc)?;
                     if value.ty() != *element {
                         return Err(VmError::new(
                             VmErrorKind::TypeMismatch {
@@ -997,8 +1162,8 @@ fn execute_frame_inner(
             }
 
             InstructionKind::Index { element, length } => {
-                let index = at_instruction(pop_i64(&mut stack), pc)?;
-                let value = at_instruction(pop_value(&mut stack), pc)?;
+                let index = at_instruction(pop_i64(stack), pc)?;
+                let value = at_instruction(pop_value(stack), pc)?;
                 let expected = Type::Array {
                     element: Box::new(element.clone()),
                     length: *length,
@@ -1057,53 +1222,21 @@ fn execute_frame_inner(
                     ));
                 }
 
-                let mut arguments = Vec::with_capacity(*argument_count);
+                let mut arguments = Vec::new();
+                arguments
+                    .try_reserve(*argument_count)
+                    .map_err(|_| VmError::new(VmErrorKind::AllocationFailed, pc))?;
                 for _ in 0..*argument_count {
-                    arguments.push(at_instruction(pop_value(&mut stack), pc)?);
+                    arguments.push(at_instruction(pop_value(stack), pc)?);
                 }
                 arguments.reverse();
 
-                let counted = function.lowering.is_none() && input.calls.is_some();
-                if counted {
-                    let origin = match instruction.origin {
-                        crate::bytecode::InstructionOrigin::Source { node_id, span } => {
-                            Some(call::Origin { node_id, span })
-                        }
-                        crate::bytecode::InstructionOrigin::Synthetic => None,
-                    };
-                    input
-                        .calls
-                        .as_mut()
-                        .unwrap()
-                        .enter(call::Frame {
-                            function: crate::ir::FunctionId(*function_id),
-                            origin,
-                        })
-                        .map_err(|f| {
-                            VmError::new(
-                                match f {
-                                    call::EnterError::Depth(f) => VmErrorKind::CallDepth(f),
-                                    call::EnterError::Allocation => VmErrorKind::AllocationFailed,
-                                },
-                                pc,
-                            )
-                        })?;
-                }
-                let result = execute_frame(
-                    program,
-                    Frame::Function(*function_id),
+                activation.pc = pc + 1;
+                return Ok(FrameEvent::Call {
+                    function_id: *function_id,
                     arguments,
-                    output,
-                    heap,
-                    arrays,
-                    input,
-                );
-                if counted {
-                    input.calls.as_mut().unwrap().leave();
-                }
-                if let Some(value) = result? {
-                    stack.push(value);
-                }
+                    pc,
+                });
             }
 
             InstructionKind::Return { has_value } => {
@@ -1111,10 +1244,10 @@ fn execute_frame_inner(
                     return Err(VmError::new(VmErrorKind::InvalidReturn, pc));
                 }
 
-                let value = match (&return_type, *has_value) {
+                let value = match (return_type, *has_value) {
                     (ReturnType::Void, false) => None,
                     (ReturnType::Value(expected), true) => {
-                        let value = at_instruction(pop_value(&mut stack), pc)?;
+                        let value = at_instruction(pop_value(stack), pc)?;
                         if value.ty() != *expected {
                             return Err(VmError::new(
                                 VmErrorKind::TypeMismatch {
@@ -1135,110 +1268,101 @@ fn execute_frame_inner(
                         pc,
                     ));
                 }
-                return Ok(value);
+                return Ok(FrameEvent::Return(value));
             }
 
             InstructionKind::Add(ty) => {
-                at_instruction(binary(ty.clone(), &mut stack, BinaryOperation::Add), pc)?;
+                at_instruction(binary(ty.clone(), stack, BinaryOperation::Add), pc)?;
             }
 
             InstructionKind::Subtract(ty) => {
-                at_instruction(
-                    binary(ty.clone(), &mut stack, BinaryOperation::Subtract),
-                    pc,
-                )?;
+                at_instruction(binary(ty.clone(), stack, BinaryOperation::Subtract), pc)?;
             }
 
             InstructionKind::Multiply(ty) => {
-                at_instruction(
-                    binary(ty.clone(), &mut stack, BinaryOperation::Multiply),
-                    pc,
-                )?;
+                at_instruction(binary(ty.clone(), stack, BinaryOperation::Multiply), pc)?;
             }
 
             InstructionKind::Divide(ty) => {
-                at_instruction(binary(ty.clone(), &mut stack, BinaryOperation::Divide), pc)?;
+                at_instruction(binary(ty.clone(), stack, BinaryOperation::Divide), pc)?;
             }
 
             InstructionKind::Equal(ty) => {
-                at_instruction(compare(ty.clone(), &mut stack, Comparison::Equal), pc)?;
+                at_instruction(compare(ty.clone(), stack, Comparison::Equal), pc)?;
             }
 
             InstructionKind::NotEqual(ty) => {
-                at_instruction(compare(ty.clone(), &mut stack, Comparison::NotEqual), pc)?;
+                at_instruction(compare(ty.clone(), stack, Comparison::NotEqual), pc)?;
             }
 
             InstructionKind::Less(ty) => {
-                at_instruction(compare(ty.clone(), &mut stack, Comparison::Less), pc)?;
+                at_instruction(compare(ty.clone(), stack, Comparison::Less), pc)?;
             }
 
             InstructionKind::LessEqual(ty) => {
-                at_instruction(compare(ty.clone(), &mut stack, Comparison::LessEqual), pc)?;
+                at_instruction(compare(ty.clone(), stack, Comparison::LessEqual), pc)?;
             }
 
             InstructionKind::Greater(ty) => {
-                at_instruction(compare(ty.clone(), &mut stack, Comparison::Greater), pc)?;
+                at_instruction(compare(ty.clone(), stack, Comparison::Greater), pc)?;
             }
 
             InstructionKind::GreaterEqual(ty) => {
-                at_instruction(
-                    compare(ty.clone(), &mut stack, Comparison::GreaterEqual),
-                    pc,
-                )?;
+                at_instruction(compare(ty.clone(), stack, Comparison::GreaterEqual), pc)?;
             }
 
             InstructionKind::Negate(ty) => {
-                at_instruction(negate(ty.clone(), &mut stack), pc)?;
+                at_instruction(negate(ty.clone(), stack), pc)?;
             }
 
             InstructionKind::BitNot(ty) => {
-                let value = at_instruction(pop_integer(&mut stack, *ty), pc)?;
+                let value = at_instruction(pop_integer(stack, *ty), pc)?;
                 let mask = if ty.is_signed() { -1 } else { ty.maximum() };
                 stack.push(Value::Integer(value ^ mask, *ty));
             }
             InstructionKind::Remainder(ty) => {
                 at_instruction(
-                    integer_binary(*ty, &mut stack, IntegerBinaryOperation::Remainder),
+                    integer_binary(*ty, stack, IntegerBinaryOperation::Remainder),
                     pc,
                 )?;
             }
             InstructionKind::BitAnd(ty) => {
                 at_instruction(
-                    integer_binary(*ty, &mut stack, IntegerBinaryOperation::BitAnd),
+                    integer_binary(*ty, stack, IntegerBinaryOperation::BitAnd),
                     pc,
                 )?;
             }
             InstructionKind::BitOr(ty) => {
                 at_instruction(
-                    integer_binary(*ty, &mut stack, IntegerBinaryOperation::BitOr),
+                    integer_binary(*ty, stack, IntegerBinaryOperation::BitOr),
                     pc,
                 )?;
             }
             InstructionKind::BitXor(ty) => {
                 at_instruction(
-                    integer_binary(*ty, &mut stack, IntegerBinaryOperation::BitXor),
+                    integer_binary(*ty, stack, IntegerBinaryOperation::BitXor),
                     pc,
                 )?;
             }
             InstructionKind::ShiftLeft(ty) => {
                 at_instruction(
-                    integer_binary(*ty, &mut stack, IntegerBinaryOperation::ShiftLeft),
+                    integer_binary(*ty, stack, IntegerBinaryOperation::ShiftLeft),
                     pc,
                 )?;
             }
             InstructionKind::ShiftRight(ty) => {
                 at_instruction(
-                    integer_binary(*ty, &mut stack, IntegerBinaryOperation::ShiftRight),
+                    integer_binary(*ty, stack, IntegerBinaryOperation::ShiftRight),
                     pc,
                 )?;
             }
             InstructionKind::Not => {
-                let value = at_instruction(pop_bool(&mut stack), pc)?;
+                let value = at_instruction(pop_bool(stack), pc)?;
                 stack.push(Value::Bool(!value));
             }
 
             InstructionKind::Write { ty, quoted } => {
-                let value = at_instruction(pop_value(&mut stack), pc)?;
+                let value = at_instruction(pop_value(stack), pc)?;
                 let text = at_instruction(format_value(value, ty.clone()), pc)?;
                 let mut rendered = String::new();
                 if *quoted {
@@ -1275,7 +1399,7 @@ fn execute_frame_inner(
                 )?;
             }
             InstructionKind::Print(ty) => {
-                let value = at_instruction(pop_value(&mut stack), pc)?;
+                let value = at_instruction(pop_value(stack), pc)?;
                 let mut text = at_instruction(format_value(value, ty.clone()), pc)?;
                 text.push('\n');
                 at_instruction(
@@ -1294,7 +1418,7 @@ fn execute_frame_inner(
                 )?;
             }
             InstructionKind::JumpIfFalse(target) => {
-                let condition = at_instruction(pop_bool(&mut stack), pc)?;
+                let condition = at_instruction(pop_bool(stack), pc)?;
 
                 if !condition {
                     pc = *target;
@@ -1325,7 +1449,7 @@ fn execute_frame_inner(
         ));
     }
 
-    Ok(None)
+    Ok(FrameEvent::Return(None))
 }
 
 #[derive(Clone, Copy)]
@@ -2113,6 +2237,83 @@ mod tests {
     }
 
     #[test]
+    fn frame_allocation_failure_keeps_call_site_and_balances_depth() {
+        for (source, site, after, limit, prior) in [
+            (
+                r#"fn leaf()->void {print("body");} print("before"); leaf(); print("after");"#,
+                "leaf();",
+                0,
+                1,
+                "before\n",
+            ),
+            (
+                r#"print("before"); values:[string]=array_copy(["a"]); print(values);"#,
+                "array_copy([\"a\"])",
+                0,
+                1,
+                "before\n",
+            ),
+            (
+                r#"fn leaf()->void {print("body");} fn outer()->void {print("inside");leaf();} print("before");outer();print("after");"#,
+                "leaf();",
+                1,
+                2,
+                "before\ninside\n",
+            ),
+        ] {
+            let p = crate::compile_to_bytecode(source).unwrap();
+            let mut output = crate::runtime::output::Capture::default();
+            let mut stdin = crate::runtime::input::unconfigured();
+            let arguments = crate::runtime::arguments::Arguments::unconfigured();
+            let mut input = super::ExecutionInput {
+                calls: Some(crate::runtime::call::Stack::new(
+                    std::num::NonZeroU32::new(limit).unwrap(),
+                )),
+                fail_frame_after: Some(after),
+                stdin: &mut stdin,
+                arguments: &arguments,
+            };
+            let mut strings = super::StringHeap::new(p.string_heap_limit);
+            let mut arrays = super::ArrayHeap::new(p.array_heap_limit);
+            let e = super::execute_frame(
+                &p,
+                super::Frame::Entry,
+                vec![],
+                &mut output,
+                &mut strings,
+                &mut arrays,
+                &mut input,
+            )
+            .unwrap_err();
+            assert_eq!(e.kind(), VmErrorKind::AllocationFailed);
+            assert_eq!(output.0, prior);
+            let instructions = e
+                .function_id()
+                .map(|id| &p.functions[id].instructions)
+                .unwrap_or(&p.instructions);
+            let crate::bytecode::InstructionOrigin::Source { span, .. } =
+                instructions[e.instruction_index()].origin
+            else {
+                panic!()
+            };
+            assert_eq!(&source[span.start()..span.end()], site);
+            input.fail_frame_after = None;
+            super::execute_frame(
+                &p,
+                super::Frame::Entry,
+                vec![],
+                &mut output,
+                &mut strings,
+                &mut arrays,
+                &mut input,
+            )
+            .unwrap();
+            assert!(output.0.starts_with(&format!("{prior}{prior}")));
+            arrays.assert_empty();
+        }
+    }
+
+    #[test]
     fn forced_array_allocation_failure_has_source_origin_and_prior_output() {
         let source = r#"print("before");a:[i64]=array_copy([1]);"#;
         let p = crate::compile_to_bytecode(source).unwrap();
@@ -2129,6 +2330,8 @@ mod tests {
             &mut arrays,
             &mut crate::vm::ExecutionInput {
                 calls: None,
+                #[cfg(test)]
+                fail_frame_after: None,
                 stdin: &mut crate::runtime::input::unconfigured(),
                 arguments: &crate::runtime::arguments::Arguments::unconfigured(),
             },

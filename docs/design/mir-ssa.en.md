@@ -85,6 +85,8 @@ The diagnostic API exposes the following information.
 | `location()` | SSA FunctionId/BlockId and original MIR BlockId/InstructionId |
 | `output()` | Output preceding failure |
 
+Calls use explicit frames referencing original SSA, retaining blocks, next instructions, SSA values, slots, and return destinations. Host recursion is avoided; simultaneous edge-argument transfer is preserved. See [depth and allocation failures](recursion.en.md).
+
 Validate the entire SSA program before producing output. Each run uses fresh frames and heaps, and successful completion checks for unreleased owned storage. Finite-fixture SSA Lean proofs are covered by the experiment below; general proofs and individual optimization passes follow later. Execution comparisons are not a general proof of the transformation.
 
 ### Unreachable blocks

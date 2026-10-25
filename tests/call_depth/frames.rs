@@ -35,13 +35,16 @@ fn chain(depth: usize, aggregate: bool) -> String {
     source
 }
 #[test]
-fn hir_deep_calls_on_small_stack_preserve_values_limits_and_origins() {
+fn all_executors_keep_deep_frames_on_small_stack() {
     // 変換処理は通常のtest threadで済ませ、実行だけを明示2 MiBへ載せます。
     // 実行時のホストstack依存を検出する回帰例です。
     for aggregate in [false, true] {
         let source = chain(128, aggregate);
         let p = compile_to_ir(&source).unwrap();
         let before = ir::text::emit(&p);
+        let m = mir::lower(&p).unwrap();
+        let s = mir::ssa::construct(&m).unwrap();
+        let b = bytecode::lower(&p).unwrap();
         std::thread::scope(|scope| {
             std::thread::Builder::new()
                 .stack_size(2 * 1024 * 1024)
@@ -59,6 +62,33 @@ fn hir_deep_calls_on_small_stack_preserve_values_limits_and_origins() {
                             format!("step_{limit}()")
                         );
                         assert_eq!(error.origin().unwrap().node_id, site.node_id);
+                        let mm =
+                            mir_executor::run_with_call_limit(&m, NonZeroU32::new(limit).unwrap())
+                                .unwrap_err();
+                        let ss =
+                            ssa_executor::run_with_call_limit(&s, NonZeroU32::new(limit).unwrap())
+                                .unwrap_err();
+                        let vv = vm::run_with_call_limit(&b, NonZeroU32::new(limit).unwrap())
+                            .unwrap_err();
+                        for other in [mm.call_failure(), ss.call_failure(), vv.call_failure()] {
+                            assert_eq!(other, Some(failure));
+                        }
+                        for output in [mm.output(), ss.output(), vv.output()] {
+                            assert_eq!(output, "before\n");
+                        }
+                        assert_eq!(mm.origin().unwrap().node_id, site.node_id);
+                        assert_eq!(ss.origin().unwrap().node_id, site.node_id);
+                        let instructions = vv
+                            .function_id()
+                            .map(|id| &b.functions[id].instructions)
+                            .unwrap_or(&b.instructions);
+                        assert_eq!(
+                            instructions[vv.instruction_index()].origin,
+                            bytecode::InstructionOrigin::Source {
+                                node_id: site.node_id,
+                                span: site.span
+                            }
+                        );
                     }
                     let expected = if aggregate {
                         "before\n128\nab\nafter\n"
@@ -71,6 +101,18 @@ fn hir_deep_calls_on_small_stack_preserve_values_limits_and_origins() {
                         expected
                     );
                     assert_eq!(ir_executor::run(&p).unwrap(), expected);
+                    for output in [
+                        mir_executor::run_with_call_limit(&m, NonZeroU32::new(128).unwrap())
+                            .unwrap(),
+                        ssa_executor::run_with_call_limit(&s, NonZeroU32::new(128).unwrap())
+                            .unwrap(),
+                        vm::run_with_call_limit(&b, NonZeroU32::new(128).unwrap()).unwrap(),
+                        mir_executor::run(&m).unwrap(),
+                        ssa_executor::run(&s).unwrap(),
+                        vm::run(&b).unwrap(),
+                    ] {
+                        assert_eq!(output, expected);
+                    }
                 })
                 .unwrap()
                 .join()
@@ -176,13 +218,54 @@ for (mut i:i64=0;i<100;i=i+1) {
     assert_eq!(replaced, 1);
     p.string_heap_limit = 128;
     p.array_heap_limit = 256;
-    assert_eq!(
-        ir_executor::run_with_call_limit(&p, NonZeroU32::new(4).unwrap()).unwrap(),
-        "[\"x!x!!x!!!x!!!\"]\n"
-    );
-    let error = ir_executor::run_with_call_limit(&p, NonZeroU32::new(3).unwrap()).unwrap_err();
-    assert_eq!(error.call_failure().unwrap().active().len(), 3);
-    assert_eq!(error.call_failure().unwrap().attempted().function, walk);
-    assert_eq!(error.output(), "");
+    assert_eq!(compare_ir(&p, 4).unwrap(), "[\"x!x!!x!!!x!!!\"]\n");
+    let (failure, output) = compare_ir(&p, 3).unwrap_err();
+    assert_eq!(failure.active().len(), 3);
+    assert_eq!(failure.attempted().function, walk);
+    assert_eq!(output, "");
     assert!(compile_to_ir("fn recursive()->void {recursive();} recursive();").is_err());
+}
+
+#[test]
+fn mutual_test_ir_returns_to_each_suspended_caller() {
+    let source = r#"
+fn placeholder(n:i64)->i64 {return n;}
+fn odd(n:i64)->i64 {if n==0 {return 0;} v:i64=placeholder(n-1); return 10+v;}
+fn even(n:i64)->i64 {if n==0 {return 1;} return 100+odd(n-1);}
+print(even(4));
+"#;
+    let mut p = compile_to_ir(source).unwrap();
+    let placeholder = p
+        .function_definitions
+        .iter()
+        .find(|f| f.name == "placeholder")
+        .unwrap()
+        .id;
+    let even = p
+        .function_definitions
+        .iter()
+        .find(|f| f.name == "even")
+        .unwrap()
+        .id;
+    let mut replaced = 0;
+    for statement in p.function_definitions.iter_mut().flat_map(|f| &mut f.body) {
+        if let ir::StatementKind::Binding { value, .. } = &mut statement.kind
+            && let ir::ExprKind::Call {
+                function_id,
+                function_name,
+                ..
+            } = &mut value.kind
+            && *function_id == placeholder
+        {
+            *function_id = even;
+            *function_name = "even".into();
+            replaced += 1;
+        }
+    }
+    assert_eq!(replaced, 1);
+    assert_eq!(compare_ir(&p, 5).unwrap(), "221\n");
+    let (failure, output) = compare_ir(&p, 4).unwrap_err();
+    assert_eq!(output, "");
+    assert_eq!(failure.active().len(), 4);
+    assert_eq!(failure.attempted().function, even);
 }

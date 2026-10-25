@@ -87,7 +87,7 @@ Cerune therefore does not require external toolchains merely to build and use th
 
 ## Relationship to the Existing VM
 
-The VM already executes function frames using a function identifier, arguments, and execution output state.
+The VM stores function identifiers, PCs, operand stacks, slots, and initializer positions in explicit per-call frames, processing call/return iteratively. Original bytecode instructions and origins are preserved. [Depth limits and allocation failures](recursion.en.md) are shared with the other executors.
 
 The embedding API must reuse this existing execution path rather than implementing a second function evaluator.
 

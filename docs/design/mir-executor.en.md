@@ -35,6 +35,8 @@ Rust clones for reads and temporaries do not retain logical ownership or perform
 
 Lowering inserts a `synthetic=entry-main-call` instruction for the `main` call after the entry body. The MIR executor does not infer calls from function names. A callee failure retains the callee instruction and original source location.
 
+Calls retain original MIR references, blocks, next instructions, locals, and return destinations in explicit frames rather than the host call stack. The [depth and allocation-failure contract](recursion.en.md) is shared by all four executors.
+
 ## API and failures
 
 Use `run_mir(source)` for source text, or `modules::load(path)?.to_ir()`→`mir::lower(&hir)`→`mir_executor::run(&mir)` for imports. Every run has independent state and leaves HIR/MIR unchanged.
@@ -55,7 +57,7 @@ Validation errors precede execution and have empty output. CLI `--diagnostic-for
 
 Successful execution must leave no live string/array heap storage. Leftover allocations produce an internal error instead of success. Failed execution reclaims its state, including partially initialized storage, when that state is dropped.
 
-This is not a static proof of every lifetime path. Static alias/partial-initialization/retain/release path verification remains unimplemented. The API accepts compiler-constructed MIR and is not a sandbox or execution-time limiter for hostile input. Recursion remains unsupported by the language; a recursive call created by mutating MIR is also rejected as an internal error.
+This is not a static proof of every lifetime path. Static alias/partial-initialization/retain/release path verification remains unimplemented. The API accepts compiler-constructed MIR and is not a sandbox or execution-time limiter for hostile input. The frontend still rejects recursive source programs. MIR re-entry uses independent explicit frames, with run_with_call_limit checking test-only IR cycles. Unbounded APIs do not prevent infinite execution of invalid IR.
 
 ## Comparisons and examples
 

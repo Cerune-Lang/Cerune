@@ -202,7 +202,7 @@ fn runtime_failure_matrix_preserves_codes_origins_and_prior_output() {
     compare(&compile_to_ir(include_str!("../experiments/lean/for_update_failure.ceru")).unwrap());
 }
 #[test]
-fn invalid_ssa_is_rejected_before_output_and_recursive_calls_are_internal_errors() {
+fn invalid_ssa_is_rejected_and_test_ir_reentry_has_a_depth_limit() {
     let mut p = program("print(1);");
     p.main.blocks[0].terminator.kind = ssa::TerminatorKind::Jump(ssa::Edge {
         target: mir::BlockId(999),
@@ -228,8 +228,15 @@ fn invalid_ssa_is_rejected_before_output_and_recursive_calls_are_internal_errors
             };
         }
     }
-    let e = executor::run(&p).unwrap_err();
-    assert!(matches!(e.kind(), executor::ErrorKind::InvalidMir(_)));
+    let e = executor::run_with_call_limit(&p, std::num::NonZeroU32::new(8).unwrap()).unwrap_err();
+    assert_eq!(e.call_failure().unwrap().active().len(), 8);
+    assert_eq!(
+        e.call_failure().unwrap().attempted().function,
+        ir::FunctionId(0)
+    );
+    assert!(e.output().is_empty());
+    assert!(e.location().is_some());
+    assert!(e.origin().is_some());
     assert!(e.runtime_failure().is_none());
 }
 #[test]
