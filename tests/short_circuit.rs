@@ -91,7 +91,7 @@ fn checks_both_operands_even_when_rhs_would_be_skipped() {
     for source in [
         "print(false && missing);",
         "print(true || missing());",
-        "fn cycle() -> bool { return true || cycle(); } print(cycle());",
+        "fn cycle() -> i64 { return cycle(); } print(true || cycle());",
         "type Flag { value: bool, } print(true || Flag { value: true, });",
     ] {
         assert!(compile(source).is_err(), "{source}");
@@ -226,4 +226,47 @@ fn emits_conditional_control_flow_in_every_backend() {
     assert!(asm.contains("  je .Lcerune_block_"));
     assert!(asm.contains("(short-circuit-rhs)"));
     assert!(asm.contains("(short-circuit-join)"));
+}
+
+#[test]
+fn skipped_recursive_calls_do_not_consume_call_depth() {
+    use cerune_lang::{ir_executor, mir, mir_executor, ssa_executor, vm};
+    use std::num::NonZeroU32;
+    for (source, expected) in [
+        (
+            "fn cycle()->bool{return true || cycle();}print(cycle());",
+            "true\n",
+        ),
+        (
+            "fn cycle()->bool{return false && cycle();}print(cycle());",
+            "false\n",
+        ),
+        (
+            "fn cycle<T>(x:T)->bool{return true || cycle::<T>(x);}print(cycle::<i64>(1));",
+            "true\n",
+        ),
+        (
+            "fn cycle<T>(x:T)->bool{return false && cycle::<T>(x);}print(cycle::<i64>(1));",
+            "false\n",
+        ),
+    ] {
+        let hir = compile_to_ir(source).unwrap();
+        let mir = mir::lower(&hir).unwrap();
+        let ssa = mir::ssa::construct(&mir).unwrap();
+        let bytecode = bytecode::lower(&hir).unwrap();
+        let limit = NonZeroU32::new(1).unwrap();
+        assert_eq!(
+            ir_executor::run_with_call_limit(&hir, limit).unwrap(),
+            expected
+        );
+        assert_eq!(
+            mir_executor::run_with_call_limit(&mir, limit).unwrap(),
+            expected
+        );
+        assert_eq!(
+            ssa_executor::run_with_call_limit(&ssa, limit).unwrap(),
+            expected
+        );
+        assert_eq!(vm::run_with_call_limit(&bytecode, limit).unwrap(), expected);
+    }
 }
