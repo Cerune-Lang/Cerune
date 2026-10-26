@@ -2,7 +2,41 @@
 
 [日本語](file-io.ja.md)
 
-**Status: design in progress; unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and creation of new files within an explicitly supplied working directory. Replacing existing files is outside the first version. API names, connections, and detailed rules below are proposals for implementation. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), with comparison effects isolated according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+**Status: Rust common components implemented; language API, execution routes, and OS connections remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and creation of new files within an explicitly supplied working directory. Replacing existing files is outside the first version. Language API names and OS/generated-route connections remain proposals; the next section identifies implemented common rules. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), with comparison effects isolated according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+
+## Implemented common components
+
+[runtime::files](../../src/runtime/files.rs) now provides `Files<B>` using a Backend supplied before execution. **Only the Rust component is implemented. std:fs, common-IR operations, the four executors, CLI, generated routes, and OS connections are not connected yet.** Existing line input and output routes are unchanged.
+
+| Item | Implemented contract |
+| --- | --- |
+| Reading | `read_text(name, max_bytes, available_bytes, origin)`: limit 0–2147483647, reserve before open, transfer in units of at most 4096 bytes, use a separate one-byte probe after the limit; validate UTF-8 after EOF and successful close |
+| Creation | `write_new(name, text, max_bytes, origin)`: check length before creation, create even for empty content, continue short writes from the remaining bytes, retry only interruption |
+| Connection | Backend owns the fixed scope, regular-file checks, and exclusive creation. Returned Handles start at offset zero. Ordinary open errors guarantee no creation/change; indeterminate responses use InvalidResponse. No implicit OS selection |
+| Close | Consume the Handle once. Preserve an earlier primary failure and record close failure as cleanup=failed. No retry, deletion, or retransmission. Host panics are outside this result contract |
+| Stopping | Retain the first Failure; subsequent calls return it without revalidation, open, transfer, close, or additional recording. Keep internal transfer outcomes separate from the stopping policy |
+| Ownership | available_bytes is the caller's remaining string-usage allowance. Support ownership preparation before open, discard it on failure, and return it with the string on success. The caller manages returned lifetimes/usage; capacity compaction is unimplemented |
+| Observation | `with_trace_limit`, `events()`, `trace_truncated()`, `failure()`: no content, names, or OS error text. Disabled/full/unallocatable recording does not change execution or transfer results. into_inner returns the connection without further operations |
+
+The common name rule accepts one direct component of 1–255 UTF-8 bytes. Reject NUL–U+001F, U+007F, `< > : " / \ | ? *`, trailing ASCII space/period, dot, and dot-dot. Preserve leading periods, internal spaces, Japanese, and combining characters.
+
+Ignore ASCII case when rejecting CON/PRN/AUX/NUL/CONIN$/CONOUT$ and COM/LPT followed by 1–9 or ¹/²/³. Apply the same check to the portion before the first period after trimming trailing ASCII spaces, rejecting extensions too. This comparison does not transform accepted names. The [Windows naming rules](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file) inform this OS-independent initial name set; it is not a guarantee of creation on every filesystem or of directory containment.
+
+A prototype created and read back eight names in new temporary directories on Windows and Linux /tmp: Japanese, composed/combining text, supplementary characters, hidden names, spaces, and the 255-byte boundary. This uses the Rust standard library and does not implement the planned directory-relative opening.
+
+Failure holds a code and Details; Event adds a sequence number and success/failure. Counts describe consumption/acceptance confirmed by the connection, not durable storage. requested is unknown until read EOF, and is the content length for writes. For invalid transfer responses, progress=unknown and transferred retains only the previously confirmed count. An invalid open response with uncertain creation uses created=unknown.
+
+```text
+file-v1 operation=write-new phase=write code=write-failed limit=3 requested=3 transferred=1 progress=known created=yes cleanup=closed node=7 bytes=10..22
+```
+
+phase is validate/reserve/open/read/write/close/decode; created is no/yes/unknown; cleanup is not-attempted/closed/failed. Omit file for anonymous SourceId, otherwise include `file=N`. This Rust component always receives an operation Origin; future startup connection diagnostics will be designed separately with origin=host.
+
+[Tests](../../src/runtime/files/tests.rs) use independent in-memory connections to check every UTF-8 split, 4096-byte boundaries, failure during the limit probe, close precedence, existing/partial files, provenance/privacy, ownership preparation cleanup/transfer, and observation noninterference on Windows/Linux.
+
+```sh
+cargo test --lib runtime::files
+```
 
 ## First use and proposed API
 
@@ -45,7 +79,7 @@ The host explicitly supplies and fixes the working directory before execution. A
 
 | Item | Proposal / prerequisite investigation |
 | --- | --- |
-| File name | Start with one component directly inside the directory. Reject empty names, dot/dot-dot, absolute paths, separators, NUL, and Windows stream/device names. Do not normalize Unicode. Finalize common forbidden characters and length limits in OS prototypes |
+| File name | Start with one component directly inside the directory. Reject empty names, dot/dot-dot, absolute paths, separators, NUL, and Windows stream/device names. Do not normalize Unicode. Common forbidden characters and the 255 UTF-8 byte limit are implemented as described above |
 | Name identity | Case and Unicode comparisons also depend on the filesystem. Distinct strings are not guaranteed to identify different files; detect collisions through exclusive creation results |
 | Targets | Regular files only. Reject symlinks, reparse points, directories, devices, and FIFOs as unsupported. Verify that opening a FIFO for validation does not block indefinitely |
 | Resolution | Investigate directory-handle-relative opening. A string-prefix check or a separate existence check followed by ordinary open does not establish containment |
@@ -59,9 +93,9 @@ Investigate Windows user-mode `NtCreateFile` with RootDirectory, exclusive creat
 
 The directory is not an OS sandbox. Hard links, concurrent processes, network filesystems, and OS permissions are separate conditions. Initial OS comparisons use managed local temporary directories; identical results under concurrent third-party changes are not guaranteed. Reject connections that cannot enforce the required scope instead of silently relaxing it.
 
-## Proposed read and create sequence
+## Common read and create sequence
 
-Evaluate arguments once, left to right, then validate limit, name, and connection in that order. Propose a byte limit of 0–2147483647, with zero allowing only empty content. Distinguish failure before any OS operation from failure after external state has changed.
+Language integration will evaluate arguments once, left to right. The common component validates the supplied limit, name, and connection in that order. The byte limit is 0–2147483647, with zero allowing only empty content. Distinguish failure before any OS operation from failure after external state has changed.
 
 | Operation | Sequence and conditions |
 | --- | --- |
@@ -80,7 +114,7 @@ Distinguish read limits, string-heap accounted usage, and physical allocation fa
 
 ## Failure and observation
 
-Propose a new `file-v1` diagnostic schema. Preserve existing io-v1 write/flush/read-line records.
+The Rust component implements the new `file-v1` diagnostic schema. Preserve existing io-v1 write/flush/read-line records.
 
 | Record field | Meaning |
 | --- | --- |
@@ -89,7 +123,7 @@ Propose a new `file-v1` diagnostic schema. Preserve existing io-v1 write/flush/r
 | progress / created / cleanup | Whether progress is complete or unknown, whether creation occurred, and close outcome. Invalid responses may also leave creation status unknown |
 | NodeId / SourceId / Span | Original common-IR operation origin; startup configuration errors use origin=host |
 
-Proposed distinctions include unconfigured, invalid name/limit, budget/allocation failure, missing/existing target, unsupported target, open/read/write/close failure, zero progress, invalid response, invalid UTF-8, and limit overflow. Fix exact codes and validation precedence in failure fixtures. Creation collisions report no change without following an existing target to classify its referent.
+Implemented distinctions include unconfigured, invalid name/limit, budget/allocation failure, missing/existing target, unsupported target, open/read/write/close failure, zero progress, invalid response, invalid UTF-8, and limit overflow. Common-component failure tests fix the codes and validation precedence. Creation collisions report no change without following an existing target to classify its referent.
 
 Do not include file content, absolute paths, or OS error text in ordinary diagnostics/records. Track operations by sequence and origin; compare content through connections/directories explicitly selected before execution. Observation retrieves immutable records only: it cannot replace input, re-execute, or change connections. Disabled/full/unallocatable recording must not change execution results. Common success-operation records are not yet implemented across generated routes even for existing I/O; distinguish this plan from delivered features.
 
@@ -107,4 +141,4 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-The immediate steps are 1 → 2. Do not silently implement unresolved OS path resolution or generated-executable startup configuration; publish the design and prototype findings before their respective stages.
+Step 1 common components, name validation, and progress/failure contracts are implemented. Next is step 2: std:fs, common IR, and four-executor integration. Do not silently implement unresolved OS path resolution or generated-executable startup configuration; publish the design and prototype findings before their respective stages.

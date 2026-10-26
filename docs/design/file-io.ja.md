@@ -2,7 +2,41 @@
 
 [English](file-io.en.md)
 
-**状態：設計中・未実装。** 2026-10-26に、明示した作業ディレクトリ内で「上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。以下のAPI名・接続方法・詳細規則は実装前の提案です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
+**状態：Rust共通部品を実装。言語API・実行経路・実OS接続は未実装。** 2026-10-26に、明示した作業ディレクトリ内で「上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。言語API名とOS／生成経路の接続方法は提案段階です。実装した共通規則は次節で区別します。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
+
+## 実装済みの共通部品
+
+[runtime::files](../../src/runtime/files.rs)に、実行前に渡したBackendを使う`Files<B>`を追加しました。**Rust部品だけの実装です。std:fs、共通IR命令、4実行器・CLI・各生成経路、実OS接続は未実装**です。既存の行入力や出力経路は変更しません。
+
+| 項目 | 実装した契約 |
+| --- | --- |
+| 読取り | `read_text(name, max_bytes, available_bytes, origin)`。上限0〜2147483647、上限分をopen前に予約、最大4096バイトの転送単位、上限後の確認は別の1バイト。EOF後のcloseに成功してからUTF-8を検証 |
+| 新規保存 | `write_new(name, text, max_bytes, origin)`。長さを作成前に確認し、空内容でも作成。短い書込みは残りから続け、割込み以外の失敗を再試行しない |
+| 接続 | Backendが固定した作業範囲、通常ファイルの検査、排他的作成を担当。返すHandleは先頭位置。通常のopenエラーは作成・変更なしを保証し、不明な応答はInvalidResponse。OSを暗黙に選ばない |
+| close | Handleを消費して一度だけ呼ぶ。先行失敗を主診断に保ち、close失敗はcleanup=failed。再試行・削除・再送をしない。hostのpanic等はこの結果契約の対象外 |
+| 停止 | 最初のFailureを保持し、後続呼出しでは引数再検査・open・転送・close・追加記録をせず同じFailureを返す。内部の転送結果と停止方針は分離 |
+| 所有 | available_bytesは呼出し側が渡す文字列使用量の残量。open前の所有情報準備に対応し、失敗時に破棄、成功時に文字列とともに返す。返却後の寿命・使用量管理は呼出し側。capacityの縮小は未実装 |
+| 観測 | `with_trace_limit`、`events()`、`trace_truncated()`、`failure()`。本文・名前・OSエラー文なし。記録なし／上限到達／確保失敗でも実行・転送結果を変えない。into_innerは追加操作なしで接続を返す |
+
+名前の共通規則は、UTF-8で1〜255バイト、直下の1要素です。NUL〜U+001F、U+007F、`< > : " / \ | ? *`、末尾のASCII空白・ピリオド、`.`・`..`を拒否します。先頭のピリオド、内部の空白、日本語・結合文字は保持します。
+
+ASCIIの大文字小文字を区別せず、CON／PRN／AUX／NUL／CONIN$／CONOUT$、COM・LPTに1〜9または¹／²／³を付けた名前を拒否します。最初のピリオドより前の末尾空白を除いて同じ検査を行い、拡張子付きも拒否します。これは検査のための比較であり、受け付けた名前を変換しません。[Windowsの命名規則](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file)を参照し、OSに依存しない初版の名前集合を定義しています。全ファイルシステムで作成できる保証や、作業範囲の保証ではありません。
+
+Windowsの新規一時ディレクトリとLinuxの/tmpで、日本語・合成済み／結合文字・補助平面文字・隠し名・空白・255バイト境界の8例を作成・読戻ししました。これはRust標準ライブラリによる名前の試作で、予定するdirectory相対openの実装完了ではありません。
+
+FailureはcodeとDetailsを保持し、Eventは順序番号とDetails・成功／失敗を持ちます。転送数は接続が確認した消費／受理数であり、永続保存量ではありません。readのrequestedはEOFまでunknown、writeでは本文の長さです。不正な転送応答のprogressはunknownとし、transferredはその前までの確認済み数です。openの不正応答で新規作成の有無が不明ならcreated=unknownとします。
+
+```text
+file-v1 operation=write-new phase=write code=write-failed limit=3 requested=3 transferred=1 progress=known created=yes cleanup=closed node=7 bytes=10..22
+```
+
+phaseはvalidate／reserve／open／read／write／close／decode、createdはno／yes／unknown、cleanupはnot-attempted／closed／failedです。匿名SourceIdではfileを省略し、名前付きソースでは`file=N`を付けます。このRust部品は必ず操作のOriginを受け取り、将来の起動時接続診断は別のorigin=hostとして設計します。
+
+[テスト](../../src/runtime/files/tests.rs)ではメモリ上の独立接続を使い、UTF-8の各位置での分割、4096バイト前後、上限確認時の失敗、close失敗の優先順、既存・部分ファイル、出自と情報非表示、所有準備の破棄・移動、観測の不干渉をWindows/Linuxで確認します。
+
+```sh
+cargo test --lib runtime::files
+```
 
 ## 最初の用途と公開API案
 
@@ -45,7 +79,7 @@ print(saved == text);
 
 | 項目 | 提案／実装前に必要な確認 |
 | --- | --- |
-| ファイル名 | 初版は作業ディレクトリ直下の1要素。空・`.`・`..`・絶対パス・区切り・NUL・Windowsのstream/device名を拒否する。Unicodeは正規化しない。共通の禁止文字・長さ上限をOS試作で確定する |
+| ファイル名 | 初版は作業ディレクトリ直下の1要素。空・`.`・`..`・絶対パス・区切り・NUL・Windowsのstream/device名を拒否する。Unicodeは正規化しない。共通の禁止文字・255 UTF-8バイト上限は前述のとおり実装済み |
 | 名前の同一性 | 大文字小文字・Unicodeの照合規則はファイルシステムにも依存する。文字列が異なれば別ファイルという保証はしない。同一名衝突は新規作成の応答で判定する |
 | 対象 | 通常ファイルだけ。symlink・reparse point・directory・device・FIFOは専用の未対応診断で拒否する。検査のためにFIFO等のopenで待ち続けないことも確認する |
 | 解決 | 作業ディレクトリのhandleに基づく相対openを検討する。文字列prefix検査や、存在検査→通常openだけで範囲制限が成立したとしない |
@@ -59,9 +93,9 @@ Windowsではユーザーモードの`NtCreateFile`のRootDirectory・新規作�
 
 作業ディレクトリはOS全体のsandboxではありません。hard link、他プロセスによる変更、ネットワークファイルシステム、OS権限は別の条件です。初版の実OS比較は管理されたローカルの一時ディレクトリで行い、同時に第三者が変更した場合の同一結果を保証しません。必要な範囲制限を満たせない接続は未対応とし、制約を黙って緩めません。
 
-## 読取りと新規保存の順序案
+## 共通部品の読取りと新規保存
 
-引数を左から一度ずつ評価した後、上限→名前→接続の順に検査します。上限は0〜2147483647バイト案です。0は空内容だけを許可します。OS操作前の失敗と、外部状態が変わった後の失敗を区別します。
+言語接続では引数を左から一度ずつ評価します。共通部品は受け取った値を上限→名前→接続の順に検査します。上限は0〜2147483647バイトです。0は空内容だけを許可します。OS操作前の失敗と、外部状態が変わった後の失敗を区別します。
 
 | 操作 | 順序と条件 |
 | --- | --- |
@@ -80,7 +114,7 @@ Windowsではユーザーモードの`NtCreateFile`のRootDirectory・新規作�
 
 ## 失敗と観測
 
-`file-v1`の新しい診断形式を候補とします。既存io-v1のwrite／flush／read-lineは変更しません。
+Rust共通部品に`file-v1`の診断形式を実装しました。既存io-v1のwrite／flush／read-lineは変更しません。
 
 | 記録項目 | 意味 |
 | --- | --- |
@@ -89,7 +123,7 @@ Windowsではユーザーモードの`NtCreateFile`のRootDirectory・新規作�
 | progress / created / cleanup | 進捗数が完全か不明か、新規作成の有無、closeの結果。契約外応答は作成状態も不明になり得る |
 | NodeId / SourceId / Span | 元の共通IR操作の出自。起動時の接続設定失敗はorigin=hostとして区別 |
 
-未設定・不正名・不正上限・予算超過・確保失敗・欠落・既存対象・未対応対象・open/read/write/close失敗・0進行・契約外応答・不正UTF-8・上限超過を区別する案です。正確なコード集合と検査優先順は異常系fixtureで固定します。既存対象の作成失敗は、その実体を追跡して種類を判定せず、変更なしで報告します。
+未設定・不正名・不正上限・予算超過・確保失敗・欠落・既存対象・未対応対象・open/read/write/close失敗・0進行・契約外応答・不正UTF-8・上限超過を区別します。コード集合と検査優先順は共通部品の異常系テストで固定しています。既存対象の作成失敗は、その実体を追跡して種類を判定せず、変更なしで報告します。
 
 診断・通常の記録にファイル内容、絶対パス、OSエラー本文を入れません。順序番号と出自から操作を追い、本文比較には実行前に用意した専用接続・保存先を使います。観測は不変記録の取得だけとし、入力差替え・再実行・接続変更を行いません。記録なし／上限到達／記録用確保失敗でも実行結果を変えません。全生成経路の成功操作の共通記録は既存I/Oでも未実装であり、今回の計画と実装済み機能を混同しません。
 
@@ -107,4 +141,4 @@ Windowsではユーザーモードの`NtCreateFile`のRootDirectory・新規作�
 
 比較は同じ初期内容・応答列を持つ独立接続／ディレクトリで行い、stdoutだけでなく要求順・転送数・停止理由・残ったファイルを照合します。同じ実保存先で全経路を順次実行しません。OS接続試験と意味論の注入試験を分け、独立したRust／Python等の期待値計算を維持します。汎用record/replayやeffect systemは前提にしません。
 
-直近は1→2です。実OSのpath解決方式と生成実行ファイルの接続指定は未決のまま実装へ流さず、各段階の開始前に設計・試作結果を明示します。
+1の共通部品・名前検査・進捗／失敗契約を実装しました。次は2のstd:fs・共通IRと4実行器への接続です。実OSのpath解決方式と生成実行ファイルの接続指定は未決のまま実装へ流さず、各段階の開始前に設計・試作結果を明示します。
