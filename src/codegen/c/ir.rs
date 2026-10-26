@@ -59,6 +59,12 @@ pub struct FieldDefinition {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
+    FileWriteNew {
+        origin: Origin,
+        name: Expr,
+        text: Expr,
+        max_bytes: Expr,
+    },
     ArrayInitialize {
         array: Expr,
         value: Expr,
@@ -175,6 +181,10 @@ impl From<&crate::ir::Expr> for Origin {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExprKind {
+    FileReadText {
+        name: Box<Expr>,
+        max_bytes: Box<Expr>,
+    },
     ArrayAllocate {
         length: Box<Expr>,
         element_width: u64,

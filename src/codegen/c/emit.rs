@@ -4,6 +4,10 @@ use std::fmt::Write;
 pub fn emit(module: &Module) -> String {
     let mut output = String::new();
     let support = required_support(module);
+    let files = support.files;
+    if files {
+        output.push_str("#ifndef _GNU_SOURCE\n#define _GNU_SOURCE\n#endif\n#include <limits.h>\n");
+    }
     if module.call_limit.is_some() {
         output.push_str("#include <stdlib.h>\n#include <stddef.h>\n");
     }
@@ -30,7 +34,7 @@ pub fn emit(module: &Module) -> String {
         output.push_str("#include <stdlib.h>\n#include <signal.h>\n");
     }
     let reads = support.input;
-    let arguments = support.arguments;
+    let arguments = support.arguments || files;
     let writes = super::output::used(module);
     let strings = module.uses_strings || support.strings || super::string::uses_type(module);
     if !support.conversions.is_empty() || support.nonfinite {
@@ -95,6 +99,13 @@ pub fn emit(module: &Module) -> String {
             module
                 .string_heap_limit
                 .expect("arguments use string ownership"),
+        ));
+    }
+    if files {
+        output.push_str(&super::files::support(
+            module
+                .string_heap_limit
+                .expect("files use string ownership"),
         ));
     }
     if reads {
@@ -208,7 +219,9 @@ pub fn emit(module: &Module) -> String {
     output.push_str("    return 0;\n");
     output.push_str("}\n");
 
-    if arguments {
+    if files {
+        output.push_str(&super::files::entry());
+    } else if arguments {
         output.push_str(super::arguments::ENTRY);
     }
     output
@@ -253,6 +266,30 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
     let prefix = "    ".repeat(indent);
 
     match statement {
+        Statement::FileWriteNew {
+            origin,
+            name,
+            text,
+            max_bytes,
+        } => {
+            writeln!(output, "{prefix}{{").unwrap();
+            for (kind, local, value) in [
+                ("cerune_string", "file_name", name),
+                ("cerune_string", "file_text", text),
+                ("int64_t", "file_limit", max_bytes),
+            ] {
+                write!(output, "{prefix}    {kind} {local} = ").unwrap();
+                emit_expr(value, module, output);
+                output.push_str(";\n");
+            }
+            write!(
+                output,
+                "{prefix}    cerune_file_write_new(file_name, file_text, file_limit"
+            )
+            .unwrap();
+            super::failure::argument(*origin, output);
+            writeln!(output, ");\n{prefix}}}").unwrap();
+        }
         Statement::ArrayInitialize { array, value } => {
             // 配列、値、初期化の順をCの引数評価順に委ねません。
             writeln!(output, "{prefix}{{").unwrap();
@@ -635,6 +672,14 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
             super::failure::argument(expr.origin, output);
             output.push(')');
         }
+        ExprKind::FileReadText { name, max_bytes } => {
+            output.push_str("cerune_file_read_text(");
+            emit_expr(name, module, output);
+            output.push_str(", ");
+            emit_expr(max_bytes, module, output);
+            super::failure::argument(expr.origin, output);
+            output.push(')');
+        }
         ExprKind::ReadLine { max_bytes } => {
             output.push_str("cerune_input_read_line(");
             emit_expr(max_bytes, module, output);
@@ -932,6 +977,7 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
 
 #[derive(Clone, Default)]
 struct RuntimeSupport {
+    files: bool,
     arguments: bool,
     input: bool,
     string_byte_at: bool,
@@ -974,6 +1020,11 @@ impl RuntimeSupport {
             ExprKind::ArgumentGet { index } => {
                 self.arguments = true;
                 self.include_expr(index);
+            }
+            ExprKind::FileReadText { name, max_bytes } => {
+                self.files = true;
+                self.include_expr(name);
+                self.include_expr(max_bytes);
             }
             ExprKind::ReadLine { max_bytes } => {
                 self.input = true;
@@ -1080,6 +1131,17 @@ impl RuntimeSupport {
 
     fn include_statement(&mut self, statement: &Statement) {
         match statement {
+            Statement::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+                ..
+            } => {
+                self.files = true;
+                for value in [name, text, max_bytes] {
+                    self.include_expr(value);
+                }
+            }
             Statement::Flush { .. } => {}
             Statement::ArrayInitialize { array, value } => {
                 self.include_expr(array);
@@ -1425,7 +1487,7 @@ fn array_element_name(element: &Type, module: &Module) -> String {
 
 fn statement_uses_bool(statement: &Statement) -> bool {
     match statement {
-        Statement::Flush { .. } => false,
+        Statement::FileWriteNew { .. } | Statement::Flush { .. } => false,
         Statement::ArrayInitialize { array, value } => {
             array.ty == Type::Bool || value.ty == Type::Bool
         }

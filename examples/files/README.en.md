@@ -20,4 +20,16 @@ cargo run --quiet -- emit-mir examples/files/roundtrip.ceru
 cargo run --quiet -- emit-bytecode examples/files/roundtrip.ceru
 ~~~
 
-Tests separate real directories and in-memory connections, comparing output, saved bytes, records, and failures. Omitting --file-root stops with unconfigured. C/LLVM/QBE/WAT/Native generation reports unsupported file I/O. No save location is selected implicitly. Linux reads require /proc/self/fd. See the [contract and coverage](../../docs/design/file-io.en.md).
+Tests separate real directories and in-memory connections, comparing output, saved bytes, records, and failures. Omitting --file-root stops with unconfigured. LLVM/QBE/WAT/Native generation reports unsupported file I/O. No save location is selected implicitly. Linux reads require /proc/self/fd. See the [contract and coverage](../../docs/design/file-io.en.md).
+
+
+The same example also runs through generated C. Select Windows/Linux through the C compilation target.
+
+~~~sh
+cargo run --quiet -- emit-c examples/files/roundtrip.ceru -o roundtrip.c
+clang -std=c11 roundtrip.c -o roundtrip
+mkdir c-output
+./roundtrip --cerune-runtime-v1 --file-root c-output --
+~~~
+
+In Windows PowerShell use .\roundtrip.exe for the last command. MinGW-targeted Clang also needs -municode for wmain. The terminating -- is required. An omitted connection never defaults to cwd. Subsequent arguments are passed to the program.

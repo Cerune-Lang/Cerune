@@ -1,4 +1,4 @@
-mod c;
+pub(crate) mod c;
 mod llvm;
 mod native;
 mod qbe;
