@@ -28,6 +28,7 @@
 - [CLI・生成C・LLVM・QBEの実stdin接続](design/stdin-connections.ja.md)
 - [仮想標準モジュールと出自](design/standard-modules.ja.md)
 - [上限付きUTF-8行入力](design/line-input.ja.md)
+- [限定的なファイル入出力（設計中）](design/file-io.ja.md)
 - [WATの版付き入力host](design/wat-input-host.ja.md)
 - [Native build](design/native-build.ja.md)
 - [Native release：配布構成・runtime要求・内容確認](design/native-release.ja.md)

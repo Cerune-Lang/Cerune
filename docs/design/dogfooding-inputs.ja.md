@@ -200,6 +200,10 @@ emit-qbeは実行用の区切り以後の引数を受け取りません。内部
 
 [Native比較テスト](../../tests/program_arguments/native.rs)で同じexampleを4実行器、通常MIR／SSAのASM・自前Objectで比較します。Windows/Linux CIで必須実行します。未設定・空・欠落、Unicode・CR/LF、上限、検証順、確保失敗、独立コピー・解放、短絡・評価順、stdin併用を検証します。行入力と引数で厳密UTF-8検証を共有します。
 
-内部ヘルパーは安定した埋込みABIではありません。整数読取りは[std:num](integer-parsing.ja.md)に実装済みです。成功操作の時系列記録、Native build・配布は後続です。
+内部ヘルパーは安定した埋込みABIではありません。整数読取りは[std:num](integer-parsing.ja.md)に実装済みです。成功操作の時系列記録は後続です。[Native build](native-build.ja.md)・[release初版](native-release.ja.md)は実装済みです。
 
 PR #182でNativeもmasterへ統合済みです。起動・OS文字列変換・snapshot・取得文字列の確保失敗をASM／Objectで比較し、停止前出力とarguments-v1を確認します。Object生成の[SASHIMI接続](native-encoder.ja.md)は言語の引数契約を変更しません。
+
+## 次の保存・再読込み
+
+[限定ファイルI/Oの設計](file-io.ja.md)で、明示した作業範囲でのUTF-8全文読取りと新規保存を扱います。2026-10-26現在は設計中・未実装です。上書き・子プロセスは後続です。
