@@ -635,3 +635,6 @@ fn cli_observation_does_not_open_files_and_execution_reports_unconfigured() {
         );
     }
 }
+
+#[cfg(any(windows, target_os = "linux"))]
+mod os;

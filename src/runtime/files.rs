@@ -2,6 +2,8 @@
 //! OS接続、言語命令、返却後の文字列の所有管理は呼出し側の責務です。
 pub use super::output::Origin;
 use std::io::{self, Read, Write};
+mod directory;
+pub use directory::{ConnectError, Directory, FileHandle};
 mod names;
 pub use names::{MAX_NAME_BYTES, validate_name};
 mod records;

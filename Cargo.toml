@@ -52,3 +52,6 @@ sashimi-assembler = { git = "https://github.com/Cerune-Lang/SASHIMI.git", rev = 
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"

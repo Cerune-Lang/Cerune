@@ -277,6 +277,21 @@ pub fn run_bytecode_with_io_arguments_and_call_limit<R: std::io::Read, W: std::i
     vm::run_with_io_arguments_and_call_limit(bytecode, input, output, arguments, limit)
         .map_err(|vm_error| ExecutionError::from_vm_error(bytecode, vm_error))
 }
+pub fn run_bytecode_with_io_files_arguments_and_call_limit<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: runtime::files::Backend,
+>(
+    bytecode: &bytecode::BytecodeProgram,
+    input: &mut runtime::input::Input<R>,
+    output: &mut runtime::output::Output<W>,
+    files: &mut runtime::files::Files<B>,
+    arguments: &runtime::arguments::Arguments,
+    limit: std::num::NonZeroU32,
+) -> Result<(), ExecutionError> {
+    vm::run_with_io_files_arguments_and_call_limit(bytecode, input, output, files, arguments, limit)
+        .map_err(|vm_error| ExecutionError::from_vm_error(bytecode, vm_error))
+}
 pub fn run_bytecode_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
     bytecode: &bytecode::BytecodeProgram,
     input: &mut runtime::input::Input<R>,

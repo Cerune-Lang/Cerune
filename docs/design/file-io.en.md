@@ -2,17 +2,17 @@
 
 [日本語](file-io.ja.md)
 
-**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. OS connections, CLI connection options, and generated routes remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. OS and generated-route connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated routes remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. Generated-route connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
 
 ## Implemented common components
 
-[runtime::files](../../src/runtime/files.rs) provides `Files<B>` with a Backend selected before execution. All four executors connect `std:fs` operations to this component. **No real-filesystem connection is provided yet.** Existing input, output, and argument APIs remain available.
+[runtime::files](../../src/runtime/files.rs) provides `Files<B>` with a Backend selected before execution. All four executors connect `std:fs` operations to this component. `Directory::open(&Path)` connects an explicitly selected directory on Windows/Linux. Existing input, output, and argument APIs remain available.
 
 | Item | Implemented contract |
 | --- | --- |
 | Reading | `read_text(name, max_bytes, available_bytes, origin)`: limit 0–2147483647, reserve before open, transfer in units of at most 4096 bytes, use a separate one-byte probe after the limit; validate UTF-8 after EOF and successful close |
 | Creation | `write_new(name, text, max_bytes, origin)`: check length before creation, create even for empty content, continue short writes from the remaining bytes, retry only interruption |
-| Connection | Backend owns the fixed scope, regular-file checks, and exclusive creation. Returned Handles start at offset zero. Ordinary open errors guarantee no creation/change; indeterminate responses use InvalidResponse. No implicit OS selection |
+| Connection | Backend owns the fixed scope, regular-file checks, and exclusive creation. Returned Handles start at offset zero. Ordinary open errors guarantee no creation/change; indeterminate responses use InvalidResponse. Explicitly inject the running OS connection; never infer a generated target from the host OS |
 | Close | Consume the Handle once. Preserve an earlier primary failure and record close failure as cleanup=failed. No retry, deletion, or retransmission. Host panics are outside this result contract |
 | Stopping | Retain the first Failure; subsequent calls return it without revalidation, open, transfer, close, or additional recording. Keep internal transfer outcomes separate from the stopping policy |
 | Ownership | available_bytes is the caller's remaining string-usage allowance. Support ownership preparation before open, discard it on failure, and return it with the string on success. The caller manages returned lifetimes/usage; capacity compaction is unimplemented |
@@ -22,7 +22,7 @@ The common name rule accepts one direct component of 1–255 UTF-8 bytes. Reject
 
 Ignore ASCII case when rejecting CON/PRN/AUX/NUL/CONIN$/CONOUT$ and COM/LPT followed by 1–9 or ¹/²/³. Apply the same check to the portion before the first period after trimming trailing ASCII spaces, rejecting extensions too. This comparison does not transform accepted names. The [Windows naming rules](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file) inform this OS-independent initial name set; it is not a guarantee of creation on every filesystem or of directory containment.
 
-A prototype created and read back eight names in new temporary directories on Windows and Linux /tmp: Japanese, composed/combining text, supplementary characters, hidden names, spaces, and the 255-byte boundary. This uses the Rust standard library and does not implement the planned directory-relative opening.
+A prototype created and read back eight names in new temporary directories on Windows and Linux /tmp: Japanese, composed/combining text, supplementary characters, hidden names, spaces, and the 255-byte boundary. That initial prototype checked the name set. Verification of the implemented directory-relative opening is described below.
 
 Failure holds a code and Details; Event adds a sequence number and success/failure. Counts describe consumption/acceptance confirmed by the connection, not durable storage. requested is unknown until read EOF, and is the content length for writes. For invalid transfer responses, progress=unknown and transferred retains only the previously confirmed count. An invalid open response with uncertain creation uses created=unknown.
 
@@ -30,7 +30,7 @@ Failure holds a code and Details; Event adds a sequence number and success/failu
 file-v1 operation=write-new phase=write code=write-failed limit=3 requested=3 transferred=1 progress=known created=yes cleanup=closed node=7 bytes=10..22
 ```
 
-phase is validate/reserve/open/read/write/close/decode; created is no/yes/unknown; cleanup is not-attempted/closed/failed. Omit file for anonymous SourceId, otherwise include `file=N`. This Rust component always receives an operation Origin; future startup connection diagnostics will be designed separately with origin=host.
+phase is validate/reserve/open/read/write/close/decode; created is no/yes/unknown; cleanup is not-attempted/closed/failed. Omit file for anonymous SourceId, otherwise include `file=N`. This Rust component always receives an operation Origin; startup connection diagnostics use origin=host separately.
 
 [Tests](../../src/runtime/files/tests.rs) use independent in-memory connections to check every UTF-8 split, 4096-byte boundaries, failure during the limit probe, close precedence, existing/partial files, provenance/privacy, ownership preparation cleanup/transfer, and observation noninterference on Windows/Linux.
 
@@ -71,7 +71,7 @@ The executor Rust APIs are as follows.
 
 HIR `FileReadText` returns a string; `FileWriteNew` is a void statement. MIR/SSA/bytecode retain `file.read_text.utf8` and `file.write_new.utf8`. Evaluate arguments left to right once and preserve operation NodeId/Span in the standard source. Transfer read results into StringHeap, reserving before open and releasing on failure. Borrow file names and write content without an extra content copy for the operation. Count `std:fs` source-function calls toward call depth, excluding generated helpers.
 
-[Cross-route tests](../../tests/file_io/mod.rs) compare the example, evaluation order, short circuits, ownership, composed input/output/arguments, partial transfers, failures, and origins with independent in-memory connections. C/LLVM/QBE/WAT/Native reject file operations before generation with source locations, including unused functions. `emit-ir`/`emit-mir`/`emit-bytecode` remain available without executing operations. CLI access to real files is not implemented yet.
+[Cross-route tests](../../tests/file_io/mod.rs) compare the example, evaluation order, short circuits, ownership, composed input/output/arguments, partial transfers, failures, and origins with independent in-memory connections. C/LLVM/QBE/WAT/Native reject file operations before generation with source locations, including unused functions. `emit-ir`/`emit-mir`/`emit-bytecode` remain available without executing operations. CLI `--file-root <directory>` supplies an explicit real-filesystem connection.
 
 ```sh
 cargo test --test standard_input file_io
@@ -93,25 +93,25 @@ Operations in standard sources retain their own SourceId/Span; ordinary Calls re
 
 The host explicitly supplies and fixes the working directory before execution. An unconfigured connection does not default to the current directory. This is independent of relative imports, source locations, and standard-module lookup.
 
-| Item | Proposal / prerequisite investigation |
+| Item | Current contract and remaining design |
 | --- | --- |
 | File name | Start with one component directly inside the directory. Reject empty names, dot/dot-dot, absolute paths, separators, NUL, and Windows stream/device names. Do not normalize Unicode. Common forbidden characters and the 255 UTF-8 byte limit are implemented as described above |
 | Name identity | Case and Unicode comparisons also depend on the filesystem. Distinct strings are not guaranteed to identify different files; detect collisions through exclusive creation results |
 | Targets | Regular files only. Reject symlinks, reparse points, directories, devices, and FIFOs as unsupported. Verify that opening a FIFO for validation does not block indefinitely |
-| Resolution | Investigate directory-handle-relative opening. A string-prefix check or a separate existence check followed by ordinary open does not establish containment |
-| CLI / embedding | Proposed CLI `--file-root` and explicit injection into Rust execution APIs. Existing APIs remain unconfigured. Observation APIs cannot change connections |
+| Resolution | Directory-handle-relative opening is implemented. A string-prefix check or a separate existence check followed by ordinary open does not establish containment |
+| CLI / embedding | Implemented CLI `--file-root` and explicit injection into Rust execution APIs. Existing APIs remain unconfigured. Observation APIs cannot change connections |
 | Generated executables | Supplying the directory to the runtime is unresolved. Preserve existing argv semantics; do not silently embed generation-time absolute paths or obtain configuration from environment variables. Propose recording the required connection contract version in Native build/release |
 | WAT | Transfer names and bytes through versioned host connections without exposing internal memory or ownership pointers. Fix import names, status values, and transfer protocol before implementation |
 
-Linux candidates are directory-fd-relative `openat` and `O_CREAT | O_EXCL` for creation. `O_NOFOLLOW` only protects the final component; it does not establish safety for arbitrary multi-component paths. [Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
+Linux uses directory-fd-relative `openat` and `O_CREAT | O_EXCL` for creation. `O_NOFOLLOW` only protects the final component; it does not establish safety for arbitrary multi-component paths. [Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
 
-Investigate Windows user-mode `NtCreateFile` with RootDirectory, exclusive creation, and explicit reparse behavior. Adoption is undecided; prototype ABI use from Rust, Clang, and self-encoded objects, handle cleanup, and reparse rejection. [Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
+Windows uses user-mode `NtCreateFile` with RootDirectory, exclusive creation, and no-reparse-following options in the Rust connection. Clang and custom Object integration remain later work. [Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
 
 The directory is not an OS sandbox. Hard links, concurrent processes, network filesystems, and OS permissions are separate conditions. Initial OS comparisons use managed local temporary directories; identical results under concurrent third-party changes are not guaranteed. Reject connections that cannot enforce the required scope instead of silently relaxing it.
 
 ## Common read and create sequence
 
-Language integration will evaluate arguments once, left to right. The common component validates the supplied limit, name, and connection in that order. The byte limit is 0–2147483647, with zero allowing only empty content. Distinguish failure before any OS operation from failure after external state has changed.
+Language integration evaluates arguments once, left to right. The common component validates the supplied limit, name, and connection in that order. The byte limit is 0–2147483647, with zero allowing only empty content. Distinguish failure before any OS operation from failure after external state has changed.
 
 | Operation | Sequence and conditions |
 | --- | --- |
@@ -157,4 +157,28 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-Steps 1 and 2 are implemented. Next is step 3: Windows/Linux connections and CLI configuration. Do not silently implement unresolved OS path resolution or generated-executable startup configuration; publish the design and prototype findings before their respective stages.
+Steps 1–3 are implemented. Step 4, generated routes, is next. Publish the generated-executable configuration and WAT contract designs and prototype findings before those stages.
+
+## Windows/Linux connections and CLI
+
+[Directory](../../src/runtime/files/directory.rs) retains the directory opened before execution. Renaming or replacing its original path does not redirect later operations. Reject a link/reparse point at the root's final component. Parent components of the explicitly selected root resolve according to the OS; this does not prohibit every parent link or isolate the whole OS.
+
+| OS | Reading | Creation |
+| --- | --- | --- |
+| Linux | Pin with O_PATH, O_NOFOLLOW, and O_CLOEXEC; verify a regular file, then reopen the retained fd through /proc/self/fd for reading. Verify matching inode/device | openat with O_CREAT, O_EXCL, O_NOFOLLOW; mode 0666 restricted by umask; never write an existing target |
+| Windows | NtCreateFile with RootDirectory and FILE_OPEN_REPARSE_POINT; require a non-directory disk handle without reparse attributes | Exclusive FILE_CREATE; allow read/write/delete sharing and inherit default security attributes |
+
+Linux reads require accessible procfs. A failed reopen never falls back to opening the original name. FIFOs/devices are not opened for data I/O before regular-file verification. [proc_pid_fd(5)](https://man7.org/linux/man-pages/man5/proc_pid_fd.5.html) Windows checks attributes using [GetFileInformationByHandleEx](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfileinformationbyhandleex). Consume handle ownership and call close exactly once, without retry on failure. Drop the root handle when the connection is dropped.
+
+The following CLI commands use directories prepared beforehand.
+
+~~~sh
+cerune run examples/files/roundtrip.ceru --file-root sample-output
+cerune run-mir examples/files/roundtrip.ceru --ssa --file-root another-empty-output
+~~~
+
+Supported commands are run/run-ir/run-mir (including SSA)/run-vm. Resolve an explicit relative root against cwd at connection time, then use the handle. Omission means unconfigured. Reject duplicates/missing values before execution. A --file-root after the argument delimiter is a program argument and does not configure files. The option is not added to emit/check/build/release.
+
+Missing/invalid/unsupported roots and open failures stop before execution with file-v1 operation=connect phase=open-root code=... origin=host, without inventing an operation NodeId. Program operations retain their NodeId/Span. Do not add absolute root paths or OS error text to diagnostics. Connections outside Windows/Linux return unsupported-platform.
+
+[OS tests](../../tests/file_io/os.rs) use independent temporary directories to compare the 16-byte example, empty/exact/over-limit reads, invalid UTF-8, prior output, and failure origins across four executors. They also verify competing creation, root rename/replacement, directories, links, Windows junctions, and Linux FIFOs. Child processes have a 20-second limit. Partial transfers, interruptions, and close failures are injected in common-component tests, not claimed as actual OS close-failure tests. Linux special-file tests use Linux temporary storage because WSL Windows drives do not support FIFO creation.
