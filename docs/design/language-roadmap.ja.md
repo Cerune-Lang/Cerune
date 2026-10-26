@@ -8,7 +8,7 @@
 
 ## 本体の開発順
 
-**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。[infer省略](infer-omission.ja.md)と[Native build](native-build.ja.md)・[Native release初版](native-release.ja.md)まで実装し、再帰も実装しました。次は[限定的なファイル入出力](file-io.ja.md)です。読取り＋新規保存の範囲を合意し、詳細を設計中です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
+**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。[infer省略](infer-omission.ja.md)と[Native build](native-build.ja.md)・[Native release初版](native-release.ja.md)まで実装し、再帰も実装しました。次は[限定的なファイル入出力](file-io.ja.md)です。読取り＋新規保存のRust共通部品を実装し、次はstd:fs・共通IRと4実行器への接続です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
@@ -18,7 +18,7 @@
 | 2の続き | [infer省略](infer-omission.ja.md)（#105） | `value: = expression;`。宣言の`:`と既存の型推論規則を維持し、fmtも対応 | 通常束縛・for初期化に実装済み。配列反復・else if・条件式は別途 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | Native build・対象システムruntimeを要求するrelease初版を実装済み |
 | 4 | [再帰](recursion.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | WATの呼出し領域と4実行器の明示深さ上限APIを実装。物理stackを実測し、4実行器の明示frameを実装。C・LLVM・QBE・WAT・Nativeの明示上限・深さ診断も実装。CLI既定128・範囲1〜128と成果物への設定保存も実装済み。直接・相互再帰とgeneric具体化の再利用、全経路の実行比較・exampleも実装済み |
-| 5 | [限定的なファイル入出力](file-io.ja.md) → 子プロセス（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 読取り＋新規保存の設計中・未実装。既存ファイルの置換と子プロセスは後続 |
+| 5 | [限定的なファイル入出力](file-io.ja.md) → 子プロセス（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 読取り＋新規保存のRust共通部品を実装。言語・実行経路・実OSへは未接続。置換と子プロセスは後続 |
 
 2026-10-20に合意した着手順です。1では引数取得の全経路対応後に純粋な整数読取りを追加し、引数指定のexampleまで完成させます。[設計案](dogfooding-inputs.ja.md)の公開名・上限・接続契約を確定し、小さな標準モジュールとして実装します。汎用Option/Resultやパッケージ管理は前提にしません。
 
