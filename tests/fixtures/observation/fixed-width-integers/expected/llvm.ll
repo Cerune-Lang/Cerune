@@ -346,7 +346,9 @@ entry:
   %cerune_large = alloca i64
   %tmp0 = call i64 @cerune_i64_sub(i64 0, i64 3, ptr @cerune.failure.6.83.85)
   %tmp1 = call i64 @cerune_check_i32(i64 %tmp0, ptr @cerune.failure.6.83.85, i64 0)
+  call void @cerune_call_enter(ptr @cerune_call_site_0_5_79_89)
   %tmp2 = call i64 @cerune.fn.add.0(i64 %tmp1, i64 5)
+  call void @cerune_call_leave()
   store i64 %tmp2, ptr %cerune_small
   store i64 4294967295, ptr %cerune_large
   %tmp3 = load i64, ptr %cerune_small
@@ -363,5 +365,133 @@ entry:
   %tmp10 = load i64, ptr %cerune_small
   %tmp11 = call i64 @cerune_check_u32(i64 %tmp10, ptr @cerune.failure.25.200.219, i64 5)
   call void @cerune.output.i64(i64 %tmp11, i1 true, ptr @cerune.output.origin.24.194.221)
+  call void @cerune_call_finish()
   ret i32 0
+}
+; call_depth_limit=128; not a physical stack/memory guarantee
+declare ptr @realloc(ptr, i64)
+declare void @free(ptr)
+@stdout = external global ptr
+@cerune_call_site_0_5_79_89_text = private constant [32 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\35\20\62\79\74\65\73\3D\37\39\2E\2E\38\39\0A"
+@cerune_call_site_0_5_79_89_alloc = private constant [62 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\35\20\62\79\74\65\73\3D\37\39\2E\2E\38\39\0A"
+@cerune_call_site_0_5_79_89 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_5_79_89_text,i64 32,ptr @cerune_call_site_0_5_79_89_alloc,i64 62}
+@cerune_call_header = private constant [36 x i8] c"\63\61\6C\6C\2D\76\31\20\72\65\61\73\6F\6E\3D\64\65\70\74\68\2D\6C\69\6D\69\74\20\6C\69\6D\69\74\3D\31\32\38"
+@cerune_call_frame_prefix = private constant [14 x i8] c"\63\61\6C\6C\2D\76\31\20\66\72\61\6D\65\3D"
+define internal void @cerune_call_write(ptr %p, i64 %n) {
+entry:
+  call i64 @write(i32 2, ptr %p, i64 %n)
+  ret void
+}
+define internal void @cerune_call_flush() {
+entry:
+  %stream = load ptr, ptr @stdout
+  call i32 @fflush(ptr %stream)
+  ret void
+}
+
+@cerune_call_depth = internal global i64 0
+@cerune_call_capacity = internal global i64 0
+@cerune_call_frames = internal global ptr null
+; History stores immutable call-site pointers, separate from language heap budgets.
+define internal void @cerune_call_site_write(ptr %site, i64 %field) {
+entry:
+  %p = getelementptr {ptr,i64,ptr,i64}, ptr %site, i64 0, i32 0
+  %pair = getelementptr {ptr,i64}, ptr %p, i64 %field
+  %record = load {ptr,i64}, ptr %pair
+  %data = extractvalue {ptr,i64} %record, 0
+  %len = extractvalue {ptr,i64} %record, 1
+  call void @cerune_call_write(ptr %data, i64 %len)
+  ret void
+}
+define internal void @cerune_call_number(i64 %number) {
+entry:
+  %buffer = alloca [20 x i8]
+  br label %digits
+digits:
+  %v = phi i64 [%number,%entry],[%q,%digits]
+  %end = phi i64 [20,%entry],[%index,%digits]
+  %q = udiv i64 %v, 10
+  %r = urem i64 %v, 10
+  %ascii = add i64 %r, 48
+  %byte = trunc i64 %ascii to i8
+  %index = sub i64 %end, 1
+  %p = getelementptr i8, ptr %buffer, i64 %index
+  store i8 %byte, ptr %p
+  %more = icmp ne i64 %q, 0
+  br i1 %more, label %digits, label %done
+done:
+  %length = sub i64 20, %index
+  call void @cerune_call_write(ptr %p, i64 %length)
+  ret void
+}
+define internal void @cerune_call_enter(ptr %site) {
+entry:
+  %depth = load i64, ptr @cerune_call_depth
+  %full = icmp uge i64 %depth, 128
+  br i1 %full, label %overflow, label %capacity
+overflow:
+  call void @cerune_call_flush()
+  call void @cerune_call_write(ptr @cerune_call_header, i64 36)
+  call void @cerune_call_site_write(ptr %site, i64 0)
+  %history = load ptr, ptr @cerune_call_frames
+  br label %history_loop
+history_loop:
+  %i = phi i64 [0,%overflow],[%next_i,%history_loop]
+  call void @cerune_call_write(ptr @cerune_call_frame_prefix, i64 14)
+  call void @cerune_call_number(i64 %i)
+  %slot = getelementptr ptr, ptr %history, i64 %i
+  %saved = load ptr, ptr %slot
+  call void @cerune_call_site_write(ptr %saved, i64 0)
+  %next_i = add i64 %i, 1
+  %more = icmp ult i64 %next_i, %depth
+  br i1 %more, label %history_loop, label %stop
+stop:
+  call void @_Exit(i32 1)
+  unreachable
+capacity:
+  %cap = load i64, ptr @cerune_call_capacity
+  %grow = icmp eq i64 %depth, %cap
+  br i1 %grow, label %allocate, label %push
+allocate:
+  %zero = icmp eq i64 %cap, 0
+  %double = mul i64 %cap, 2
+  %want = select i1 %zero, i64 8, i64 %double
+  %exceeds = icmp ugt i64 %want, 128
+  %next_cap = select i1 %exceeds, i64 128, i64 %want
+  %bytes = mul i64 %next_cap, 8
+  %old = load ptr, ptr @cerune_call_frames
+  %new = call ptr @realloc(ptr %old, i64 %bytes)
+  %failed = icmp eq ptr %new, null
+  br i1 %failed, label %allocation_failed, label %allocated
+allocation_failed:
+  call void @cerune_call_flush()
+  call void @cerune_call_site_write(ptr %site, i64 1)
+  call void @_Exit(i32 1)
+  unreachable
+allocated:
+  store ptr %new, ptr @cerune_call_frames
+  store i64 %next_cap, ptr @cerune_call_capacity
+  br label %push
+push:
+  %frames = load ptr, ptr @cerune_call_frames
+  %destination = getelementptr ptr, ptr %frames, i64 %depth
+  store ptr %site, ptr %destination
+  %entered = add i64 %depth, 1
+  store i64 %entered, ptr @cerune_call_depth
+  ret void
+}
+define internal void @cerune_call_leave() {
+entry:
+  %depth = load i64, ptr @cerune_call_depth
+  %left = sub i64 %depth, 1
+  store i64 %left, ptr @cerune_call_depth
+  ret void
+}
+define internal void @cerune_call_finish() {
+entry:
+  %frames = load ptr, ptr @cerune_call_frames
+  call void @free(ptr %frames)
+  store ptr null, ptr @cerune_call_frames
+  store i64 0, ptr @cerune_call_capacity
+  ret void
 }

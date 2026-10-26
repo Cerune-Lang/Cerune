@@ -12,6 +12,23 @@
 
 `observe`はsources・HIR・MIR・注釈付きASMとmanifestを[同じコンパイルから保存](../design/observation-bundle.ja.md)します。`--target`と`-o`は必須で、両heap予算を指定できます。既存出力先は拒否します。親ディレクトリは事前に作成してください。入力名・ソース本文も保存しますが、プログラム実行・外部ツール起動・リンクは行いません。Objectや他backendの同梱は未対応です。
 
+## 呼出し深さ
+
+通常実行・生成経路・Native buildは `--call-depth-limit N` を使います。既定128、指定範囲1〜128です。上限ちょうどの呼出しは実行し、次のソース関数へ入る直前に停止します。引数は左から先に評価します。
+
+| 対象 | 設定の扱い |
+| --- | --- |
+| run / run-ir / run-mir（SSAを含む）/ run-vm | 同じ上限を入出力・プログラム引数と一緒に実行器へ渡す。runtime-v1指定時の深さ超過はcall-v1の全履歴を出力 |
+| emit-c / emit-llvm / emit-qbe / emit-wat | 同じ上限の検査と値を生成物に残す。LLVM・QBEはスカラーのみでも明示targetが必須 |
+| emit-lir / emit-asm / emit-obj / build native | 同じ上限付きLIRから生成。LIRに値、ASM・Objectに検査と診断用の上限値を保持。buildのmanifestにもcall_depth_limitを保存 |
+| observe | 同じ設定でbaseline／SSA由来のLIR・ASMを保存。manifestへ値を記録し、観測による実行や設定変更は行わない |
+| release native | buildに記録された設定を変更せず保持。以前のbuildで記録がない場合は追加せず、release側の値はnull（不明）とする |
+| check / fmt / emit-sources / emit-ir / emit-mir / emit-bytecode | この実行設定の指定を受け付けない。ソース・共通IR・bytecodeの表現自体には設定を埋め込まない |
+
+**1〜128は意味上の公開設定範囲であり、物理stack・memoryの安全保証ではありません。** 大きな局所値・集約値、生成補助関数も物理資源を消費します。検出できる確保失敗はallocation-failed、OS／エンジン側のstack不足はその失敗として残し、depth-limitへ変換しません。すべての物理的不足を共通診断で捕捉する保証はありません。上限の拡張は各経路の検証結果を基に別変更で判断します。
+
+[再帰と呼出し領域の設計](../design/recursion.ja.md)にAPI・互換性・物理資源の制約を記載しています。
+
 ## コマンド
 
 現在のCLIは次のコマンドを提供します。
@@ -27,9 +44,9 @@ cerune emit-ir <file> [-o <output.ceir>]
 cerune emit-mir <file> [-o <output.txt>]
 cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
 cerune emit-c <file> [-o <output.c>]
-cerune emit-llvm <file> [--target <triple>] [-o <output.ll>]
+cerune emit-llvm <file> --target <triple> [-o <output.ll>]
 cerune emit-wat <file> [-o <output.wat>]
-cerune emit-qbe <file> [--target <triple>] [-o <output.ssa>]
+cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
@@ -122,7 +139,7 @@ cerune check <file>
 
 `cerune check`は、入力されたソースファイルの構文解析、意味検証、型検査を行います。
 
-`check`の成功は、すべての出力経路がそのプログラムに対応することを保証しません。文字列は全経路で使用できます。LLVMとQBEのターゲットが未指定の場合は、文字列を含む型定義や式をソース位置付きで診断し、成果物を生成しません。この診断では`-o`で指定した既存ファイルも変更しません。
+`check`の成功は、すべての出力経路がそのプログラムに対応することを保証しません。文字列は全経路で使用できます。LLVMとQBEのCLI生成は常に明示targetが必要です。未指定なら設定エラーを診断し、成果物を生成しません。この診断では`-o`で指定した既存ファイルも変更しません。
 
 ## Cerune IRの直接実行
 
@@ -172,8 +189,8 @@ cerune emit-mir examples/ir_stages/control_flow.ceru -o target/control_flow.mir.
 
 ```text
 cerune emit-c <file> [-o <output.c>]
-cerune emit-llvm <file> [--target <triple>] [-o <output.ll>]
-cerune emit-qbe <file> [--target <triple>] [-o <output.ssa>]
+cerune emit-llvm <file> --target <triple> [-o <output.ll>]
+cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
@@ -185,8 +202,8 @@ cerune emit-bytecode <file> [-o <output.cebc>]
 | コマンド | 出力経路 | 現在のターゲット | 成果物 |
 | --- | --- | --- | --- |
 | `emit-c` | C | Ceruneでは指定しない | `.c` |
-| `emit-llvm` | LLVM IR | 未指定、または明示的なWindows x64 / Linux x86-64 | `.ll` |
-| `emit-qbe` | QBE IR | 未指定、または明示的なWindows x64 / Linux x86-64 | `.ssa` |
+| `emit-llvm` | LLVM IR | 明示的なWindows x64 / Linux x86-64 | `.ll` |
+| `emit-qbe` | QBE IR | 明示的なWindows x64 / Linux x86-64 | `.ssa` |
 | `emit-wat` | WebAssembly Text | WebAssembly | `.wat` |
 | `emit-asm` | ネイティブアセンブリ | x86-64、Windows / Linux、各OSの呼出規約 | `.s` |
 | `emit-obj` | 自前のネイティブオブジェクト | 明示的なWindows x64 / Linux x86-64 | `.obj` / `.o` |
@@ -198,7 +215,7 @@ cerune emit-bytecode <file> [-o <output.cebc>]
 
 ### LLVMのターゲット指定
 
-`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`を受け付けます。文字列・動的配列を使うプログラムでは、未使用の型・関数も含めて指定が必須です。数値だけでも、検査付き演算・変換・配列添字など実行時診断を持つ場合は指定が必要です。書込み失敗の接続を選ぶため、数値のみの`print(1);`も指定が必要です。`flush();`と`std:io`の行入力も明示targetを必須とします。ホストOSからは推測しません。`--target`と`-o`（`--output`も可）の順序は自由ですが、同じオプションの重複、値の省略、未対応ターゲットはエラーです。
+`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`を受け付けます。深さ超過診断の接続を選ぶため、CLIではプログラムの内容にかかわらず指定が必須です。ホストOSからは推測しません。`--target`と`-o`（`--output`も可）の順序は自由ですが、同じオプションの重複、値の省略、未対応ターゲットはエラーです。
 
 Linux x86-64上での例:
 
@@ -222,7 +239,7 @@ CeruneはLLVMの生成だけを行い、Clangや実行ファイルを起動し�
 
 ### QBEのターゲット指定
 
-QBEの`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`です。文字列・動的配列・標準出力（`print(1);`や`flush();`も含む）・`std:io`の行入力では必須です。省略・未対応のターゲット・オプションの重複は診断し、既存の出力ファイルを変更しません。これらを使わないプログラムでは省略できます。実行中のOSから生成先を推測しません。
+QBEの`--target`は`x86_64-unknown-linux-gnu`または`x86_64-pc-windows-msvc`です。深さ超過診断の接続を選ぶため、CLIではプログラムの内容にかかわらず必須です。省略・未対応のターゲット・オプションの重複は診断し、既存の出力ファイルを変更しません。実行中のOSから生成先を推測しません。
 
 ```sh
 cerune emit-qbe examples/string_lookup.ceru --target x86_64-unknown-linux-gnu -o target/string_lookup.ssa

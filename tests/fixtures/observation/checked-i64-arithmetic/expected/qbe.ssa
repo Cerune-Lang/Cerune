@@ -1,5 +1,138 @@
 # target: x86_64-unknown-linux-gnu (qbe -t amd64_sysv)
 
+# call_depth_limit=128; not a physical stack/memory guarantee
+section ".rodata" data $cerune_call_header = { b 99, b 97, b 108, b 108, b 45, b 118, b 49, b 32, b 114, b 101, b 97, b 115, b 111, b 110, b 61, b 100, b 101, b 112, b 116, b 104, b 45, b 108, b 105, b 109, b 105, b 116, b 32, b 108, b 105, b 109, b 105, b 116, b 61, b 49, b 50, b 56 }
+section ".rodata" data $cerune_call_frame_prefix = { b 99, b 97, b 108, b 108, b 45, b 118, b 49, b 32, b 102, b 114, b 97, b 109, b 101, b 61 }
+function $cerune_call_write(l %p, l %n) {
+@start
+  call $write(w 2, l %p, l %n)
+  ret
+}
+function $cerune_call_flush() {
+@start
+  %stream =l loadl $stdout
+  call $fflush(l %stream)
+  ret
+}
+
+data $cerune_call_depth = {l 0}
+data $cerune_call_capacity = {l 0}
+data $cerune_call_frames = {l 0}
+function $cerune_call_site_write(l %site, l %field) {
+@start
+  %offset =l mul %field, 16
+  %pair =l add %site, %offset
+  %length_slot =l add %pair, 8
+  %p =l loadl %pair
+  %n =l loadl %length_slot
+  call $cerune_call_write(l %p, l %n)
+  ret
+}
+function $cerune_call_number(l %number) {
+@start
+  %buffer =l alloc8 24
+  jmp @digits
+@digits
+  %v =l phi @start %number, @digits %q
+  %end =l phi @start 20, @digits %index
+  %q =l udiv %v, 10
+  %r =l urem %v, 10
+  %ascii =l add %r, 48
+  %index =l sub %end, 1
+  %p =l add %buffer, %index
+  storeb %ascii, %p
+  %more =w cnel %q, 0
+  jnz %more, @digits, @done
+@done
+  %length =l sub 20, %index
+  call $cerune_call_write(l %p, l %length)
+  ret
+}
+function $cerune_call_enter(l %site) {
+@start
+  %depth =l loadl $cerune_call_depth
+  %full =w cugel %depth, 128
+  jnz %full, @overflow, @capacity
+@overflow
+  call $cerune_call_flush()
+  call $cerune_call_write(l $cerune_call_header, l 36)
+  call $cerune_call_site_write(l %site, l 0)
+  %history =l loadl $cerune_call_frames
+  jmp @history_loop
+@history_loop
+  %i =l phi @overflow 0, @history_loop %next_i
+  call $cerune_call_write(l $cerune_call_frame_prefix, l 14)
+  call $cerune_call_number(l %i)
+  %offset =l mul %i, 8
+  %slot =l add %history, %offset
+  %saved =l loadl %slot
+  call $cerune_call_site_write(l %saved, l 0)
+  %next_i =l add %i, 1
+  %more =w cultl %next_i, %depth
+  jnz %more, @history_loop, @stop
+@stop
+  call $_Exit(w 1)
+  hlt
+@capacity
+  %cap =l loadl $cerune_call_capacity
+  %grow =w ceql %depth, %cap
+  jnz %grow, @allocate, @push
+@allocate
+  %double =l mul %cap, 2
+  %zero =w ceql %cap, 0
+  jnz %zero, @initial, @grown
+@initial
+  jmp @bound
+@grown
+  jmp @bound
+@bound
+  %want =l phi @initial 8, @grown %double
+  %exceeds =w cugtl %want, 128
+  jnz %exceeds, @capped, @wanted
+@capped
+  jmp @resize
+@wanted
+  jmp @resize
+@resize
+  %next_cap =l phi @capped 128, @wanted %want
+  %bytes =l mul %next_cap, 8
+  %old =l loadl $cerune_call_frames
+  %new =l call $realloc(l %old, l %bytes)
+  %failed =w ceql %new, 0
+  jnz %failed, @allocation_failed, @allocated
+@allocation_failed
+  call $cerune_call_flush()
+  call $cerune_call_site_write(l %site, l 1)
+  call $_Exit(w 1)
+  hlt
+@allocated
+  storel %new, $cerune_call_frames
+  storel %next_cap, $cerune_call_capacity
+  jmp @push
+@push
+  %frames =l loadl $cerune_call_frames
+  %destination_offset =l mul %depth, 8
+  %destination =l add %frames, %destination_offset
+  storel %site, %destination
+  %entered =l add %depth, 1
+  storel %entered, $cerune_call_depth
+  ret
+}
+function $cerune_call_leave() {
+@start
+  %depth =l loadl $cerune_call_depth
+  %left =l sub %depth, 1
+  storel %left, $cerune_call_depth
+  ret
+}
+function $cerune_call_finish() {
+@start
+  %frames =l loadl $cerune_call_frames
+  call $free(l %frames)
+  storel 0, $cerune_call_frames
+  storel 0, $cerune_call_capacity
+  ret
+}
 section ".rodata" data $cerune_output_origin_2_16_33 = { b " node=2 bytes=16..33", b 10, b 0 }
 section ".rodata" data $cerune_output_origin_6_34_51 = { b " node=6 bytes=34..51", b 10, b 0 }
 section ".rodata" data $cerune_output_origin_10_52_69 = { b " node=10 bytes=52..69", b 10, b 0 }
@@ -447,5 +580,6 @@ export function w $main() {
   %tmp8 =l loadl %slot_value
   %tmp9 =l call $cerune_i64_neg(l %tmp8, l $cerune_origin_19_94_100, l 23)
   call $cerune_output_i64(l %tmp9, w 1, l $cerune_output_origin_18_88_102)
+  call $cerune_call_finish()
   ret 0
 }

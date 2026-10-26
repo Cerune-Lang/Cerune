@@ -223,9 +223,13 @@ fn ssa_bundle_keeps_baseline_and_records_the_separate_transformation() {
             assert!(obj.stdout.is_empty());
             assert_eq!(
                 fs::read(&object).unwrap(),
-                cerune_lang::codegen::x86_64::emit_object_from_mir(
-                    &lowered.program,
-                    cerune_lang::codegen::x86_64::Target::parse(target).unwrap(),
+                cerune_lang::codegen::x86_64::emit_object_from_lir(
+                    &cerune_lang::codegen::x86_64::lower_mir_with_call_limit(
+                        &lowered.program,
+                        cerune_lang::codegen::x86_64::Target::parse(target).unwrap(),
+                        std::num::NonZeroU32::new(128).unwrap()
+                    )
+                    .unwrap(),
                     true
                 )
                 .unwrap()

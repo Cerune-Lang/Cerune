@@ -37,6 +37,11 @@ fn data(m: &Module, name: &str, value: &str, out: &mut String) {
 }
 pub(super) fn support(m: &Module, out: &mut String) {
     let Some(limit) = m.call_limit else { return };
+    writeln!(
+        out,
+        "# call_depth_limit={limit}; not a physical stack/memory guarantee"
+    )
+    .unwrap();
     let windows = m.target.expect("call target") == super::Target::X86_64PcWindowsMsvc;
     let mut sites = Vec::new();
     for i in m

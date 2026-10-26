@@ -36,6 +36,11 @@ fn data(name: &str, value: &str, out: &mut String) {
 }
 pub(super) fn support(m: &Module, out: &mut String) {
     let Some(limit) = m.call_limit else { return };
+    writeln!(
+        out,
+        "; call_depth_limit={limit}; not a physical stack/memory guarantee"
+    )
+    .unwrap();
     let windows = m.target.expect("call limit target") == super::Target::X86_64PcWindowsMsvc;
     for declaration in [
         "declare ptr @realloc(ptr, i64)\n",

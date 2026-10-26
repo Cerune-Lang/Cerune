@@ -296,3 +296,95 @@ fn release_preserves_runtime_stops_without_executing_during_packaging() {
     assert!(error.contains("node="));
     assert!(error.contains("bytes="));
 }
+
+#[test]
+fn call_depth_survives_build_release_and_observation() {
+    let Some(clang) = driver() else { return };
+    let scratch = Scratch::new();
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/call_frames/return_paths.ceru");
+    for ssa in [false, true] {
+        for n in [1, 2] {
+            let built = scratch.0.join(format!("calls-{ssa}-{n}"));
+            success(&output(
+                build(&source, &built, &clang, ssa).args(["--call-depth-limit", &n.to_string()]),
+                &scratch.0,
+            ));
+            assert_eq!(record(&built, "manifest.json")["call_depth_limit"], n);
+            assert!(text(&built, "program.lir.txt").contains(&format!("call-depth-limit {n}")));
+            let before = output(&mut Command::new(exe(&built)), &scratch.0);
+            if n == 1 {
+                assert_eq!(before.status.code(), Some(1));
+                assert!(String::from_utf8_lossy(&before.stderr).contains("depth-limit limit=1"));
+            } else {
+                success(&before);
+                assert_eq!(
+                    before.stdout,
+                    include_bytes!("../../examples/call_frames/return_paths.stdout")
+                );
+            }
+            let package = scratch.0.join(format!("calls-release-{ssa}-{n}"));
+            success(&output(&mut release(&built, &package), &scratch.0));
+            assert_eq!(record(&package, "release.json")["call_depth_limit"], n);
+            let after = output(&mut Command::new(exe(&package.join("build"))), &scratch.0);
+            assert_eq!(after.status.code(), before.status.code());
+            assert_eq!(after.stdout, before.stdout);
+            assert_eq!(after.stderr, before.stderr);
+            let observed = scratch.0.join(format!("calls-observe-{ssa}-{n}"));
+            success(&output(
+                Command::new(env!("CARGO_BIN_EXE_cerune"))
+                    .arg("observe")
+                    .arg(&source)
+                    .args([
+                        "--lir",
+                        "--ssa",
+                        "--target",
+                        target(),
+                        "--call-depth-limit",
+                        &n.to_string(),
+                        "-o",
+                    ])
+                    .arg(&observed),
+                &scratch.0,
+            ));
+            assert_eq!(record(&observed, "manifest.json")["call_depth_limit"], n);
+            let lir = if ssa {
+                "program.ssa.lir.txt"
+            } else {
+                "program.lir.txt"
+            };
+            assert_eq!(text(&observed, lir), text(&built, "program.lir.txt"));
+        }
+    }
+}
+#[test]
+fn release_preserves_absent_legacy_limit_and_rejects_invalid_recorded_limit() {
+    let Some(clang) = driver() else { return };
+    let scratch = Scratch::new();
+    let built = fixture(&scratch, &clang);
+    let mut m = record(&built, "manifest.json");
+    for (i, value) in [json!(0), json!(129), json!("2"), Value::Null]
+        .into_iter()
+        .enumerate()
+    {
+        m["call_depth_limit"] = value;
+        save(&built, "manifest.json", &m);
+        let packaged = scratch.0.join(format!("invalid-calls-{i}"));
+        let out = output(&mut release(&built, &packaged), &scratch.0);
+        assert_eq!(out.status.code(), Some(1));
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("invalid build limit call_depth_limit")
+        );
+        assert!(!packaged.exists());
+    }
+    m.as_object_mut().unwrap().remove("call_depth_limit");
+    save(&built, "manifest.json", &m);
+    let packaged = scratch.0.join("legacy-calls");
+    success(&output(&mut release(&built, &packaged), &scratch.0));
+    assert!(record(&packaged, "release.json")["call_depth_limit"].is_null());
+    assert!(
+        record(&packaged.join("build"), "manifest.json")
+            .get("call_depth_limit")
+            .is_none()
+    );
+}

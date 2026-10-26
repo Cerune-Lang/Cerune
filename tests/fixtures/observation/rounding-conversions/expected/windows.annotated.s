@@ -1,12 +1,17 @@
 # cerune-asm-origins v1: UTF-8 byte ranges, end exclusive
 # cerune-origin: synthetic
+.extern __acrt_iob_func
+.extern fputs
+.extern realloc
+.extern fflush
+.extern fprintf
+.extern _Exit
+.extern free
 .extern _write
 .extern _errno
 .extern snprintf
-.extern _Exit
 .globl main
 .extern _setmode
-.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -45,6 +50,158 @@
 .p2align 3
 .Lcerune_f64_8:
 .quad 0x406FD00000000000
+.section .rdata,"dr"
+cerune_call_site_0_8_90_101:
+.asciz " function=0 node=8 bytes=90..101\n"
+cerune_call_site_0_8_90_101_alloc:
+.asciz "cerune: runtime-v1 code=allocation-failed node=8 bytes=90..101\n"
+cerune_call_site_0_13_121_132:
+.asciz " function=0 node=13 bytes=121..132\n"
+cerune_call_site_0_13_121_132_alloc:
+.asciz "cerune: runtime-v1 code=allocation-failed node=13 bytes=121..132\n"
+cerune_call_site_0_18_153_163:
+.asciz " function=0 node=18 bytes=153..163\n"
+cerune_call_site_0_18_153_163_alloc:
+.asciz "cerune: runtime-v1 code=allocation-failed node=18 bytes=153..163\n"
+cerune_call_site_0_22_194_204:
+.asciz " function=0 node=22 bytes=194..204\n"
+cerune_call_site_0_22_194_204_alloc:
+.asciz "cerune: runtime-v1 code=allocation-failed node=22 bytes=194..204\n"
+cerune_call_site_0_26_235_247:
+.asciz " function=0 node=26 bytes=235..247\n"
+cerune_call_site_0_26_235_247_alloc:
+.asciz "cerune: runtime-v1 code=allocation-failed node=26 bytes=235..247\n"
+cerune_call_site_0_30_278_289:
+.asciz " function=0 node=30 bytes=278..289\n"
+cerune_call_site_0_30_278_289_alloc:
+.asciz "cerune: runtime-v1 code=allocation-failed node=30 bytes=278..289\n"
+cerune_call_site_0_35_319_331:
+.asciz " function=0 node=35 bytes=319..331\n"
+cerune_call_site_0_35_319_331_alloc:
+.asciz "cerune: runtime-v1 code=allocation-failed node=35 bytes=319..331\n"
+cerune_call_site_0_39_362_374:
+.asciz " function=0 node=39 bytes=362..374\n"
+cerune_call_site_0_39_362_374_alloc:
+.asciz "cerune: runtime-v1 code=allocation-failed node=39 bytes=362..374\n"
+cerune_call_site_0_43_415_427:
+.asciz " function=0 node=43 bytes=415..427\n"
+cerune_call_site_0_43_415_427_alloc:
+.asciz "cerune: runtime-v1 code=allocation-failed node=43 bytes=415..427\n"
+cerune_call_header:
+.asciz "call-v1 reason=depth-limit limit=128"
+cerune_call_frame_format:
+.asciz "call-v1 frame=%llu"
+.data
+.p2align 3
+cerune_call_depth:
+.quad 0x0000000000000000
+cerune_call_capacity:
+.quad 0x0000000000000000
+cerune_call_frames:
+.quad 0x0000000000000000
+.text
+cerune_call_write:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $80, %rsp
+  movq %rcx, -8(%rbp)
+  movl $2, %ecx
+  callq __acrt_iob_func
+  movq %rax, %rdx
+  movq -8(%rbp), %rcx
+  callq fputs
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+cerune_call_enter:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $80, %rsp
+  movq %rcx, -8(%rbp)
+  movq %rdx, -16(%rbp)
+  movq cerune_call_depth(%rip), %r10
+  movq %r10, -24(%rbp)
+  movq $128, %r11
+  cmpq %r11, %r10
+  jae .Lcall_overflow
+  cmpq cerune_call_capacity(%rip), %r10
+  jne .Lcall_push
+  testq %r10, %r10
+  jne .Lcall_double
+  movq $4, %r10
+.Lcall_double:
+  addq %r10, %r10
+  cmpq %r11, %r10
+  jbe .Lcall_capacity_ready
+  movq %r11, %r10
+.Lcall_capacity_ready:
+  movq %r10, -32(%rbp)
+  shlq $3, %r10
+  movq cerune_call_frames(%rip), %rcx
+  movq %r10, %rdx
+  callq realloc
+  testq %rax, %rax
+  je .Lcall_allocation_failed
+  movq %rax, cerune_call_frames(%rip)
+  movq -32(%rbp), %r10
+  movq %r10, cerune_call_capacity(%rip)
+.Lcall_push:
+  movq -24(%rbp), %r10
+  shlq $3, %r10
+  addq cerune_call_frames(%rip), %r10
+  movq -8(%rbp), %r11
+  movq %r11, 0(%r10)
+  addq $1, cerune_call_depth(%rip)
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+.Lcall_allocation_failed:
+  xorl %ecx, %ecx
+  callq fflush
+  movq -16(%rbp), %rcx
+  callq cerune_call_write
+  jmp .Lcall_stop
+.Lcall_overflow:
+  xorl %ecx, %ecx
+  callq fflush
+  leaq cerune_call_header(%rip), %rcx
+  callq cerune_call_write
+  movq -8(%rbp), %rcx
+  callq cerune_call_write
+  movq $0, -40(%rbp)
+.Lcall_history:
+  movl $2, %ecx
+  callq __acrt_iob_func
+  movq %rax, %rcx
+  leaq cerune_call_frame_format(%rip), %rdx
+  movq -40(%rbp), %r8
+  callq fprintf
+  movq -40(%rbp), %r10
+  shlq $3, %r10
+  addq cerune_call_frames(%rip), %r10
+  movq 0(%r10), %rcx
+  callq cerune_call_write
+  addq $1, -40(%rbp)
+  movq -40(%rbp), %r10
+  cmpq -24(%rbp), %r10
+  jb .Lcall_history
+.Lcall_stop:
+  xorl %ecx, %ecx
+  callq fflush
+  movl $1, %ecx
+  callq _Exit
+  ud2
+cerune_call_finish:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $80, %rsp
+  movq cerune_call_frames(%rip), %rcx
+  callq free
+  movq $0, cerune_call_frames(%rip)
+  movq $0, cerune_call_capacity(%rip)
+  movq %rbp, %rsp
+  popq %rbp
+  retq
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -825,8 +982,12 @@ cerune_origin_mir_main_bb0_i1_lir6:
 cerune_origin_n8_main_7:
 # cerune-mir: v1 main bb0 i2 -> lir 7 (source)
 cerune_origin_mir_main_bb0_i2_lir7:
+  leaq cerune_call_site_0_8_90_101(%rip), %rcx
+  leaq cerune_call_site_0_8_90_101_alloc(%rip), %rdx
+  callq cerune_call_enter
   movsd -16(%rbp), %xmm0
   callq cerune_fn_value_0
+  subq $1, cerune_call_depth(%rip)
 # cerune-origin: #8 bytes 90..101
 cerune_origin_n8_main_8:
 # cerune-mir: v1 main bb0 i2 -> lir 8 (source)
@@ -955,8 +1116,12 @@ cerune_origin_mir_main_bb0_i6_lir18:
 cerune_origin_n13_main_19:
 # cerune-mir: v1 main bb0 i7 -> lir 19 (source)
 cerune_origin_mir_main_bb0_i7_lir19:
+  leaq cerune_call_site_0_13_121_132(%rip), %rcx
+  leaq cerune_call_site_0_13_121_132_alloc(%rip), %rdx
+  callq cerune_call_enter
   movsd -48(%rbp), %xmm0
   callq cerune_fn_value_0
+  subq $1, cerune_call_depth(%rip)
 # cerune-origin: #13 bytes 121..132
 cerune_origin_n13_main_20:
 # cerune-mir: v1 main bb0 i7 -> lir 20 (source)
@@ -1070,8 +1235,12 @@ cerune_origin_mir_main_bb0_i10_lir27:
 cerune_origin_n18_main_28:
 # cerune-mir: v1 main bb0 i11 -> lir 28 (source)
 cerune_origin_mir_main_bb0_i11_lir28:
+  leaq cerune_call_site_0_18_153_163(%rip), %rcx
+  leaq cerune_call_site_0_18_153_163_alloc(%rip), %rdx
+  callq cerune_call_enter
   movsd -72(%rbp), %xmm0
   callq cerune_fn_value_0
+  subq $1, cerune_call_depth(%rip)
 # cerune-origin: #18 bytes 153..163
 cerune_origin_n18_main_29:
 # cerune-mir: v1 main bb0 i11 -> lir 29 (source)
@@ -1189,8 +1358,12 @@ cerune_origin_mir_main_bb0_i14_lir36:
 cerune_origin_n22_main_37:
 # cerune-mir: v1 main bb0 i15 -> lir 37 (source)
 cerune_origin_mir_main_bb0_i15_lir37:
+  leaq cerune_call_site_0_22_194_204(%rip), %rcx
+  leaq cerune_call_site_0_22_194_204_alloc(%rip), %rdx
+  callq cerune_call_enter
   movsd -96(%rbp), %xmm0
   callq cerune_fn_value_0
+  subq $1, cerune_call_depth(%rip)
 # cerune-origin: #22 bytes 194..204
 cerune_origin_n22_main_38:
 # cerune-mir: v1 main bb0 i15 -> lir 38 (source)
@@ -1318,8 +1491,12 @@ cerune_origin_mir_main_bb0_i18_lir45:
 cerune_origin_n26_main_46:
 # cerune-mir: v1 main bb0 i19 -> lir 46 (source)
 cerune_origin_mir_main_bb0_i19_lir46:
+  leaq cerune_call_site_0_26_235_247(%rip), %rcx
+  leaq cerune_call_site_0_26_235_247_alloc(%rip), %rdx
+  callq cerune_call_enter
   movsd -120(%rbp), %xmm0
   callq cerune_fn_value_0
+  subq $1, cerune_call_depth(%rip)
 # cerune-origin: #26 bytes 235..247
 cerune_origin_n26_main_47:
 # cerune-mir: v1 main bb0 i19 -> lir 47 (source)
@@ -1441,8 +1618,12 @@ cerune_origin_mir_main_bb0_i23_lir57:
 cerune_origin_n30_main_58:
 # cerune-mir: v1 main bb0 i24 -> lir 58 (source)
 cerune_origin_mir_main_bb0_i24_lir58:
+  leaq cerune_call_site_0_30_278_289(%rip), %rcx
+  leaq cerune_call_site_0_30_278_289_alloc(%rip), %rdx
+  callq cerune_call_enter
   movsd -152(%rbp), %xmm0
   callq cerune_fn_value_0
+  subq $1, cerune_call_depth(%rip)
 # cerune-origin: #30 bytes 278..289
 cerune_origin_n30_main_59:
 # cerune-mir: v1 main bb0 i24 -> lir 59 (source)
@@ -1553,8 +1734,12 @@ cerune_origin_mir_main_bb0_i27_lir66:
 cerune_origin_n35_main_67:
 # cerune-mir: v1 main bb0 i28 -> lir 67 (source)
 cerune_origin_mir_main_bb0_i28_lir67:
+  leaq cerune_call_site_0_35_319_331(%rip), %rcx
+  leaq cerune_call_site_0_35_319_331_alloc(%rip), %rdx
+  callq cerune_call_enter
   movsd -176(%rbp), %xmm0
   callq cerune_fn_value_0
+  subq $1, cerune_call_depth(%rip)
 # cerune-origin: #35 bytes 319..331
 cerune_origin_n35_main_68:
 # cerune-mir: v1 main bb0 i28 -> lir 68 (source)
@@ -1665,8 +1850,12 @@ cerune_origin_mir_main_bb0_i31_lir75:
 cerune_origin_n39_main_76:
 # cerune-mir: v1 main bb0 i32 -> lir 76 (source)
 cerune_origin_mir_main_bb0_i32_lir76:
+  leaq cerune_call_site_0_39_362_374(%rip), %rcx
+  leaq cerune_call_site_0_39_362_374_alloc(%rip), %rdx
+  callq cerune_call_enter
   movsd -200(%rbp), %xmm0
   callq cerune_fn_value_0
+  subq $1, cerune_call_depth(%rip)
 # cerune-origin: #39 bytes 362..374
 cerune_origin_n39_main_77:
 # cerune-mir: v1 main bb0 i32 -> lir 77 (source)
@@ -1781,8 +1970,12 @@ cerune_origin_mir_main_bb0_i35_lir84:
 cerune_origin_n43_main_85:
 # cerune-mir: v1 main bb0 i36 -> lir 85 (source)
 cerune_origin_mir_main_bb0_i36_lir85:
+  leaq cerune_call_site_0_43_415_427(%rip), %rcx
+  leaq cerune_call_site_0_43_415_427_alloc(%rip), %rdx
+  callq cerune_call_enter
   movsd -224(%rbp), %xmm0
   callq cerune_fn_value_0
+  subq $1, cerune_call_depth(%rip)
 # cerune-origin: #43 bytes 415..427
 cerune_origin_n43_main_86:
 # cerune-mir: v1 main bb0 i36 -> lir 86 (source)
@@ -1934,6 +2127,7 @@ cerune_origin_mir_main_bb0_i42_lir98:
 .Lcerune_block_1:
 # main_exit
 # cerune-origin: synthetic
+  callq cerune_call_finish
   xorl %eax, %eax
   addq $288, %rsp
   popq %rbp

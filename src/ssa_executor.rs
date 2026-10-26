@@ -183,6 +183,17 @@ pub fn run_with_arguments(
 ) -> std::result::Result<String, ExecutionError> {
     run_connections(program, &mut Capture::default(), None, Some(arguments))
 }
+/// 入出力・引数・ソース関数の呼出し深さを同じ実行に接続します。
+pub fn run_with_io_arguments_and_call_limit<R: std::io::Read, W: std::io::Write>(
+    program: &ssa::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    arguments: &Arguments,
+    limit: NonZeroU32,
+) -> std::result::Result<(), ExecutionError> {
+    run_connections_with_limit(program, output, Some(input), Some(arguments), Some(limit))
+        .map(|_| ())
+}
 pub fn run_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
     program: &ssa::Program,
     input: &mut input::Input<R>,

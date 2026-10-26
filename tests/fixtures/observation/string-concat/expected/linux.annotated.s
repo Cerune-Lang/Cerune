@@ -1,15 +1,19 @@
 # cerune-asm-origins v1: UTF-8 byte ranges, end exclusive
 # cerune-origin: synthetic
 # target: x86_64-unknown-linux-gnu
+.extern stderr
+.extern fputs
+.extern realloc
+.extern fflush
+.extern fprintf
+.extern _Exit
+.extern free
 .extern write
 .extern __errno_location
 .extern snprintf
-.extern _Exit
 .extern signal
-.extern free
 .extern malloc
 .extern memcpy
-.extern fflush
 .globl main
 .section .rodata
 .p2align 4
@@ -38,6 +42,119 @@
 .Lcerune_string_2:
 .quad 0x0000000000000001
 .byte 33
+.section .rodata
+cerune_call_header:
+.asciz "call-v1 reason=depth-limit limit=128"
+cerune_call_frame_format:
+.asciz "call-v1 frame=%llu"
+.data
+.p2align 3
+cerune_call_depth:
+.quad 0x0000000000000000
+cerune_call_capacity:
+.quad 0x0000000000000000
+cerune_call_frames:
+.quad 0x0000000000000000
+.text
+cerune_call_write:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $80, %rsp
+  movq %rdi, -8(%rbp)
+  movq stderr(%rip), %rsi
+  movq -8(%rbp), %rdi
+  callq fputs@PLT
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+cerune_call_enter:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $80, %rsp
+  movq %rdi, -8(%rbp)
+  movq %rsi, -16(%rbp)
+  movq cerune_call_depth(%rip), %r10
+  movq %r10, -24(%rbp)
+  movq $128, %r11
+  cmpq %r11, %r10
+  jae .Lcall_overflow
+  cmpq cerune_call_capacity(%rip), %r10
+  jne .Lcall_push
+  testq %r10, %r10
+  jne .Lcall_double
+  movq $4, %r10
+.Lcall_double:
+  addq %r10, %r10
+  cmpq %r11, %r10
+  jbe .Lcall_capacity_ready
+  movq %r11, %r10
+.Lcall_capacity_ready:
+  movq %r10, -32(%rbp)
+  shlq $3, %r10
+  movq cerune_call_frames(%rip), %rdi
+  movq %r10, %rsi
+  callq realloc@PLT
+  testq %rax, %rax
+  je .Lcall_allocation_failed
+  movq %rax, cerune_call_frames(%rip)
+  movq -32(%rbp), %r10
+  movq %r10, cerune_call_capacity(%rip)
+.Lcall_push:
+  movq -24(%rbp), %r10
+  shlq $3, %r10
+  addq cerune_call_frames(%rip), %r10
+  movq -8(%rbp), %r11
+  movq %r11, 0(%r10)
+  addq $1, cerune_call_depth(%rip)
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+.Lcall_allocation_failed:
+  xorl %edi, %edi
+  callq fflush@PLT
+  movq -16(%rbp), %rdi
+  callq cerune_call_write
+  jmp .Lcall_stop
+.Lcall_overflow:
+  xorl %edi, %edi
+  callq fflush@PLT
+  leaq cerune_call_header(%rip), %rdi
+  callq cerune_call_write
+  movq -8(%rbp), %rdi
+  callq cerune_call_write
+  movq $0, -40(%rbp)
+.Lcall_history:
+  movq stderr(%rip), %rdi
+  leaq cerune_call_frame_format(%rip), %rsi
+  movq -40(%rbp), %rdx
+  xorl %eax, %eax
+  callq fprintf@PLT
+  movq -40(%rbp), %r10
+  shlq $3, %r10
+  addq cerune_call_frames(%rip), %r10
+  movq 0(%r10), %rdi
+  callq cerune_call_write
+  addq $1, -40(%rbp)
+  movq -40(%rbp), %r10
+  cmpq -24(%rbp), %r10
+  jb .Lcall_history
+.Lcall_stop:
+  xorl %edi, %edi
+  callq fflush@PLT
+  movl $1, %edi
+  callq _Exit@PLT
+  ud2
+cerune_call_finish:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $80, %rsp
+  movq cerune_call_frames(%rip), %rdi
+  callq free@PLT
+  movq $0, cerune_call_frames(%rip)
+  movq $0, cerune_call_capacity(%rip)
+  movq %rbp, %rsp
+  popq %rbp
+  retq
 .text
 .section .rodata
 .Loutput_record:
@@ -1631,6 +1748,7 @@ cerune_origin_mir_main_bb0_i22_lir46:
 .Lcerune_block_1:
 # main_exit
 # cerune-origin: synthetic
+  callq cerune_call_finish
   xorl %eax, %eax
   addq $144, %rsp
   popq %rbp

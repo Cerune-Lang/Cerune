@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <stddef.h>
 #include <math.h>
 #include <float.h>
 #include <stdbool.h>
@@ -21,6 +23,42 @@ static void cerune_runtime_fail(const char *code, const char *origin) {
     fputs(origin, stderr);
     fflush(stderr);
     abort();
+}
+
+/* Explicit source-call depth limit: 128; not a physical stack guarantee. */
+#define CERUNE_CALL_LIMIT 128U
+
+typedef struct { uint64_t function; const char *origin; } cerune_call_frame;
+static cerune_call_frame *cerune_call_frames = NULL;
+static size_t cerune_call_depth = 0, cerune_call_capacity = 0;
+static void cerune_call_enter(uint64_t function, const char *origin) {
+    if (cerune_call_depth >= CERUNE_CALL_LIMIT) {
+        fflush(stdout);
+        fprintf(stderr, "call-v1 reason=depth-limit limit=%u function=%llu%s",
+            (unsigned)CERUNE_CALL_LIMIT, (unsigned long long)function, origin);
+        for (size_t i = 0; i < cerune_call_depth; ++i) {
+            fprintf(stderr, "call-v1 frame=%llu function=%llu%s", (unsigned long long)i,
+                (unsigned long long)cerune_call_frames[i].function, cerune_call_frames[i].origin);
+        }
+        fflush(stderr);
+        _Exit(1);
+    }
+    if (cerune_call_depth == cerune_call_capacity) {
+        uint64_t next = cerune_call_capacity ? (uint64_t)cerune_call_capacity * 2 : 8;
+        if (next > CERUNE_CALL_LIMIT) next = CERUNE_CALL_LIMIT;
+        if (next > SIZE_MAX / sizeof(cerune_call_frame)) cerune_runtime_fail("allocation-failed", origin);
+        cerune_call_frame *frames = (cerune_call_frame *)realloc(cerune_call_frames, (size_t)next * sizeof(cerune_call_frame));
+        if (!frames) cerune_runtime_fail("allocation-failed", origin);
+        cerune_call_frames = frames;
+        cerune_call_capacity = (size_t)next;
+    }
+    cerune_call_frames[cerune_call_depth++] = (cerune_call_frame){function, origin};
+}
+static void cerune_call_leave(void) { --cerune_call_depth; }
+static void cerune_call_finish(void) {
+    free(cerune_call_frames);
+    cerune_call_frames = NULL;
+    cerune_call_capacity = 0;
 }
 
 static uint64_t cerune_convert_i64_u64(int64_t value, const char *origin) {
@@ -157,5 +195,6 @@ int main(void) {
     cerune_output_u64((_cerune_bit_left_9 = cerune_binding_0_maximum, _cerune_bit_right_9 = UINT64_C(2), cerune_u64_div(_cerune_bit_left_9, _cerune_bit_right_9, " node=9 bytes=79..90\n")), 1, " node=8 bytes=73..92\n");
     cerune_output_u64((_cerune_bit_left_13 = cerune_binding_0_maximum, _cerune_bit_right_13 = UINT64_C(63), cerune_u64_shr(_cerune_bit_left_13, _cerune_bit_right_13, " node=13 bytes=99..112\n")), 1, " node=12 bytes=93..114\n");
     cerune_output_u64(cerune_convert_i64_u64(42, " node=17 bytes=121..131\n"), 1, " node=16 bytes=115..133\n");
+    cerune_call_finish();
     return 0;
 }

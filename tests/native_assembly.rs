@@ -449,7 +449,17 @@ fn machine_artifacts_execute_examples_and_retain_origin_symbols() {
             let plain_object = directory.join("plain.o");
             fs::write(
                 &plain_source,
-                compile_to_asm_with_target(&source, target).unwrap(),
+                cerune_lang::codegen::x86_64::emit_asm_from_lir(
+                    &cerune_lang::codegen::x86_64::lower_mir_with_call_limit(
+                        &cerune_lang::mir::lower(&cerune_lang::compile_to_ir(&source).unwrap())
+                            .unwrap(),
+                        target,
+                        std::num::NonZeroU32::new(128).unwrap(),
+                    )
+                    .unwrap(),
+                    false,
+                )
+                .unwrap(),
             )
             .unwrap();
             let flags = if cfg!(windows) {
@@ -531,7 +541,19 @@ fn object_cli_requires_explicit_target_and_output_and_never_runs_an_assembler() 
         assert!(result.stdout.is_empty() && result.stderr.is_empty());
         assert_eq!(
             fs::read(&output).unwrap(),
-            cerune_lang::compile_to_native_object(source, target, true).unwrap()
+            cerune_lang::codegen::x86_64::emit_object_from_lir(
+                &cerune_lang::codegen::x86_64::lower_mir_with_call_limit(
+                    &cerune_lang::mir::lower(
+                        &cerune_lang::modules::load(&input).unwrap().to_ir().unwrap()
+                    )
+                    .unwrap(),
+                    target,
+                    std::num::NonZeroU32::new(128).unwrap()
+                )
+                .unwrap(),
+                true
+            )
+            .unwrap()
         );
     }
     for options in [

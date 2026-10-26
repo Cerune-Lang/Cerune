@@ -1,5 +1,165 @@
 # target: x86_64-unknown-linux-gnu (qbe -t amd64_sysv)
 
+# call_depth_limit=128; not a physical stack/memory guarantee
+section ".rodata" data $cerune_call_site_0_8_90_101_text = { b 32, b 102, b 117, b 110, b 99, b 116, b 105, b 111, b 110, b 61, b 48, b 32, b 110, b 111, b 100, b 101, b 61, b 56, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 57, b 48, b 46, b 46, b 49, b 48, b 49, b 10 }
+section ".rodata" data $cerune_call_site_0_8_90_101_alloc = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 108, b 108, b 111, b 99, b 97, b 116, b 105, b 111, b 110, b 45, b 102, b 97, b 105, b 108, b 101, b 100, b 32, b 110, b 111, b 100, b 101, b 61, b 56, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 57, b 48, b 46, b 46, b 49, b 48, b 49, b 10 }
+section ".rodata" data $cerune_call_site_0_8_90_101 = {l $cerune_call_site_0_8_90_101_text,l 33,l $cerune_call_site_0_8_90_101_alloc,l 63}
+section ".rodata" data $cerune_call_site_0_13_121_132_text = { b 32, b 102, b 117, b 110, b 99, b 116, b 105, b 111, b 110, b 61, b 48, b 32, b 110, b 111, b 100, b 101, b 61, b 49, b 51, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 49, b 50, b 49, b 46, b 46, b 49, b 51, b 50, b 10 }
+section ".rodata" data $cerune_call_site_0_13_121_132_alloc = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 108, b 108, b 111, b 99, b 97, b 116, b 105, b 111, b 110, b 45, b 102, b 97, b 105, b 108, b 101, b 100, b 32, b 110, b 111, b 100, b 101, b 61, b 49, b 51, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 49, b 50, b 49, b 46, b 46, b 49, b 51, b 50, b 10 }
+section ".rodata" data $cerune_call_site_0_13_121_132 = {l $cerune_call_site_0_13_121_132_text,l 35,l $cerune_call_site_0_13_121_132_alloc,l 65}
+section ".rodata" data $cerune_call_site_0_18_153_163_text = { b 32, b 102, b 117, b 110, b 99, b 116, b 105, b 111, b 110, b 61, b 48, b 32, b 110, b 111, b 100, b 101, b 61, b 49, b 56, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 49, b 53, b 51, b 46, b 46, b 49, b 54, b 51, b 10 }
+section ".rodata" data $cerune_call_site_0_18_153_163_alloc = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 108, b 108, b 111, b 99, b 97, b 116, b 105, b 111, b 110, b 45, b 102, b 97, b 105, b 108, b 101, b 100, b 32, b 110, b 111, b 100, b 101, b 61, b 49, b 56, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 49, b 53, b 51, b 46, b 46, b 49, b 54, b 51, b 10 }
+section ".rodata" data $cerune_call_site_0_18_153_163 = {l $cerune_call_site_0_18_153_163_text,l 35,l $cerune_call_site_0_18_153_163_alloc,l 65}
+section ".rodata" data $cerune_call_site_0_22_194_204_text = { b 32, b 102, b 117, b 110, b 99, b 116, b 105, b 111, b 110, b 61, b 48, b 32, b 110, b 111, b 100, b 101, b 61, b 50, b 50, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 49, b 57, b 52, b 46, b 46, b 50, b 48, b 52, b 10 }
+section ".rodata" data $cerune_call_site_0_22_194_204_alloc = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 108, b 108, b 111, b 99, b 97, b 116, b 105, b 111, b 110, b 45, b 102, b 97, b 105, b 108, b 101, b 100, b 32, b 110, b 111, b 100, b 101, b 61, b 50, b 50, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 49, b 57, b 52, b 46, b 46, b 50, b 48, b 52, b 10 }
+section ".rodata" data $cerune_call_site_0_22_194_204 = {l $cerune_call_site_0_22_194_204_text,l 35,l $cerune_call_site_0_22_194_204_alloc,l 65}
+section ".rodata" data $cerune_call_site_0_26_235_247_text = { b 32, b 102, b 117, b 110, b 99, b 116, b 105, b 111, b 110, b 61, b 48, b 32, b 110, b 111, b 100, b 101, b 61, b 50, b 54, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 50, b 51, b 53, b 46, b 46, b 50, b 52, b 55, b 10 }
+section ".rodata" data $cerune_call_site_0_26_235_247_alloc = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 108, b 108, b 111, b 99, b 97, b 116, b 105, b 111, b 110, b 45, b 102, b 97, b 105, b 108, b 101, b 100, b 32, b 110, b 111, b 100, b 101, b 61, b 50, b 54, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 50, b 51, b 53, b 46, b 46, b 50, b 52, b 55, b 10 }
+section ".rodata" data $cerune_call_site_0_26_235_247 = {l $cerune_call_site_0_26_235_247_text,l 35,l $cerune_call_site_0_26_235_247_alloc,l 65}
+section ".rodata" data $cerune_call_site_0_30_278_289_text = { b 32, b 102, b 117, b 110, b 99, b 116, b 105, b 111, b 110, b 61, b 48, b 32, b 110, b 111, b 100, b 101, b 61, b 51, b 48, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 50, b 55, b 56, b 46, b 46, b 50, b 56, b 57, b 10 }
+section ".rodata" data $cerune_call_site_0_30_278_289_alloc = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 108, b 108, b 111, b 99, b 97, b 116, b 105, b 111, b 110, b 45, b 102, b 97, b 105, b 108, b 101, b 100, b 32, b 110, b 111, b 100, b 101, b 61, b 51, b 48, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 50, b 55, b 56, b 46, b 46, b 50, b 56, b 57, b 10 }
+section ".rodata" data $cerune_call_site_0_30_278_289 = {l $cerune_call_site_0_30_278_289_text,l 35,l $cerune_call_site_0_30_278_289_alloc,l 65}
+section ".rodata" data $cerune_call_site_0_35_319_331_text = { b 32, b 102, b 117, b 110, b 99, b 116, b 105, b 111, b 110, b 61, b 48, b 32, b 110, b 111, b 100, b 101, b 61, b 51, b 53, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 51, b 49, b 57, b 46, b 46, b 51, b 51, b 49, b 10 }
+section ".rodata" data $cerune_call_site_0_35_319_331_alloc = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 108, b 108, b 111, b 99, b 97, b 116, b 105, b 111, b 110, b 45, b 102, b 97, b 105, b 108, b 101, b 100, b 32, b 110, b 111, b 100, b 101, b 61, b 51, b 53, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 51, b 49, b 57, b 46, b 46, b 51, b 51, b 49, b 10 }
+section ".rodata" data $cerune_call_site_0_35_319_331 = {l $cerune_call_site_0_35_319_331_text,l 35,l $cerune_call_site_0_35_319_331_alloc,l 65}
+section ".rodata" data $cerune_call_site_0_39_362_374_text = { b 32, b 102, b 117, b 110, b 99, b 116, b 105, b 111, b 110, b 61, b 48, b 32, b 110, b 111, b 100, b 101, b 61, b 51, b 57, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 51, b 54, b 50, b 46, b 46, b 51, b 55, b 52, b 10 }
+section ".rodata" data $cerune_call_site_0_39_362_374_alloc = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 108, b 108, b 111, b 99, b 97, b 116, b 105, b 111, b 110, b 45, b 102, b 97, b 105, b 108, b 101, b 100, b 32, b 110, b 111, b 100, b 101, b 61, b 51, b 57, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 51, b 54, b 50, b 46, b 46, b 51, b 55, b 52, b 10 }
+section ".rodata" data $cerune_call_site_0_39_362_374 = {l $cerune_call_site_0_39_362_374_text,l 35,l $cerune_call_site_0_39_362_374_alloc,l 65}
+section ".rodata" data $cerune_call_site_0_43_415_427_text = { b 32, b 102, b 117, b 110, b 99, b 116, b 105, b 111, b 110, b 61, b 48, b 32, b 110, b 111, b 100, b 101, b 61, b 52, b 51, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 52, b 49, b 53, b 46, b 46, b 52, b 50, b 55, b 10 }
+section ".rodata" data $cerune_call_site_0_43_415_427_alloc = { b 99, b 101, b 114, b 117, b 110, b 101, b 58, b 32, b 114, b 117, b 110, b 116, b 105, b 109, b 101, b 45, b 118, b 49, b 32, b 99, b 111, b 100, b 101, b 61, b 97, b 108, b 108, b 111, b 99, b 97, b 116, b 105, b 111, b 110, b 45, b 102, b 97, b 105, b 108, b 101, b 100, b 32, b 110, b 111, b 100, b 101, b 61, b 52, b 51, b 32, b 98, b 121, b 116, b 101, b 115, b 61, b 52, b 49, b 53, b 46, b 46, b 52, b 50, b 55, b 10 }
+section ".rodata" data $cerune_call_site_0_43_415_427 = {l $cerune_call_site_0_43_415_427_text,l 35,l $cerune_call_site_0_43_415_427_alloc,l 65}
+section ".rodata" data $cerune_call_header = { b 99, b 97, b 108, b 108, b 45, b 118, b 49, b 32, b 114, b 101, b 97, b 115, b 111, b 110, b 61, b 100, b 101, b 112, b 116, b 104, b 45, b 108, b 105, b 109, b 105, b 116, b 32, b 108, b 105, b 109, b 105, b 116, b 61, b 49, b 50, b 56 }
+section ".rodata" data $cerune_call_frame_prefix = { b 99, b 97, b 108, b 108, b 45, b 118, b 49, b 32, b 102, b 114, b 97, b 109, b 101, b 61 }
+function $cerune_call_write(l %p, l %n) {
+@start
+  call $write(w 2, l %p, l %n)
+  ret
+}
+function $cerune_call_flush() {
+@start
+  %stream =l loadl $stdout
+  call $fflush(l %stream)
+  ret
+}
+
+data $cerune_call_depth = {l 0}
+data $cerune_call_capacity = {l 0}
+data $cerune_call_frames = {l 0}
+function $cerune_call_site_write(l %site, l %field) {
+@start
+  %offset =l mul %field, 16
+  %pair =l add %site, %offset
+  %length_slot =l add %pair, 8
+  %p =l loadl %pair
+  %n =l loadl %length_slot
+  call $cerune_call_write(l %p, l %n)
+  ret
+}
+function $cerune_call_number(l %number) {
+@start
+  %buffer =l alloc8 24
+  jmp @digits
+@digits
+  %v =l phi @start %number, @digits %q
+  %end =l phi @start 20, @digits %index
+  %q =l udiv %v, 10
+  %r =l urem %v, 10
+  %ascii =l add %r, 48
+  %index =l sub %end, 1
+  %p =l add %buffer, %index
+  storeb %ascii, %p
+  %more =w cnel %q, 0
+  jnz %more, @digits, @done
+@done
+  %length =l sub 20, %index
+  call $cerune_call_write(l %p, l %length)
+  ret
+}
+function $cerune_call_enter(l %site) {
+@start
+  %depth =l loadl $cerune_call_depth
+  %full =w cugel %depth, 128
+  jnz %full, @overflow, @capacity
+@overflow
+  call $cerune_call_flush()
+  call $cerune_call_write(l $cerune_call_header, l 36)
+  call $cerune_call_site_write(l %site, l 0)
+  %history =l loadl $cerune_call_frames
+  jmp @history_loop
+@history_loop
+  %i =l phi @overflow 0, @history_loop %next_i
+  call $cerune_call_write(l $cerune_call_frame_prefix, l 14)
+  call $cerune_call_number(l %i)
+  %offset =l mul %i, 8
+  %slot =l add %history, %offset
+  %saved =l loadl %slot
+  call $cerune_call_site_write(l %saved, l 0)
+  %next_i =l add %i, 1
+  %more =w cultl %next_i, %depth
+  jnz %more, @history_loop, @stop
+@stop
+  call $_Exit(w 1)
+  hlt
+@capacity
+  %cap =l loadl $cerune_call_capacity
+  %grow =w ceql %depth, %cap
+  jnz %grow, @allocate, @push
+@allocate
+  %double =l mul %cap, 2
+  %zero =w ceql %cap, 0
+  jnz %zero, @initial, @grown
+@initial
+  jmp @bound
+@grown
+  jmp @bound
+@bound
+  %want =l phi @initial 8, @grown %double
+  %exceeds =w cugtl %want, 128
+  jnz %exceeds, @capped, @wanted
+@capped
+  jmp @resize
+@wanted
+  jmp @resize
+@resize
+  %next_cap =l phi @capped 128, @wanted %want
+  %bytes =l mul %next_cap, 8
+  %old =l loadl $cerune_call_frames
+  %new =l call $realloc(l %old, l %bytes)
+  %failed =w ceql %new, 0
+  jnz %failed, @allocation_failed, @allocated
+@allocation_failed
+  call $cerune_call_flush()
+  call $cerune_call_site_write(l %site, l 1)
+  call $_Exit(w 1)
+  hlt
+@allocated
+  storel %new, $cerune_call_frames
+  storel %next_cap, $cerune_call_capacity
+  jmp @push
+@push
+  %frames =l loadl $cerune_call_frames
+  %destination_offset =l mul %depth, 8
+  %destination =l add %frames, %destination_offset
+  storel %site, %destination
+  %entered =l add %depth, 1
+  storel %entered, $cerune_call_depth
+  ret
+}
+function $cerune_call_leave() {
+@start
+  %depth =l loadl $cerune_call_depth
+  %left =l sub %depth, 1
+  storel %left, $cerune_call_depth
+  ret
+}
+function $cerune_call_finish() {
+@start
+  %frames =l loadl $cerune_call_frames
+  call $free(l %frames)
+  storel 0, $cerune_call_frames
+  storel 0, $cerune_call_capacity
+  ret
+}
 section ".rodata" data $cerune_output_origin_6_73_104 = { b " node=6 bytes=73..104", b 10, b 0 }
 section ".rodata" data $cerune_output_origin_11_105_135 = { b " node=11 bytes=105..135", b 10, b 0 }
 section ".rodata" data $cerune_output_origin_16_136_166 = { b " node=16 bytes=136..166", b 10, b 0 }
@@ -789,35 +949,54 @@ function d $cerune_fn_value_0(d %arg0) {
 export function w $main() {
 @start
   %tmp0 =d neg d_2.5
+  call $cerune_call_enter(l $cerune_call_site_0_8_90_101)
   %tmp1 =d call $cerune_fn_value_0(d %tmp0)
+  call $cerune_call_leave()
   %tmp2 =l call $cerune_floor_f64_i64(d %tmp1, l $cerune_origin_7_79_102, l 22)
   call $cerune_output_i64(l %tmp2, w 1, l $cerune_output_origin_6_73_104)
   %tmp3 =d neg d_2.5
+  call $cerune_call_enter(l $cerune_call_site_0_13_121_132)
   %tmp4 =d call $cerune_fn_value_0(d %tmp3)
+  call $cerune_call_leave()
   %tmp5 =l call $cerune_ceil_f64_i64(d %tmp4, l $cerune_origin_12_111_133, l 24)
   call $cerune_output_i64(l %tmp5, w 1, l $cerune_output_origin_11_105_135)
+  call $cerune_call_enter(l $cerune_call_site_0_18_153_163)
   %tmp6 =d call $cerune_fn_value_0(d d_2.5)
+  call $cerune_call_leave()
   %tmp7 =l call $cerune_round_f64_i64(d %tmp6, l $cerune_origin_17_142_164, l 24)
   call $cerune_output_i64(l %tmp7, w 1, l $cerune_output_origin_16_136_166)
+  call $cerune_call_enter(l $cerune_call_site_0_22_194_204)
   %tmp8 =d call $cerune_fn_value_0(d d_2.5)
+  call $cerune_call_leave()
   %tmp9 =l call $cerune_round_ties_even_f64_i64(d %tmp8, l $cerune_origin_21_173_205, l 24)
   call $cerune_output_i64(l %tmp9, w 1, l $cerune_output_origin_20_167_207)
+  call $cerune_call_enter(l $cerune_call_site_0_26_235_247)
   %tmp10 =d call $cerune_fn_value_0(d d_300.0)
+  call $cerune_call_leave()
   %tmp11 =l call $cerune_saturating_trunc_f64_u8(d %tmp10, l $cerune_origin_25_214_248, l 24)
   call $cerune_output_i64(l %tmp11, w 1, l $cerune_output_origin_24_208_250)
   %tmp12 =d neg d_0.1
+  call $cerune_call_enter(l $cerune_call_site_0_30_278_289)
   %tmp13 =d call $cerune_fn_value_0(d %tmp12)
+  call $cerune_call_leave()
   %tmp14 =l call $cerune_saturating_floor_f64_u8(d %tmp13, l $cerune_origin_29_257_290, l 24)
   call $cerune_output_i64(l %tmp14, w 1, l $cerune_output_origin_28_251_292)
+  call $cerune_call_enter(l $cerune_call_site_0_35_319_331)
   %tmp15 =d call $cerune_fn_value_0(d d_255.1)
+  call $cerune_call_leave()
   %tmp16 =l call $cerune_saturating_ceil_f64_u8(d %tmp15, l $cerune_origin_34_299_332, l 24)
   call $cerune_output_i64(l %tmp16, w 1, l $cerune_output_origin_33_293_334)
+  call $cerune_call_enter(l $cerune_call_site_0_39_362_374)
   %tmp17 =d call $cerune_fn_value_0(d d_255.5)
+  call $cerune_call_leave()
   %tmp18 =l call $cerune_saturating_round_f64_u8(d %tmp17, l $cerune_origin_38_341_375, l 24)
   call $cerune_output_i64(l %tmp18, w 1, l $cerune_output_origin_37_335_377)
+  call $cerune_call_enter(l $cerune_call_site_0_43_415_427)
   %tmp19 =d call $cerune_fn_value_0(d d_254.5)
+  call $cerune_call_leave()
   %tmp20 =l call $cerune_saturating_round_ties_even_f64_u8(d %tmp19, l $cerune_origin_42_384_428, l 24)
   call $cerune_output_i64(l %tmp20, w 1, l $cerune_output_origin_41_378_430)
   call $cerune_output_i64(l 3, w 1, l $cerune_output_origin_45_431_444)
+  call $cerune_call_finish()
   ret 0
 }

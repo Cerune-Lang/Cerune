@@ -186,10 +186,7 @@ fn missing_string_targets_fail_without_overwriting_an_artifact() {
         assert_eq!(output.status.code(), Some(1));
         assert!(output.stdout.is_empty());
         let message = String::from_utf8(output.stderr).unwrap();
-        assert!(
-            message.contains("explicit --target") && message.contains("at 1:"),
-            "{message}"
-        );
+        assert!(message.contains("explicit --target"), "{message}");
         assert_eq!(fs::read(&path).unwrap(), b"existing artifact");
     }
     fs::remove_file(path).unwrap();

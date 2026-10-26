@@ -39,6 +39,14 @@ pub fn emit_wat_with_call_limit(
 ) -> Result<String, Diagnostic> {
     emit_configured(program, Default::default(), Some(limit))
 }
+/// 引数と呼出し深さの制約を同時に指定します。既存APIの既定動作は維持します。
+pub fn emit_wat_with_runtime_limits(
+    program: &cerune_ir::Program,
+    arguments: crate::runtime::arguments::Limits,
+    calls: std::num::NonZeroU32,
+) -> Result<String, Diagnostic> {
+    emit_configured(program, arguments, Some(calls))
+}
 fn emit_configured(
     program: &cerune_ir::Program,
     limits: crate::runtime::arguments::Limits,

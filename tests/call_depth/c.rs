@@ -289,3 +289,48 @@ fn finite_scalar_and_aggregate_chains_compare_resource_behavior() {
         }
     }
 }
+
+#[test]
+fn cli_call_depth_matches_independent_ir_execution() {
+    let dir = directory();
+    let source = include_str!("../../examples/call_frames/return_paths.ceru");
+    let input = dir.join("source.ceru");
+    fs::write(&input, source).unwrap();
+    let p = cerune_lang::modules::from_source(source)
+        .unwrap()
+        .to_ir()
+        .unwrap();
+    for n in [1, 2, 128] {
+        let result = super::process::bounded_output(
+            Command::new(env!("CARGO_BIN_EXE_cerune"))
+                .arg("emit-c")
+                .arg(&input)
+                .args(["--call-depth-limit", &n.to_string()]),
+            &dir,
+            "cli-emit",
+            Duration::from_secs(30),
+        )
+        .unwrap();
+        assert!(result.status.success(), "{result:?}");
+        let Some(actual) = execute(&String::from_utf8(result.stdout).unwrap(), "-O0") else {
+            return;
+        };
+        match ir_executor::run_with_call_limit(&p, NonZeroU32::new(n).unwrap()) {
+            Ok(value) => {
+                assert!(actual.status.success(), "{actual:?}");
+                assert_eq!(actual.stdout, value.as_bytes());
+                assert!(actual.stderr.is_empty());
+            }
+            Err(error) => {
+                assert_eq!(actual.status.code(), Some(1));
+                assert_eq!(actual.stdout, error.output().as_bytes());
+                assert_eq!(
+                    String::from_utf8(actual.stderr)
+                        .unwrap()
+                        .replace("\r\n", "\n"),
+                    format!("{}\n", error.call_failure().unwrap().record())
+                );
+            }
+        }
+    }
+}

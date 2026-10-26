@@ -55,3 +55,4 @@ Do not concurrently modify inputs. This does not isolate hostile concurrent writ
 On Windows/Linux, build, package, relocate and execute the example with known results already compared with IR/MIR/VM. Cover baseline/SSA, included/omitted sources, byte-for-byte preservation, hashes, direct dependencies, inconsistent/missing records and existing-output preservation. Commands are in the [example](../../examples/build_native/README.en.md).
 
 This change completes the initial distribution mode requiring a target system runtime. IR/VM Images, broader portability and library bundling remain separate work. The next language feature in the [roadmap](language-roadmap.en.md) is recursion.
+Release preserves build call_depth_limit unchanged. Missing legacy records are not filled with a default; release.json records null (unknown). Present values must be integers in 1–128.

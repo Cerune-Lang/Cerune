@@ -45,6 +45,17 @@ pub fn lower_mir_with_call_limit(
     Ok(module)
 }
 
+/// 引数とソース関数の深さ上限を保持する共通LIRを構築します。
+pub fn lower_mir_with_runtime_limits(
+    program: &crate::mir::Program,
+    target: Target,
+    arguments: crate::runtime::arguments::Limits,
+    calls: std::num::NonZeroU32,
+) -> Result<ir::Module, crate::diagnostic::Diagnostic> {
+    let mut module = lower_mir_with_argument_limits(program, target, arguments)?;
+    module.call_limit = Some(calls);
+    Ok(module)
+}
 #[cfg(test)]
 fn lower(program: &crate::ir::Program) -> ir::Module {
     lower_mir(

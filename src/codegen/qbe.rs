@@ -82,6 +82,20 @@ pub fn emit_qbe_with_call_limit(
 ) -> Result<String, Diagnostic> {
     emit_configured(program, Some(target), Default::default(), Some(limit))
 }
+/// 引数と呼出し深さの制約を同時に指定します。既存APIの既定動作は維持します。
+pub fn emit_qbe_with_runtime_limits(
+    program: &cerune_ir::Program,
+    target: Option<Target>,
+    arguments: crate::runtime::arguments::Limits,
+    calls: std::num::NonZeroU32,
+) -> Result<String, Diagnostic> {
+    if target.is_none() {
+        return Err(Diagnostic::without_span(
+            "QBE call depth checks require an explicit --target",
+        ));
+    }
+    emit_configured(program, target, arguments, Some(calls))
+}
 fn emit_configured(
     program: &cerune_ir::Program,
     target: Option<Target>,

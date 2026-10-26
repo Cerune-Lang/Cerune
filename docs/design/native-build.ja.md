@@ -56,3 +56,5 @@ Windowsは選択toolchainのMSVC/UCRT・Win32、Linuxは選択toolchainのglibc�
 stdinはnullです。timeout時は専用プロセスグループ（Unix）／driverの子孫（Windows）を終了させ、driverを回収します。toolchainを隔離するsandboxではなく、明示したローカルツールを信頼します。
 
 Windows/Linuxで、通常MIR／SSAのbuild→実行、既存emitとの一致、引数・予算・失敗理由と出自を比較します。異常系はdriverの失敗・timeout・成功を装う未生成出力、構文／型エラーと既存出力保護を検証します。[実行example](../../examples/build_native/README.md)を参照してください。
+
+buildは `--call-depth-limit N`（既定128・範囲1〜128）を生成LIR・検査・manifestのcall_depth_limitへ保持します。物理stack／memoryの安全保証ではありません。

@@ -55,3 +55,4 @@ build manifestの形式・成功状態・target・選択オプションと規定
 Windows/Linuxでbuild→release→別ディレクトリへ移動→実行を試し、IR/MIR/VMと比較済みのexampleの期待値を確認します。通常MIR/SSA・本文あり／なし、全ファイルのバイト一致・SHA-256、直接依存物、記録の不整合・欠落・既存先保護を検証します。[example](../../examples/build_native/README.md)にコマンドを載せています。
 
 対象システムruntimeを要求する配布初版までを本変更の区切りとします。IR/VM Image、より広い配布互換性・依存物同梱は別作業です。次の言語機能は[ロードマップ](language-roadmap.ja.md)の再帰です。
+releaseはbuildのcall_depth_limitを変更せず引き継ぎます。旧buildで未記録なら既定値を補わず、release.jsonではnull（不明）とします。記録値が1〜128の整数でなければ拒否します。

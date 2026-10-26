@@ -12,6 +12,23 @@ This document defines the command-line interface of Cerune v0.1.
 
 `observe` [saves sources, HIR, MIR, annotated ASM, and a manifest from one compilation](../design/observation-bundle.en.md). Both `--target` and `-o` are required; both heap budgets are supported. Existing output paths are rejected; create the parent directory first. Input names and source text are included. No program execution, external tools, or linking occurs. Objects and other backend artifacts are not yet bundled.
 
+## Call depth
+
+Normal execution, generated routes, and Native build accept `--call-depth-limit N`: default 128, public range 1–128. A call at the limit is allowed; the next source-function entry stops after left-to-right argument evaluation.
+
+| Operation | Configuration |
+| --- | --- |
+| run / run-ir / run-mir (including SSA) / run-vm | Pass the same limit alongside I/O and program arguments. runtime-v1 diagnostic mode emits complete call-v1 records for depth failures |
+| emit-c / emit-llvm / emit-qbe / emit-wat | Retain the limit and checks in generated artifacts. LLVM/QBE require an explicit target even for scalar-only programs |
+| emit-lir / emit-asm / emit-obj / build native | Generate from the same limited LIR. LIR records the value; ASM/Object retain checks and the diagnostic limit. Build manifests record call_depth_limit |
+| observe | Save baseline/SSA LIR and ASM using the same setting and record it in the manifest, without execution or changing settings through observation |
+| release native | Preserve the build setting unchanged. Older builds without a recorded limit remain unchanged; the release field is null (unknown) |
+| check / fmt / emit-sources / emit-ir / emit-mir / emit-bytecode | Reject this execution setting; source, common IR, and bytecode representations do not embed it |
+
+**1–128 is the public semantic configuration range, not a physical stack/memory safety guarantee.** Large locals, aggregates, and generated helpers consume physical resources. Detected allocation failures remain allocation-failed; OS/engine stack exhaustion remains a separate failure and is never relabeled depth-limit. General physical exhaustion is not guaranteed to produce a common diagnostic. Range extensions require a separate change based on validation across routes.
+
+[Recursion and call storage](../design/recursion.en.md) documents APIs, compatibility changes, and physical resource limits.
+
 ## Commands
 
 The current CLI provides the following commands:
@@ -27,9 +44,9 @@ cerune emit-ir <file> [-o <output.ceir>]
 cerune emit-mir <file> [-o <output.txt>]
 cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
 cerune emit-c <file> [-o <output.c>]
-cerune emit-llvm <file> [--target <triple>] [-o <output.ll>]
+cerune emit-llvm <file> --target <triple> [-o <output.ll>]
 cerune emit-wat <file> [-o <output.wat>]
-cerune emit-qbe <file> [--target <triple>] [-o <output.ssa>]
+cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
@@ -122,7 +139,7 @@ cerune check <file>
 
 `cerune check` parses the input source file and performs semantic validation and type checking.
 
-A successful `check` does not guarantee that every output route supports the program. Strings work through every route. Omitting the LLVM or QBE target diagnoses string-containing type definitions or expressions at their source location without producing an artifact. This diagnostic also leaves an existing file specified by `-o` unchanged.
+A successful `check` does not guarantee that every output route supports the program. Strings work through every route. LLVM/QBE CLI generation always requires an explicit target. Omission produces a configuration diagnostic without an artifact. This diagnostic also leaves an existing file specified by `-o` unchanged.
 
 ## Direct Cerune IR execution
 
@@ -172,8 +189,8 @@ Lower completed IR into unoptimized, non-SSA MIR, validate it, then emit observa
 
 ```text
 cerune emit-c <file> [-o <output.c>]
-cerune emit-llvm <file> [--target <triple>] [-o <output.ll>]
-cerune emit-qbe <file> [--target <triple>] [-o <output.ssa>]
+cerune emit-llvm <file> --target <triple> [-o <output.ll>]
+cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
@@ -185,8 +202,8 @@ Each command emits the following artifact:
 | Command | Output route | Current target | Artifact |
 | --- | --- | --- | --- |
 | `emit-c` | C | not selected by Cerune | `.c` |
-| `emit-llvm` | LLVM IR | unspecified, or explicit Windows x64 / Linux x86-64 | `.ll` |
-| `emit-qbe` | QBE IR | unspecified, or explicit Windows x64 / Linux x86-64 | `.ssa` |
+| `emit-llvm` | LLVM IR | explicit Windows x64 / Linux x86-64 | `.ll` |
+| `emit-qbe` | QBE IR | explicit Windows x64 / Linux x86-64 | `.ssa` |
 | `emit-wat` | WebAssembly Text | WebAssembly | `.wat` |
 | `emit-asm` | native assembly | x86-64, Windows / Linux, respective calling conventions | `.s` |
 | `emit-obj` | Native object encoded by Cerune | explicit Windows x64 / Linux x86-64 | `.obj` / `.o` |
@@ -198,7 +215,7 @@ Text-producing `emit-*` commands write their observations to standard output by 
 
 ### LLVM target selection
 
-`--target` accepts `x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Programs using strings or dynamic arrays require it, including unused types and functions. Numeric-only programs also require it when checked operations, conversions, or array indexing emit runtime diagnostics. Even numeric-only `print(1);` requires a target to select the write-failure connection. `flush();` and std:io line input also require an explicit target. The host OS never supplies a default. `--target` and `-o` (also `--output`) may appear in either order; duplicate options, missing values, and unsupported targets are errors.
+`--target` accepts `x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. The CLI requires it for every program to select the connection for depth-failure diagnostics. The host OS never supplies a default. `--target` and `-o` (also `--output`) may appear in either order; duplicate options, missing values, and unsupported targets are errors.
 
 On Linux x86-64:
 
@@ -222,7 +239,7 @@ Library callers can use `compile_to_llvm_with_target(source, Some(codegen::llvm:
 
 ### QBE target selection
 
-QBE accepts `--target x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. Strings, dynamic arrays, stdout operations (including `print(1);` and `flush();`), and std:io line input require a target. Missing or unsupported targets and duplicate options produce diagnostics without changing existing output files. Programs using none of these may omit the target. Never infer it from the OS running Cerune.
+QBE accepts `--target x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc`. The CLI requires a target for every program to select the connection for depth-failure diagnostics. Missing or unsupported targets and duplicate options produce diagnostics without changing existing output files. Never infer it from the OS running Cerune.
 
 ```sh
 cerune emit-qbe examples/string_lookup.ceru --target x86_64-unknown-linux-gnu -o target/string_lookup.ssa

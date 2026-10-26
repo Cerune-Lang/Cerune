@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-**This validates prerequisites for choosing defaults; it is neither the normal Cerune CLI nor a recursive language example.** The same source-function depth can exhaust the host stack before the common depth check, depending on executor, value shape, and Rust build settings.
+**This validates physical resource conditions; it is neither the normal Cerune CLI nor a recursive language example.** The same source-function depth can exhaust the host stack before the common depth check, depending on executor, value shape, and Rust build settings.
 
 ## Method
 
@@ -63,7 +63,7 @@ This is not a search for minimum safe stack sizes or maximum safe depths. OS, co
 2. Diagnose frame allocation failure separately from depth overflow; compare argument order, ownership cleanup, NodeId/Span, and early returns against existing tests. Applied to MIR, SSA, and VM as well.
 3. Validate generated-route resource conditions, then establish common ranges, CLI configuration, and diagnostics before enabling recursion.
 
-The table and observations.json retain measurements of the earlier runtime commit 143aae0. A subsequent implementation introduced explicit frames in all four executors, tests at depth 128 with a requested 2 MiB, and frame-allocation-failure diagnostics. See the [current status](../../docs/design/recursion.en.md). Explicit limits and depth diagnostics are also implemented in generated routes. Physical resource conditions, common ranges, and CLI settings are next. No duplicate IR, execution control through observation APIs, or implicit tail-call optimization is introduced.
+The table and observations.json retain measurements of the earlier runtime commit 143aae0. A subsequent implementation introduced explicit frames in all four executors, tests at depth 128 with a requested 2 MiB, and frame-allocation-failure diagnostics. See the [current status](../../docs/design/recursion.en.md). Explicit limits and depth diagnostics are also implemented in generated routes. CLI default 128/range 1–128 and artifact records are also implemented; frontend recursion is next. No duplicate IR, execution control through observation APIs, or implicit tail-call optimization is introduced.
 
 CI runs `node --test experiments/call_depth/probe.test.cjs` to prevent false success classifications, plus 16 shallow cases at depth 4 with a requested 16 MiB to compare fixtures, four executors, and known output.
 
@@ -100,13 +100,13 @@ The [2026-10-25 observations](observations-c.json) are summarized below. Each OS
 | Windows x86_64 MSVC, Clang 22.1.8, 2 MiB reserved stack, O0/O2 | Scalar and owned-string/array products, depth 32/128 | 16 matching cases |
 | Linux x86_64 GNU, Clang 10.0.0, 2 MiB stack limit, O0/O2 | Same | 16 matching cases |
 
-This is not a measurement of maximum stack consumption or a proof of safety for arbitrary programs. Large fixed arrays, other compilers/ABIs, and generated helpers require separate validation. Logical depth and physical stack exhaustion remain different events; no common default is selected.
+This is not a measurement of maximum stack consumption or a proof of safety for arbitrary programs. Large fixed arrays, other compilers/ABIs, and generated helpers require separate validation. Logical depth and physical stack exhaustion remain different events; the semantic CLI default 128/range 1–128 is a separate contract.
 
 `cargo test --test c_output call_depth` compares generated C with four executors. `node --test experiments/call_depth/probe_c.test.cjs` rejects abnormal termination, extra output, and incomplete histories as successes.
 
 ## Try the same limit in each generated route
 
-`call_depth_emit` emits LLVM/QBE/WAT from the same completed HIR. Native follows MIR → LIR → typed Program to produce assembly or objects; LIR itself can also be saved. It invokes no external tools and never overwrites an existing file. Depth configuration in the normal CLI remains follow-up work.
+`call_depth_emit` emits LLVM/QBE/WAT from the same completed HIR. Native follows MIR → LIR → typed Program to produce assembly or objects; LIR itself can also be saved. It invokes no external tools and never overwrites an existing file. Normal CLI commands also accept `--call-depth-limit`.
 
 ```sh
 cargo run --example call_depth_emit -- llvm x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.ll

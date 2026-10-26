@@ -13,10 +13,12 @@ pub(super) fn save(
     output: &Path,
     use_ssa: bool,
     use_lir: bool,
+    call_depth_limit: std::num::NonZeroU32,
 ) -> Result<(), String> {
     // frontendもMIR変換も繰り返さず、観測するsnapshotをNativeへ渡します。
     let mir = mir::lower(hir).map_err(|e| source.render(&e.diagnostic()))?;
-    let lir = x86_64::lower_mir(&mir, target).map_err(|e| source.render(&e))?;
+    let lir = x86_64::lower_mir_with_call_limit(&mir, target, call_depth_limit)
+        .map_err(|e| source.render(&e))?;
     let assembly = x86_64::emit_asm_from_lir(&lir, true).map_err(|e| source.render(&e))?;
     let ssa = use_ssa
         .then(|| mir::ssa::construct(&mir))
@@ -44,7 +46,8 @@ pub(super) fn save(
             mir::ssa::mapping::emit(ssa).map_err(|e| source.render(&e.diagnostic()))?,
         ));
         let lowered = mir::ssa::lower(ssa).map_err(|e| source.render(&e.diagnostic()))?;
-        let lir = x86_64::lower_mir(&lowered.program, target).map_err(|e| source.render(&e))?;
+        let lir = x86_64::lower_mir_with_call_limit(&lowered.program, target, call_depth_limit)
+            .map_err(|e| source.render(&e))?;
         let assembly = x86_64::emit_asm_from_lir(&lir, true).map_err(|e| source.render(&e))?;
         if use_lir {
             files.push((
@@ -110,6 +113,7 @@ pub(super) fn save(
             "  \"target\": \"{}\",\n",
             "  \"string_heap_limit\": {},\n",
             "  \"array_heap_limit\": {},\n",
+            "  \"call_depth_limit\": {},\n",
             "  \"optimization_passes\": [],\n",
             "{}  \"executed\": false,\n",
             "  \"artifacts\": {{\n",
@@ -125,6 +129,7 @@ pub(super) fn save(
         target.triple(),
         hir.string_heap_limit,
         hir.array_heap_limit,
+        call_depth_limit,
         transformations,
         artifacts,
     );

@@ -46,6 +46,9 @@ fn execute(
     opt: &str,
     allocation_failure: bool,
 ) -> Option<Vec<Output>> {
+    execute_configured(p, limit, opt, allocation_failure, None)
+}
+fn execute_configured(p: &ir::Program, limit: NonZeroU32, opt: &str, allocation_failure: bool, cli_source: Option<&str>) -> Option<Vec<Output>> {
     crash_dialogs::suppress();
     let cc = if ROUTE == "wat" {
         tool("CERUNE_TEST_NODE", "node", "--version")?
@@ -127,6 +130,25 @@ fn execute(
         }
         _ => unreachable!(),
     };
+    if let Some(source) = cli_source {
+        let input = dir.join("source.ceru");
+        fs::write(&input, source).unwrap();
+        let artifact = dir.join(format!("cli.{extension}"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_cerune"));
+        cmd.arg(match ROUTE { "native"=>"emit-asm", "llvm"=>"emit-llvm", "qbe"=>"emit-qbe", "wat"=>"emit-wat", _=>unreachable!() })
+            .arg(&input).args(["--call-depth-limit", &limit.to_string()]).arg("-o").arg(&artifact);
+        if ROUTE != "wat" { cmd.args(["--target", target]); }
+        if ROUTE == "native" {cmd.arg("--annotate-origins");}
+        let result=run(&mut cmd,&dir,"cli-emit");
+        assert!(result.status.success(), "{}",String::from_utf8_lossy(&result.stderr));
+        text=fs::read_to_string(&artifact).unwrap();
+        if ROUTE=="native" {
+            let result=run(Command::new(env!("CARGO_BIN_EXE_cerune")).arg("emit-obj").arg(&input)
+                .args(["--target",target,"--annotate-origins","--call-depth-limit",&limit.to_string()])
+                .arg("-o").arg(dir.join("program.o")),&dir,"cli-object");
+            assert!(result.status.success(),"{}",String::from_utf8_lossy(&result.stderr));
+        }
+    }
     if allocation_failure {
         text = match ROUTE {
             "llvm" => text.replace(
@@ -485,4 +507,21 @@ fn return_paths_example_and_no_source_calls() {
         compare(&p, limit, "-O2");
     }
     compare(&compile_to_ir("print(42);").unwrap(), u32::MAX, "-O0");
+}
+
+#[test]
+fn cli_call_depth_matches_independent_ir_execution() {
+    let source=include_str!("../../examples/call_frames/return_paths.ceru");
+    let p=cerune_lang::modules::from_source(source).unwrap().to_ir().unwrap();
+    for n in [1,2,128] {
+        let limit=NonZeroU32::new(n).unwrap();
+        let expected=ir_executor::run_with_call_limit(&p,limit);
+        let Some(results)=execute_configured(&p,limit,"-O0",false,Some(source)) else {return};
+        for result in results {
+            match &expected {
+                Ok(value)=>{assert!(result.status.success(),"{:?}",result);assert_eq!(&result.stdout,value.as_bytes());assert!(result.stderr.is_empty());}
+                Err(error)=>{assert_eq!(result.status.code(),Some(1));assert_eq!(result.stdout,error.output().as_bytes());assert_eq!(String::from_utf8(result.stderr).unwrap().replace("\r\n","\n"),format!("{}\n",error.call_failure().unwrap().record()));}
+            }
+        }
+    }
 }
