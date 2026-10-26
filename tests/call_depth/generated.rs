@@ -525,3 +525,44 @@ fn cli_call_depth_matches_independent_ir_execution() {
         }
     }
 }
+
+#[path = "../support/recursion_cases.rs"]
+mod recursion_cases;
+#[test]
+fn recursive_sources_preserve_values_stops_and_origins() {
+    for &(source, expected) in recursion_cases::EXAMPLES {
+        let p = cerune_lang::modules::from_source(source)
+            .unwrap()
+            .to_ir()
+            .unwrap();
+        assert_eq!(
+            ir_executor::run_with_call_limit(&p, NonZeroU32::new(128).unwrap()).unwrap(),
+            expected.replace("\r\n", "\n")
+        );
+        for limit in [1, 4, 8] {
+            compare(&p, limit, "-O0");
+        }
+    }
+    for &source in recursion_cases::STOPS {
+        let p = cerune_lang::modules::from_source(source)
+            .unwrap()
+            .to_ir()
+            .unwrap();
+        compare(&p, 4, "-O0");
+    }
+}
+
+#[test]
+fn recursive_depth_128_and_owned_return_cleanup() {
+    let p = cerune_lang::compile_to_ir(recursion_cases::STOPS[0]).unwrap();
+    compare(&p, 128, "-O0");
+    let source = recursion_cases::EXAMPLES[2].0;
+    let definitions = source.split("original: Packet").next().unwrap();
+    let repeated = format!(
+        "{definitions} mut i:i64=0;while i<100{{original:Packet=Packet{{label:\"C\",values:array_copy([1,2])}}; result:Packet=grow(original,2); print(result.values); i=i+1;}}"
+    );
+    let mut p = cerune_lang::compile_to_ir(&repeated).unwrap();
+    p.string_heap_limit = 1024;
+    p.array_heap_limit = 2048;
+    compare(&p, 8, "-O2");
+}

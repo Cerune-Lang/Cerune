@@ -220,7 +220,7 @@ fn conversions_reject_nonnumeric_inputs_without_contextual_retyping() {
 }
 
 #[test]
-fn conversions_require_one_argument_and_do_not_hide_recursive_calls() {
+fn conversions_require_one_argument_and_accept_typed_recursive_calls() {
     for (spelling, _) in SPELLINGS {
         for arguments in ["", "1, 2"] {
             let source = format!("print({spelling}({arguments}));");
@@ -230,10 +230,7 @@ fn conversions_require_one_argument_and_do_not_hide_recursive_calls() {
             );
         }
         let source = format!("fn again() -> i64 {{ return {spelling}(again()); }} print(again());");
-        assert_eq!(
-            compile(&source).unwrap_err().message(),
-            "recursive function calls are not supported yet"
-        );
+        compile(&source).unwrap();
     }
 }
 

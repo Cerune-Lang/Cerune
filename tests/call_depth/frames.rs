@@ -223,7 +223,7 @@ for (mut i:i64=0;i<100;i=i+1) {
     assert_eq!(failure.active().len(), 3);
     assert_eq!(failure.attempted().function, walk);
     assert_eq!(output, "");
-    assert!(compile_to_ir("fn recursive()->void {recursive();} recursive();").is_err());
+    assert!(compile_to_ir("fn recursive()->void {recursive();} recursive();").is_ok());
 }
 
 #[test]

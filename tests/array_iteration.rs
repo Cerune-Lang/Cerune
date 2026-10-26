@@ -38,14 +38,6 @@ fn headers_require_arrays_compatible_types_and_local_bindings() {
         ),
         ("const V: i64 = 1; for (V: infer in [1]) {}", "constant"),
         ("for (v: infer in v) {}", "unknown binding"),
-        (
-            "fn cycle() -> [i64; 1] { for (v: infer in cycle()) {} return [1]; }",
-            "recursive function",
-        ),
-        (
-            "fn cycle() -> i64 { for (v: infer in [1]) { print(cycle()); } return 0; }",
-            "recursive function",
-        ),
     ] {
         let error = compile(source).unwrap_err();
         assert!(error.message().contains(reason), "{source}: {error:?}");

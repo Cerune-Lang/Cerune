@@ -30,7 +30,7 @@ The base is still evaluated when every field is replaced. Later changes to array
 
 Failure stops evaluation of subsequent expressions and prevents the assignment. Earlier `print` output remains, and diagnostics identify the failing expression. Short-circuiting skips the entire update, including its base. Array assignments retain their existing order: target bounds checks precede the right-hand update expression.
 
-Exactly one base is allowed, before all fields. A late or duplicate base, unknown or duplicate fields, and type mismatches are compilation errors. A distinct type with identical fields is still rejected. Empty `Type {}` literals, direct field assignment, and recursion remain unsupported.
+Exactly one base is allowed, before all fields. A late or duplicate base, unknown or duplicate fields, and type mismatches are compilation errors. A distinct type with identical fields is still rejected. Empty `Type {}` literals and direct field assignment remain unsupported. Base expressions may contain recursive calls.
 
 ## Syntax rationale
 

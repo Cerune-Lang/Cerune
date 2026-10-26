@@ -37,10 +37,6 @@ fn one_array_argument_produces_an_i64_result() {
         ("array_len([1]);", "must be used"),
         ("fn array_len(x: i64) -> i64 { return x; }", "reserved"),
         ("const array_len: i64 = 1;", "built-in"),
-        (
-            "fn cycle() -> [i64; 1] { print(array_len(cycle())); return [1]; }",
-            "recursive function",
-        ),
     ] {
         let error = compile(source).unwrap_err();
         assert!(error.message().contains(reason), "{source}: {error:?}");

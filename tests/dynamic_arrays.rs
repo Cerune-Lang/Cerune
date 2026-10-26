@@ -1015,7 +1015,7 @@ fn repeat_defaults_const_lengths_short_circuit_and_recursion() {
         "fn f()->i64{return array_repeat::<i64>(f(),1)[0];}print(f());",
         "fn f()->i64{return array_repeat::<i64>(1,f())[0];}print(f());",
     ] {
-        assert!(compile_to_ir(source).is_err(), "{source}");
+        compile_to_ir(source).unwrap();
     }
 }
 

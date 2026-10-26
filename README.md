@@ -98,7 +98,7 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 | 直和型 | `enum`の選択肢と値、網羅的な`match`文・式、`if`ガード |
 | 配列 | 固定長配列（長さに定数も指定可）、`array_len`で要素数取得、入れ子、要素の参照・更新、値コピー |
 | 動的配列 | `[T]`、`array_copy`・`array_copy_range`・`array_repeat`、独立コピー、表示・比較・反復 |
-| 関数 | 型付き引数・戻り値、`void`、`return`、型・配列長のパラメーター。複合値も受け渡し可能 |
+| 関数 | 型付き引数・戻り値、`void`、`return`、型・配列長のパラメーター、直接・相互再帰。複合値も受け渡し可能 |
 | 実行開始 | トップレベル実行文、または`fn main() -> void`（併用不可） |
 | 制御構文 | `if` / `else`、`while`・`for`・配列の`for … in`、`break` / `continue` |
 | 定数 | 型付き`const`、コンパイル時評価、`pub const`で共有 |
@@ -110,7 +110,7 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 
 **主な未実装・制限：**
 
-- **言語機能：** 再帰、文字列の公開添字参照・文字数取得・i64以外の数値読取り、動的配列の伸長・借用、実行時停止の捕捉、汎用`Option`/`Result`。
+- **言語機能：** 文字列の公開添字参照・文字数取得・i64以外の数値読取り、動的配列の伸長・借用、実行時停止の捕捉、汎用`Option`/`Result`。
 - **入出力・モジュール：** ファイル・ネットワークI/O、モジュールの再エクスポート、パッケージ管理。
 - **ビルド・配布：** IR/VMの`build`・`release`（Nativeの実行ファイル構築・配布ディレクトリ作成には対応）。
 
@@ -138,7 +138,7 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 | `emit-asm` | アセンブリ（`.s`） | Windows / Linux x86-64。`--ssa`でSSA経由を選択 |
 | `emit-obj` | ELF / COFFオブジェクト（`.o` / `.obj`） | 外部リンカ。`--target`・`-o`必須、`--ssa`対応 |
 
-テキストは標準出力へ、`-o`でファイルへ保存します。LLVM・QBEの文字列・動的配列とLLVMの検査付き数値演算には`--target`が必要です。WATは出力・診断用のホスト関数を使います。
+テキストは標準出力へ、`-o`でファイルへ保存します。LLVM・QBEは`--target`が必須です。WATは出力・診断用のホスト関数を使います。
 
 ## サンプルと開発
 

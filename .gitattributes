@@ -37,3 +37,5 @@ tests/support/native_runtime_reference/*.s text eol=lf -linguist-detectable
 examples/call_frames/*.stdout text eol=lf
 
 experiments/call_depth/*.cjs text eol=lf -linguist-detectable
+
+examples/recursion/*.stdout text eol=lf

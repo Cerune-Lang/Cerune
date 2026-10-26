@@ -1,6 +1,6 @@
 //! 明示された型・配列長を通常の関数へ具体化します。実行時の引数は並べ替えません。
 use crate::{ast::*, diagnostic::Diagnostic, source::Span, types::IntegerType};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub(crate) struct Lowered {
     pub program: Program,
@@ -140,6 +140,7 @@ pub(crate) fn lower(program: &Program) -> Result<Lowered, Diagnostic> {
         array_length_uses: Vec::new(),
         keys: HashMap::new(),
         active: Vec::new(),
+        pending: VecDeque::new(),
         substitutions: HashMap::new(),
     };
     let mut output = program.clone();
@@ -148,6 +149,29 @@ pub(crate) fn lower(program: &Program) -> Result<Lowered, Diagnostic> {
         .retain(|i| !matches!(i, Item::FunctionDefinition(d) if !d.generic_parameters.is_empty()));
     for item in &mut output.items {
         expander.item(item)?;
+    }
+    // 本文の具体化はコンパイラの再帰callへ積まず、登録順に処理します。
+    while let Some(pending) = expander.pending.pop_front() {
+        expander.substitutions = pending.substitutions;
+        expander.active = pending.trace;
+        let mut definition = pending.definition;
+        expander.function(&mut definition).map_err(|mut error| {
+            for (name, span) in expander.active.iter().rev() {
+                error = Diagnostic::new(
+                    format!(
+                        "{}; while instantiating {} at source={} bytes={}..{}",
+                        error.message(),
+                        name,
+                        span.source_id().index(),
+                        span.start(),
+                        span.end()
+                    ),
+                    error.primary_span().unwrap_or(*span),
+                );
+            }
+            error
+        })?;
+        expander.instances.push(definition);
     }
     output
         .items
@@ -165,6 +189,11 @@ enum Argument {
     Type(TypeRef),
     Length(usize),
 }
+struct Pending {
+    definition: FunctionDefinition,
+    substitutions: HashMap<String, Argument>,
+    trace: Vec<(String, Span)>,
+}
 struct Expander<'a> {
     source: &'a Program,
     templates: HashMap<String, FunctionDefinition>,
@@ -173,7 +202,8 @@ struct Expander<'a> {
     types: Vec<TypeRef>,
     array_length_uses: Vec<crate::array_lengths::LengthUse>,
     keys: HashMap<String, usize>,
-    active: Vec<String>,
+    active: Vec<(String, Span)>,
+    pending: VecDeque<Pending>,
     substitutions: HashMap<String, Argument>,
 }
 fn type_key(ty: &TypeRef) -> String {
@@ -299,13 +329,7 @@ impl Expander<'_> {
             });
             substitutions.insert(parameter.name.clone(), resolved);
         }
-        // 同じテンプレートへの再入は、引数が変わる再帰も含めて禁止します。
-        if self.active.contains(&call.name) {
-            return Err(Diagnostic::new(
-                format!("recursive generic function {}", call.name),
-                span,
-            ));
-        }
+        // 本文の展開前に登録した具体化も再利用します。再帰は通常のcallとして残します。
         let key = format!("{}::<{}>", call.name, descriptions.join(", "));
         if let Some(&index) = self.keys.get(&key) {
             let (name, origin) = &mut self.origins[index];
@@ -338,25 +362,13 @@ impl Expander<'_> {
         ));
         definition.generic_parameters.clear();
         definition.name = name.clone();
-        let saved = std::mem::replace(&mut self.substitutions, substitutions);
-        self.active.push(call.name.clone());
-        self.function(&mut definition).map_err(|error| {
-            let primary = error.primary_span().unwrap_or(span);
-            Diagnostic::new(
-                format!(
-                    "{}; while instantiating {} at source={} bytes={}..{}",
-                    error.message(),
-                    call.name,
-                    span.source_id().index(),
-                    span.start(),
-                    span.end()
-                ),
-                primary,
-            )
-        })?;
-        self.active.pop();
-        self.substitutions = saved;
-        self.instances.push(definition);
+        let mut trace = self.active.clone();
+        trace.push((call.name.clone(), span));
+        self.pending.push_back(Pending {
+            definition,
+            substitutions,
+            trace,
+        });
         Ok(name)
     }
     fn validate_type(&self, ty: &TypeRef) -> Result<(), Diagnostic> {

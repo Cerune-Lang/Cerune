@@ -215,12 +215,6 @@ fn rejects_visibility_initialization_cycles_and_namespace_errors_at_their_source
             "lib.ceru",
         ),
         (
-            "pub fn f() -> void { f(); }",
-            "import \"lib.ceru\" as lib;",
-            "recursive",
-            "lib.ceru",
-        ),
-        (
             "pub fn f() -> void { print(missing); }",
             "import \"lib.ceru\" as lib;",
             "unknown binding",

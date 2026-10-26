@@ -74,6 +74,6 @@ Executorのエラーは、言語の停止理由と不正IR等の内部問題を�
 
 `tests/ir_executor.rs`は完成済みIRをVM用にlowerした結果と照合し、元のIRが不変であることも検査します。`tests/examples.rs`・共有fixtureは既知の期待値を確認します。`runtime_routes`・`string_heap_routes`は生成先とも停止・出自・予算を照合します。`ir_execution.ceru`はC・LLVM・QBE・WAT・ASM・オブジェクトの比較対象にも含めます。
 
-未対応は、テキストIRの読み込み、任意関数を外部から呼ぶ埋め込みAPI、実行の一時停止・再開です。実行途中の介入APIは設けません。再帰は未対応です。[動的配列](owned-arrays.ja.md)は後続の言語機能としてIR・VMで実装し、確保・コピー・解放を共通IRから実行します。公開Rust APIはフロントエンドの完成済みIRを前提とし、手作りIRの完全な検証器ではありません。検出した構造・型・所有の不整合は`InvalidIr`とし、未展開の`Let`/`Conditional`を黙って展開・VMへ委譲しません。
+未対応は、テキストIRの読み込み、任意関数を外部から呼ぶ埋め込みAPI、実行の一時停止・再開です。実行途中の介入APIは設けません。再帰も明示frameと共通の呼出し深さ検査で実行します。[動的配列](owned-arrays.ja.md)は後続の言語機能としてIR・VMで実装し、確保・コピー・解放を共通IRから実行します。公開Rust APIはフロントエンドの完成済みIRを前提とし、手作りIRの完全な検証器ではありません。検出した構造・型・所有の不整合は`InvalidIr`とし、未展開の`Let`/`Conditional`を黙って展開・VMへ委譲しません。
 
 実装は`src/ir_executor/machine.rs`（frame・継続位置・構造化制御）、`src/ir_executor.rs`（評価済みオペランドの処理・診断）、`src/runtime/value.rs`（MIRと共有する内部値・原子的演算）、`src/runtime/{numeric,float_output,string_heap,array_heap}.rs`（共有部品）に分けています。VM用の変換は`src/vm`に残し、直接実行からVMの値・命令列へ依存しません。

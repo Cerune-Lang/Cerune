@@ -1,0 +1,22 @@
+type Packet { label: string, values: [i64], }
+
+fn descend<T>(value: T, remaining: i64) -> T {
+    if remaining == 0 { return value; }
+    return descend::<T>(value, remaining - 1);
+}
+fn grow(value: Packet, remaining: i64) -> Packet {
+    if remaining == 0 { return descend::<Packet>(value, 1); }
+    mut values: [i64] = value.values;
+    values[0] = values[0] + 1;
+    next: Packet = Packet { label: concat(value.label, "!"), values: values, };
+    result: Packet = grow(next, remaining - 1);
+    print(value.label);
+    print(value.values);
+    return result;
+}
+original: Packet = Packet { label: "C", values: array_copy([1, 2]), };
+result: Packet = grow(original, 2);
+print(result.label);
+print(result.values);
+print(original.label);
+print(original.values);

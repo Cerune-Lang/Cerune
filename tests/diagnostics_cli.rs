@@ -305,8 +305,14 @@ fn semantic_function_invalid_main_matches_expected_diagnostic() {
 }
 
 #[test]
-fn semantic_function_recursion_matches_expected_diagnostic() {
-    assert_diagnostic("semantic-function-recursion", "check", "check.stderr");
+fn semantic_function_recursion_is_accepted() {
+    let result = Command::new(env!("CARGO_BIN_EXE_cerune"))
+        .arg("check")
+        .arg(fixture_path("semantic-function-recursion").join("source.ceru"))
+        .output()
+        .unwrap();
+    assert!(result.status.success(), "{:?}", result.stderr);
+    assert!(result.stderr.is_empty());
 }
 
 #[test]
