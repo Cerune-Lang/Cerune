@@ -17,7 +17,8 @@ pub(super) fn lower_with_call_limit(
         array_heap_limit: program
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
-        string_heap_limit: crate::codegen::support::string_heap_limit(program),
+        string_heap_limit: crate::codegen::support::string_heap_limit(program)
+            .or_else(|| program.first_file_span().map(|_| program.string_heap_limit)),
         uses_write: crate::codegen::display::uses_write(program),
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
         temporaries: Vec::new(),
@@ -262,9 +263,19 @@ fn lower_statement(statement: &cerune_ir::Statement) -> Statement {
             kind: crate::codegen::display::kind(&value.ty, *quoted),
             value: lower_expr(value),
         },
-        cerune_ir::StatementKind::FileWriteNew { .. } => {
-            unreachable!("file I/O rejected before lowering")
-        }
+        cerune_ir::StatementKind::FileWriteNew {
+            name,
+            text,
+            max_bytes,
+        } => Statement::FileWriteNew {
+            origin: super::ir::Origin {
+                node_id: statement.id,
+                span: statement.span,
+            },
+            name: lower_expr(name),
+            text: lower_expr(text),
+            max_bytes: lower_expr(max_bytes),
+        },
         cerune_ir::StatementKind::Flush => Statement::Flush {
             origin: super::ir::Origin {
                 node_id: statement.id,
@@ -420,9 +431,10 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
             left: Box::new(lower_expr(left)),
             right: Box::new(lower_expr(right)),
         },
-        cerune_ir::ExprKind::FileReadText { .. } => {
-            unreachable!("file I/O rejected before lowering")
-        }
+        cerune_ir::ExprKind::FileReadText { name, max_bytes } => ExprKind::FileReadText {
+            name: Box::new(lower_expr(name)),
+            max_bytes: Box::new(lower_expr(max_bytes)),
+        },
         cerune_ir::ExprKind::ReadLine { max_bytes } => ExprKind::ReadLine {
             max_bytes: Box::new(lower_expr(max_bytes)),
         },
@@ -682,8 +694,14 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
 
     fn visit_statement(statement: &cerune_ir::Statement, types: &mut Vec<Type>) {
         match &statement.kind {
-            cerune_ir::StatementKind::FileWriteNew { .. } => {
-                unreachable!("file I/O rejected before lowering")
+            cerune_ir::StatementKind::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+            } => {
+                for value in [name, text, max_bytes] {
+                    visit_expr(value, types);
+                }
             }
             cerune_ir::StatementKind::Flush => {}
             cerune_ir::StatementKind::ArrayInitialize { array, value } => {

@@ -2,7 +2,7 @@
 
 [English](file-io.en.md)
 
-**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成経路は未実装。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成経路の接続方法は提案段階です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
+**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成Cも実装済み。LLVM／QBE／WAT／Nativeは未実装。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成実行ファイルの起動形式は合意済みです。WATの接続方法は提案段階です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
 
 ## 実装済みの共通部品
 
@@ -71,7 +71,7 @@ print(saved == text);
 
 HIRの`FileReadText`はstringを返し、`FileWriteNew`は値を返さない文です。MIR／SSA／bytecodeにも`file.read_text.utf8`・`file.write_new.utf8`を残します。引数を左から一度ずつ評価し、操作と標準ソースのNodeId／Spanを保持します。読取り結果はStringHeapへ移し、予約はopen前、失敗時は解放します。ファイル名・保存内容は借用し、操作のための本文コピーを増やしません。生成補助関数は呼出し深さに数えず、`std:fs`のソース関数は数えます。
 
-[経路比較テスト](../../tests/file_io/mod.rs)は独立したメモリ接続でexample、評価順、短絡、所有、標準入出力・引数との組合せ、部分転送・異常停止と出自を比較します。C／LLVM／QBE／WAT／Nativeは未使用関数内の操作も含め、生成前に位置付きの未対応診断を返します。`emit-ir`／`emit-mir`／`emit-bytecode`は操作を実行せず観測できます。CLIの`--file-root <directory>`で実ファイルを接続できます。
+[経路比較テスト](../../tests/file_io/mod.rs)は独立したメモリ接続でexample、評価順、短絡、所有、標準入出力・引数との組合せ、部分転送・異常停止と出自を比較します。生成CはWindows/Linuxの読取り・新規保存に対応します。LLVM／QBE／WAT／Nativeは未使用関数内の操作も含め、生成前に位置付きの未対応診断を返します。`emit-ir`／`emit-mir`／`emit-bytecode`は操作を実行せず観測できます。CLIの`--file-root <directory>`で実ファイルを接続できます。
 
 ```sh
 cargo test --test standard_input file_io
@@ -100,12 +100,12 @@ cargo test --test standard_input file_io
 | 対象 | 通常ファイルだけ。symlink・reparse point・directory・device・FIFOは専用の未対応診断で拒否する。検査のためにFIFO等のopenで待ち続けないことも確認する |
 | 解決 | 作業ディレクトリのhandleに基づく相対openを実装した。文字列prefix検査や、存在検査→通常openだけで範囲制限が成立したとしない |
 | CLI／埋込み | CLIの`--file-root`と、Rust APIへの明示接続注入を実装。既存APIは未設定のまま。記録を読むAPIから接続を変更しない |
-| 生成実行ファイル | runtimeへの作業範囲の渡し方は未決。既存argvの意味を変えず、生成時の絶対パスや環境変数から暗黙設定しない。Native build/releaseには必要な接続契約の版を記録する案 |
+| 生成実行ファイル | 先頭マーカー付きの起動設定を合意し、生成Cへ実装した。マーカーなしのargvを維持し、生成時の絶対パスや環境変数から暗黙設定しない。Native build/releaseには必要な接続契約の版を記録する案 |
 | WAT | 版付きhost接続で名前とバイトを転送する。内部memory・所有ポインタを公開しない。import名・状態値・転送手順は実装前に別途固定する |
 
 Linuxではdirectory fdを用いる`openat`と、新規作成の`O_CREAT | O_EXCL`を採用しました。`O_NOFOLLOW`の効果は末尾要素に限られるため、多段パスまで安全と見なしません。[Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
 
-Windowsではユーザーモードの`NtCreateFile`のRootDirectory・排他的作成・reparseを追わない指定をRust接続で採用しました。Clang／自前Objectからの利用は後続です。[Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
+Windowsではユーザーモードの`NtCreateFile`のRootDirectory・排他的作成・reparseを追わない指定をRust接続で採用しました。生成CのClangからも利用します。LLVM／QBE／自前Objectへの接続は後続です。[Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
 
 作業ディレクトリはOS全体のsandboxではありません。hard link、他プロセスによる変更、ネットワークファイルシステム、OS権限は別の条件です。初版の実OS比較は管理されたローカルの一時ディレクトリで行い、同時に第三者が変更した場合の同一結果を保証しません。必要な範囲制限を満たせない接続は未対応とし、制約を黙って緩めません。
 
@@ -157,7 +157,7 @@ Rust共通部品に`file-v1`の診断形式を実装しました。既存io-v1�
 
 比較は同じ初期内容・応答列を持つ独立接続／ディレクトリで行い、stdoutだけでなく要求順・転送数・停止理由・残ったファイルを照合します。同じ実保存先で全経路を順次実行しません。OS接続試験と意味論の注入試験を分け、独立したRust／Python等の期待値計算を維持します。汎用record/replayやeffect systemは前提にしません。
 
-1〜3を実装しました。次は4の生成経路です。生成実行ファイルの接続指定とWAT契約は、各段階の開始前に設計・試作結果を明示します。
+1〜3と4の生成Cを実装しました。次はLLVM／QBE／Nativeへの同じ起動契約の接続と、WAT契約の具体化です。各段階の開始前に設計・試作結果を明示します。
 
 ## Windows/Linux接続とCLI
 
@@ -182,3 +182,32 @@ run/run-ir/run-mir（SSAを含む）/run-vmが対応します。相対rootは接
 rootの不在・不正指定・未対応対象・open失敗は、操作のNodeIdを作らず、実行前にfile-v1 operation=connect phase=open-root code=... origin=hostで停止します。ソース操作の失敗には従来のNodeId/Spanを残します。診断にrootの絶対パスやOSエラー本文を追加しません。Windows/Linux以外の接続はunsupported-platformです。
 
 [OS接続テスト](../../tests/file_io/os.rs)は独立した一時ディレクトリで、exampleの16バイト、空／上限ちょうど／上限+1、不正UTF-8、出力後の停止と出自を4実行器で比較します。同名作成の競合、rootの移動・置換、directory・link・Windows junction・Linux FIFOの拒否も検証します。子プロセスには20秒の上限を設けます。部分転送・割込み・close失敗の注入は共通部品のテストで検証し、実OSでclose失敗を発生させた検証とは区別します。Linuxの特殊ファイル試験はLinuxの一時領域を使います。WSLのWindowsドライブではFIFO作成を利用できないためです。
+
+
+## 生成実行ファイルの起動契約（C実装済み）
+
+2026-10-27に、先頭の専用マーカーがある場合だけランタイム設定を解釈する方式を合意しました。
+
+~~~sh
+program --cerune-runtime-v1 --file-root output -- user-argument
+program --cerune-runtime-v1 -- --cerune-runtime-v1
+~~~
+
+- マーカーなしでは全引数を従来どおりプログラムへ渡し、ファイル接続は未設定にします。
+- マーカーありでは終端の--が必須です。その前は--file-rootと値だけを受け付け、重複・欠落・空値・未知の設定を起動時に拒否します。root省略は未設定を表します。
+- --以降は空文字列・マーカー・オプション風文字列もプログラム引数として保持します。設定部分は引数snapshotの個数・バイト数へ含めません。
+- 設定を全て検証してからrootを接続します。rootの存在確認や範囲制限は引数解析の責務ではなく、既存のOS接続の責務です。cwdや環境変数から接続を補いません。
+- 初版ではファイル操作を含む生成物がこの起動契約を持ちます。ファイル操作を含まない既存生成物の起動・argvの意味は変更しません。
+
+生成Cへ接続し、Windows/Linux、最適化なし／あり、独立した作業ディレクトリで4実行器と比較しました。LLVM・QBE・Nativeは同じ起動契約へ順次接続します。WATはargvの専用マーカーではなく、別途定義する版付きhost契約で接続を明示します。C以外の生成経路の実装完了を意味しません。
+
+
+## 生成Cの検査と比較
+
+[生成Cのruntime](../../src/codegen/c/files.rs)に名前・上限・予約・転送・close・UTF-8検査を展開し、[OS接続](../../src/codegen/c/files/connection.rs)と[起動解析](../../src/codegen/c/files/entry.rs)を分離しています。起動設定→プログラム引数の検証とsnapshot→root接続→ソース実行の順です。設定エラーはfile-v1のphase=configure、root接続エラーはphase=open-rootで、いずれもorigin=hostです。引数snapshotの失敗は従来のarguments-v1を使います。
+
+設定エラーはunknown-setting・duplicate-setting・invalid-root・missing-delimiterに分かれます。起動設定を省略したソース操作はunconfiguredです。Cコンパイル対象の_WIN32／__linux__で接続を選び、生成器を動かしたOSからtargetを推定しません。他OSの明示接続はunsupported-platformです。Linuxの読取りはRust接続同様に/proc/self/fdを必要とします。
+
+読取りは上限分をopen前に予約し、返却値を既存の文字列所有管理へ移します。書込み引数は順番を持つ局所値へ展開し、Cの引数評価順に任せません。各操作に元のNodeId/Spanを残します。出力済みの内容をflushして診断し、後続のソース操作を実行せず終了します。観測用の生成操作ではファイルを開きません。
+
+[比較テスト](../../tests/file_io/c.rs)はO0/O2でexample、UTF-8と上限、既存ファイル、名前、使用量上限、未設定、起動設定、プログラム引数、評価順・短絡・再帰・コピー後の独立性を確認します。独立した接続へ短い転送・割込み・0進行・不正受理数・転送失敗・close失敗を注入し、4実行器とfile-v1全体・先行出力・残存内容を比較します。WindowsのjunctionとLinuxのlink/FIFOも拒否します。LinuxではAddressSanitizer/UndefinedBehaviorSanitizerでも比較します。Cに成功操作の共通観測APIを追加したものではありません。

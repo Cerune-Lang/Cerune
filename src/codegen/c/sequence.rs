@@ -16,6 +16,16 @@ pub(super) fn lower(module: &mut Module) {
 fn statements(body: &mut [Statement], temporaries: &mut Vec<Type>, counted: &[bool]) {
     for statement in body {
         match statement {
+            Statement::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+                ..
+            } => {
+                for value in [name, text, max_bytes] {
+                    expression(value, temporaries, counted);
+                }
+            }
             Statement::ArrayInitialize { array, value } => {
                 expression(array, temporaries, counted);
                 expression(value, temporaries, counted);
@@ -108,7 +118,11 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>, counted: &[bool]) {
     }
     let guarded = matches!(&expr.kind,ExprKind::Call {function_id,..} if counted[*function_id]);
     let mut children: Vec<&mut Expr> = match &mut expr.kind {
-        ExprKind::StringByteAt {
+        ExprKind::FileReadText {
+            name: left,
+            max_bytes: right,
+        }
+        | ExprKind::StringByteAt {
             value: left,
             index: right,
         }
@@ -208,6 +222,7 @@ fn observable(expr: &Expr) -> bool {
         | ExprKind::StringConcat { .. }
         | ExprKind::ArgumentCount
         | ExprKind::ArgumentGet { .. }
+        | ExprKind::FileReadText { .. }
         | ExprKind::ReadLine { .. }
         | ExprKind::Call { .. }
         | ExprKind::Index { .. }

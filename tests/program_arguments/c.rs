@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-pub(super) fn build(text: &str, opt: &str, flags: &[&str]) -> Option<(PathBuf, PathBuf)> {
+pub(crate) fn build(text: &str, opt: &str, flags: &[&str]) -> Option<(PathBuf, PathBuf)> {
     let configured = std::env::var_os("CERUNE_TEST_CC");
     let cc = configured
         .clone()
