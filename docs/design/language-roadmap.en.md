@@ -2,7 +2,7 @@
 
 [日本語](language-roadmap.ja.md)
 
-This inventory records capabilities, execution routes, and next steps as of 2026-10-25. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
+This inventory records capabilities, execution routes, and next steps as of 2026-10-26. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
 The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline. This page tracks current status.
 
@@ -17,7 +17,7 @@ The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline.
 | 2 | [Optional let + fmt](formatting.en.md) (#90) | Preserve/show/hide let, retain comments, verify idempotence and semantics | Implemented; example compared across four executors and all existing generated routes |
 | Follow-up to 2 | [Infer omission](infer-omission.en.md) (#105) | `value: = expression;`; retain declaration colons and existing inference rules, with formatter support | Implemented on ordinary bindings and for initializers; array iteration, else-if and conditional expressions remain separate |
 | 3 | [Native build and initial distribution](https://github.com/Cerune-Lang/Cerune/issues/81) | Build an executable with explicit target/linker; distribute dependencies, execution requirements, and origins | Native build and initial release requiring target system runtimes implemented |
-| 4 | [Recursion](recursion.en.md) | Align per-call storage, ownership/cleanup, limits, failure diagnostics, call stacks and origins across routes | WAT invocation storage and explicit depth-limit APIs in four executors implemented. Physical stack measured and explicit frames implemented in all four executors; explicit C/LLVM/QBE/WAT/Native limits/diagnostics also implemented; next establish physical resource conditions, common ranges, and CLI before enabling recursion |
+| 4 | [Recursion](recursion.en.md) | Align per-call storage, ownership/cleanup, limits, failure diagnostics, call stacks and origins across routes | WAT invocation storage and explicit depth-limit APIs in four executors implemented. Physical stack measured and explicit frames implemented in all four executors; explicit C/LLVM/QBE/WAT/Native limits/diagnostics also implemented; common CLI default 128/range 1–128 and artifact records are implemented; next enable frontend recursion and reuse generic specializations |
 | 5 | Limited file I/O → subprocess operations ([#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)) | Save/reload first, then explicit shell-free execution and output/exit-status collection; define resources, capacity/time limits, and failures | Follow-up design; unimplemented |
 
 This implementation order was agreed on 2026-10-20. In step 1, complete argument acquisition across routes, then add pure integer parsing and the seed-argument example. Resolve public names, limits, and connection contracts in the [proposal](dogfooding-inputs.en.md); use small standard modules without requiring generic Option/Result or package management.

@@ -2,7 +2,7 @@
 
 [日本語](recursion.ja.md)
 
-Status: WAT invocation storage, explicit depth-limit APIs/diagnostics for HIR, MIR, SSA, and VM, explicit frames in all four executors, and explicit C/LLVM/QBE/WAT/Native limits/diagnostics are implemented. CLI configuration, common supported ranges, and recursive source programs remain pending.
+Status: WAT invocation storage, explicit depth-limit APIs/diagnostics for HIR, MIR, SSA, and VM, explicit frames in all four executors, and explicit C/LLVM/QBE/WAT/Native limits/diagnostics are implemented. Common CLI configuration (default 128, range 1–128) and Native build/release records are also implemented. Recursive source programs remain pending.
 
 ## Findings and responsibilities
 
@@ -12,12 +12,12 @@ Use existing Cerune IR functions, calls, and returns. No recursion-specific IR o
 | --- | --- | --- |
 | Frontend | Rejects direct and indirect recursion | Lift the restriction after execution routes are ready; keep recursive value-type validation separate |
 | Generic expansion | Rejects re-entry into the same template | Reuse an existing specialization for identical concrete arguments; retain bounds on expansion that keeps creating new types |
-| HIR | Execute references into original HIR with explicit frames; source and generated calls do not add host-recursive frames | Cross-route agreement, CLI configuration, and common supported ranges |
-| VM | Explicit frames retain original bytecode PCs, operand stacks, and slots | Resource validation and CLI configuration |
-| MIR / SSA | Explicit frames retain original CFG blocks/instruction positions and locals/SSA values/slots | Align supported ranges and CLI before enabling recursive source |
-| C | Rust API emits explicit limits and call-v1; locals use the execution environment's stack | Physical resource conditions, supported ranges, and CLI |
-| LLVM / QBE / Native | Explicit limits and call-v1; locals use the execution environment's stack | Physical resource conditions, supported ranges, and CLI |
-| WAT | Private invocation storage and call history; explicit limits and call-v1 | Physical resource conditions, supported ranges, and CLI |
+| HIR | Execute references into original HIR with explicit frames; source and generated calls do not add host-recursive frames | Cross-route comparisons after enabling recursive source |
+| VM | Explicit frames retain original bytecode PCs, operand stacks, and slots | Additional resource validation and recursive-source comparisons |
+| MIR / SSA | Explicit frames retain original CFG blocks/instruction positions and locals/SSA values/slots | Enable recursive source while retaining common settings |
+| C | Rust API emits explicit limits and call-v1; locals use the execution environment's stack | Additional physical resource validation and frontend recursion |
+| LLVM / QBE / Native | Explicit limits and call-v1; locals use the execution environment's stack | Additional physical resource validation and frontend recursion |
+| WAT | Private invocation storage and call history; explicit limits and call-v1 | Additional physical resource validation and frontend recursion |
 
 ## Agreed stopping condition
 
@@ -29,7 +29,26 @@ Bound the number of simultaneously active function calls. Evaluate arguments fro
 | Physical stack / memory exhaustion | An execution-environment resource failure, not a depth-limit failure |
 | Observation | Read call stacks and source locations without an API to mutate active frames |
 
-Choose defaults and supported ranges after measuring all routes. Count each actual invocation of a source-declared function, including standard modules, generic specializations, and explicit main, as one level. Exclude shared-IR/backend-generated helpers and the implicit top-level entry. Backend implementation details must not change semantic depth. No implicit tail-call optimization is introduced.
+The CLI uses default 128 and public range 1–128, distinct from physical safety. Count each actual invocation of a source-declared function, including standard modules, generic specializations, and explicit main, as one level. Exclude shared-IR/backend-generated helpers and the implicit top-level entry. Backend implementation details must not change semantic depth. No implicit tail-call optimization is introduced.
+
+## Implemented: common CLI configuration
+
+Normal execution, generated routes, and Native build accept `--call-depth-limit N`: default 128, public range 1–128. A call at the limit is allowed; the next source-function entry stops after left-to-right argument evaluation.
+
+| Operation | Configuration |
+| --- | --- |
+| run / run-ir / run-mir (including SSA) / run-vm | Pass the same limit alongside I/O and program arguments. runtime-v1 diagnostic mode emits complete call-v1 records for depth failures |
+| emit-c / emit-llvm / emit-qbe / emit-wat | Retain the limit and checks in generated artifacts. LLVM/QBE require an explicit target even for scalar-only programs |
+| emit-lir / emit-asm / emit-obj / build native | Generate from the same limited LIR. LIR records the value; ASM/Object retain checks and the diagnostic limit. Build manifests record call_depth_limit |
+| observe | Save baseline/SSA LIR and ASM using the same setting and record it in the manifest, without execution or changing settings through observation |
+| release native | Preserve the build setting unchanged. Older builds without a recorded limit remain unchanged; the release field is null (unknown) |
+| check / fmt / emit-sources / emit-ir / emit-mir / emit-bytecode | Reject this execution setting; source, common IR, and bytecode representations do not embed it |
+
+**1–128 is the public semantic configuration range, not a physical stack/memory safety guarantee.** Large locals, aggregates, and generated helpers consume physical resources. Detected allocation failures remain allocation-failed; OS/engine stack exhaustion remains a separate failure and is never relabeled depth-limit. General physical exhaustion is not guaranteed to produce a common diagnostic. Range extensions require a separate change based on validation across routes.
+
+Existing Rust APIs retain their defaults. `run_with_io_arguments_and_call_limit` combines execution settings; `emit_*_with_runtime_limits` / `lower_mir_with_runtime_limits` combine argument limits and call depth. Rust NonZeroU32 APIs are distinct from the public CLI range and do not guarantee large values are safe.
+
+Compatibility changes are default CLI depth checks, mandatory LLVM/QBE targets, and the existing diagnostic import `cerune.write_error_byte` now required by generated WAT. Hosts lacking it fail at instantiation. Private memory and versioned I/O contracts remain unchanged. Recursive source programs are still rejected.
 
 ## Implemented: explicit limits in four executors
 
@@ -37,16 +56,16 @@ HIR, MIR, SSA, and VM expose the Rust API `run_with_call_limit(program, NonZeroU
 
 | Item | Current contract |
 | --- | --- |
-| Configuration | Caller supplies a positive limit; ordinary run, CLI, and I/O connection APIs retain their behavior |
+| Configuration | Caller supplies a positive limit; existing Rust APIs retain their defaults; CLI uses the common setting above |
 | Access | Error call_failure() exposes the limit, rejected call, and active source-function frames ordered outermost first |
 | Origins | Each call retains FunctionId and caller NodeId/Span; explicit main starts with origin=host |
 | Record | record() starts with call-v1 reason=depth-limit limit=N function=F; subsequent lines use call-v1 frame=I function=F, each followed by origin fields |
 | Content protection | Origins use node=N [file=S] bytes=A..B; omit file for anonymous SourceId. No paths, source text, arguments, or runtime values |
 | Observation/control | Configure limits before execution. Failure records are read-only snapshots; reading/rendering them does not resume execution |
 
-This increment does not bound physical stack or memory use. Generated helpers still consume resources. Existing heap allocation failures remain separate runtime diagnostics, but capturing Rust executor OS stack exhaustion or general memory exhaustion as common diagnostics is not implemented. Large limits are not guaranteed safe. Measure supported ranges and address resource exhaustion before enabling recursion.
+This increment does not bound physical stack or memory use. Generated helpers still consume resources. Existing heap allocation failures remain separate runtime diagnostics, but capturing Rust executor OS stack exhaustion or general memory exhaustion as common diagnostics is not implemented. Large limits are not guaranteed safe. Keep the public range distinct from physical resource conditions and validate additional finite fixtures when enabling recursion.
 
-Attaching stacks to every other failure, common supported ranges, and CLI configuration remain pending. Internal MIR/SSA re-entry is supported with explicit frames. Frontend recursion rejection stays in place.
+Attaching stacks to every other failure remains pending. Internal MIR/SSA re-entry is supported with explicit frames. Frontend recursion rejection stays in place.
 
 `cargo test --test ir_executor call_depth` compares limit boundaries, left-to-right arguments, short circuiting, main, generics, standard modules, helper exclusion, normal/early returns, origins, prior output, and stack order across four executors. It also checks that heap-limit failures remain distinct from depth failures, and includes the [depth example](../../examples/call_frames/depth.ceru).
 
@@ -54,7 +73,7 @@ Attaching stacks to every other failure, common supported ranges, and CLI config
 
 The [call-depth experiment](../../experiments/call_depth/README.en.md) compares Windows/Linux debug and release builds. Before this change, commit 143aae0 exhausted the stack in all four debug executors for aggregate calls at depth 32 with a requested 2 MiB, before producing depth diagnostics. These finite measurements do not prove a safe configuration range.
 
-Explicit frames are implemented in HIR, MIR, SSA, and VM. Explicit C limits and finite resource fixtures are now verified first. Generated routes now share the stopping condition. Next establish physical resource conditions, supported ranges, and CLI configuration.
+Explicit frames are implemented in HIR, MIR, SSA, and VM. Explicit C limits and finite resource fixtures are now verified first. Generated routes now share the stopping condition. Common CLI configuration is implemented; frontend recursion is next.
 
 ## Implemented: explicit HIR frames
 
@@ -74,7 +93,7 @@ Shared call-history and depth-failure snapshot vectors now also return allocatio
 
 On Windows/Linux debug builds, tests execute depth-128 scalar and owned-string/array-product chains on a thread requesting 2 MiB. Limits 8 and 127 stop with the original call origin; limit 128 and execution without a limit complete. These finite fixtures verify the call structure improvement, not defaults or safe ranges across all routes.
 
-The [pending-values example](../../examples/call_frames/pending_values.ceru), four-route comparisons of order/loops/index checks, and injected frame-allocation failures for ordinary/generated functions are included. A test-only IR cycle also checks owned parent values and cleanup across 100 runs. The same validation now covers MIR, SSA, and VM. Recursive source programs and CLI configuration for common limits remain unavailable. Generated-route limits are described below.
+The [pending-values example](../../examples/call_frames/pending_values.ceru), four-route comparisons of order/loops/index checks, and injected frame-allocation failures for ordinary/generated functions are included. A test-only IR cycle also checks owned parent values and cleanup across 100 runs. The same validation now covers MIR, SSA, and VM. Recursive source programs remain unavailable. Common CLI configuration is described above. Generated-route limits are described below.
 
 ## Implemented: explicit MIR, SSA, and VM frames
 
@@ -92,7 +111,7 @@ Tests compare all four executors at depth 128 on a requested 2 MiB thread, with 
 
 ## Implemented: explicit limits in generated C
 
-The Rust API `codegen::c::emit_c_with_call_limit(&program, NonZeroU32)` emits C with the same counting and call-v1 records as the four executors. Ordinary emit_c, CLI behavior, and recursive-source rejection remain unchanged.
+The Rust API `codegen::c::emit_c_with_call_limit(&program, NonZeroU32)` emits C with the same counting and call-v1 records as the four executors. Ordinary Rust emit_c and recursive-source rejection remain unchanged. CLI uses the common limit above.
 
 | Item | Behavior |
 | --- | --- |
@@ -108,11 +127,11 @@ History construction and execution control are internal. Records contain no path
 
 The [generated-C experiment](../../experiments/call_depth/README.en.md) explicitly selects target, compiler, and stack size. It checks scalar and owned-string/array-product chains at depths 32/128, limits N−1/N, and O0/O2, never accepting abnormal process termination as successful depth limiting. Tests also compare every diagnostic line with four executors, short circuiting, argument-failure precedence, generics, standard modules, helper exclusion, 100 owned-value runs, and test-only direct/mutual IR re-entry.
 
-This API does not bound physical stack use. Argument copies, caller temporaries, compiler layout/optimization, and generated helpers consume resources. OS stack exhaustion is not converted into call-v1, and no common safe range or default is established. LLVM, QBE, WAT, and Native also validate logical depth and physical resource failures separately.
+This API does not bound physical stack use. Argument copies, caller temporaries, compiler layout/optimization, and generated helpers consume resources. OS stack exhaustion is not converted into call-v1, and no common physical safety range is guaranteed; semantic CLI defaults are defined above. LLVM, QBE, WAT, and Native also validate logical depth and physical resource failures separately.
 
 ## Implemented: shared stopping conditions in generated routes
 
-The following Rust APIs explicitly select a depth limit. Ordinary emit APIs, CLI, and build/release do not yet add this setting. Native uses the same limited LIR to produce assembly and self-encoded objects.
+The following Rust APIs explicitly select a depth limit. Ordinary Rust emit APIs retain their defaults; CLI and build/release use the common setting above. Native uses the same limited LIR to produce assembly and self-encoded objects.
 
 | Route | API | History storage |
 | --- | --- | --- |
@@ -127,7 +146,7 @@ History is runtime storage separate from language string/array live-byte budgets
 
 `cargo test --test llvm_output --test qbe_output --test wat_output --test native_output call_depth` compares four executors with finite depth-32 chains, depth-128 internal-IR re-entry using few functions, ownership, floating-point and stack arguments, main/generics/standard modules, short circuits, argument failures, and allocation failures. Native executes both assembly and self-encoded objects; LIR observations retain limits and function classification. Internal-IR re-entry tests do not enable recursive source programs.
 
-The [experiment emitter](../../experiments/call_depth/README.en.md) saves each representation. Remaining work establishes physical resource conditions, common supported ranges/defaults, and CLI configuration, followed by frontend recursion support.
+The [experiment emitter](../../experiments/call_depth/README.en.md) saves each representation. Common CLI configuration is implemented. Remaining work is frontend recursion support and additional physical resource validation.
 
 
 ## Implemented: WAT invocation storage
@@ -153,7 +172,7 @@ cargo test --test wat_output introduces recursion only in a test IR fixture and 
 The [call_frames example](../../examples/call_frames/README.en.md) uses current syntax for nested calls, value updates, and early returns. Its output is compared across HIR, MIR, SSA, VM, and WAT.
 
 1. Establish independent WAT invocation storage (implemented).
-2. Align common limits across routes. Counting and explicit APIs in four executors are implemented; all four executors now use explicit frames; generated-route limits and diagnostics are also implemented. Next align physical resource conditions, configuration ranges, and CLI settings.
+2. Align common limits across routes. Counting and explicit APIs in four executors are implemented; all four executors now use explicit frames; generated-route limits and diagnostics are also implemented. Common CLI configuration is also implemented. Next enable frontend recursion and reuse generic specializations.
 3. Reuse generic specializations and lift frontend restrictions.
 4. Compare direct/mutual recursion, ownership/cleanup, argument order, limit boundaries, and failure origins across routes; add recursive examples.
 

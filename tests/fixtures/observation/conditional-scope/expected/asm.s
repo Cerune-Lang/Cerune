@@ -1,10 +1,15 @@
+.extern __acrt_iob_func
+.extern fputs
+.extern realloc
+.extern fflush
+.extern fprintf
+.extern _Exit
+.extern free
 .extern _write
 .extern _errno
 .extern snprintf
-.extern _Exit
 .globl main
 .extern _setmode
-.extern fflush
 .section .rdata,"dr"
 .p2align 4
 .Lcerune_sign_f32:
@@ -16,6 +21,122 @@
 .Lcerune_sign_f64:
 .quad 0x8000000000000000
 .quad 0x0000000000000000
+.section .rdata,"dr"
+cerune_call_header:
+.asciz "call-v1 reason=depth-limit limit=128"
+cerune_call_frame_format:
+.asciz "call-v1 frame=%llu"
+.data
+.p2align 3
+cerune_call_depth:
+.quad 0x0000000000000000
+cerune_call_capacity:
+.quad 0x0000000000000000
+cerune_call_frames:
+.quad 0x0000000000000000
+.text
+cerune_call_write:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $80, %rsp
+  movq %rcx, -8(%rbp)
+  movl $2, %ecx
+  callq __acrt_iob_func
+  movq %rax, %rdx
+  movq -8(%rbp), %rcx
+  callq fputs
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+cerune_call_enter:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $80, %rsp
+  movq %rcx, -8(%rbp)
+  movq %rdx, -16(%rbp)
+  movq cerune_call_depth(%rip), %r10
+  movq %r10, -24(%rbp)
+  movq $128, %r11
+  cmpq %r11, %r10
+  jae .Lcall_overflow
+  cmpq cerune_call_capacity(%rip), %r10
+  jne .Lcall_push
+  testq %r10, %r10
+  jne .Lcall_double
+  movq $4, %r10
+.Lcall_double:
+  addq %r10, %r10
+  cmpq %r11, %r10
+  jbe .Lcall_capacity_ready
+  movq %r11, %r10
+.Lcall_capacity_ready:
+  movq %r10, -32(%rbp)
+  shlq $3, %r10
+  movq cerune_call_frames(%rip), %rcx
+  movq %r10, %rdx
+  callq realloc
+  testq %rax, %rax
+  je .Lcall_allocation_failed
+  movq %rax, cerune_call_frames(%rip)
+  movq -32(%rbp), %r10
+  movq %r10, cerune_call_capacity(%rip)
+.Lcall_push:
+  movq -24(%rbp), %r10
+  shlq $3, %r10
+  addq cerune_call_frames(%rip), %r10
+  movq -8(%rbp), %r11
+  movq %r11, 0(%r10)
+  addq $1, cerune_call_depth(%rip)
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+.Lcall_allocation_failed:
+  xorl %ecx, %ecx
+  callq fflush
+  movq -16(%rbp), %rcx
+  callq cerune_call_write
+  jmp .Lcall_stop
+.Lcall_overflow:
+  xorl %ecx, %ecx
+  callq fflush
+  leaq cerune_call_header(%rip), %rcx
+  callq cerune_call_write
+  movq -8(%rbp), %rcx
+  callq cerune_call_write
+  movq $0, -40(%rbp)
+.Lcall_history:
+  movl $2, %ecx
+  callq __acrt_iob_func
+  movq %rax, %rcx
+  leaq cerune_call_frame_format(%rip), %rdx
+  movq -40(%rbp), %r8
+  callq fprintf
+  movq -40(%rbp), %r10
+  shlq $3, %r10
+  addq cerune_call_frames(%rip), %r10
+  movq 0(%r10), %rcx
+  callq cerune_call_write
+  addq $1, -40(%rbp)
+  movq -40(%rbp), %r10
+  cmpq -24(%rbp), %r10
+  jb .Lcall_history
+.Lcall_stop:
+  xorl %ecx, %ecx
+  callq fflush
+  movl $1, %ecx
+  callq _Exit
+  ud2
+cerune_call_finish:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $80, %rsp
+  movq cerune_call_frames(%rip), %rcx
+  callq free
+  movq $0, cerune_call_frames(%rip)
+  movq $0, cerune_call_capacity(%rip)
+  movq %rbp, %rsp
+  popq %rbp
+  retq
 .text
 .section .rdata,"dr"
 .Loutput_record:
@@ -779,6 +900,7 @@ main:
   jmp .Lcerune_block_4
 .Lcerune_block_4:
 # main_exit
+  callq cerune_call_finish
   xorl %eax, %eax
   addq $128, %rsp
   popq %rbp

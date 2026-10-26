@@ -690,35 +690,205 @@ entry:
 define i32 @main() {
 entry:
   %tmp0 = fneg double 0x4004000000000000
+  call void @cerune_call_enter(ptr @cerune_call_site_0_8_90_101)
   %tmp1 = call double @cerune.fn.value.0(double %tmp0)
+  call void @cerune_call_leave()
   %tmp2 = call i64 @cerune_floor_f64_i64(double %tmp1, ptr @cerune.failure.7.79.102)
   call void @cerune.output.i64(i64 %tmp2, i1 true, ptr @cerune.output.origin.6.73.104)
   %tmp3 = fneg double 0x4004000000000000
+  call void @cerune_call_enter(ptr @cerune_call_site_0_13_121_132)
   %tmp4 = call double @cerune.fn.value.0(double %tmp3)
+  call void @cerune_call_leave()
   %tmp5 = call i64 @cerune_ceil_f64_i64(double %tmp4, ptr @cerune.failure.12.111.133)
   call void @cerune.output.i64(i64 %tmp5, i1 true, ptr @cerune.output.origin.11.105.135)
+  call void @cerune_call_enter(ptr @cerune_call_site_0_18_153_163)
   %tmp6 = call double @cerune.fn.value.0(double 0x4004000000000000)
+  call void @cerune_call_leave()
   %tmp7 = call i64 @cerune_round_f64_i64(double %tmp6, ptr @cerune.failure.17.142.164)
   call void @cerune.output.i64(i64 %tmp7, i1 true, ptr @cerune.output.origin.16.136.166)
+  call void @cerune_call_enter(ptr @cerune_call_site_0_22_194_204)
   %tmp8 = call double @cerune.fn.value.0(double 0x4004000000000000)
+  call void @cerune_call_leave()
   %tmp9 = call i64 @cerune_round_ties_even_f64_i64(double %tmp8, ptr @cerune.failure.21.173.205)
   call void @cerune.output.i64(i64 %tmp9, i1 true, ptr @cerune.output.origin.20.167.207)
+  call void @cerune_call_enter(ptr @cerune_call_site_0_26_235_247)
   %tmp10 = call double @cerune.fn.value.0(double 0x4072C00000000000)
+  call void @cerune_call_leave()
   %tmp11 = call i64 @cerune_saturating_trunc_f64_u8(double %tmp10, ptr null)
   call void @cerune.output.i64(i64 %tmp11, i1 true, ptr @cerune.output.origin.24.208.250)
   %tmp12 = fneg double 0x3FB999999999999A
+  call void @cerune_call_enter(ptr @cerune_call_site_0_30_278_289)
   %tmp13 = call double @cerune.fn.value.0(double %tmp12)
+  call void @cerune_call_leave()
   %tmp14 = call i64 @cerune_saturating_floor_f64_u8(double %tmp13, ptr null)
   call void @cerune.output.i64(i64 %tmp14, i1 true, ptr @cerune.output.origin.28.251.292)
+  call void @cerune_call_enter(ptr @cerune_call_site_0_35_319_331)
   %tmp15 = call double @cerune.fn.value.0(double 0x406FE33333333333)
+  call void @cerune_call_leave()
   %tmp16 = call i64 @cerune_saturating_ceil_f64_u8(double %tmp15, ptr null)
   call void @cerune.output.i64(i64 %tmp16, i1 true, ptr @cerune.output.origin.33.293.334)
+  call void @cerune_call_enter(ptr @cerune_call_site_0_39_362_374)
   %tmp17 = call double @cerune.fn.value.0(double 0x406FF00000000000)
+  call void @cerune_call_leave()
   %tmp18 = call i64 @cerune_saturating_round_f64_u8(double %tmp17, ptr null)
   call void @cerune.output.i64(i64 %tmp18, i1 true, ptr @cerune.output.origin.37.335.377)
+  call void @cerune_call_enter(ptr @cerune_call_site_0_43_415_427)
   %tmp19 = call double @cerune.fn.value.0(double 0x406FD00000000000)
+  call void @cerune_call_leave()
   %tmp20 = call i64 @cerune_saturating_round_ties_even_f64_u8(double %tmp19, ptr null)
   call void @cerune.output.i64(i64 %tmp20, i1 true, ptr @cerune.output.origin.41.378.430)
   call void @cerune.output.i64(i64 3, i1 true, ptr @cerune.output.origin.45.431.444)
+  call void @cerune_call_finish()
   ret i32 0
+}
+; call_depth_limit=128; not a physical stack/memory guarantee
+declare ptr @realloc(ptr, i64)
+declare void @free(ptr)
+@stdout = external global ptr
+@cerune_call_site_0_8_90_101_text = private constant [33 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\38\20\62\79\74\65\73\3D\39\30\2E\2E\31\30\31\0A"
+@cerune_call_site_0_8_90_101_alloc = private constant [63 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\38\20\62\79\74\65\73\3D\39\30\2E\2E\31\30\31\0A"
+@cerune_call_site_0_8_90_101 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_8_90_101_text,i64 33,ptr @cerune_call_site_0_8_90_101_alloc,i64 63}
+@cerune_call_site_0_13_121_132_text = private constant [35 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\31\33\20\62\79\74\65\73\3D\31\32\31\2E\2E\31\33\32\0A"
+@cerune_call_site_0_13_121_132_alloc = private constant [65 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\31\33\20\62\79\74\65\73\3D\31\32\31\2E\2E\31\33\32\0A"
+@cerune_call_site_0_13_121_132 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_13_121_132_text,i64 35,ptr @cerune_call_site_0_13_121_132_alloc,i64 65}
+@cerune_call_site_0_18_153_163_text = private constant [35 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\31\38\20\62\79\74\65\73\3D\31\35\33\2E\2E\31\36\33\0A"
+@cerune_call_site_0_18_153_163_alloc = private constant [65 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\31\38\20\62\79\74\65\73\3D\31\35\33\2E\2E\31\36\33\0A"
+@cerune_call_site_0_18_153_163 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_18_153_163_text,i64 35,ptr @cerune_call_site_0_18_153_163_alloc,i64 65}
+@cerune_call_site_0_22_194_204_text = private constant [35 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\32\32\20\62\79\74\65\73\3D\31\39\34\2E\2E\32\30\34\0A"
+@cerune_call_site_0_22_194_204_alloc = private constant [65 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\32\32\20\62\79\74\65\73\3D\31\39\34\2E\2E\32\30\34\0A"
+@cerune_call_site_0_22_194_204 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_22_194_204_text,i64 35,ptr @cerune_call_site_0_22_194_204_alloc,i64 65}
+@cerune_call_site_0_26_235_247_text = private constant [35 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\32\36\20\62\79\74\65\73\3D\32\33\35\2E\2E\32\34\37\0A"
+@cerune_call_site_0_26_235_247_alloc = private constant [65 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\32\36\20\62\79\74\65\73\3D\32\33\35\2E\2E\32\34\37\0A"
+@cerune_call_site_0_26_235_247 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_26_235_247_text,i64 35,ptr @cerune_call_site_0_26_235_247_alloc,i64 65}
+@cerune_call_site_0_30_278_289_text = private constant [35 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\33\30\20\62\79\74\65\73\3D\32\37\38\2E\2E\32\38\39\0A"
+@cerune_call_site_0_30_278_289_alloc = private constant [65 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\33\30\20\62\79\74\65\73\3D\32\37\38\2E\2E\32\38\39\0A"
+@cerune_call_site_0_30_278_289 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_30_278_289_text,i64 35,ptr @cerune_call_site_0_30_278_289_alloc,i64 65}
+@cerune_call_site_0_35_319_331_text = private constant [35 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\33\35\20\62\79\74\65\73\3D\33\31\39\2E\2E\33\33\31\0A"
+@cerune_call_site_0_35_319_331_alloc = private constant [65 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\33\35\20\62\79\74\65\73\3D\33\31\39\2E\2E\33\33\31\0A"
+@cerune_call_site_0_35_319_331 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_35_319_331_text,i64 35,ptr @cerune_call_site_0_35_319_331_alloc,i64 65}
+@cerune_call_site_0_39_362_374_text = private constant [35 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\33\39\20\62\79\74\65\73\3D\33\36\32\2E\2E\33\37\34\0A"
+@cerune_call_site_0_39_362_374_alloc = private constant [65 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\33\39\20\62\79\74\65\73\3D\33\36\32\2E\2E\33\37\34\0A"
+@cerune_call_site_0_39_362_374 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_39_362_374_text,i64 35,ptr @cerune_call_site_0_39_362_374_alloc,i64 65}
+@cerune_call_site_0_43_415_427_text = private constant [35 x i8] c"\20\66\75\6E\63\74\69\6F\6E\3D\30\20\6E\6F\64\65\3D\34\33\20\62\79\74\65\73\3D\34\31\35\2E\2E\34\32\37\0A"
+@cerune_call_site_0_43_415_427_alloc = private constant [65 x i8] c"\63\65\72\75\6E\65\3A\20\72\75\6E\74\69\6D\65\2D\76\31\20\63\6F\64\65\3D\61\6C\6C\6F\63\61\74\69\6F\6E\2D\66\61\69\6C\65\64\20\6E\6F\64\65\3D\34\33\20\62\79\74\65\73\3D\34\31\35\2E\2E\34\32\37\0A"
+@cerune_call_site_0_43_415_427 = private constant {ptr,i64,ptr,i64} {ptr @cerune_call_site_0_43_415_427_text,i64 35,ptr @cerune_call_site_0_43_415_427_alloc,i64 65}
+@cerune_call_header = private constant [36 x i8] c"\63\61\6C\6C\2D\76\31\20\72\65\61\73\6F\6E\3D\64\65\70\74\68\2D\6C\69\6D\69\74\20\6C\69\6D\69\74\3D\31\32\38"
+@cerune_call_frame_prefix = private constant [14 x i8] c"\63\61\6C\6C\2D\76\31\20\66\72\61\6D\65\3D"
+define internal void @cerune_call_write(ptr %p, i64 %n) {
+entry:
+  call i64 @write(i32 2, ptr %p, i64 %n)
+  ret void
+}
+define internal void @cerune_call_flush() {
+entry:
+  %stream = load ptr, ptr @stdout
+  call i32 @fflush(ptr %stream)
+  ret void
+}
+
+@cerune_call_depth = internal global i64 0
+@cerune_call_capacity = internal global i64 0
+@cerune_call_frames = internal global ptr null
+; History stores immutable call-site pointers, separate from language heap budgets.
+define internal void @cerune_call_site_write(ptr %site, i64 %field) {
+entry:
+  %p = getelementptr {ptr,i64,ptr,i64}, ptr %site, i64 0, i32 0
+  %pair = getelementptr {ptr,i64}, ptr %p, i64 %field
+  %record = load {ptr,i64}, ptr %pair
+  %data = extractvalue {ptr,i64} %record, 0
+  %len = extractvalue {ptr,i64} %record, 1
+  call void @cerune_call_write(ptr %data, i64 %len)
+  ret void
+}
+define internal void @cerune_call_number(i64 %number) {
+entry:
+  %buffer = alloca [20 x i8]
+  br label %digits
+digits:
+  %v = phi i64 [%number,%entry],[%q,%digits]
+  %end = phi i64 [20,%entry],[%index,%digits]
+  %q = udiv i64 %v, 10
+  %r = urem i64 %v, 10
+  %ascii = add i64 %r, 48
+  %byte = trunc i64 %ascii to i8
+  %index = sub i64 %end, 1
+  %p = getelementptr i8, ptr %buffer, i64 %index
+  store i8 %byte, ptr %p
+  %more = icmp ne i64 %q, 0
+  br i1 %more, label %digits, label %done
+done:
+  %length = sub i64 20, %index
+  call void @cerune_call_write(ptr %p, i64 %length)
+  ret void
+}
+define internal void @cerune_call_enter(ptr %site) {
+entry:
+  %depth = load i64, ptr @cerune_call_depth
+  %full = icmp uge i64 %depth, 128
+  br i1 %full, label %overflow, label %capacity
+overflow:
+  call void @cerune_call_flush()
+  call void @cerune_call_write(ptr @cerune_call_header, i64 36)
+  call void @cerune_call_site_write(ptr %site, i64 0)
+  %history = load ptr, ptr @cerune_call_frames
+  br label %history_loop
+history_loop:
+  %i = phi i64 [0,%overflow],[%next_i,%history_loop]
+  call void @cerune_call_write(ptr @cerune_call_frame_prefix, i64 14)
+  call void @cerune_call_number(i64 %i)
+  %slot = getelementptr ptr, ptr %history, i64 %i
+  %saved = load ptr, ptr %slot
+  call void @cerune_call_site_write(ptr %saved, i64 0)
+  %next_i = add i64 %i, 1
+  %more = icmp ult i64 %next_i, %depth
+  br i1 %more, label %history_loop, label %stop
+stop:
+  call void @_Exit(i32 1)
+  unreachable
+capacity:
+  %cap = load i64, ptr @cerune_call_capacity
+  %grow = icmp eq i64 %depth, %cap
+  br i1 %grow, label %allocate, label %push
+allocate:
+  %zero = icmp eq i64 %cap, 0
+  %double = mul i64 %cap, 2
+  %want = select i1 %zero, i64 8, i64 %double
+  %exceeds = icmp ugt i64 %want, 128
+  %next_cap = select i1 %exceeds, i64 128, i64 %want
+  %bytes = mul i64 %next_cap, 8
+  %old = load ptr, ptr @cerune_call_frames
+  %new = call ptr @realloc(ptr %old, i64 %bytes)
+  %failed = icmp eq ptr %new, null
+  br i1 %failed, label %allocation_failed, label %allocated
+allocation_failed:
+  call void @cerune_call_flush()
+  call void @cerune_call_site_write(ptr %site, i64 1)
+  call void @_Exit(i32 1)
+  unreachable
+allocated:
+  store ptr %new, ptr @cerune_call_frames
+  store i64 %next_cap, ptr @cerune_call_capacity
+  br label %push
+push:
+  %frames = load ptr, ptr @cerune_call_frames
+  %destination = getelementptr ptr, ptr %frames, i64 %depth
+  store ptr %site, ptr %destination
+  %entered = add i64 %depth, 1
+  store i64 %entered, ptr @cerune_call_depth
+  ret void
+}
+define internal void @cerune_call_leave() {
+entry:
+  %depth = load i64, ptr @cerune_call_depth
+  %left = sub i64 %depth, 1
+  store i64 %left, ptr @cerune_call_depth
+  ret void
+}
+define internal void @cerune_call_finish() {
+entry:
+  %frames = load ptr, ptr @cerune_call_frames
+  call void @free(ptr %frames)
+  store ptr null, ptr @cerune_call_frames
+  store i64 0, ptr @cerune_call_capacity
+  ret void
 }

@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-**既定値を決める前の検証用です。通常のCerune CLIや再帰のexampleではありません。** 同じソース関数の深さでも、実行器・値の形・Rustビルド条件によって、共通上限の検査より先に物理スタックが枯渇し得ることを確認します。
+**物理資源の条件を調べる検証用です。通常のCerune CLIや再帰のexampleではありません。** 同じソース関数の深さでも、実行器・値の形・Rustビルド条件によって、共通上限の検査より先に物理スタックが枯渇し得ることを確認します。
 
 ## 測定方法
 
@@ -65,7 +65,7 @@ Linux等では先に同じshellで `ulimit -c 0` を実行し、意図的な異�
 2. frameの確保失敗を深さ超過と区別し、引数の評価順、所有の解放、NodeId/Span、早期returnを既存テストと比較する。MIR・SSA・VMにも適用済み。
 3. 生成経路の資源条件を検証し、共通の設定範囲・CLI・診断を整えてから再帰を解禁する。
 
-上の表とobservations.jsonは変更前のcommit 143aae0の測定記録です。後続の実装で4実行器は明示frameへ移行し、要求2 MiB・深さ128の成功／深さ上限と、frame確保失敗の診断をテストに追加しました。[現在の状態](../../docs/design/recursion.ja.md)を参照してください。生成経路の明示上限・深さ診断も実装しました。次は物理資源の条件・共通範囲・CLI設定です。IRの二重実装、観測APIによる実行制御、暗黙の末尾呼出し最適化は導入しません。
+上の表とobservations.jsonは変更前のcommit 143aae0の測定記録です。後続の実装で4実行器は明示frameへ移行し、要求2 MiB・深さ128の成功／深さ上限と、frame確保失敗の診断をテストに追加しました。[現在の状態](../../docs/design/recursion.ja.md)を参照してください。生成経路の明示上限・深さ診断も実装しました。CLI既定128・範囲1〜128と成果物への設定保存も実装済みです。次はfrontendの再帰対応です。IRの二重実装、観測APIによる実行制御、暗黙の末尾呼出し最適化は導入しません。
 
 CIでは `node --test experiments/call_depth/probe.test.cjs` で判定器の誤成功を防ぎ、深さ4・要求16 MiBの浅い16ケースでfixture・4実行器・期待出力を照合します。
 
@@ -102,13 +102,13 @@ node experiments/call_depth/probe_c.cjs target/debug/examples/call_depth_emit_c 
 | Windows x86_64 MSVC、Clang 22.1.8、予約stack 2 MiB、O0/O2 | 整数／所有文字列と配列入り構造体、深さ32/128 | 16ケース一致 |
 | Linux x86_64 GNU、Clang 10.0.0、stack上限2 MiB、O0/O2 | 同上 | 16ケース一致 |
 
-これは物理stackの最大消費量や、任意のプログラムの安全範囲の証明ではありません。大きな固定配列・別のcompiler/ABI・生成補助関数による消費は別途検証が必要です。Cの深さ上限と物理stack不足を別の事象として扱い、共通の既定値はまだ選びません。
+これは物理stackの最大消費量や、任意のプログラムの安全範囲の証明ではありません。大きな固定配列・別のcompiler/ABI・生成補助関数による消費は別途検証が必要です。Cの深さ上限と物理stack不足を別の事象として扱い、CLIの意味上の既定128・範囲1〜128とは区別します。
 
 `cargo test --test c_output call_depth`は生成Cを4実行器と比較します。`node --test experiments/call_depth/probe_c.test.cjs`は、異常終了・余分な出力・欠落した履歴を誤成功にしないことを検証します。
 
 ## 各生成経路を同じ上限で試す
 
-`call_depth_emit`は同じ完成HIRからLLVM・QBE・WATを生成し、NativeはMIR→LIR→型付きProgramからASM／Objectを生成します。LIR自体も保存できます。外部ツールは起動せず、既存ファイルは上書きしません。通常CLIへの上限設定追加は後続です。
+`call_depth_emit`は同じ完成HIRからLLVM・QBE・WATを生成し、NativeはMIR→LIR→型付きProgramからASM／Objectを生成します。LIR自体も保存できます。外部ツールは起動せず、既存ファイルは上書きしません。通常CLIも `--call-depth-limit` に対応しています。
 
 ```sh
 cargo run --example call_depth_emit -- llvm x86_64-pc-windows-msvc examples/call_frames/depth.ceru 2 target/depth.ll

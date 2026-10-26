@@ -99,6 +99,20 @@ pub fn emit_llvm_with_call_limit(
         Some(limit),
     )
 }
+/// 引数と呼出し深さの制約を同時に指定します。既存APIの既定動作は維持します。
+pub fn emit_llvm_with_runtime_limits(
+    program: &cerune_ir::Program,
+    options: Options,
+    arguments: crate::runtime::arguments::Limits,
+    calls: std::num::NonZeroU32,
+) -> Result<String, Diagnostic> {
+    if options.target.is_none() {
+        return Err(Diagnostic::without_span(
+            "LLVM call depth checks require an explicit --target",
+        ));
+    }
+    emit_configured(program, options, arguments, Some(calls))
+}
 fn emit_configured(
     program: &cerune_ir::Program,
     options: Options,

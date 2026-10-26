@@ -153,7 +153,8 @@ pub(super) fn run(mut args: impl Iterator<Item = String>) -> Result<(), String> 
         "build_manifest":"build/manifest.json", "runtime_requirements":"runtime-requirements.json",
         "runtime_policy":"target-system-runtime", "libraries_bundled":false,
         "compiled":false, "linked":false, "executed":false, "optimization_passes":[],
-        "sources_included":manifest["sources_included"], "files":entries
+        "sources_included":manifest["sources_included"], "files":entries,
+        "call_depth_limit":manifest["call_depth_limit"]
     }))?;
     let mut sums = payload
         .iter()
@@ -269,6 +270,14 @@ fn validate_manifest(m: &Value) -> Result<(Target, &'static str, BTreeSet<String
         if m[key].as_u64().is_none() {
             return Err(format!("invalid build limit {key}"));
         }
+    }
+    // Older builds have no recorded limit. Preserve that absence; never invent a default.
+    if let Some(limit) = m.get("call_depth_limit")
+        && limit
+            .as_u64()
+            .is_none_or(|n| !(1..=u64::from(super::call_depth_cli::MAX)).contains(&n))
+    {
+        return Err("invalid build limit call_depth_limit".into());
     }
     let target = m["target"]
         .as_str()

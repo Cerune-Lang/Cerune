@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #ifdef _WIN32
@@ -18,6 +20,42 @@ static void cerune_runtime_fail(const char *code, const char *origin) {
     fputs(origin, stderr);
     fflush(stderr);
     abort();
+}
+
+/* Explicit source-call depth limit: 128; not a physical stack guarantee. */
+#define CERUNE_CALL_LIMIT 128U
+
+typedef struct { uint64_t function; const char *origin; } cerune_call_frame;
+static cerune_call_frame *cerune_call_frames = NULL;
+static size_t cerune_call_depth = 0, cerune_call_capacity = 0;
+static void cerune_call_enter(uint64_t function, const char *origin) {
+    if (cerune_call_depth >= CERUNE_CALL_LIMIT) {
+        fflush(stdout);
+        fprintf(stderr, "call-v1 reason=depth-limit limit=%u function=%llu%s",
+            (unsigned)CERUNE_CALL_LIMIT, (unsigned long long)function, origin);
+        for (size_t i = 0; i < cerune_call_depth; ++i) {
+            fprintf(stderr, "call-v1 frame=%llu function=%llu%s", (unsigned long long)i,
+                (unsigned long long)cerune_call_frames[i].function, cerune_call_frames[i].origin);
+        }
+        fflush(stderr);
+        _Exit(1);
+    }
+    if (cerune_call_depth == cerune_call_capacity) {
+        uint64_t next = cerune_call_capacity ? (uint64_t)cerune_call_capacity * 2 : 8;
+        if (next > CERUNE_CALL_LIMIT) next = CERUNE_CALL_LIMIT;
+        if (next > SIZE_MAX / sizeof(cerune_call_frame)) cerune_runtime_fail("allocation-failed", origin);
+        cerune_call_frame *frames = (cerune_call_frame *)realloc(cerune_call_frames, (size_t)next * sizeof(cerune_call_frame));
+        if (!frames) cerune_runtime_fail("allocation-failed", origin);
+        cerune_call_frames = frames;
+        cerune_call_capacity = (size_t)next;
+    }
+    cerune_call_frames[cerune_call_depth++] = (cerune_call_frame){function, origin};
+}
+static void cerune_call_leave(void) { --cerune_call_depth; }
+static void cerune_call_finish(void) {
+    free(cerune_call_frames);
+    cerune_call_frames = NULL;
+    cerune_call_capacity = 0;
 }
 
 static int64_t cerune_i64_add(int64_t left, int64_t right, const char *origin) {
@@ -170,7 +208,13 @@ cerune_type_Point_0 cerune_fn_move_x_0(cerune_type_Point_0 cerune_binding_0_poin
 }
 
 cerune_type_Point_0 cerune_fn_move_twice_1(cerune_type_Point_0 cerune_binding_2_point, int64_t cerune_binding_3_amount) {
-    return cerune_fn_move_x_0(cerune_fn_move_x_0(cerune_binding_2_point, cerune_binding_3_amount), cerune_binding_3_amount);
+    cerune_type_Point_0 _cerune_eval_0;
+    int64_t _cerune_eval_1;
+    cerune_type_Point_0 _cerune_eval_2;
+    cerune_type_Point_0 _cerune_eval_3;
+    int64_t _cerune_eval_4;
+    cerune_type_Point_0 _cerune_eval_5;
+    return (_cerune_eval_3 = (_cerune_eval_0 = cerune_binding_2_point, _cerune_eval_1 = cerune_binding_3_amount, (cerune_call_enter(0ULL, " node=10 bytes=236..257\n"), _cerune_eval_2 = cerune_fn_move_x_0(_cerune_eval_0, _cerune_eval_1), cerune_call_leave(), _cerune_eval_2)), _cerune_eval_4 = cerune_binding_3_amount, (cerune_call_enter(0ULL, " node=9 bytes=229..266\n"), _cerune_eval_5 = cerune_fn_move_x_0(_cerune_eval_3, _cerune_eval_4), cerune_call_leave(), _cerune_eval_5));
 }
 
 cerune_array_i64_2 cerune_fn_first_row_2(cerune_array_array_i64_2_2 cerune_binding_4_matrix) {
@@ -182,7 +226,11 @@ cerune_array_array_i64_2_2 cerune_fn_duplicate_3(cerune_array_i64_2 cerune_bindi
 }
 
 cerune_array_array_i64_2_2 cerune_fn_duplicate_first_row_4(cerune_array_array_i64_2_2 cerune_binding_6_matrix) {
-    return cerune_fn_duplicate_3(cerune_fn_first_row_2(cerune_binding_6_matrix));
+    cerune_array_array_i64_2_2 _cerune_eval_0;
+    cerune_array_i64_2 _cerune_eval_1;
+    cerune_array_i64_2 _cerune_eval_2;
+    cerune_array_array_i64_2_2 _cerune_eval_3;
+    return (_cerune_eval_2 = (_cerune_eval_0 = cerune_binding_6_matrix, (cerune_call_enter(2ULL, " node=24 bytes=505..522\n"), _cerune_eval_1 = cerune_fn_first_row_2(_cerune_eval_0), cerune_call_leave(), _cerune_eval_1)), (cerune_call_enter(3ULL, " node=23 bytes=495..523\n"), _cerune_eval_3 = cerune_fn_duplicate_3(_cerune_eval_2), cerune_call_leave(), _cerune_eval_3));
 }
 
 int main(void) {
@@ -192,15 +240,21 @@ int main(void) {
         return 1;
     }
 #endif
+    cerune_type_Point_0 _cerune_eval_0;
+    int64_t _cerune_eval_1;
+    cerune_type_Point_0 _cerune_eval_2;
+    cerune_array_array_i64_2_2 _cerune_eval_3;
+    cerune_array_array_i64_2_2 _cerune_eval_4;
     cerune_type_Point_0 cerune_binding_7_original = (cerune_type_Point_0){ .x = 2, .y = 3 };
-    cerune_type_Point_0 cerune_binding_8_moved = cerune_fn_move_twice_1(cerune_binding_7_original, 5);
+    cerune_type_Point_0 cerune_binding_8_moved = (_cerune_eval_0 = cerune_binding_7_original, _cerune_eval_1 = 5, (cerune_call_enter(1ULL, " node=31 bytes=584..607\n"), _cerune_eval_2 = cerune_fn_move_twice_1(_cerune_eval_0, _cerune_eval_1), cerune_call_leave(), _cerune_eval_2));
     cerune_array_array_i64_2_2 cerune_binding_9_matrix = (cerune_array_array_i64_2_2){ .items = { (cerune_array_i64_2){ .items = { 1, 2 } }, (cerune_array_i64_2){ .items = { 3, 4 } } } };
-    cerune_array_array_i64_2_2 cerune_binding_10_rows = cerune_fn_duplicate_first_row_4(cerune_binding_9_matrix);
+    cerune_array_array_i64_2_2 cerune_binding_10_rows = (_cerune_eval_3 = cerune_binding_9_matrix, (cerune_call_enter(4ULL, " node=43 bytes=673..700\n"), _cerune_eval_4 = cerune_fn_duplicate_first_row_4(_cerune_eval_3), cerune_call_leave(), _cerune_eval_4));
     cerune_output_i64((cerune_binding_7_original).x, 1, " node=45 bytes=703..721\n");
     cerune_output_i64((cerune_binding_8_moved).x, 1, " node=48 bytes=722..737\n");
     cerune_output_i64((cerune_binding_8_moved).y, 1, " node=51 bytes=738..753\n");
     cerune_output_i64(cerune_array_get_i64_2(cerune_array_get_array_i64_2_2(cerune_binding_9_matrix, 1, " node=56 bytes=760..769\n"), 0, " node=55 bytes=760..772\n"), 1, " node=54 bytes=754..774\n");
     cerune_output_i64(cerune_array_get_i64_2(cerune_array_get_array_i64_2_2(cerune_binding_10_rows, 0, " node=62 bytes=781..788\n"), 1, " node=61 bytes=781..791\n"), 1, " node=60 bytes=775..793\n");
     cerune_output_i64(cerune_array_get_i64_2(cerune_array_get_array_i64_2_2(cerune_binding_10_rows, 1, " node=68 bytes=800..807\n"), 0, " node=67 bytes=800..810\n"), 1, " node=66 bytes=794..812\n");
+    cerune_call_finish();
     return 0;
 }

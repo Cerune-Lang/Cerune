@@ -93,6 +93,7 @@ pub(super) fn run(
     string_limit: u64,
     array_limit: u64,
     limits: Limits,
+    call_depth_limit: std::num::NonZeroU32,
 ) -> Result<(), String> {
     let options = Options::parse(args)?;
     let source = super::read_source(&options.input)?;
@@ -105,6 +106,7 @@ pub(super) fn run(
         options.ssa,
         options.sources,
         limits,
+        call_depth_limit,
     )?;
     fs::create_dir(&options.output)
         .map_err(|e| format!("cannot create native build directory: {e}"))?;
@@ -125,7 +127,7 @@ pub(super) fn run(
     write("link-plan.json", request.plan().as_bytes())?;
     let manifest = |status: &str, error: Option<&str>| {
         format!(
-            "{{\n  \"schema\":\"cerune-native-build-v1\",\n  \"status\":{},\n  \"cerune_version\":{},\n  \"route\":\"native\",\n  \"target\":{},\n  \"executable\":{},\n  \"executed\":false,\n  \"optimization_passes\":[],\n  \"ssa\":{},\n  \"string_heap_limit\":{},\n  \"array_heap_limit\":{},\n  \"argument_count_limit\":{},\n  \"argument_byte_limit\":{},\n  \"sources_included\":{},\n  \"artifacts\":[{}],\n  \"link_plan\":\"link-plan.json\",\n  \"link_result\":\"link-result.json\",\n  \"runtime_policy\":\"target-system-runtime\",\n  \"error\":{}\n}}\n",
+            "{{\n  \"schema\":\"cerune-native-build-v1\",\n  \"status\":{},\n  \"cerune_version\":{},\n  \"route\":\"native\",\n  \"target\":{},\n  \"executable\":{},\n  \"executed\":false,\n  \"optimization_passes\":[],\n  \"ssa\":{},\n  \"string_heap_limit\":{},\n  \"array_heap_limit\":{},\n  \"argument_count_limit\":{},\n  \"call_depth_limit\":{},\n  \"argument_byte_limit\":{},\n  \"sources_included\":{},\n  \"artifacts\":[{}],\n  \"link_plan\":\"link-plan.json\",\n  \"link_result\":\"link-result.json\",\n  \"runtime_policy\":\"target-system-runtime\",\n  \"error\":{}\n}}\n",
             json(status),
             json(env!("CARGO_PKG_VERSION")),
             json(options.target.triple()),
@@ -134,6 +136,7 @@ pub(super) fn run(
             hir.string_heap_limit,
             hir.array_heap_limit,
             limits.max_count,
+            call_depth_limit,
             limits.max_bytes,
             options.sources,
             generated

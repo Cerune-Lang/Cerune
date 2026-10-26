@@ -56,3 +56,5 @@ Option, compilation and Object-generation failures launch no tools and create no
 Tool stdin is null. On timeout terminate the dedicated process group (Unix) or driver descendants (Windows) and reap the driver. This is not a toolchain sandbox; the explicitly selected local tool is trusted.
 
 On Windows/Linux compare baseline/SSA build→execution, exact existing emit output, arguments, limits, failure reasons and origins. Test failing/timed-out drivers, successful exit without output, syntax/type errors and existing-output preservation. See the [runnable example](../../examples/build_native/README.en.md).
+
+Build retains `--call-depth-limit N` (default 128, range 1–128) in LIR, generated checks, and manifest call_depth_limit. This is not a physical stack/memory guarantee.

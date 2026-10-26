@@ -26,8 +26,10 @@ cargo test --test wat_output frames::call_frames_example compares HIR, MIR, SSA,
 
 [depth.ceru](depth.ceru) evaluates the left and right arguments before entering pair. Run it with `cargo run --quiet -- run examples/call_frames/depth.ceru`; output matches [depth.stdout](depth.stdout).
 
-Depth limits are explicit Rust API settings. Four executors and C/LLVM/QBE/WAT/Native emission APIs support them. See the [artifact commands](../../experiments/call_depth/README.en.md) to inspect checks, history, and origins. Limit 2 completes the example; limit 1 stops immediately before outer enters the first mark(10). CLI configuration is pending. `cargo test --test ir_executor call_depth` compares prior output, failure origins, and call snapshots across four executors.
+Depth limits are available through the CLI and explicit Rust APIs. Four executors and C/LLVM/QBE/WAT/Native emission APIs support them. See the [artifact commands](../../experiments/call_depth/README.en.md) to inspect checks, history, and origins. Limit 2 completes the example; limit 1 stops immediately before outer enters the first mark(10). CLI configuration is described below. `cargo test --test ir_executor call_depth` compares prior output, failure origins, and call snapshots across four executors.
 
 [pending_values.ceru](pending_values.ceru) retains the result of price(1) while calling subtotal, then adds the returned value. Run `cargo run --quiet -- run examples/call_frames/pending_values.ceru`; output matches [pending_values.stdout](pending_values.stdout). Each executor retains its own representation in explicit frames. run-mir, run-mir --ssa, and run-vm produce the same output. emit-ir/emit-mir/emit-bytecode representations and origins remain unchanged.
 
 [return_paths.ceru](return_paths.ceru) uses floating-point results from both early and normal returns. Limit 2 matches the [expected output](return_paths.stdout); limit 1 stops before the first leaf call.
+
+CLI commands accept `--call-depth-limit N` (default 128, range 1–128; not a physical stack guarantee). Run `cargo run --quiet -- run examples/call_frames/depth.ceru --call-depth-limit 1 --diagnostic-format runtime-v1` to inspect the stopping call and its stack; limit 2 completes. This replaces the earlier API-only configuration.

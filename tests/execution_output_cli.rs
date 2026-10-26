@@ -171,3 +171,6 @@ fn closed_stdout_stops_cleanly_instead_of_panicking_or_looping() {
         }
     }
 }
+
+#[path = "call_depth/cli.rs"]
+mod call_depth_cli;

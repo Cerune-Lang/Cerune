@@ -89,6 +89,11 @@ fn bytes(value: &str, out: &mut String) {
 }
 pub(super) fn support(m: &Module, out: &mut String) {
     let Some(limit) = m.call_limit else { return };
+    writeln!(
+        out,
+        ";; call_depth_limit={limit}; not a physical stack/memory guarantee"
+    )
+    .unwrap();
     out.push_str("  (func $cerune_call_site_write (param $site i32) (param $allocation i32)\n");
     for (id, s) in sites(m).into_iter().enumerate() {
         writeln!(out,"    (if (i32.eq (local.get $site) (i32.const {id})) (then\n      (if (local.get $allocation) (then").unwrap();

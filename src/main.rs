@@ -1,3 +1,4 @@
+mod call_depth_cli;
 mod format_cli;
 mod native_build;
 mod native_release;
@@ -28,11 +29,18 @@ fn run() -> Result<(), String> {
     let (compiler_args, program_arguments, argument_limits) =
         program_arguments::parse(&command, args)?;
     let (rest, string_heap_limit, array_heap_limit) = parse_heap_limits(compiler_args, &command)?;
+    let (rest, call_depth_limit) = call_depth_cli::parse(rest, &command)?;
     let mut args = rest.into_iter();
     match command.as_str() {
         "fmt" => format_cli::run(args),
         "release" => native_release::run(args),
-        "build" => native_build::run(args, string_heap_limit, array_heap_limit, argument_limits),
+        "build" => native_build::run(
+            args,
+            string_heap_limit,
+            array_heap_limit,
+            argument_limits,
+            call_depth_limit,
+        ),
         // コードの構文チェック
         "check" => {
             let input = required_path(args.next(), "missing input file")?;
@@ -71,7 +79,7 @@ fn run() -> Result<(), String> {
                 .ok_or("unsupported observation target; expected x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc")?;
             let source = read_source(&input)?;
             let hir = ir_for(&source, string_heap_limit, array_heap_limit)?;
-            observation_bundle::save(&source, &hir, target, &output, ssa, lir)
+            observation_bundle::save(&source, &hir, target, &output, ssa, lir, call_depth_limit)
         }
 
         // Cerune IR 生成
@@ -131,11 +139,10 @@ fn run() -> Result<(), String> {
             let source = read_source(&input)?;
 
             let c = render_compilation_result(
-                cerune_lang::codegen::emit_c(&ir_for(
-                    &source,
-                    string_heap_limit,
-                    array_heap_limit,
-                )?),
+                cerune_lang::codegen::c::emit_c_with_call_limit(
+                    &ir_for(&source, string_heap_limit, array_heap_limit)?,
+                    call_depth_limit,
+                ),
                 &source,
             )?;
 
@@ -160,13 +167,14 @@ fn run() -> Result<(), String> {
             let source = read_source(&input)?;
 
             let llvm = render_compilation_result(
-                cerune_lang::codegen::llvm::emit_llvm_with_argument_limits(
+                cerune_lang::codegen::llvm::emit_llvm_with_runtime_limits(
                     &ir_for(&source, string_heap_limit, array_heap_limit)?,
                     cerune_lang::codegen::llvm::Options {
                         target,
                         annotate_origins,
                     },
                     argument_limits,
+                    call_depth_limit,
                 ),
                 &source,
             )?;
@@ -185,9 +193,10 @@ fn run() -> Result<(), String> {
             let source = read_source(&input)?;
 
             let wat = render_compilation_result(
-                cerune_lang::codegen::wat::emit_wat_with_argument_limits(
+                cerune_lang::codegen::wat::emit_wat_with_runtime_limits(
                     &ir_for(&source, string_heap_limit, array_heap_limit)?,
                     argument_limits,
+                    call_depth_limit,
                 ),
                 &source,
             )?;
@@ -216,10 +225,11 @@ fn run() -> Result<(), String> {
             let source = read_source(&input)?;
 
             let qbe = render_compilation_result(
-                cerune_lang::codegen::qbe::emit_qbe_with_argument_limits(
+                cerune_lang::codegen::qbe::emit_qbe_with_runtime_limits(
                     &ir_for(&source, string_heap_limit, array_heap_limit)?,
                     target,
                     argument_limits,
+                    call_depth_limit,
                 ),
                 &source,
             )?;
@@ -239,10 +249,11 @@ fn run() -> Result<(), String> {
             let hir = ir_for(&source, string_heap_limit, array_heap_limit)?;
             let mir = native_mir_for(&source, &hir, ssa)?;
             let lir = render_compilation_result(
-                cerune_lang::codegen::x86_64::lower_mir_with_argument_limits(
+                cerune_lang::codegen::x86_64::lower_mir_with_runtime_limits(
                     &mir,
                     target,
                     argument_limits,
+                    call_depth_limit,
                 ),
                 &source,
             )?;
@@ -269,10 +280,11 @@ fn run() -> Result<(), String> {
             let hir = ir_for(&source, string_heap_limit, array_heap_limit)?;
             let mir = native_mir_for(&source, &hir, ssa)?;
             let asm = render_compilation_result(
-                cerune_lang::codegen::x86_64::lower_mir_with_argument_limits(
+                cerune_lang::codegen::x86_64::lower_mir_with_runtime_limits(
                     &mir,
                     target,
                     argument_limits,
+                    call_depth_limit,
                 )
                 .and_then(|lir| {
                     cerune_lang::codegen::x86_64::emit_asm_from_lir(&lir, annotate_origins)
@@ -297,10 +309,11 @@ fn run() -> Result<(), String> {
             let hir = ir_for(&source, string_heap_limit, array_heap_limit)?;
             let mir = native_mir_for(&source, &hir, ssa)?;
             let bytes = render_compilation_result(
-                cerune_lang::codegen::x86_64::lower_mir_with_argument_limits(
+                cerune_lang::codegen::x86_64::lower_mir_with_runtime_limits(
                     &mir,
                     target,
                     argument_limits,
+                    call_depth_limit,
                 )
                 .and_then(|lir| cerune_lang::codegen::x86_64::emit_object_from_lir(&lir, origins)),
                 &source,
@@ -365,11 +378,12 @@ fn run() -> Result<(), String> {
                 )?;
                 if ssa {
                     let ssa = ssa_for(&mir, &source)?;
-                    cerune_lang::ssa_executor::run_with_io_and_arguments(
+                    cerune_lang::ssa_executor::run_with_io_arguments_and_call_limit(
                         &ssa,
                         &mut stdin,
                         &mut output,
                         &program_arguments,
+                        call_depth_limit,
                     )
                     .map_err(|error| {
                         if runtime_format
@@ -378,23 +392,30 @@ fn run() -> Result<(), String> {
                         {
                             return failure.record();
                         }
+                        if runtime_format && let Some(failure) = error.call_failure() {
+                            return failure.record();
+                        }
                         if runtime_format && let Some(failure) = error.runtime_failure() {
                             return failure.record();
                         }
                         source.render(&error.diagnostic())
                     })
                 } else {
-                    cerune_lang::mir_executor::run_with_io_and_arguments(
+                    cerune_lang::mir_executor::run_with_io_arguments_and_call_limit(
                         &mir,
                         &mut stdin,
                         &mut output,
                         &program_arguments,
+                        call_depth_limit,
                     )
                     .map_err(|error| {
                         if runtime_format
                             && let cerune_lang::mir_executor::ErrorKind::Arguments(failure) =
                                 error.kind()
                         {
+                            return failure.record();
+                        }
+                        if runtime_format && let Some(failure) = error.call_failure() {
                             return failure.record();
                         }
                         if runtime_format && let Some(failure) = error.runtime_failure() {
@@ -404,17 +425,21 @@ fn run() -> Result<(), String> {
                     })
                 }
             } else if command != "run-vm" {
-                cerune_lang::ir_executor::run_with_io_and_arguments(
+                cerune_lang::ir_executor::run_with_io_arguments_and_call_limit(
                     &ir,
                     &mut stdin,
                     &mut output,
                     &program_arguments,
+                    call_depth_limit,
                 )
                 .map_err(|error| {
                     if runtime_format
                         && let cerune_lang::ir_executor::ErrorKind::Arguments(failure) =
                             error.kind()
                     {
+                        return failure.record();
+                    }
+                    if runtime_format && let Some(failure) = error.call_failure() {
                         return failure.record();
                     }
                     if runtime_format && let Some(failure) = error.runtime_failure() {
@@ -425,17 +450,21 @@ fn run() -> Result<(), String> {
             } else {
                 let bytecode =
                     render_compilation_result(cerune_lang::bytecode::lower(&ir), &source)?;
-                cerune_lang::run_bytecode_with_io_and_arguments(
+                cerune_lang::run_bytecode_with_io_arguments_and_call_limit(
                     &bytecode,
                     &mut stdin,
                     &mut output,
                     &program_arguments,
+                    call_depth_limit,
                 )
                 .map_err(|error| {
                     if runtime_format
                         && let cerune_lang::vm::VmErrorKind::Arguments(failure) =
                             error.vm_error().kind()
                     {
+                        return failure.record();
+                    }
+                    if runtime_format && let Some(failure) = error.vm_error().call_failure() {
                         return failure.record();
                     }
                     if runtime_format && let Some(failure) = error.runtime_failure() {
@@ -698,6 +727,9 @@ fn write_or_print(output: Option<PathBuf>, content: String) -> Result<(), String
 
 fn print_help() {
     println!(
+        "Call depth: --call-depth-limit <1..128> (default 128; not a physical stack/memory guarantee)"
+    );
+    println!(
         "Cerune {}\n\n\
          A small experimental language with observable code generation.\n\n\
          USAGE:\n\
@@ -708,9 +740,9 @@ fn print_help() {
            cerune emit-sources <file> [-o <sources.json>]\n\
            cerune emit-ir <file> [-o <output.ceir>]\n\
            cerune emit-c <file> [-o <output.c>]\n\
-           cerune emit-llvm <file> [--target <triple>] [--annotate-origins] [-o <output.ll>]\n\
+           cerune emit-llvm <file> --target <triple> [--annotate-origins] [-o <output.ll>]\n\
            cerune emit-wat <file> [-o <output.wat>]\n\
-           cerune emit-qbe <file> [--target <triple>] [-o <output.ssa>]\n\
+           cerune emit-qbe <file> --target <triple> [-o <output.ssa>]\n\
            cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]\n\
            cerune emit-asm <file> [--ssa] [--target <triple>] [--annotate-origins] [-o <output.s>]\n\
            cerune emit-obj <file> [--ssa] --target <triple> [--annotate-origins] -o <output.o>\n\

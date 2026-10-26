@@ -18,6 +18,7 @@ pub(super) fn prepare(
     ssa: bool,
     sources: bool,
     limits: Limits,
+    call_depth_limit: std::num::NonZeroU32,
 ) -> Result<Generated, String> {
     let mut files = Vec::new();
     let mut text = |name, value: String| files.push((name, value.into_bytes()));
@@ -45,7 +46,7 @@ pub(super) fn prepare(
     } else {
         &baseline
     };
-    let lir = native::lower_mir_with_argument_limits(selected, target, limits)
+    let lir = native::lower_mir_with_runtime_limits(selected, target, limits, call_depth_limit)
         .map_err(|e| source.render(&e))?;
     text(
         "program.lir.txt",
