@@ -2,6 +2,7 @@
 use crate::runtime::arguments::{self, Arguments};
 use crate::runtime::array_heap::{ArrayError, ArrayHeap};
 use crate::runtime::call;
+use crate::runtime::files;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::value::{self, write_quoted};
@@ -30,6 +31,7 @@ pub struct Origin {
 pub enum ErrorKind {
     CallDepth(Box<call::Failure>),
     Arguments(Box<arguments::Failure>),
+    Files(Box<files::Failure>),
     Input(Box<input::Failure>),
     Output(Box<output::Failure>),
     Runtime(FailureCode),
@@ -71,6 +73,7 @@ impl ExecutionError {
         let message = match &self.kind {
             ErrorKind::CallDepth(failure) => failure.to_string(),
             ErrorKind::Arguments(failure) => failure.to_string(),
+            ErrorKind::Files(failure) => failure.to_string(),
             ErrorKind::Input(failure) => failure.to_string(),
             ErrorKind::Output(failure) => failure.to_string(),
             ErrorKind::Runtime(code) => format!("runtime error: {}", code.name()),
@@ -152,6 +155,7 @@ struct Executor<'a, 'o> {
     program: &'a ir::Program,
     output: &'o mut dyn Sink,
     input: &'o mut dyn Source,
+    files: &'o mut dyn files::Access,
     program_arguments: &'o Arguments,
     heap: StringHeap,
     arrays: ArrayHeap<Value>,
@@ -204,6 +208,36 @@ pub fn run_with_io<R: std::io::Read, W: std::io::Write>(
 ) -> std::result::Result<(), ExecutionError> {
     run_connections(program, output, input, &Arguments::unconfigured()).map(|_| ())
 }
+/// 明示したファイル接続で実行します。標準出力は返却文字列に保持します。
+pub fn run_with_files<B: files::Backend>(
+    program: &ir::Program,
+    files: &mut files::Files<B>,
+) -> std::result::Result<String, ExecutionError> {
+    run_resources(
+        program,
+        &mut Capture::default(),
+        &mut input::unconfigured(),
+        &Arguments::unconfigured(),
+        files,
+        None,
+    )
+}
+/// 入出力・引数・ファイル接続・呼出し深さを同じ実行に指定します。
+pub fn run_with_io_files_arguments_and_call_limit<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: files::Backend,
+>(
+    program: &ir::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    files: &mut files::Files<B>,
+    arguments: &Arguments,
+    limit: NonZeroU32,
+) -> std::result::Result<(), ExecutionError> {
+    run_resources(program, output, input, arguments, files, Some(limit)).map(|_| ())
+}
+
 pub fn run_with_arguments(
     program: &ir::Program,
     arguments: &Arguments,
@@ -248,12 +282,30 @@ fn run_connections_with_limit(
     program_arguments: &Arguments,
     limit: Option<NonZeroU32>,
 ) -> std::result::Result<String, ExecutionError> {
+    run_resources(
+        program,
+        output,
+        input,
+        program_arguments,
+        &mut files::unconfigured(),
+        limit,
+    )
+}
+fn run_resources(
+    program: &ir::Program,
+    output: &mut dyn Sink,
+    input: &mut dyn Source,
+    program_arguments: &Arguments,
+    files: &mut dyn files::Access,
+    limit: Option<NonZeroU32>,
+) -> std::result::Result<String, ExecutionError> {
     let mut executor = Executor {
         calls: limit.map(call::Stack::new),
         program,
         output,
         input,
         program_arguments,
+        files,
         heap: StringHeap::new(program.string_heap_limit),
         arrays: ArrayHeap::new(program.array_heap_limit),
     };
@@ -307,6 +359,25 @@ impl Executor<'_, '_> {
                 );
             }
 
+            S::FileWriteNew { .. } => {
+                let name = operand(values)?.string()?;
+                let text = operand(values)?.string()?;
+                let limit = operand(values)?.integer(IntegerType::I64)? as i64;
+                self.files
+                    .write_value(
+                        &name.borrow_text(),
+                        &text.borrow_text(),
+                        limit,
+                        files::Origin {
+                            node_id: s.id,
+                            span: s.span,
+                        },
+                    )
+                    .map_err(|f| Fault {
+                        kind: ErrorKind::Files(Box::new(f)),
+                        origin: None,
+                    })?;
+            }
             S::ArrayInitialize { .. } => {
                 let Value::DynamicArray { element, storage } = operand(values)? else {
                     return Err(Fault::invalid("array initialize"));
@@ -481,6 +552,26 @@ impl Executor<'_, '_> {
                             origin: None,
                         })?,
                 )
+            }
+            E::FileReadText { .. } => {
+                let name = operand(values)?.string()?;
+                let limit = operand(values)?.integer(IntegerType::I64)? as i64;
+                let value = self
+                    .files
+                    .read_value(
+                        &mut self.heap,
+                        &name.borrow_text(),
+                        limit,
+                        files::Origin {
+                            node_id: e.id,
+                            span: e.span,
+                        },
+                    )
+                    .map_err(|f| Fault {
+                        kind: ErrorKind::Files(Box::new(f)),
+                        origin: None,
+                    })?;
+                Value::String(value)
             }
             E::ReadLine { .. } => {
                 let limit = operand(values)?.integer(IntegerType::I64)? as i64;
@@ -731,6 +822,7 @@ mod tests {
             program: &program,
             output: &mut captured,
             input: &mut crate::runtime::input::unconfigured(),
+            files: &mut crate::runtime::files::unconfigured(),
             program_arguments: &Arguments::unconfigured(),
             heap: StringHeap::new(program.string_heap_limit),
             arrays: ArrayHeap::new(program.array_heap_limit),
@@ -777,6 +869,7 @@ mod tests {
             program: &p,
             output: &mut captured,
             input: &mut crate::runtime::input::unconfigured(),
+            files: &mut crate::runtime::files::unconfigured(),
             program_arguments: &Arguments::unconfigured(),
             heap: StringHeap::new(p.string_heap_limit),
             arrays: ArrayHeap::new(p.array_heap_limit),

@@ -298,6 +298,19 @@ fn emit_statement(statement: &Statement, indent: usize, program: &Program, outpu
             emit_expr(value, program, output);
             writeln!(output).unwrap();
         }
+        StatementKind::FileWriteNew {
+            name,
+            text,
+            max_bytes,
+        } => {
+            write!(output, "{prefix}{node}file.write_new.utf8(").unwrap();
+            emit_expr(name, program, output);
+            output.push_str(", ");
+            emit_expr(text, program, output);
+            output.push_str(", ");
+            emit_expr(max_bytes, program, output);
+            writeln!(output, ")").unwrap();
+        }
         StatementKind::Flush => {
             writeln!(output, "{prefix}{node}flush.stdout").unwrap();
         }
@@ -478,6 +491,13 @@ fn emit_expr(expr: &Expr, program: &Program, output: &mut String) {
         ExprKind::ArgumentGet { index } => {
             output.push_str("arguments.get(");
             emit_expr(index, program, output);
+            output.push(')');
+        }
+        ExprKind::FileReadText { name, max_bytes } => {
+            output.push_str("file.read_text.utf8(");
+            emit_expr(name, program, output);
+            output.push_str(", ");
+            emit_expr(max_bytes, program, output);
             output.push(')');
         }
         ExprKind::ReadLine { max_bytes } => {

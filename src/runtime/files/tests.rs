@@ -597,3 +597,35 @@ fn source_id_survives_in_failure_records() {
     );
     assert!(!e.record().contains("secret"));
 }
+
+#[test]
+fn executor_ownership_reservation_failure_precedes_open() {
+    let memory = input(b"abc");
+    let mut files = Files::new(memory.clone());
+    let mut heap = crate::runtime::string_heap::StringHeap::new(3);
+    heap.fail_next_allocation();
+    let failure = files
+        .read_value(&mut heap, "日本語.txt", 3, origin())
+        .unwrap_err();
+    assert_eq!(failure.code, Code::AllocationFailed);
+    assert_eq!(failure.details.phase, Phase::Reserve);
+    assert!(memory.0.borrow().calls.is_empty());
+    heap.assert_empty();
+}
+
+#[test]
+fn failed_read_releases_prepared_owner_and_success_transfers_actual_length() {
+    for bytes in [b"abc".as_slice(), b"\xff".as_slice()] {
+        let mut files = Files::new(input(bytes));
+        let mut heap = crate::runtime::string_heap::StringHeap::new(8);
+        match files.read_value(&mut heap, "日本語.txt", 8, origin()) {
+            Ok(value) => {
+                assert_eq!(&*value.borrow_text(), "abc");
+                assert_eq!(heap.available(), 5);
+                heap.manage(&value, false).unwrap();
+            }
+            Err(failure) => assert_eq!(failure.code, Code::InvalidUtf8),
+        }
+        heap.assert_empty();
+    }
+}

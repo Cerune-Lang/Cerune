@@ -47,3 +47,16 @@ pub(super) fn reject_arguments(
     }
     Ok(())
 }
+
+pub(super) fn reject_files(
+    program: &crate::ir::Program,
+    backend: &str,
+) -> Result<(), crate::diagnostic::Diagnostic> {
+    if let Some(span) = program.first_file_span() {
+        return Err(crate::diagnostic::Diagnostic::new(
+            format!("{backend} file I/O is not supported yet"),
+            span,
+        ));
+    }
+    Ok(())
+}

@@ -241,7 +241,10 @@ fn visit(
             ));
         }
         if import.path.starts_with("std:") {
-            if !matches!(import.path.as_str(), "std:io" | "std:env" | "std:num") {
+            if !matches!(
+                import.path.as_str(),
+                "std:io" | "std:env" | "std:num" | "std:fs"
+            ) {
                 return Err(Diagnostic::new(
                     format!("unknown standard module `{}`", import.path),
                     import.span,
@@ -256,6 +259,7 @@ fn visit(
                 target
             } else {
                 let (identifier, text) = match import.path.as_str() {
+                    "std:fs" => ("std:fs", include_str!("standard/fs.ceru")),
                     "std:io" => ("std:io", include_str!("standard/io.ceru")),
                     "std:env" => ("std:env", include_str!("standard/env.ceru")),
                     "std:num" => ("std:num", include_str!("standard/num.ceru")),
@@ -266,6 +270,8 @@ fn visit(
                 for token in &mut tokens {
                     if let lexer::TokenKind::Identifier(name) = &mut token.kind {
                         let internal = match (identifier, name.as_str()) {
+                            ("std:fs", "__cerune_file_read_text") => Some("$file_read_text"),
+                            ("std:fs", "__cerune_file_write_new") => Some("$file_write_new"),
                             ("std:io", "__cerune_read_line_utf8") => Some("$read_line"),
                             ("std:env", "__cerune_arg_count") => Some("$arg_count"),
                             ("std:env", "__cerune_arg_get") => Some("$arg_get"),

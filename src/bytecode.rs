@@ -141,6 +141,8 @@ pub enum InstructionKind {
     },
     ArgumentCount,
     ArgumentGet,
+    FileReadText,
+    FileWriteNew,
     ReadLine,
     StringByteAt,
     StringByteLength,
@@ -378,6 +380,7 @@ pub fn format_program(program: &BytecodeProgram) -> String {
             matches!(
                 i.kind,
                 InstructionKind::StringConcat
+                    | InstructionKind::FileReadText
                     | InstructionKind::ReadLine
                     | InstructionKind::ArgumentGet
             )
@@ -594,6 +597,17 @@ impl Compiler {
                     statement.id,
                     statement.span,
                 );
+                false
+            }
+            StatementKind::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+            } => {
+                self.emit_expr(name);
+                self.emit_expr(text);
+                self.emit_expr(max_bytes);
+                self.emit_source(InstructionKind::FileWriteNew, statement.id, statement.span);
                 false
             }
             StatementKind::Flush => {
@@ -856,6 +870,11 @@ impl Compiler {
             ExprKind::ArgumentGet { index } => {
                 self.emit_expr(index);
                 self.emit_source(InstructionKind::ArgumentGet, expr.id, expr.span);
+            }
+            ExprKind::FileReadText { name, max_bytes } => {
+                self.emit_expr(name);
+                self.emit_expr(max_bytes);
+                self.emit_source(InstructionKind::FileReadText, expr.id, expr.span);
             }
             ExprKind::ReadLine { max_bytes } => {
                 self.emit_expr(max_bytes);
@@ -1235,6 +1254,7 @@ fn collect_slots(
             | StatementKind::Assignment { .. }
             | StatementKind::StringManage { .. }
             | StatementKind::Write { .. }
+            | StatementKind::FileWriteNew { .. }
             | StatementKind::Flush
             | StatementKind::Print { .. }
             | StatementKind::Call { .. }
@@ -1336,6 +1356,12 @@ fn format_instruction(
         }
         InstructionKind::ArgumentGet => {
             writeln!(output, "arguments.get").unwrap();
+        }
+        InstructionKind::FileReadText => {
+            writeln!(output, "file.read_text.utf8").unwrap();
+        }
+        InstructionKind::FileWriteNew => {
+            writeln!(output, "file.write_new.utf8").unwrap();
         }
         InstructionKind::ReadLine => {
             writeln!(output, "input.read_line.utf8").unwrap();

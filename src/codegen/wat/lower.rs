@@ -465,6 +465,9 @@ impl LoweringContext<'_> {
                     },
                 });
             }
+            cerune_ir::StatementKind::FileWriteNew { .. } => {
+                unreachable!("file I/O rejected before lowering")
+            }
             cerune_ir::StatementKind::Flush => {
                 instructions.push(Instruction::Flush {
                     origin: Origin {
@@ -848,6 +851,9 @@ impl LoweringContext<'_> {
                 self.lower_expr(right, instructions);
                 instructions.push(Instruction::StringConcat.at(expr));
                 Value::Scalar(Type::String)
+            }
+            cerune_ir::ExprKind::FileReadText { .. } => {
+                unreachable!("file I/O rejected before lowering")
             }
             cerune_ir::ExprKind::ReadLine { max_bytes } => {
                 self.lower_expr(max_bytes, instructions);
@@ -1640,6 +1646,7 @@ fn collect_locations(
             cerune_ir::StatementKind::Assignment { .. }
             | cerune_ir::StatementKind::StringManage { .. }
             | cerune_ir::StatementKind::Write { .. }
+            | cerune_ir::StatementKind::FileWriteNew { .. }
             | cerune_ir::StatementKind::Flush
             | cerune_ir::StatementKind::Print { .. }
             | cerune_ir::StatementKind::Call { .. }

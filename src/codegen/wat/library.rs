@@ -183,6 +183,7 @@ pub fn emit_library(compilation: &Compilation, selected: &[&str]) -> Result<Libr
         }
     }
     let program = compilation.to_ir()?;
+    crate::codegen::support::reject_files(&program, "WAT")?;
     crate::codegen::support::reject_arguments(&program, "WAT")?;
     validate::program(&program)?;
     let mut seen = HashSet::new();

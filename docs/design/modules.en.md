@@ -34,7 +34,7 @@ Aliases belong only to their declaring file. A `pub enum` exposes all variants a
 
 ## Loading and execution
 
-Resolve `std:` identifiers first as [virtual standard modules](standard-modules.en.md). `std:io` and `std:env` are recognized; unknown identifiers fail without filesystem fallback.
+Resolve `std:` identifiers first as [virtual standard modules](standard-modules.en.md). `std:io`, `std:env`, `std:num` and `std:fs` are recognized; unknown identifiers fail without filesystem fallback.
 
 Relative paths resolve against the importing file's directory, with no fallback to the process working directory or environment search paths. Import paths use forward slashes and end in `.ceru`. Parent-directory `..` references are allowed; absolute paths, drive prefixes, backslashes, and control characters are rejected. The entry CLI argument accepts ordinary OS paths.
 

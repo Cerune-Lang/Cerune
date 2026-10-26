@@ -551,7 +551,12 @@ fn statement_operand(s: &Statement, index: usize) -> Option<&Expr> {
         | S::ArrayRetain { value }
         | S::ArrayFree { value } => (index == 0).then_some(value),
         S::ArrayInitialize { array, value } => [array, value].get(index).copied(),
-        S::ArrayRangeCheck { length, start, end } => [length, start, end].get(index).copied(),
+        S::FileWriteNew {
+            name: length,
+            text: start,
+            max_bytes: end,
+        }
+        | S::ArrayRangeCheck { length, start, end } => [length, start, end].get(index).copied(),
         S::Call { arguments, .. } => arguments.get(index),
         S::Flush => None,
         _ => unreachable!("structured statement operands"),
@@ -570,7 +575,11 @@ fn expression_operand(e: &Expr, index: usize) -> Option<&Expr> {
         | E::ConvertInteger { value, .. }
         | E::FieldAccess { base: value, .. }
         | E::Unary { value, .. } => (index == 0).then_some(value),
-        E::StringConcat { left, right }
+        E::FileReadText {
+            name: left,
+            max_bytes: right,
+        }
+        | E::StringConcat { left, right }
         | E::Logical { left, right, .. }
         | E::Binary { left, right, .. }
         | E::StringByteAt {
@@ -634,6 +643,7 @@ mod tests {
                 program: &program,
                 output: &mut output,
                 input: &mut input,
+                files: &mut files::unconfigured(),
                 program_arguments: &arguments,
                 heap: StringHeap::new(program.string_heap_limit),
                 arrays: ArrayHeap::new(program.array_heap_limit),

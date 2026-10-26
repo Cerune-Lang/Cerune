@@ -57,7 +57,12 @@ fn string_statement(statement: &Statement) -> Option<Span> {
         StatementKind::ArrayInitialize { array, value } => {
             string_expr(array).or_else(|| string_expr(value))
         }
-        StatementKind::ArrayRangeCheck { length, start, end } => string_expr(length)
+        StatementKind::FileWriteNew {
+            name: length,
+            text: start,
+            max_bytes: end,
+        }
+        | StatementKind::ArrayRangeCheck { length, start, end } => string_expr(length)
             .or_else(|| string_expr(start))
             .or_else(|| string_expr(end)),
         StatementKind::ArrayRetain { value } | StatementKind::ArrayFree { value } => {
@@ -151,6 +156,10 @@ fn string_expr(expr: &Expr) -> Option<Span> {
         | ExprKind::StringByteAt {
             value: left,
             index: right,
+        }
+        | ExprKind::FileReadText {
+            name: left,
+            max_bytes: right,
         }
         | ExprKind::StringConcat { left, right }
         | ExprKind::Logical { left, right, .. }

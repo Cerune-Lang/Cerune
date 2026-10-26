@@ -2,6 +2,7 @@
 use super::{Fault, Result};
 use crate::runtime::arguments::Arguments;
 use crate::runtime::call;
+use crate::runtime::files;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Sink};
 use crate::{
@@ -23,6 +24,7 @@ pub(crate) struct State<'a> {
     pub fail_frame_after: Option<usize>,
     pub output: &'a mut dyn Sink,
     pub input: Option<&'a mut dyn Source>,
+    pub files: Option<&'a mut dyn files::Access>,
     pub arguments: Option<&'a Arguments>,
     pub strings: StringHeap,
     pub arrays: ArrayHeap<Value>,
@@ -35,6 +37,7 @@ impl<'a> State<'a> {
             fail_frame_after: None,
             output,
             input: None,
+            files: None,
             arguments: None,
             strings: StringHeap::new(string_limit),
             arrays: ArrayHeap::new(array_limit),
@@ -105,6 +108,38 @@ pub(crate) fn instruction<'a, R: Copy>(
             let mut destination = frame.get(*root)?;
             set_path(&mut destination, &indices, frame.get(*value)?)?;
             frame.set(*root, destination)?;
+        }
+        I::FileWriteNew {
+            name,
+            text,
+            max_bytes,
+        } => {
+            let name = frame.get(*name)?.string()?;
+            let text = frame.get(*text)?.string()?;
+            let limit = frame.get(*max_bytes)?.integer(IntegerType::I64)? as i64;
+            let o = origin
+                .source()
+                .ok_or_else(|| Fault::invalid("file operation lacks source origin"))?;
+            let mut missing = files::unconfigured();
+            executor
+                .state()
+                .files
+                .as_deref_mut()
+                .unwrap_or(&mut missing)
+                .write_value(
+                    &name.borrow_text(),
+                    &text.borrow_text(),
+                    limit,
+                    files::Origin {
+                        node_id: o.node_id,
+                        span: o.span,
+                    },
+                )
+                .map_err(|f| Fault {
+                    kind: super::ErrorKind::Files(Box::new(f)),
+                    origin: Some(o),
+                    location: None,
+                })?;
         }
         I::Flush => {
             let origin = origin.source().map(|o| output::Origin {
@@ -208,6 +243,34 @@ fn operation<'a, R: Copy>(
                 origin: Some(origin),
                 location: None,
             })?
+        }
+        O::FileReadText { name, max_bytes } => {
+            let name = frame.get(*name)?.string()?;
+            let limit = frame.get(*max_bytes)?.integer(IntegerType::I64)? as i64;
+            let o = origin
+                .source()
+                .ok_or_else(|| Fault::invalid("file operation lacks source origin"))?;
+            let mut missing = files::unconfigured();
+            let state = executor.state();
+            let value = state
+                .files
+                .as_deref_mut()
+                .unwrap_or(&mut missing)
+                .read_value(
+                    &mut state.strings,
+                    &name.borrow_text(),
+                    limit,
+                    files::Origin {
+                        node_id: o.node_id,
+                        span: o.span,
+                    },
+                )
+                .map_err(|f| Fault {
+                    kind: super::ErrorKind::Files(Box::new(f)),
+                    origin: Some(o),
+                    location: None,
+                })?;
+            Value::String(value)
         }
         O::ReadLine(value) => {
             let limit = frame.get(*value)?.integer(IntegerType::I64)? as i64;

@@ -52,6 +52,7 @@ fn emit_configured(
     limits: crate::runtime::arguments::Limits,
     call_limit: Option<std::num::NonZeroU32>,
 ) -> Result<String, Diagnostic> {
+    super::support::reject_files(program, "WAT")?;
     if let Some(span) = program.first_argument_span()
         && limits.max_count > i64::MAX as u64
     {

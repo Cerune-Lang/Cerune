@@ -120,7 +120,12 @@ pub(super) fn visit_body(
                 visit_expr(array, f);
                 visit_expr(value, f);
             }
-            StatementKind::ArrayRangeCheck { length, start, end } => {
+            StatementKind::FileWriteNew {
+                name: length,
+                text: start,
+                max_bytes: end,
+            }
+            | StatementKind::ArrayRangeCheck { length, start, end } => {
                 visit_expr(length, f);
                 visit_expr(start, f);
                 visit_expr(end, f);
@@ -218,6 +223,10 @@ pub(super) fn visit_expr(expr: &mut Expr, f: &mut impl FnMut(&mut Expr)) {
         | ExprKind::StringByteAt {
             value: left,
             index: right,
+        }
+        | ExprKind::FileReadText {
+            name: left,
+            max_bytes: right,
         }
         | ExprKind::StringConcat { left, right }
         | ExprKind::Logical { left, right, .. }

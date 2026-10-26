@@ -2,11 +2,11 @@
 
 [English](file-io.en.md)
 
-**状態：Rust共通部品を実装。言語API・実行経路・実OS接続は未実装。** 2026-10-26に、明示した作業ディレクトリ内で「上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。言語API名とOS／生成経路の接続方法は提案段階です。実装した共通規則は次節で区別します。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
+**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。実OS接続・CLIの接続指定・生成経路は未実装。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。OSと生成経路の接続方法は提案段階です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
 
 ## 実装済みの共通部品
 
-[runtime::files](../../src/runtime/files.rs)に、実行前に渡したBackendを使う`Files<B>`を追加しました。**Rust部品だけの実装です。std:fs、共通IR命令、4実行器・CLI・各生成経路、実OS接続は未実装**です。既存の行入力や出力経路は変更しません。
+[runtime::files](../../src/runtime/files.rs)の`Files<B>`に、実行前に選んだBackendを渡します。`std:fs`の操作は4実行器からこの部品へ接続します。**実ファイルへの接続はまだありません。** 既存の行入力・出力・引数のAPIは引き続き使えます。
 
 | 項目 | 実装した契約 |
 | --- | --- |
@@ -38,18 +38,18 @@ phaseはvalidate／reserve／open／read／write／close／decode、createdはno
 cargo test --lib runtime::files
 ```
 
-## 最初の用途と公開API案
+## 公開APIと実行器への接続
 
 生成したテキストを新しいファイルに保存し、読み戻した文字列を元の値と比較します。内容のUTF-8・NUL・CR/LF・結合文字をそのまま保持し、正規化・改行変換・BOM除去をしません。
 
-| API案 | 成功 | 失敗 |
+| 公開API | 成功 | 失敗 |
 | --- | --- | --- |
 | `fs::read_text(name: string, max_bytes: i64) -> string` | 開いたファイルの先頭からEOFまで読む。空ファイルは空文字列 | 欠落、上限超過、不正UTF-8、読取り／close失敗等で停止 |
 | `fs::write_new(name: string, text: string, max_bytes: i64) -> void` | 新規作成し、全バイトを渡してcloseする | 同名の対象が既にあれば変更しない。作成／書込み／close失敗で停止 |
 
-`import "std:fs" as fs;`を予約済み仮想標準モジュールとして追加する案です。新しいResult型、公開ファイルhandle、seek、追記、削除、置換、ディレクトリ作成、子プロセスは初版に含めません。異常時停止の公開APIと、進捗を返す内部処理は分離し、将来の回復APIを妨げません。
+`import "std:fs" as fs;`で予約済み仮想標準モジュールを明示します。新しいResult型、公開ファイルhandle、seek、追記、削除、置換、ディレクトリ作成、子プロセスは初版に含めません。異常時停止の公開APIと、進捗を返す内部処理は分離し、将来の回復APIを妨げません。
 
-次は**未実装の利用イメージ**です。動作するまで`examples/`に実行例として登録しません。
+次は実装済みAPIの例です。[roundtrip.ceru](../../examples/files/roundtrip.ceru)はメモリ接続で4実行器を比較し、真偽値と16バイトの長さを確認します。
 
 ```cerune
 import "std:fs" as fs;
@@ -60,6 +60,22 @@ print(saved == text);
 ```
 
 期待値は`true`とLF、および元の文字列と完全一致するファイル内容です。実行ごとに空の保存先を用意し、2回目を同じ保存先で実行した場合は既存ファイルを変えず停止させます。
+
+各実行器のRust APIは次のとおりです。
+
+| API | 接続と結果 |
+| --- | --- |
+| `run_with_files(program, &mut Files<B>)` | ファイル接続を明示し、stdoutを文字列で返す。stdinと引数は未設定 |
+| `run_with_io_files_arguments_and_call_limit` | stdin・stdout・ファイル・引数・呼出し深さを同じ実行へ明示指定 |
+| 既存の`run`等 | ファイル接続は未設定。操作時に`file-v1 code=unconfigured`相当の診断で停止。cwd・環境変数から補わない |
+
+HIRの`FileReadText`はstringを返し、`FileWriteNew`は値を返さない文です。MIR／SSA／bytecodeにも`file.read_text.utf8`・`file.write_new.utf8`を残します。引数を左から一度ずつ評価し、操作と標準ソースのNodeId／Spanを保持します。読取り結果はStringHeapへ移し、予約はopen前、失敗時は解放します。ファイル名・保存内容は借用し、操作のための本文コピーを増やしません。生成補助関数は呼出し深さに数えず、`std:fs`のソース関数は数えます。
+
+[経路比較テスト](../../tests/file_io/mod.rs)は独立したメモリ接続でexample、評価順、短絡、所有、標準入出力・引数との組合せ、部分転送・異常停止と出自を比較します。C／LLVM／QBE／WAT／Nativeは未使用関数内の操作も含め、生成前に位置付きの未対応診断を返します。`emit-ir`／`emit-mir`／`emit-bytecode`は操作を実行せず観測できます。CLIからの実ファイル保存はまだできません。
+
+```sh
+cargo test --test standard_input file_io
+```
 
 ## 既存実装から共有するもの
 
@@ -141,4 +157,4 @@ Rust共通部品に`file-v1`の診断形式を実装しました。既存io-v1�
 
 比較は同じ初期内容・応答列を持つ独立接続／ディレクトリで行い、stdoutだけでなく要求順・転送数・停止理由・残ったファイルを照合します。同じ実保存先で全経路を順次実行しません。OS接続試験と意味論の注入試験を分け、独立したRust／Python等の期待値計算を維持します。汎用record/replayやeffect systemは前提にしません。
 
-1の共通部品・名前検査・進捗／失敗契約を実装しました。次は2のstd:fs・共通IRと4実行器への接続です。実OSのpath解決方式と生成実行ファイルの接続指定は未決のまま実装へ流さず、各段階の開始前に設計・試作結果を明示します。
+1と2を実装しました。次は3のWindows/Linux実接続とCLIです。実OSのpath解決方式と生成実行ファイルの接続指定は未決のまま実装へ流さず、各段階の開始前に設計・試作結果を明示します。

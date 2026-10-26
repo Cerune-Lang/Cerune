@@ -31,6 +31,28 @@ pub fn lower_with_argument_limits(
         ));
     }
     mir::validate(program).map_err(|e| e.diagnostic())?;
+    for f in program
+        .functions
+        .iter()
+        .chain(std::iter::once(&program.main))
+    {
+        for i in f.blocks.iter().flat_map(|b| &b.instructions) {
+            if matches!(
+                i.kind,
+                Kind::FileWriteNew { .. }
+                    | Kind::Assign {
+                        value: Op::FileReadText { .. },
+                        ..
+                    }
+            ) {
+                let o = i.origin.source().expect("validated file origin");
+                return Err(crate::diagnostic::Diagnostic::new(
+                    "Native file I/O is not supported yet",
+                    o.span,
+                ));
+            }
+        }
+    }
     let mut module = Module {
         call_limit: None,
         source_functions: program
@@ -437,6 +459,7 @@ impl Lowerer<'_> {
     }
     fn instruction(&mut self, k: &Kind) {
         match k {
+            Kind::FileWriteNew { .. } => unreachable!("file I/O rejected before lowering"),
             Kind::Assign { destination, value } => self.operation(*destination, value),
             Kind::Call {
                 function,
@@ -699,6 +722,7 @@ impl Lowerer<'_> {
                     self.push(Instruction::ArrayLength);
                 }
             },
+            Op::FileReadText { .. } => unreachable!("file I/O rejected before lowering"),
             Op::ReadLine(v) => {
                 self.load(*v);
                 self.push(Instruction::ReadLine);

@@ -292,3 +292,6 @@ fn close(handle: impl Handle, result: Result<(), Code>, details: &mut Details) -
 
 #[cfg(test)]
 mod tests;
+
+mod access;
+pub(crate) use access::{Access, unconfigured};

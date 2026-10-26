@@ -103,7 +103,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 | Control flow | `if` / `else`, `while`, `for`, array `for … in`, `break` / `continue` |
 | Constants | Typed `const`, compile-time evaluation, shared with `pub const` |
 | Modules | Explicit imports, namespaces, `pub` visibility |
-| Standard operations | Line input in `std:io`, arguments in `std:env`, i64 parsing in `std:num` |
+| Standard operations | Line input in `std:io`, arguments in `std:env`, i64 parsing in `std:num`, reads/new-file creation in `std:fs` (in-memory Rust API connections) |
 | Output and diagnostics | `print(expr);` including aggregates, error reasons, source locations, output produced before failure |
 
 **Arithmetic rules:** No implicit numeric conversions. Integer overflow, invalid integer division, out-of-bounds access, failed exact conversions, and out-of-range rounded results stop execution. Explicit saturation clamps to the type's endpoints. Floating-point arithmetic rounds.
@@ -111,7 +111,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 **Main limitations / not yet implemented:**
 
 - **Language:** Public string indexing, character counting and numeric parsing beyond i64, dynamic-array growth and borrowing, catching runtime stops, and generic `Option`/`Result`.
-- **I/O and modules:** File/network I/O APIs, module re-exports, and package management.
+- **I/O and modules:** OS file connections, generated file I/O, network I/O APIs, module re-exports, and package management.
 - **Build and distribution:** IR/VM `build` and `release` (Native executable construction and distribution directories are supported).
 
 ## Execution and Output

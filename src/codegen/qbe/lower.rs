@@ -340,6 +340,9 @@ impl Lowerer<'_> {
                 });
                 false
             }
+            cerune_ir::StatementKind::FileWriteNew { .. } => {
+                unreachable!("file I/O rejected before lowering")
+            }
             cerune_ir::StatementKind::Flush => {
                 self.instructions.push(Instruction::Flush {
                     origin: FailureOrigin {
@@ -711,6 +714,9 @@ impl Lowerer<'_> {
                     ty: Type::String,
                     operand: Operand::Temp(dest),
                 }
+            }
+            cerune_ir::ExprKind::FileReadText { .. } => {
+                unreachable!("file I/O rejected before lowering")
             }
             cerune_ir::ExprKind::ReadLine { max_bytes } => {
                 let (_, max_bytes) = self.lower_scalar_expr(max_bytes);
@@ -1527,6 +1533,7 @@ fn collect_slots(
             cerune_ir::StatementKind::Assignment { .. }
             | cerune_ir::StatementKind::StringManage { .. }
             | cerune_ir::StatementKind::Write { .. }
+            | cerune_ir::StatementKind::FileWriteNew { .. }
             | cerune_ir::StatementKind::Flush
             | cerune_ir::StatementKind::Print { .. }
             | cerune_ir::StatementKind::Call { .. }

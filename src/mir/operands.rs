@@ -66,6 +66,10 @@ impl<R: Copy> O<R> {
             O::ArrayLength(v) => O::ArrayLength(f(*v)),
             O::ArgumentCount => O::ArgumentCount,
             O::ArgumentGet(v) => O::ArgumentGet(f(*v)),
+            O::FileReadText { name, max_bytes } => O::FileReadText {
+                name: f(*name),
+                max_bytes: f(*max_bytes),
+            },
             O::ReadLine(v) => O::ReadLine(f(*v)),
             O::StringByteAt { value, index } => O::StringByteAt {
                 value: f(*value),
@@ -112,6 +116,15 @@ impl<R: Copy> I<R> {
                 root: f(*root),
                 path: path.iter().map(|v| f(*v)).collect(),
                 value: f(*value),
+            },
+            I::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+            } => I::FileWriteNew {
+                name: f(*name),
+                text: f(*text),
+                max_bytes: f(*max_bytes),
             },
             I::Flush => I::Flush,
             I::Output {

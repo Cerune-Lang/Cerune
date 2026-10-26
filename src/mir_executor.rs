@@ -2,6 +2,7 @@
 //! HIR実行器やbytecode/VMの実行には委譲しません。
 use crate::runtime::arguments::{self, Arguments};
 use crate::runtime::call;
+use crate::runtime::files;
 use crate::{
     ir,
     mir::{self, TerminatorKind as T},
@@ -30,6 +31,7 @@ pub struct Location {
 pub enum ErrorKind {
     CallDepth(Box<call::Failure>),
     Arguments(Box<arguments::Failure>),
+    Files(Box<files::Failure>),
     Input(Box<input::Failure>),
     Output(Box<output::Failure>),
     Validation(Box<mir::Error>),
@@ -79,6 +81,7 @@ impl ExecutionError {
         let message = match &self.kind {
             ErrorKind::CallDepth(failure) => failure.to_string(),
             ErrorKind::Arguments(failure) => failure.to_string(),
+            ErrorKind::Files(failure) => failure.to_string(),
             ErrorKind::Input(failure) => failure.to_string(),
             ErrorKind::Output(failure) => failure.to_string(),
             ErrorKind::Runtime(code) => format!("runtime error: {}", code.name()),
@@ -246,6 +249,44 @@ pub fn run_with_io<R: std::io::Read, W: std::io::Write>(
 ) -> std::result::Result<(), ExecutionError> {
     run_connections(program, output, Some(input), None).map(|_| ())
 }
+/// 明示したファイル接続で実行します。標準出力は返却文字列に保持します。
+pub fn run_with_files<B: files::Backend>(
+    program: &mir::Program,
+    files: &mut files::Files<B>,
+) -> std::result::Result<String, ExecutionError> {
+    run_resources(
+        program,
+        &mut Capture::default(),
+        None,
+        None,
+        Some(files),
+        None,
+    )
+}
+/// 入出力・引数・ファイル接続・呼出し深さを同じ実行に指定します。
+pub fn run_with_io_files_arguments_and_call_limit<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: files::Backend,
+>(
+    program: &mir::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    files: &mut files::Files<B>,
+    arguments: &Arguments,
+    limit: NonZeroU32,
+) -> std::result::Result<(), ExecutionError> {
+    run_resources(
+        program,
+        output,
+        Some(input),
+        Some(arguments),
+        Some(files),
+        Some(limit),
+    )
+    .map(|_| ())
+}
+
 pub fn run_with_arguments(
     program: &mir::Program,
     arguments: &Arguments,
@@ -286,9 +327,20 @@ fn run_connections_with_limit<'o>(
     arguments: Option<&'o Arguments>,
     limit: Option<NonZeroU32>,
 ) -> std::result::Result<String, ExecutionError> {
+    run_resources(program, output, input, arguments, None, limit)
+}
+fn run_resources<'o>(
+    program: &mir::Program,
+    output: &'o mut dyn Sink,
+    input: Option<&'o mut dyn input::Source>,
+    arguments: Option<&'o Arguments>,
+    files: Option<&'o mut dyn files::Access>,
+    limit: Option<NonZeroU32>,
+) -> std::result::Result<String, ExecutionError> {
     mir::validate(program).map_err(validation_error)?;
     let mut executor = Executor::new(program, output);
     executor.state.input = input;
+    executor.state.files = files;
     executor.state.arguments = arguments;
     executor.state.calls = limit.map(call::Stack::new);
     let result = executor.entry();

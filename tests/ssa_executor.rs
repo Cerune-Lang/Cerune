@@ -56,6 +56,17 @@ fn compare(hir: &ir::Program) {
                     assert_eq!(ai.as_ref(), di.as_ref());
                 }
                 (
+                    ir_executor::ErrorKind::Files(ai),
+                    mir_executor::ErrorKind::Files(bi),
+                    mir_executor::ErrorKind::Files(ci),
+                    VmErrorKind::Files(di),
+                ) => {
+                    assert_eq!(ai.code, cerune_lang::runtime::files::Code::Unconfigured);
+                    assert_eq!(ai.as_ref(), bi.as_ref());
+                    assert_eq!(ai.as_ref(), ci.as_ref());
+                    assert_eq!(ai.as_ref(), di.as_ref());
+                }
+                (
                     ir_executor::ErrorKind::Input(ai),
                     mir_executor::ErrorKind::Input(bi),
                     mir_executor::ErrorKind::Input(ci),

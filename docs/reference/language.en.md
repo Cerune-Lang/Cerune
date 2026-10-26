@@ -501,6 +501,12 @@ HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT are supported. Values after the
 
 Existing embedding APIs never read OS arguments implicitly and report unconfigured access. Inject arguments using `run_with_arguments` or related APIs. See the [contract](../design/dogfooding-inputs.en.md) and [example](../../examples/arguments/README.en.md).
 
+### File reads and new-file creation
+
+Import `"std:fs" as fs` to use `fs::read_text(name, max_bytes) -> string` and `fs::write_new(name, text, max_bytes) -> void`. Whole-file UTF-8 limits range from 0 to 2147483647 bytes. Existing files are never overwritten. Preserve NUL, CR/LF, and combining characters, and stop with source diagnostics on errors.
+
+**Currently uses explicit in-memory Rust API connections in HIR/MIR/SSA/VM. OS connections, CLI connection options, and generated routes are not implemented yet.** Unconfigured access stops with `unconfigured`. See the [contract and connection APIs](../design/file-io.en.md) and [example](../../examples/files/README.en.md).
+
 ## Functions and entrypoint
 
 `fn` defines a named computation. Every parameter and the return type are explicit.

@@ -350,12 +350,32 @@ impl Builder<'_> {
                 else {
                     unreachable!("parser only creates call statements from calls")
                 };
-                let (function_id, arguments) =
-                    self.build_call(name, *name_span, arguments, &bindings)?;
-                StatementKind::Call {
-                    function_id,
-                    function_name: name.clone(),
-                    arguments,
+                if name == "$file_write_new" {
+                    StatementKind::FileWriteNew {
+                        name: self.build_expr(
+                            &arguments[0],
+                            Some(semantic::Type::String),
+                            &bindings,
+                        )?,
+                        text: self.build_expr(
+                            &arguments[1],
+                            Some(semantic::Type::String),
+                            &bindings,
+                        )?,
+                        max_bytes: self.build_expr(
+                            &arguments[2],
+                            Some(semantic::Type::Integer(IntegerType::I64)),
+                            &bindings,
+                        )?,
+                    }
+                } else {
+                    let (function_id, arguments) =
+                        self.build_call(name, *name_span, arguments, &bindings)?;
+                    StatementKind::Call {
+                        function_id,
+                        function_name: name.clone(),
+                        arguments,
+                    }
                 }
             }
             ast::StmtKind::Return { value } => {
@@ -442,6 +462,26 @@ impl Builder<'_> {
         })
     }
 
+    // ファイル用の一時値を、全ての再帰的な式のstack frameへ積まないよう分けます。
+    fn build_file_read_text(
+        &self,
+        arguments: &[ast::Expr],
+        bindings: &Bindings,
+    ) -> Result<ExprKind, Diagnostic> {
+        Ok(ExprKind::FileReadText {
+            name: Box::new(self.build_expr(
+                &arguments[0],
+                Some(semantic::Type::String),
+                bindings,
+            )?),
+            max_bytes: Box::new(self.build_expr(
+                &arguments[1],
+                Some(semantic::Type::Integer(IntegerType::I64)),
+                bindings,
+            )?),
+        })
+    }
+
     fn build_expr(
         &self,
         expr: &ast::Expr,
@@ -481,6 +521,9 @@ impl Builder<'_> {
                     bindings,
                 )?),
             },
+            ast::ExprKind::Call {
+                name, arguments, ..
+            } if name == "$file_read_text" => self.build_file_read_text(arguments, bindings)?,
             ast::ExprKind::Call {
                 name, arguments, ..
             } if name == "$read_line" => ExprKind::ReadLine {

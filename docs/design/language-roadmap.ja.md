@@ -8,7 +8,7 @@
 
 ## 本体の開発順
 
-**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。[infer省略](infer-omission.ja.md)と[Native build](native-build.ja.md)・[Native release初版](native-release.ja.md)まで実装し、再帰も実装しました。次は[限定的なファイル入出力](file-io.ja.md)です。読取り＋新規保存のRust共通部品を実装し、次はstd:fs・共通IRと4実行器への接続です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
+**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。[infer省略](infer-omission.ja.md)と[Native build](native-build.ja.md)・[Native release初版](native-release.ja.md)まで実装し、再帰も実装しました。次は[限定的なファイル入出力](file-io.ja.md)です。std:fs・共通IR・4実行器をメモリ接続で実装し、次はWindows/Linux実接続とCLIです。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
@@ -18,7 +18,7 @@
 | 2の続き | [infer省略](infer-omission.ja.md)（#105） | `value: = expression;`。宣言の`:`と既存の型推論規則を維持し、fmtも対応 | 通常束縛・for初期化に実装済み。配列反復・else if・条件式は別途 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | Native build・対象システムruntimeを要求するrelease初版を実装済み |
 | 4 | [再帰](recursion.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | WATの呼出し領域と4実行器の明示深さ上限APIを実装。物理stackを実測し、4実行器の明示frameを実装。C・LLVM・QBE・WAT・Nativeの明示上限・深さ診断も実装。CLI既定128・範囲1〜128と成果物への設定保存も実装済み。直接・相互再帰とgeneric具体化の再利用、全経路の実行比較・exampleも実装済み |
-| 5 | [限定的なファイル入出力](file-io.ja.md) → 子プロセス（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 読取り＋新規保存のRust共通部品を実装。言語・実行経路・実OSへは未接続。置換と子プロセスは後続 |
+| 5 | [限定的なファイル入出力](file-io.ja.md) → 子プロセス（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 読取り＋新規保存をstd:fs・4実行器で実装。実OS接続・CLI接続指定・生成経路は後続。置換と子プロセスは後続 |
 
 2026-10-20に合意した着手順です。1では引数取得の全経路対応後に純粋な整数読取りを追加し、引数指定のexampleまで完成させます。[設計案](dogfooding-inputs.ja.md)の公開名・上限・接続契約を確定し、小さな標準モジュールとして実装します。汎用Option/Resultやパッケージ管理は前提にしません。
 
@@ -125,7 +125,7 @@ SSAは構築・直接実行・Nativeへの変換・有限例のLean検証まで�
 | 標準出力 | `print`で値を表示できる。`run`／`run-mir`／`run-vm`は実行中に接続先へ出力し、最後にflush。収集型のRust APIも維持 | `flush();`は実装済み。C・LLVM・QBE・WAT・Nativeの書込み失敗も実装済み。質問を表示してから入力を待つ対話テストも実装済み |
 | 標準エラー | 処理系の診断に使用。プログラム用の一般的な書込みAPIはない | プログラムの出力と処理系の停止診断を区別し、書込み失敗も定義する |
 | 標準入力・引数 | io::read_lineと行／EOFのenumを4実行器・CLI・生成C・LLVM・QBE・Native、WATの版付きhostで利用可能 | Windows console対応が残る。引数は4実行器・CLI・生成C・LLVM・QBE・WAT・Nativeに接続済み。ファイル・FFI・ネットワークは後続 |
-| 標準ライブラリ | std:ioとstd:envは同梱仮想ソース。型・本文・出自を観測でき、ファイル探索しない | 言語の組込み、runtimeの外部接続、Ceruneで書くライブラリを区別する |
+| 標準ライブラリ | std:io・std:env・std:num・std:fsは同梱仮想ソース。型・本文・出自を観測でき、ファイル探索しない | 言語の組込み、runtimeの外部接続、Ceruneで書くライブラリを区別する |
 
 [標準入出力の設計](standard-io.ja.md)に責務と実装順を整理しました。[入力値の分岐例](../../examples/io_protocol/README.md)は実行できますが、標準入力は使いません。[行入力の契約と共通Rust接続](line-input.ja.md)を追加しました。初版は行／EOFを返し、異常時停止とします。既存enumで表現でき、汎用Resultは不要です。仮想std:ioのread_line／ReadLineを4実行器へ接続済みです。CLI/C/LLVM/QBE/Nativeの実stdin接続は[初版の範囲](stdin-connections.ja.md)で実装済み、WATの版付き入力hostは実装済み。Native入力も実装済みです。比較テストには同じ入力と制御できる出力先を使い、実環境での接続確認を分けます。record/replayや汎用effect systemの一括実装は前提にしません。
 

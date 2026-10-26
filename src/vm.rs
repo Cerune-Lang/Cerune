@@ -1,5 +1,6 @@
 use crate::runtime::arguments::{self, Arguments};
 use crate::runtime::call;
+use crate::runtime::files;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::{
@@ -31,7 +32,9 @@ pub enum IntegerOperation {
 pub enum VmErrorKind {
     CallDepth(Box<call::Failure>),
     Arguments(Box<arguments::Failure>),
+    Files(Box<files::Failure>),
     Input(Box<input::Failure>),
+    FileOriginMissing,
     InputOriginMissing,
     ArgumentOriginMissing,
     Output(Box<output::Failure>),
@@ -310,6 +313,36 @@ pub fn run_with_io<R: std::io::Read, W: std::io::Write>(
 ) -> Result<(), VmError> {
     run_connections(program, output, input, &Arguments::unconfigured()).map(|_| ())
 }
+/// 明示したファイル接続で実行します。標準出力は返却文字列に保持します。
+pub fn run_with_files<B: files::Backend>(
+    program: &BytecodeProgram,
+    files: &mut files::Files<B>,
+) -> std::result::Result<String, VmError> {
+    run_resources(
+        program,
+        &mut Capture::default(),
+        &mut input::unconfigured(),
+        &Arguments::unconfigured(),
+        files,
+        None,
+    )
+}
+/// 入出力・引数・ファイル接続・呼出し深さを同じ実行に指定します。
+pub fn run_with_io_files_arguments_and_call_limit<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: files::Backend,
+>(
+    program: &BytecodeProgram,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    files: &mut files::Files<B>,
+    arguments: &Arguments,
+    limit: NonZeroU32,
+) -> std::result::Result<(), VmError> {
+    run_resources(program, output, input, arguments, files, Some(limit)).map(|_| ())
+}
+
 pub fn run_with_arguments(
     program: &BytecodeProgram,
     arguments: &Arguments,
@@ -344,6 +377,7 @@ struct ExecutionInput<'a> {
     #[cfg(test)]
     fail_frame_after: Option<usize>,
     stdin: &'a mut dyn Source,
+    files: &'a mut dyn files::Access,
     arguments: &'a Arguments,
 }
 fn run_connections(
@@ -361,6 +395,23 @@ fn run_connections_with_limit(
     arguments: &Arguments,
     limit: Option<NonZeroU32>,
 ) -> Result<String, VmError> {
+    run_resources(
+        program,
+        output,
+        input,
+        arguments,
+        &mut files::unconfigured(),
+        limit,
+    )
+}
+fn run_resources(
+    program: &BytecodeProgram,
+    output: &mut dyn Sink,
+    input: &mut dyn Source,
+    arguments: &Arguments,
+    files: &mut dyn files::Access,
+    limit: Option<NonZeroU32>,
+) -> Result<String, VmError> {
     let mut heap = StringHeap::new(program.string_heap_limit);
     let mut arrays = ArrayHeap::new(program.array_heap_limit);
     if let Err(mut error) = execute_frame(
@@ -375,6 +426,7 @@ fn run_connections_with_limit(
             #[cfg(test)]
             fail_frame_after: None,
             stdin: input,
+            files,
             arguments,
         },
     ) {
@@ -415,6 +467,7 @@ pub(crate) fn execute_function(
             #[cfg(test)]
             fail_frame_after: None,
             stdin: &mut crate::runtime::input::unconfigured(),
+            files: &mut crate::runtime::files::unconfigured(),
             arguments: &crate::runtime::arguments::Arguments::unconfigured(),
         },
     ) {
@@ -791,6 +844,40 @@ fn execute_until_event(
                     value.map_err(|f| VmErrorKind::Arguments(Box::new(f))),
                     pc,
                 )?);
+            }
+            InstructionKind::FileReadText | InstructionKind::FileWriteNew => {
+                let limit = at_instruction(pop_integer(stack, IntegerType::I64), pc)? as i64;
+                let write = matches!(instruction.kind, InstructionKind::FileWriteNew);
+                let text = if write {
+                    Some(at_instruction(string_heap::pop(stack), pc)?)
+                } else {
+                    None
+                };
+                let name = at_instruction(string_heap::pop(stack), pc)?;
+                let crate::bytecode::InstructionOrigin::Source { node_id, span } =
+                    instruction.origin
+                else {
+                    return Err(VmError::new(VmErrorKind::FileOriginMissing, pc));
+                };
+                let origin = files::Origin { node_id, span };
+                if let Some(text) = text {
+                    at_instruction(
+                        input
+                            .files
+                            .write_value(&name.borrow_text(), &text.borrow_text(), limit, origin)
+                            .map_err(|f| VmErrorKind::Files(Box::new(f))),
+                        pc,
+                    )?;
+                } else {
+                    let value = at_instruction(
+                        input
+                            .files
+                            .read_value(heap, &name.borrow_text(), limit, origin)
+                            .map_err(|f| VmErrorKind::Files(Box::new(f))),
+                        pc,
+                    )?;
+                    stack.push(Value::String(value));
+                }
             }
             InstructionKind::ReadLine => {
                 let limit = at_instruction(pop_integer(stack, IntegerType::I64), pc)? as i64;
@@ -2281,6 +2368,7 @@ mod tests {
                 )),
                 fail_frame_after: Some(after),
                 stdin: &mut stdin,
+                files: &mut crate::runtime::files::unconfigured(),
                 arguments: &arguments,
             };
             let mut strings = super::StringHeap::new(p.string_heap_limit);
@@ -2343,6 +2431,7 @@ mod tests {
                 #[cfg(test)]
                 fail_frame_after: None,
                 stdin: &mut crate::runtime::input::unconfigured(),
+                files: &mut crate::runtime::files::unconfigured(),
                 arguments: &crate::runtime::arguments::Arguments::unconfigured(),
             },
         )

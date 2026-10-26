@@ -1,0 +1,7 @@
+import "std:fs" as fs;
+
+text: string = "日本語\0\r\né\n";
+fs::write_new("sample.txt", text, 4096);
+saved: string = fs::read_text("sample.txt", 4096);
+print(saved == text);
+print(byte_len(saved));
