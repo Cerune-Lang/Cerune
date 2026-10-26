@@ -98,7 +98,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 | Sum types | `enum` variants with payloads; exhaustive `match` statements/expressions with `if` guards |
 | Arrays | Fixed length (including named constants), element counts with `array_len`, nesting, element access and updates, value copies |
 | Dynamic arrays | `[T]`, `array_copy`, `array_copy_range`, `array_repeat`, independent copies, display, equality, iteration |
-| Functions | Typed parameters/results, `void`, `return`, type/array-length parameters; aggregate values can be passed and returned |
+| Functions | Typed parameters/results, `void`, `return`, type/array-length parameters, direct/mutual recursion; aggregate values can be passed and returned |
 | Entry point | Top-level statements or `fn main() -> void` (not both) |
 | Control flow | `if` / `else`, `while`, `for`, array `for … in`, `break` / `continue` |
 | Constants | Typed `const`, compile-time evaluation, shared with `pub const` |
@@ -110,7 +110,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 
 **Main limitations / not yet implemented:**
 
-- **Language:** Recursion, public string indexing, character counting and numeric parsing beyond i64, dynamic-array growth and borrowing, catching runtime stops, and generic `Option`/`Result`.
+- **Language:** Public string indexing, character counting and numeric parsing beyond i64, dynamic-array growth and borrowing, catching runtime stops, and generic `Option`/`Result`.
 - **I/O and modules:** File/network I/O APIs, module re-exports, and package management.
 - **Build and distribution:** IR/VM `build` and `release` (Native executable construction and distribution directories are supported).
 
@@ -138,7 +138,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 | `emit-asm` | Assembly (`.s`) | Windows / Linux x86-64; `--ssa` selects the SSA route |
 | `emit-obj` | ELF / COFF object (`.o` / `.obj`) | External linker; requires `--target` and `-o`, supports `--ssa` |
 
-Text goes to stdout; use `-o` to save it. LLVM / QBE strings and dynamic arrays, and LLVM checked numeric operations require `--target`. WAT uses host functions for output and diagnostics.
+Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT uses host functions for output and diagnostics.
 
 ## Examples and Development
 

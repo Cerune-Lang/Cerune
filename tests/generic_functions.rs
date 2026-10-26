@@ -159,16 +159,7 @@ fn invalid_generic_programs_fail_before_execution() {
 }
 
 #[test]
-fn recursion_and_excessive_specialization_are_rejected() {
-    for source in [
-        "fn f<T>(v:T)->T{return f::<T>(v);} print(f::<i64>(1));",
-        "fn f<T>(v:T)->T{return f::<[T;1]>([v]);} print(f::<i64>(1));",
-        "fn f<T>(v:T)->T{return g::<T>(v);} fn g<T>(v:T)->T{return f::<T>(v);} print(f::<i64>(1));",
-        "fn f<T>(v:T)->i64{return g();} fn g()->i64{return f::<i64>(1);} print(g());",
-    ] {
-        let error = compile_to_ir(source).unwrap_err();
-        assert!(error.message().contains("recurs"), "{error:?}");
-    }
+fn excessive_specialization_is_rejected() {
     let mut source = "fn size<const N:i64>()->i64{return N;}\n".to_owned();
     for n in 1..=257 {
         source.push_str(&format!("print(size::<{n}>());\n"));
@@ -290,17 +281,21 @@ fn constant_lengths_in_type_arguments_remain_queryable_and_observable() {
 }
 
 #[test]
-fn defaults_cannot_hide_recursive_generic_calls() {
+fn defaults_keep_recursive_generic_calls() {
     for source in [
         "type Box { value:i64=make::<i64>(), marker:bool } fn make<T>()->i64{return (Box{marker:true}).value;} print(make::<i64>());",
         "type Inner { value:i64=make::<i64>(), marker:bool } type Outer { item:Inner=Inner{marker:true}, marker:bool } fn make<T>()->i64{return (Outer{marker:true}).item.value;} print(make::<i64>());",
     ] {
-        assert!(compile(source).unwrap_err().message().contains("recursive"));
+        compile(source).unwrap();
+        let p = compile_to_ir(source).unwrap();
         assert!(
-            compile_to_ir(source)
-                .unwrap_err()
-                .message()
-                .contains("recursive")
+            cerune_lang::ir_executor::run_with_call_limit(
+                &p,
+                std::num::NonZeroU32::new(8).unwrap()
+            )
+            .unwrap_err()
+            .call_failure()
+            .is_some()
         );
     }
     assert_eq!(run_vm("type Box { value:i64=make::<i64>(), marker:bool } fn make<T>()->i64{return (Box{value:7,marker:true}).value;} print(make::<i64>());").unwrap(), "7\n");

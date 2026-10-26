@@ -8,7 +8,7 @@
 
 ## 本体の開発順
 
-**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。[infer省略](infer-omission.ja.md)と[Native build](native-build.ja.md)・[Native release初版](native-release.ja.md)まで実装し、次は再帰の設計・実装です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
+**アセンブラ分離（#183）は統合済みです。引数取得に続き、[整数読取り](integer-parsing.ja.md)とseed引数のexampleを実装しました。[optional let＋fmt](formatting.ja.md)も実装しました。[infer省略](infer-omission.ja.md)と[Native build](native-build.ja.md)・[Native release初版](native-release.ja.md)まで実装し、再帰も実装しました。次は限定的なファイル入出力の設計です。** 外部から受け取った値で処理を指定し、結果を保存・再利用できるよう、次の順でCeruneの機能を増やします。
 
 | 順序 | 作業 | 最初に使えるようにすること | 状態 |
 | --- | --- | --- | --- |
@@ -17,7 +17,7 @@
 | 2 | [optional let＋fmt](formatting.ja.md)（#90） | letの保持・表示・非表示、コメント保持、整形の冪等性と意味の一致 | 実装済み。exampleを4実行器と全既存生成経路で比較 |
 | 2の続き | [infer省略](infer-omission.ja.md)（#105） | `value: = expression;`。宣言の`:`と既存の型推論規則を維持し、fmtも対応 | 通常束縛・for初期化に実装済み。配列反復・else if・条件式は別途 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | Native build・対象システムruntimeを要求するrelease初版を実装済み |
-| 4 | [再帰](recursion.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | WATの呼出し領域と4実行器の明示深さ上限APIを実装。物理stackを実測し、4実行器の明示frameを実装。C・LLVM・QBE・WAT・Nativeの明示上限・深さ診断も実装。CLI既定128・範囲1〜128と成果物への設定保存も実装済み。次はfrontendの再帰とgeneric具体化の再利用 |
+| 4 | [再帰](recursion.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | WATの呼出し領域と4実行器の明示深さ上限APIを実装。物理stackを実測し、4実行器の明示frameを実装。C・LLVM・QBE・WAT・Nativeの明示上限・深さ診断も実装。CLI既定128・範囲1〜128と成果物への設定保存も実装済み。直接・相互再帰とgeneric具体化の再利用、全経路の実行比較・exampleも実装済み |
 | 5 | 限定的なファイル入出力 → 子プロセス（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 後続設計・未実装 |
 
 2026-10-20に合意した着手順です。1では引数取得の全経路対応後に純粋な整数読取りを追加し、引数指定のexampleまで完成させます。[設計案](dogfooding-inputs.ja.md)の公開名・上限・接続契約を確定し、小さな標準モジュールとして実装します。汎用Option/Resultやパッケージ管理は前提にしません。
@@ -54,7 +54,7 @@ Ceruneでは、書いた計算の意味と、それが実行される表現へ�
 | 固定長配列 | `[T; N]`、`array_len`、`for … in`、入れ子、値渡し、`mut`な要素の更新 | 長さは型の一部。添字は`i64`。動的長には`[T]`を使う。借用スライスなし | [array_iteration](../../examples/array_iteration.ceru)、[heat_diffusion](../../examples/heat_diffusion.ceru) |
 | 動的配列 | `[T]`、明示コピー・範囲コピー・repeat、独立した入れ子、表示・比較・反復 | IR・MIR・VM・C・LLVM・QBE・WAT・ASM・自前Object対応。`array_repeat`も共通IRへ展開 | [copy](../../examples/dynamic_arrays/copy.ceru)、[nested](../../examples/dynamic_arrays/nested.ceru) |
 | 名前付きproduct type | フィールド、既定値、更新式、入れ子、値渡し | フィールドの直接代入なし。新しい値を構築して全体を再代入 | [product-point](../../examples/product-point.ceru)、[packet_counter](../../examples/packet_counter.ceru) |
-| 関数と制御構文 | 型付き引数・戻り値、型・長さの明示パラメーター、`void`、`if`・`else`、`while`・`for`、`break`・`continue`・`return` | 引数数の固定上限なし。再帰なし | [function_values](../../examples/function_values.ceru)、[loop_control](../../examples/loop_control.ceru) |
+| 関数と制御構文 | 型付き引数・戻り値、型・長さの明示パラメーター、`void`、`if`・`else`、`while`・`for`、`break`・`continue`・`return` | 引数数の固定上限なし。CLIの呼出し深さは既定128 | [function_values](../../examples/function_values.ceru)、[loop_control](../../examples/loop_control.ceru) |
 | 束縛と変換 | 既定で不変、`mut`、明示的な`infer`、`T(value)`と`convert<T>(value)` | `infer`は実行時型ではない。浮動小数点から整数への全5丸め方と明示的な飽和に対応 | [integer_conversions](../../examples/integer_conversions.ceru) |
 | 直和型 | `enum`の値付き選択肢、網羅的な`match`文・式とガード | 汎用Option/Resultは未実装 | [sum_lookup](../../examples/sum_lookup.ceru) |
 | コンパイル時定数 | 型付き`const`、依存式の評価、配列型の長さ、`pub const` | 関数呼び出し・ブロック内宣言なし | [constants](../../examples/constants.ceru) |

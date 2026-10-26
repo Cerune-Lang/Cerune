@@ -335,7 +335,6 @@ fn byte_length_has_explicit_string_input_and_i64_result() {
         "small: i8 = byte_len(\"a\");",
         "byte_len(\"unused\");",
         "fn byte_len(text: string) -> i64 { return 0; }",
-        "fn recurse() -> string { print(byte_len(recurse())); return \"\"; }",
     ] {
         let error = compile(source).unwrap_err();
         assert!(error.primary_span().is_some(), "{source}");

@@ -57,7 +57,7 @@ Validation errors precede execution and have empty output. CLI `--diagnostic-for
 
 Successful execution must leave no live string/array heap storage. Leftover allocations produce an internal error instead of success. Failed execution reclaims its state, including partially initialized storage, when that state is dropped.
 
-This is not a static proof of every lifetime path. Static alias/partial-initialization/retain/release path verification remains unimplemented. The API accepts compiler-constructed MIR and is not a sandbox or execution-time limiter for hostile input. The frontend still rejects recursive source programs. MIR re-entry uses independent explicit frames, with run_with_call_limit checking test-only IR cycles. Unbounded APIs do not prevent infinite execution of invalid IR.
+This is not a static proof of every lifetime path. Static alias/partial-initialization/retain/release path verification remains unimplemented. The API accepts compiler-constructed MIR and is not a sandbox or execution-time limiter for hostile input. The frontend accepts recursive source programs. MIR re-entry uses independent explicit frames, with run_with_call_limit checking test-only IR cycles. Unbounded APIs do not prevent infinite recursion or loops.
 
 ## Comparisons and examples
 

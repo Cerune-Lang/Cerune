@@ -101,14 +101,7 @@ There is no fixed language-level parameter-count limit. Scalars, named product t
 
 Finite stack/memory and external tool constraints still apply. This does not introduce variadic or default arguments: argument counts and types must exactly match the declaration.
 
-Both direct and indirect recursion still produce a diagnostic. WAT aggregate and temporary storage is now separated per invocation, but the common call-depth limit and call-stack diagnostics are not implemented across routes. [Recursion design and implementation order](recursion.en.md) tracks the prerequisites for enabling recursion.
-
-Before recursion is enabled, all of the following must hold:
-
-- every backend has independent call frames;
-- product locals and temporaries are invocation-local;
-- observations distinguish call-stack frames and provenance;
-- stack or memory consumption can have explicit limits.
+Direct and mutual recursion use independent call frames and owned values, with source-function depth checked across routes. CLI defaults to 128, range 1–128. Physical stack/memory exhaustion remains separate and is not guaranteed safe. See the [recursion contract](recursion.en.md).
 
 ## Security boundary
 

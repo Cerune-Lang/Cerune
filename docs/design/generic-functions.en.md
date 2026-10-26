@@ -19,7 +19,7 @@ print(first::<string, COUNT>(["日本語", "予備"]));
 | `::<string, COUNT>` | Supply every argument in declaration order; lengths accept unsuffixed positive integer literals, integer constant names, or enclosing length parameters |
 | `pub fn` | Ordinary function visibility; call with `alias::first::<T, N>(values)` |
 
-Type-argument inference/defaults, traits or constraint syntax, generic types, recursion, and first-class functions are outside this increment. Lengths range from 1 to i64's maximum; using them in arrays also applies existing storage limits. Compute arbitrary length expressions in named constants rather than directly in generic arguments.
+Type-argument inference/defaults, traits or constraint syntax, generic types and first-class functions are outside this increment. Lengths range from 1 to i64's maximum; using them in arrays also applies existing storage limits. Compute arbitrary length expressions in named constants rather than directly in generic arguments.
 
 ## Type checking and value semantics
 
@@ -48,7 +48,7 @@ fn %$generic_0_first@0(%values@0: [u64; 2]) -> u64 {
 
 IR retains the definition span, concrete arguments, and every call span. Structured IR also retains each type/length argument's source span. A type argument such as `[i64; COUNT]` retains its constant-length reference and remains queryable from the original AST. Body expression spans remain at their definitions, with separate NodeIds for each instance. Type errors include relevant instantiations and call locations; multiple instances sharing the same definition span are listed as candidates. Runtime failures map to the original body expression and preserve prior output. Observation grants no authority to modify running values.
 
-Recursion remains prohibited. Calls through actually used product defaults are checked; defaults replaced by explicit fields or bypassed by product updates are excluded. Reentering an expanding template is rejected even with changed arguments. A compilation allows at most 256 instances and expansion depth 64. Existing per-type storage limits also apply to unused type arguments.
+Recursion is supported. Register resolved type/length combinations before processing bodies and reuse pending instances. Process bodies from a queue in registration order without compiler-recursive expansion calls. Calls through used defaults follow ordinary runtime depth checks. A compilation allows at most 256 instances and expansion depth 64. Existing per-type storage limits also apply to unused type arguments.
 
 ## Examples and validation
 

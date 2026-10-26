@@ -321,7 +321,6 @@ pub(crate) fn analyze_lowered(program: &Program) -> SemanticResult<SemanticModel
             }
         }
     }
-    reject_recursive_functions(program, &model)?;
     model.bindings = scopes.pop().expect("top-level scope must exist");
     Ok(model)
 }
@@ -466,186 +465,6 @@ fn check_function(function: &ast::FunctionDefinition, model: &SemanticModel) -> 
         ));
     }
     Ok(())
-}
-
-fn reject_recursive_functions(program: &Program, model: &SemanticModel) -> SemanticResult<()> {
-    let mut calls = vec![Vec::new(); model.function_definitions.len()];
-    for item in &program.items {
-        let Item::FunctionDefinition(function) = item else {
-            continue;
-        };
-        let function_id = model.function_names[&function.name];
-        collect_function_calls(&function.body, model, &mut calls[function_id.0]);
-    }
-
-    // 0は未訪問、1は訪問中、2は確認済みです。
-    let mut states = vec![0; calls.len()];
-    for function_id in 0..calls.len() {
-        if states[function_id] == 0
-            && let Some(span) = find_recursive_call(function_id, &calls, &mut states)
-        {
-            return Err(Diagnostic::new(
-                "recursive function calls are not supported yet",
-                span,
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn find_recursive_call(
-    function_id: usize,
-    calls: &[Vec<(FunctionId, Span)>],
-    states: &mut [u8],
-) -> Option<Span> {
-    states[function_id] = 1;
-    for &(called, span) in &calls[function_id] {
-        match states[called.0] {
-            1 => return Some(span),
-            0 => {
-                if let Some(span) = find_recursive_call(called.0, calls, states) {
-                    return Some(span);
-                }
-            }
-            _ => {}
-        }
-    }
-    states[function_id] = 2;
-    None
-}
-
-fn collect_function_calls(
-    statements: &[Stmt],
-    model: &SemanticModel,
-    calls: &mut Vec<(FunctionId, Span)>,
-) {
-    for statement in statements {
-        match &statement.kind {
-            StmtKind::Block(body) => collect_function_calls(body, model, calls),
-            StmtKind::Match { .. } => unreachable!("match is elaborated before semantic analysis"),
-            StmtKind::Binding { value, .. }
-            | StmtKind::Print { value }
-            | StmtKind::Call { value } => collect_calls_in_expr(value, model, calls),
-            StmtKind::Assignment { target, value } => {
-                for projection in &target.projections {
-                    let AssignmentProjection::Index { index, .. } = projection;
-                    collect_calls_in_expr(index, model, calls);
-                }
-                collect_calls_in_expr(value, model, calls);
-            }
-            StmtKind::Return { value } => {
-                if let Some(value) = value {
-                    collect_calls_in_expr(value, model, calls);
-                }
-            }
-            StmtKind::If {
-                condition,
-                then_body,
-                else_body,
-            } => {
-                collect_calls_in_expr(condition, model, calls);
-                collect_function_calls(then_body, model, calls);
-                collect_function_calls(else_body, model, calls);
-            }
-            StmtKind::ForEach { value, body, .. } => {
-                collect_calls_in_expr(value, model, calls);
-                collect_function_calls(body, model, calls);
-            }
-            StmtKind::While { condition, body } => {
-                collect_calls_in_expr(condition, model, calls);
-                collect_function_calls(body, model, calls);
-            }
-            StmtKind::For {
-                initializer,
-                condition,
-                update,
-                body,
-            } => {
-                collect_function_calls(std::slice::from_ref(initializer), model, calls);
-                collect_calls_in_expr(condition, model, calls);
-                collect_function_calls(std::slice::from_ref(update), model, calls);
-                collect_function_calls(body, model, calls);
-            }
-            StmtKind::Flush | StmtKind::Break | StmtKind::Continue => {}
-        }
-    }
-}
-
-fn collect_calls_in_expr(expr: &Expr, model: &SemanticModel, calls: &mut Vec<(FunctionId, Span)>) {
-    let mut pending = vec![expr];
-    let mut visited_defaults = std::collections::HashSet::new();
-    while let Some(expr) = pending.pop() {
-        match &expr.kind {
-            ExprKind::Call {
-                name,
-                name_span,
-                arguments,
-            } => {
-                if let Some(id) = model.function_names.get(name) {
-                    calls.push((*id, *name_span));
-                }
-                pending.extend(arguments.iter().rev());
-            }
-            ExprKind::Construct {
-                type_name,
-                base,
-                fields,
-                ..
-            } => {
-                // 更新式は既定値を再評価しません。通常構築でも省略した項目だけを辿ります。
-                if let Some(base) = base {
-                    pending.push(base);
-                } else if let Some(id) = model.type_names.get(type_name) {
-                    for (index, field) in model.type_definition(*id).fields.iter().enumerate() {
-                        if !fields.iter().any(|f| f.name == field.name)
-                            && let Some(default) = &field.default
-                            && visited_defaults.insert((*id, index))
-                        {
-                            pending.push(default);
-                        }
-                    }
-                }
-                pending.extend(fields.iter().rev().map(|f| &f.value));
-            }
-            ExprKind::Array(values) => pending.extend(values.iter().rev()),
-            ExprKind::Index { base, index } => {
-                pending.push(index);
-                pending.push(base);
-            }
-            ExprKind::FieldAccess { base, .. }
-            | ExprKind::Unary { value: base, .. }
-            | ExprKind::Convert { value: base, .. } => pending.push(base),
-            ExprKind::Binary { left, right, .. } | ExprKind::Logical { left, right, .. } => {
-                pending.push(right);
-                pending.push(left);
-            }
-            ExprKind::Let { value, body, .. } => {
-                pending.push(body);
-                pending.push(value);
-            }
-            ExprKind::Conditional {
-                condition,
-                then_value,
-                else_value,
-            } => {
-                pending.push(else_value);
-                pending.push(then_value);
-                pending.push(condition);
-            }
-            ExprKind::Match { .. } => unreachable!("matches are lowered before recursion checks"),
-            ExprKind::GenericCall(call) if call.name == "array_repeat" => {
-                pending.extend(call.arguments.iter().rev())
-            }
-            ExprKind::GenericCall(_) => {
-                unreachable!("generic calls are lowered before recursion checks")
-            }
-            ExprKind::Boolean(_)
-            | ExprKind::String(_)
-            | ExprKind::Integer(_)
-            | ExprKind::Float { .. }
-            | ExprKind::Variable(_) => {}
-        }
-    }
 }
 
 fn statements_guarantee_return(statements: &[Stmt]) -> bool {
@@ -2647,19 +2466,13 @@ mod tests {
     }
 
     #[test]
-    fn rejects_direct_and_indirect_recursion_for_now() {
+    fn accepts_typed_direct_and_indirect_recursion() {
         for source in [
             "fn repeat(value: i64) -> i64 { return repeat(value); }",
             "fn first(value: i64) -> i64 { return second(value); }
              fn second(value: i64) -> i64 { return first(value); }",
         ] {
-            let error = check(&parse(lex(source).unwrap()).unwrap())
-                .expect_err("recursive calls must be rejected consistently by every backend");
-
-            assert_eq!(
-                error.message(),
-                "recursive function calls are not supported yet"
-            );
+            check(&parse(lex(source).unwrap()).unwrap()).unwrap();
         }
     }
 

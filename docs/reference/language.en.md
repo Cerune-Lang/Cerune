@@ -529,7 +529,7 @@ Function names are resolved across the whole file, so a call may precede its def
 
 Top-level executable statements receive a compiler-generated entrypoint. A program may instead define `fn main() -> void`, but an explicit `main` cannot be combined with top-level executable statements. `main` takes no parameters.
 
-Function parameters and results may use `bool`, `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64`, `f32`, `f64`, `string`, named product types, and fixed arrays. Products and arrays are passed as values, so the received value and the caller's value do not share a mutable location. There is no fixed language-level parameter-count limit. Recursion is not yet supported. Unsupported forms produce diagnostics instead of silently changing meaning.
+Function parameters and results may use `bool`, `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64`, `f32`, `f64`, `string`, named product types, and fixed arrays. Products and arrays are passed as values, so the received value and the caller's value do not share a mutable location. There is no fixed language-level parameter-count limit. Direct and mutual recursion are supported. CLI call depth defaults to 128, range 1–128, distinct from physical stack safety. Unsupported forms produce diagnostics instead of silently changing meaning.
 
 Cerune IR and bytecode expose function IDs, parameter binding IDs, calls, and returns. Backend artifacts expose how those entities become function symbols, arguments, local storage, and ABI registers or memory. See [Function design](../design/functions.en.md) for details.
 
@@ -542,7 +542,7 @@ print(first::<string, 2>(["日本語", "予備"]));
 
 `T` is a type parameter and `const N: i64` is a positive length parameter. Supply every argument in declaration order using `::<...>`. Types are existing concrete types; lengths are positive integer literals, integer constant names, or enclosing length parameters. A length parameter is also an i64 body value. Convert to a type parameter with `convert<T>(value)`. `pub fn` and `alias::first::<string, COUNT>(values)` are supported.
 
-Equal resolved types/lengths share one ordinary function instance. Bodies are checked for each used concrete type; unused templates do not guarantee complete body type checking. Calls skipped by short-circuiting are still checked. Value-argument order, copying, and failure rules remain those of ordinary functions. Type-argument inference, traits, generic type definitions, and recursion are unsupported. See the [design](../design/generic-functions.en.md) for limits and observation formats and [generic_functions.ceru](../../examples/generic_functions.ceru) for a runnable example.
+Equal resolved types/lengths share one ordinary function instance. Bodies are checked for each used concrete type; unused templates do not guarantee complete body type checking. Calls skipped by short-circuiting are still checked. Value-argument order, copying, and failure rules remain those of ordinary functions. Recursive calls reuse the same specialization. Type-argument inference, traits, and generic type definitions are unsupported. See the [design](../design/generic-functions.en.md) for limits and observation formats and [generic_functions.ceru](../../examples/generic_functions.ceru) for a runnable example.
 
 ## Mutable bindings and reassignment
 

@@ -55,13 +55,12 @@ fn update_validation_keeps_nominal_types_and_field_rules() {
 }
 
 #[test]
-fn calls_inside_the_base_cannot_bypass_recursion_checks() {
+fn calls_inside_the_base_accept_typed_recursion() {
     for functions in [
         "fn cycle() -> P { return P { ..cycle(), x: 1 }; }",
         "fn cycle() -> P { return P { ..other() }; } fn other() -> P { return cycle(); }",
     ] {
-        let error = compile(&format!("type P {{ x: i64, }} {functions}")).unwrap_err();
-        assert!(error.message().contains("recursive function calls"));
+        compile(&format!("type P {{ x: i64, }} {functions}")).unwrap();
     }
 }
 

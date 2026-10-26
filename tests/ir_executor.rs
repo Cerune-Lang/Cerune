@@ -345,3 +345,6 @@ fn structured_flow_evaluation_order_and_scalar_edges() {
 }
 
 mod call_depth;
+
+#[path = "recursion/mod.rs"]
+mod recursion;

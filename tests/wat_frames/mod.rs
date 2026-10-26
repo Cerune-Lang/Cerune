@@ -31,7 +31,7 @@ fn execute(hir: &ir::Program, name: &str, cap_memory: bool) -> Option<std::proce
 
 #[test]
 fn reentrant_aggregate_frames_keep_parent_values_and_return_destinations() {
-    // Only this backend fixture introduces a cycle. Public source recursion stays rejected.
+    // This fixture isolates frame layout; source recursion is covered by shared depth tests.
     let mut hir = cerune_lang::compile_to_ir(
         r#"
 fn leaf(depth: i64, value: [i64; 2]) -> [i64; 2] { return value; }

@@ -7,6 +7,7 @@
 | 場所 | 内容 |
 | --- | --- |
 | このディレクトリ | 一括実行できるプログラム |
+| [recursion](recursion/README.md) | 直接・相互再帰、genericの再利用、所有値と深さ上限 |
 | [call_frames](call_frames/README.md) | 入れ子呼出し、コピーの独立性、早期return、WATの呼出し領域を観測 |
 | [host_calls](host_calls/README.md) | 外部ホスト呼出しの比較にも使う小さな数値関数と、通常のCerune実行例 |
 | [dynamic_arrays](dynamic_arrays/README.md) | 動的配列の作成・範囲コピー・入れ子。IR・MIR・VM・C・LLVM・QBE・WAT・ASM・自前Objectで実行 |
@@ -274,7 +275,7 @@ cargo run --quiet -- emit-c examples/linear_regression.ceru
 
 ## 生成と検証
 
-VM・C・LLVM・QBE・WAT・Windows/Linux ASM・自前オブジェクトで、動的配列を含む上記の型と言語機能を扱います。可変配列によるその場でのソートや動的計画法も可能です。再帰は未対応です。
+VM・C・LLVM・QBE・WAT・Windows/Linux ASM・自前オブジェクトで、動的配列を含む上記の型と言語機能を扱います。可変配列によるその場でのソートや動的計画法も可能です。[再帰](recursion/README.md)では親の値の独立性と深さ上限も確認できます。
 
 | 経路 | 実行条件・確認内容 |
 | --- | --- |
