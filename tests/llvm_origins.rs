@@ -1,6 +1,6 @@
 use cerune_lang::{
-    codegen::llvm::{Options, Target},
-    compile_to_llvm_with_options,
+    codegen::llvm::{self, Options, Target},
+    compile_to_llvm_with_options, modules,
 };
 use std::{fs, path::PathBuf, process::Command};
 
@@ -79,7 +79,17 @@ fn cli_annotation_option_is_explicit() {
     assert!(output.stderr.is_empty());
     assert_eq!(
         output.stdout,
-        emit(&fs::read_to_string(&source).unwrap(), true).as_bytes()
+        llvm::emit_llvm_with_runtime_limits(
+            &modules::load(&source).unwrap().to_ir().unwrap(),
+            llvm::Options {
+                target: Some(llvm::Target::X86_64UnknownLinuxGnu),
+                annotate_origins: true
+            },
+            Default::default(),
+            std::num::NonZeroU32::new(128).unwrap()
+        )
+        .unwrap()
+        .as_bytes()
     );
     for route in ["emit-llvm", "emit-qbe"] {
         let output = Command::new(env!("CARGO_BIN_EXE_cerune"))

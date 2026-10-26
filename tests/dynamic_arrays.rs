@@ -505,14 +505,14 @@ fn cli_examples_limits_modules_and_target_requirements_are_explicit() {
     assert!(!result.status.success());
     assert!(
         String::from_utf8_lossy(&result.stderr)
-            .contains("dynamic arrays require an explicit --target")
+            .contains("call depth checks require an explicit --target")
     );
     assert_eq!(fs::read(&preserved).unwrap(), b"keep");
     let result = cli(&["emit-qbe", file, "-o", preserved.to_str().unwrap()]);
     assert!(!result.status.success());
     assert!(
         String::from_utf8_lossy(&result.stderr)
-            .contains("dynamic arrays require an explicit --target")
+            .contains("call depth checks require an explicit --target")
     );
     assert_eq!(fs::read(&preserved).unwrap(), b"keep");
     for command in ["emit-asm", "emit-obj"] {
