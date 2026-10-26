@@ -15,7 +15,7 @@
 | [build_native](build_native/README.md) | Native実行ファイルのbuild・引数付き実行・リンク記録の観測 |
 | [formatting](formatting/README.md) | optional let・infer省略・整形・letの表示切替と実行結果の比較 |
 | [integer_parsing](integer_parsing/README.md) | 明示的なi64読取り・書式不正・範囲外 |
-| [files](files/README.md) | 新規保存・読戻し。Rust APIのメモリ接続で4実行器を比較。実OS接続は未実装 |
+| [files](files/README.md) | 新規保存・読戻し。Windows/Linuxの明示ディレクトリで4実行器を比較 |
 | [stdin](stdin/README.md) | 実stdinの行・空行・EOF、promptのflush、UTF-8バイト数。全経路で比較 |
 | [io_protocol](io_protocol/README.md) | 出力と評価順、明示flush、入力値での操作分岐。EOF・空行・失敗を区別（標準入力は未使用） |
 | [ir_stages](ir_stages/README.md) | 短絡・loop・関数呼出しを実行し、HIR→MIR→LIR→Nativeの変換とtarget別ABIを観測 |

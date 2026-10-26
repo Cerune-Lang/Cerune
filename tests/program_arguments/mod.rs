@@ -3,14 +3,13 @@ mod llvm;
 mod native;
 mod qbe;
 mod wat;
+use crate::process;
 use cerune_lang::{
     bytecode, ir, ir_executor, mir, mir_executor, modules,
     runtime::arguments::{Arguments, Code, Failure, Limits},
     ssa_executor, vm,
 };
 use std::{fs, path::PathBuf, process::Command, time::Duration};
-#[path = "../support/process.rs"]
-mod process;
 
 fn snapshot(values: &[&str]) -> Arguments {
     let bytes: Vec<_> = values.iter().map(|s| s.as_bytes()).collect();

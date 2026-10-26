@@ -16,6 +16,7 @@ name = "cerune-lang"
 version = "0.1.0"
 dependencies = [
  "goblin",
+ "libc",
  "sashimi-assembler",
  "serde_json",
  "sha2",

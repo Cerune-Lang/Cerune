@@ -1,3 +1,5 @@
+#[path = "support/process.rs"]
+mod process;
 #[path = "program_arguments/mod.rs"]
 mod program_arguments;
 use cerune_lang::{
