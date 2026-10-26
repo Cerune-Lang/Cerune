@@ -200,6 +200,10 @@ Lower common MIR directly to LIR ArgumentCount/ArgumentGet. Baseline MIR and SSA
 
 [Native comparisons](../../tests/program_arguments/native.rs) compare the same example against four executors through baseline MIR/SSA, assembly and self-encoded objects. Windows/Linux CI require these tests. Cover unconfigured/empty/missing values, Unicode/CR/LF, limits, validation order, allocation failures, independent copies/release, short-circuit/evaluation order and stdin coexistence. Strict UTF-8 validation is shared by input and arguments.
 
-Internal helpers are not a stable embedding ABI. Integer parsing is implemented in [std:num](integer-parsing.en.md). Chronological success records, Native build and distribution remain follow-up work.
+Internal helpers are not a stable embedding ABI. Integer parsing is implemented in [std:num](integer-parsing.en.md). Chronological success records remain follow-up work. [Native build](native-build.en.md) and [initial release](native-release.en.md) are implemented.
 
 PR #182 merged Native support into master. ASM/Object tests cover allocation failures during startup, OS conversion, snapshot capture and string retrieval, including prior output and arguments-v1. The [SASHIMI object connection](native-encoder.en.md) does not change argument semantics.
+
+## Next: saving and reloading
+
+[Limited file I/O design](file-io.en.md) covers whole-file UTF-8 reads and new-file creation in an explicit working directory. It is in design and unimplemented as of 2026-10-26. Replacement and subprocesses follow later.

@@ -28,6 +28,7 @@ Each document links to its Japanese counterpart.
 - [Actual stdin in CLI and generated C/LLVM/QBE](design/stdin-connections.en.md)
 - [Virtual standard modules and origins](design/standard-modules.en.md)
 - [Bounded UTF-8 line input](design/line-input.en.md)
+- [Limited file I/O (design in progress)](design/file-io.en.md)
 - [Versioned WAT input hosts](design/wat-input-host.en.md)
 - [Native build: executable and generation/link records](design/native-build.en.md)
 - [Native release: distribution, runtime requirements and checksums](design/native-release.en.md)
