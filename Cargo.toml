@@ -44,7 +44,7 @@ path = "experiments/call_depth/emit.rs"
 
 [dependencies]
 serde_json = "1.0"
-sha2 = "0.10"
+sha2 = "0.11"
 goblin = { version = "0.10.7", default-features = false, features = ["std", "elf32", "elf64", "pe64", "endian_fd"] }
 sashimi-assembler = { git = "https://github.com/Cerune-Lang/SASHIMI.git", rev = "ee8f6b132aea322af3d4ff1909035c7903836cd5" }
 
