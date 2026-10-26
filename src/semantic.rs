@@ -1798,6 +1798,34 @@ fn check_call(
         }
         return Ok(ReturnType::Value(Type::String));
     }
+    if matches!(name, "$file_read_text" | "$file_write_new") {
+        let write = name == "$file_write_new";
+        let types = if write {
+            vec![Type::String, Type::String, Type::Integer(IntegerType::I64)]
+        } else {
+            vec![Type::String, Type::Integer(IntegerType::I64)]
+        };
+        if arguments.len() != types.len() {
+            return Err(Diagnostic::new(
+                "incorrect file operation argument count",
+                name_span,
+            ));
+        }
+        for (argument, expected) in arguments.iter().zip(types) {
+            let actual = model.type_of_expr_expected(argument, bindings, Some(expected.clone()))?;
+            if actual != expected {
+                return Err(Diagnostic::new(
+                    "incorrect file operation argument type",
+                    argument.span,
+                ));
+            }
+        }
+        return Ok(if write {
+            ReturnType::Void
+        } else {
+            ReturnType::Value(Type::String)
+        });
+    }
     if name == "$read_line" {
         if arguments.len() != 1 {
             return Err(Diagnostic::new(

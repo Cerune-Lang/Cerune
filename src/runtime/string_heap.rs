@@ -37,6 +37,9 @@ impl StringValue {
             .and_then(|i| self.bytes.borrow().as_bytes().get(i).copied())
             .map_or(-1, i128::from)
     }
+    pub(crate) fn borrow_text(&self) -> std::cell::Ref<'_, str> {
+        std::cell::Ref::map(self.bytes.borrow(), |s| s.as_str())
+    }
     pub(crate) fn text(&self) -> String {
         self.bytes.borrow().clone()
     }

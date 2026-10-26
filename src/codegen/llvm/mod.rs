@@ -119,6 +119,7 @@ fn emit_configured(
     limits: crate::runtime::arguments::Limits,
     call_limit: Option<std::num::NonZeroU32>,
 ) -> Result<String, Diagnostic> {
+    super::support::reject_files(program, "LLVM")?;
     let target = options.target;
     if let Some(span) = program.first_argument_span() {
         if target.is_none() {

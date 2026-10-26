@@ -202,6 +202,11 @@ pub enum StatementKind {
         value: Expr,
         quoted: bool,
     },
+    FileWriteNew {
+        name: Expr,
+        text: Expr,
+        max_bytes: Expr,
+    },
     Flush,
     Print {
         value: Expr,
@@ -289,6 +294,10 @@ pub enum ExprKind {
     ArgumentCount,
     ArgumentGet {
         index: Box<Expr>,
+    },
+    FileReadText {
+        name: Box<Expr>,
+        max_bytes: Box<Expr>,
     },
     ReadLine {
         max_bytes: Box<Expr>,
@@ -498,6 +507,24 @@ impl Program {
             &mut |_| {},
         );
         span
+    }
+    pub(crate) fn first_file_span(&self) -> Option<Span> {
+        let mut read = None;
+        let mut write = None;
+        input::visit_program(
+            self,
+            &mut |e| {
+                if read.is_none() && matches!(e.kind, ExprKind::FileReadText { .. }) {
+                    read = Some(e.span);
+                }
+            },
+            &mut |s| {
+                if write.is_none() && matches!(s.kind, StatementKind::FileWriteNew { .. }) {
+                    write = Some(s.span);
+                }
+            },
+        );
+        read.or(write)
     }
     pub(crate) fn first_input_span(&self) -> Option<Span> {
         input::first_span(self)

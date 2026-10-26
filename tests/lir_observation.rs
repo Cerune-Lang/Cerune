@@ -38,6 +38,12 @@ fn all_examples_have_valid_deterministic_baseline_and_ssa_lir() {
         let lowered = mir::ssa::lower(&ssa).unwrap();
         for p in [&original, &lowered.program] {
             for target in TARGETS {
+                if file.parent() == Some(root.join("examples/files").as_path()) {
+                    let error = x86_64::lower_mir(p, target).unwrap_err();
+                    assert_eq!(error.message(), "Native file I/O is not supported yet");
+                    assert!(error.primary_span().is_some());
+                    continue;
+                }
                 let m = x86_64::lower_mir(p, target)
                     .unwrap_or_else(|e| panic!("{} {target:?}: {e:?}", file.display()));
                 let before = m.clone();

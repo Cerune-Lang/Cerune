@@ -288,6 +288,11 @@ fn operation(p: &Program, f: &Function, op: &Operation, dst: &T, o: Origin) -> R
             same(ty(*v)?, &T::String)?;
             same(dst, &I64)
         }
+        Operation::FileReadText { name, max_bytes } => {
+            same(ty(*name)?, &T::String)?;
+            same(ty(*max_bytes)?, &I64)?;
+            same(dst, &T::String)
+        }
         Operation::ArgumentCount => same(dst, &I64),
         Operation::ArgumentGet(value) | Operation::ReadLine(value) => {
             same(ty(*value)?, &I64)?;
@@ -377,6 +382,15 @@ fn instruction(p: &Program, f: &Function, i: &Instruction) -> Result<(), Error> 
                 o,
             )
         }
+        InstructionKind::FileWriteNew {
+            name,
+            text,
+            max_bytes,
+        } => {
+            require(local(f, *name, o)? == &T::String, "file name type", o)?;
+            require(local(f, *text, o)? == &T::String, "file text type", o)?;
+            require(local(f, *max_bytes, o)? == &I64, "file limit type", o)
+        }
         InstructionKind::Flush => Ok(()),
         InstructionKind::Output { value, quoted, .. } => {
             let t = local(f, *value, o)?;
@@ -424,6 +438,10 @@ pub(super) fn operation_reads(op: &Operation) -> Vec<LocalId> {
             index: right,
         }
         | Operation::Binary { left, right, .. }
+        | Operation::FileReadText {
+            name: left,
+            max_bytes: right,
+        }
         | Operation::StringConcat { left, right } => {
             vec![*left, *right]
         }
@@ -452,6 +470,11 @@ pub(super) fn reads(i: &InstructionKind) -> Vec<LocalId> {
             .chain(path.iter().copied())
             .chain([*value])
             .collect(),
+        InstructionKind::FileWriteNew {
+            name,
+            text,
+            max_bytes,
+        } => vec![*name, *text, *max_bytes],
         InstructionKind::Flush => vec![],
         InstructionKind::Output { value, .. }
         | InstructionKind::ArrayRetain { value }

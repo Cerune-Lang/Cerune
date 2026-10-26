@@ -206,4 +206,4 @@ PR #182 merged Native support into master. ASM/Object tests cover allocation fai
 
 ## Next: saving and reloading
 
-[Limited file I/O design](file-io.en.md) covers whole-file UTF-8 reads and new-file creation in an explicit working directory. As of 2026-10-26 the Rust common components are implemented, with language API, execution routes, and OS connections still pending. Replacement and subprocesses follow later.
+[Limited file I/O design](file-io.en.md) covers whole-file UTF-8 reads and new-file creation in an explicit working directory. As of 2026-10-26, std:fs, common IR, and four executors work with in-memory connections. OS connections, CLI connection options, and generated routes follow next. Replacement and subprocesses follow later.

@@ -6,7 +6,7 @@ The public line-input API uses `import "std:io" as io;` and `io::read_line(4096)
 
 ## Resolution and identity
 
-- Classify `std:` imports as standard modules. The exact identifiers `std:io`, `std:env` and `std:num` are recognized; unknown identifiers fail without filesystem fallback.
+- Classify `std:` imports as standard modules. The exact identifiers `std:io`, `std:env`, `std:num` and `std:fs` are recognized; unknown identifiers fail without filesystem fallback.
 - Preserve existing relative `.ceru` resolution. Add no environment variables, search paths, network downloads, or general package manager.
 - Register each standard module once per compilation. Aliases and imports from multiple user files share one ordinary enum definition across all backends.
 - `modules::from_source` resolves in-memory source and bundled modules only, rejecting relative file imports. compile(&str) and compile_to_ir(&str) use this path without implicit file I/O. APIs taking a single SourceFile preserve their existing behavior without resolving imports; use modules::from_source when the full SourceMap including standard sources is needed.
@@ -15,7 +15,7 @@ The public line-input API uses `import "std:io" as io;` and `io::read_line(4096)
 
 SourceIds are compilation-local registration-order identifiers: register the entry first, then traverse dependencies in declaration order. Do not reserve a fixed numerical ID for std:io or assume IDs match across compilations.
 
-SourceMap distinguishes user and standard sources. Standard sources use identifiers std:io, std:env or std:num, all with contract version 1. emit-sources includes its text, SourceId, kind, identifier, and version, without inventing a filesystem path. Preserve anonymous spans and manifests for existing single-source inputs without standard modules.
+SourceMap distinguishes user and standard sources. Standard sources use identifiers std:io, std:env, std:num or std:fs, all with contract version 1. emit-sources includes its text, SourceId, kind, identifier, and version, without inventing a filesystem path. Preserve anonymous spans and manifests for existing single-source inputs without standard modules.
 
 The input operation's Span refers to its location in the bundled function. The caller's HIR Call retains the user's Span, allowing observation of the relationship between caller, function, and input operation. Never render a virtual-source diagnostic against the same offsets in a user file.
 
@@ -29,7 +29,7 @@ Preserve the [line-input contract](line-input.en.md), including limits, consumpt
 
 ## Execution and checks
 
-Pass Input and Output explicitly to HIR/MIR/SSA `run_with_io` or VM `run_bytecode_with_io`. Existing capture APIs keep input unconfigured. [CLI and generated C/LLVM/LLVM/QBE/Native](stdin-connections.en.md) connect actual stdin. [Versioned WAT input hosts](wat-input-host.en.md) are also implemented. Native lowers input from ordinary/SSA MIR through LIR, ASM, and self-encoded Object. Unused functions are retained, so importing std:io alone includes input support in generated artifacts.
+Pass Input and Output explicitly to HIR/MIR/SSA `run_with_io` or VM `run_bytecode_with_io`. Existing capture APIs keep input unconfigured. [CLI and generated C/LLVM/QBE/Native](stdin-connections.en.md) connect actual stdin. [Versioned WAT input hosts](wat-input-host.en.md) are also implemented. Native lowers input from ordinary/SSA MIR through LIR, ASM, and self-encoded Object. Unused functions are retained, so importing std:io alone includes input support in generated artifacts.
 
 The [Cerune line-input fixture](../../tests/fixtures/line_input.ceru) executes print → flush → read_line → match. [Differential tests](../../tests/standard_input.rs) supply independent identical inputs to four executors and check [expected output](../../tests/fixtures/line_input.stdout), operation order, failures, and ownership. A [real stdin example](../../examples/stdin/README.en.md) is also tested across all routes.
 
@@ -46,3 +46,7 @@ Bundled arg_count/arg/Argument declarations reuse the same SourceMap, name resol
 ## Pure integer parsing
 
 `std:num` provides `parse_i64(string) -> ParseI64`. Bundled Cerune source implements the checks; routes only add internal common-IR byte access. See the [syntax, range and origin contract](integer-parsing.en.md).
+
+## File operations in std:fs
+
+The bundled virtual source declares `read_text` and `write_new`. Common IR connects them to explicit file connections in HIR/MIR/SSA/VM. OS connections and generated routes are not implemented yet. See the [contract and Rust APIs](file-io.en.md) and [in-memory example](../../examples/files/README.en.md).

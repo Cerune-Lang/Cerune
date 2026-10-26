@@ -14,6 +14,7 @@ pub(super) fn lower(program: &mut Program) {
                     ExprKind::StringConcat { .. }
                         | ExprKind::ArgumentGet { .. }
                         | ExprKind::ReadLine { .. }
+                        | ExprKind::FileReadText { .. }
                 );
             },
             &mut |_| {},
@@ -27,6 +28,7 @@ pub(super) fn lower(program: &mut Program) {
                 ExprKind::StringConcat { .. }
                     | ExprKind::ArgumentGet { .. }
                     | ExprKind::ReadLine { .. }
+                    | ExprKind::FileReadText { .. }
             );
         },
         &mut |_| {},
@@ -648,6 +650,7 @@ impl Lowerer {
                 | ExprKind::StringConcat { .. }
                 | ExprKind::ArgumentGet { .. }
                 | ExprKind::ReadLine { .. }
+                | ExprKind::FileReadText { .. }
                 | ExprKind::Array(_)
                 | ExprKind::Construct { base: None, .. }
         );
@@ -683,6 +686,10 @@ impl Lowerer {
             ExprKind::StringByteAt {
                 value: left,
                 index: right,
+            }
+            | ExprKind::FileReadText {
+                name: left,
+                max_bytes: right,
             }
             | ExprKind::StringConcat { left, right }
             | ExprKind::Binary { left, right, .. } => {
@@ -833,6 +840,25 @@ impl Lowerer {
                 }
                 let new = self.wrap(value.clone());
                 *value = self.replace(old, new);
+            }
+            StatementKind::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+            } => {
+                let mut owners = vec![];
+                for operand in [name, text, max_bytes] {
+                    let read = self.read(operand.clone(), out);
+                    if read.owned {
+                        owners.push(self.copy(&read.value));
+                    }
+                    *operand = read.value;
+                }
+                out.push(s);
+                for owner in owners.into_iter().rev() {
+                    self.manage(owner, false, out);
+                }
+                return;
             }
             StatementKind::Print { value } | StatementKind::Write { value, .. } => {
                 let read = self.read(value.clone(), out);

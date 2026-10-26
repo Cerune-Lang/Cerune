@@ -1,0 +1,7 @@
+pub fn read_text(name: string, max_bytes: i64) -> string {
+    return __cerune_file_read_text(name, max_bytes);
+}
+
+pub fn write_new(name: string, text: string, max_bytes: i64) -> void {
+    __cerune_file_write_new(name, text, max_bytes);
+}

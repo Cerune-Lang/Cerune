@@ -529,3 +529,6 @@ fn known_eof_needs_no_free_string_budget_and_invalid_limits_never_read() {
         }
     }
 }
+
+#[path = "file_io/mod.rs"]
+mod file_io;

@@ -482,6 +482,8 @@ impl Resolver<'_> {
                 if !matches!(
                     name.as_str(),
                     "$read_line"
+                        | "$file_read_text"
+                        | "$file_write_new"
                         | "$arg_count"
                         | "$arg_get"
                         | "$string_byte_at"

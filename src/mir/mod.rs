@@ -130,6 +130,11 @@ pub enum InstructionKind<R = LocalId> {
         path: Vec<R>,
         value: R,
     },
+    FileWriteNew {
+        name: R,
+        text: R,
+        max_bytes: R,
+    },
     Flush,
     Output {
         value: R,
@@ -212,6 +217,10 @@ pub enum Operation<R = LocalId> {
     ArrayLength(R),
     ArgumentCount,
     ArgumentGet(R),
+    FileReadText {
+        name: R,
+        max_bytes: R,
+    },
     ReadLine(R),
     StringByteAt {
         value: R,

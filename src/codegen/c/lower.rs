@@ -108,6 +108,7 @@ fn collect_array_assignment_types(program: &cerune_ir::Program) -> Vec<Type> {
                 cerune_ir::StatementKind::Binding { .. }
                 | cerune_ir::StatementKind::StringManage { .. }
                 | cerune_ir::StatementKind::Write { .. }
+                | cerune_ir::StatementKind::FileWriteNew { .. }
                 | cerune_ir::StatementKind::Flush
                 | cerune_ir::StatementKind::Print { .. }
                 | cerune_ir::StatementKind::Call { .. }
@@ -261,6 +262,9 @@ fn lower_statement(statement: &cerune_ir::Statement) -> Statement {
             kind: crate::codegen::display::kind(&value.ty, *quoted),
             value: lower_expr(value),
         },
+        cerune_ir::StatementKind::FileWriteNew { .. } => {
+            unreachable!("file I/O rejected before lowering")
+        }
         cerune_ir::StatementKind::Flush => Statement::Flush {
             origin: super::ir::Origin {
                 node_id: statement.id,
@@ -416,6 +420,9 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
             left: Box::new(lower_expr(left)),
             right: Box::new(lower_expr(right)),
         },
+        cerune_ir::ExprKind::FileReadText { .. } => {
+            unreachable!("file I/O rejected before lowering")
+        }
         cerune_ir::ExprKind::ReadLine { max_bytes } => ExprKind::ReadLine {
             max_bytes: Box::new(lower_expr(max_bytes)),
         },
@@ -625,7 +632,11 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
                     visit_expr(value, types);
                 }
             }
-            cerune_ir::ExprKind::StringByteAt { value: base, index }
+            cerune_ir::ExprKind::FileReadText {
+                name: base,
+                max_bytes: index,
+            }
+            | cerune_ir::ExprKind::StringByteAt { value: base, index }
             | cerune_ir::ExprKind::StringConcat {
                 left: base,
                 right: index,
@@ -671,6 +682,9 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
 
     fn visit_statement(statement: &cerune_ir::Statement, types: &mut Vec<Type>) {
         match &statement.kind {
+            cerune_ir::StatementKind::FileWriteNew { .. } => {
+                unreachable!("file I/O rejected before lowering")
+            }
             cerune_ir::StatementKind::Flush => {}
             cerune_ir::StatementKind::ArrayInitialize { array, value } => {
                 visit_expr(array, types);

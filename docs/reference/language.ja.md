@@ -501,6 +501,12 @@ HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeに対応して�
 
 既存の埋込みAPIは暗黙にOS引数を読まず、引数取得時に未設定を診断します。`run_with_arguments`等で明示注入してください。[契約](../design/dogfooding-inputs.ja.md)・[実行例](../../examples/arguments/README.md)を参照してください。
 
+### ファイルの読取りと新規保存
+
+`import "std:fs" as fs;`で`fs::read_text(name, max_bytes) -> string`と`fs::write_new(name, text, max_bytes) -> void`を使えます。UTF-8全文の上限は0〜2147483647バイトで、既存ファイルを上書きしません。内容のNUL・CR/LF・結合文字を保持し、異常は位置付き診断で停止します。
+
+**現在はHIR・MIR・SSA・VMへRust APIで明示したメモリ接続を使います。実OS接続・CLIの接続指定・生成経路は未実装です。** 接続未設定は`unconfigured`で停止します。[契約と接続API](../design/file-io.ja.md)・[実行例](../../examples/files/README.md)を参照してください。
+
 ## 関数とentry point
 
 `fn`は、名前を付けた処理を定義します。parameterと戻り値の型は必ず書きます。

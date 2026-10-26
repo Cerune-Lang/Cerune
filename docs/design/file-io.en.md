@@ -2,11 +2,11 @@
 
 [日本語](file-io.ja.md)
 
-**Status: Rust common components implemented; language API, execution routes, and OS connections remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and creation of new files within an explicitly supplied working directory. Replacing existing files is outside the first version. Language API names and OS/generated-route connections remain proposals; the next section identifies implemented common rules. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), with comparison effects isolated according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. OS connections, CLI connection options, and generated routes remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. OS and generated-route connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
 
 ## Implemented common components
 
-[runtime::files](../../src/runtime/files.rs) now provides `Files<B>` using a Backend supplied before execution. **Only the Rust component is implemented. std:fs, common-IR operations, the four executors, CLI, generated routes, and OS connections are not connected yet.** Existing line input and output routes are unchanged.
+[runtime::files](../../src/runtime/files.rs) provides `Files<B>` with a Backend selected before execution. All four executors connect `std:fs` operations to this component. **No real-filesystem connection is provided yet.** Existing input, output, and argument APIs remain available.
 
 | Item | Implemented contract |
 | --- | --- |
@@ -38,18 +38,18 @@ phase is validate/reserve/open/read/write/close/decode; created is no/yes/unknow
 cargo test --lib runtime::files
 ```
 
-## First use and proposed API
+## Public API and executor connections
 
 Save generated text to a new file, read it back, and compare it with the original value. Preserve UTF-8, NUL, CR/LF, and combining characters exactly; do not normalize, translate newlines, or remove a BOM.
 
-| Proposed API | Success | Failure |
+| Public API | Success | Failure |
 | --- | --- | --- |
 | `fs::read_text(name: string, max_bytes: i64) -> string` | Read from the opened file's beginning to EOF; an empty file returns an empty string | Stop on missing files, limit overflow, invalid UTF-8, read/close failures, etc. |
 | `fs::write_new(name: string, text: string, max_bytes: i64) -> void` | Create a new file, transfer all bytes, and close it | Leave an existing target unchanged; stop on creation/write/close failures |
 
-Propose `import "std:fs" as fs;` as a reserved virtual standard module. The first version does not add a Result type, public file handles, seek, append, deletion, replacement, directory creation, or subprocesses. Separate the public stop-on-failure policy from internal operations returning progress, leaving room for a later recovery API.
+Explicitly import the reserved virtual standard module with `import "std:fs" as fs;`. The first version does not add a Result type, public file handles, seek, append, deletion, replacement, directory creation, or subprocesses. Separate the public stop-on-failure policy from internal operations returning progress, leaving room for a later recovery API.
 
-This is an **unimplemented usage sketch**. Do not register it as an executable example under `examples/` until it works.
+The API below is implemented. [roundtrip.ceru](../../examples/files/roundtrip.ceru) compares all four executors with an in-memory connection, checking equality and the 16-byte length.
 
 ```cerune
 import "std:fs" as fs;
@@ -60,6 +60,22 @@ print(saved == text);
 ```
 
 Expect `true` plus LF and file bytes exactly matching the original string. Give each execution an empty directory; a second execution against the same directory must stop without changing the existing file.
+
+The executor Rust APIs are as follows.
+
+| API | Connections and result |
+| --- | --- |
+| `run_with_files(program, &mut Files<B>)` | Explicit file connection; capture stdout as a returned string; stdin/arguments remain unconfigured |
+| `run_with_io_files_arguments_and_call_limit` | Explicit stdin, stdout, files, arguments, and call depth in one execution |
+| Existing `run` APIs | Files remain unconfigured; stop with a `file-v1` diagnostic with `code=unconfigured` when used. Never infer a directory from cwd/environment |
+
+HIR `FileReadText` returns a string; `FileWriteNew` is a void statement. MIR/SSA/bytecode retain `file.read_text.utf8` and `file.write_new.utf8`. Evaluate arguments left to right once and preserve operation NodeId/Span in the standard source. Transfer read results into StringHeap, reserving before open and releasing on failure. Borrow file names and write content without an extra content copy for the operation. Count `std:fs` source-function calls toward call depth, excluding generated helpers.
+
+[Cross-route tests](../../tests/file_io/mod.rs) compare the example, evaluation order, short circuits, ownership, composed input/output/arguments, partial transfers, failures, and origins with independent in-memory connections. C/LLVM/QBE/WAT/Native reject file operations before generation with source locations, including unused functions. `emit-ir`/`emit-mir`/`emit-bytecode` remain available without executing operations. CLI access to real files is not implemented yet.
+
+```sh
+cargo test --test standard_input file_io
+```
 
 ## Reuse from the current implementation
 
@@ -141,4 +157,4 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-Step 1 common components, name validation, and progress/failure contracts are implemented. Next is step 2: std:fs, common IR, and four-executor integration. Do not silently implement unresolved OS path resolution or generated-executable startup configuration; publish the design and prototype findings before their respective stages.
+Steps 1 and 2 are implemented. Next is step 3: Windows/Linux connections and CLI configuration. Do not silently implement unresolved OS path resolution or generated-executable startup configuration; publish the design and prototype findings before their respective stages.
