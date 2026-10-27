@@ -8,7 +8,7 @@ fn run_both(source: &str) -> Result<String, cerune_lang::RunError> {
 fn else_if_example_runs_on_ir_and_vm() {
     assert_eq!(
         run_both(include_str!("../examples/else_if.ceru")).unwrap(),
-        "negative\\nzero\\nsmall\\nlarge\\nmatched\\n"
+        "negative\nzero\nsmall\nlarge\nmatched\n"
     );
 }
 
