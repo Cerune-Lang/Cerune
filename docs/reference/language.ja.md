@@ -64,7 +64,7 @@ statement   := binding
              | "break" ";"
              | "continue" ";"
 
-if_statement := "if" expression block ("else" block)?
+if_statement := "if" expression block ("else" (block | if_statement))?
 
 while_statement := "while" expression block
 
@@ -581,7 +581,7 @@ Cerune IRでは、最初の初期化と再代入を別の文として保持し�
 
 ## 条件分岐、繰り返し、ブロックスコープ
 
-`if`は`bool`の条件に従って文を実行します。`else`は省略できます。`else if`を連続して書くこともでき、最初に条件が真になった分岐だけを実行します。内部的には`else`内の入れ子の`if`として扱います。
+`if`は`bool`の条件に従って文を実行します。`else`は省略できます。`else if`を連続して書くこともでき、最初に条件が真になった分岐だけを実行します。内部的には`else`内の入れ子の`if`として扱います。 長い連鎖は入れ子の`if`として構文ネスト上限にも数えられ、超過した場合はコンパイルエラーになります。
 
 ```cerune
 if value < 10 {
@@ -590,7 +590,6 @@ if value < 10 {
     print(10);
 }
 ```
-
 
 ```cerune
 if value < 0 {
