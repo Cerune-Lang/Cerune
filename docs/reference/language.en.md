@@ -64,7 +64,7 @@ statement   := binding
              | "break" ";"
              | "continue" ";"
 
-if_statement := "if" expression block ("else" block)?
+if_statement := "if" expression block ("else" (block | if_statement))?
 
 while_statement := "while" expression block
 
@@ -581,7 +581,7 @@ Cerune IR preserves initialization and reassignment as different statements. Byt
 
 ## Conditionals, loops, and block scope
 
-`if` executes statements according to a `bool` condition. The `else` block is optional. An `else if` chain evaluates conditions in order and executes only the first matching branch. It is represented internally as nested `if` statements in the `else` branch.
+`if` executes statements according to a `bool` condition. The `else` block is optional. An `else if` chain evaluates conditions in order and executes only the first matching branch. It is represented internally as nested `if` statements in the `else` branch. Because this is a nested AST, long chains count toward the syntax nesting limit and are rejected with a diagnostic if it is exceeded.
 
 ```cerune
 if value < 10 {
@@ -590,7 +590,6 @@ if value < 10 {
     print(10);
 }
 ```
-
 
 ```cerune
 if value < 0 {
