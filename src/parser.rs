@@ -890,7 +890,18 @@ impl Parser {
             if matches!(&self.peek().kind, TokenKind::If) {
                 // Desugar an `else if` to an if statement inside the else body.
                 // The existing AST, scope rules, and all backends stay unchanged.
-                let nested = self.parse_if()?;
+                // An else-if chain creates nested If nodes without nested
+                // braces. Count those nodes toward the usual syntax budget so
+                // delimiter-free chains cannot recurse without bound.
+                if self.block_nesting + 1 >= MAX_SYNTAX_NESTING {
+                    return Err(self.error(format!(
+                        "else-if nesting exceeds {MAX_SYNTAX_NESTING}"
+                    )));
+                }
+                self.block_nesting += 1;
+                let nested = self.parse_if();
+                self.block_nesting -= 1;
+                let nested = nested?;
                 let end = nested.span.end();
                 (vec![nested], end)
             } else {
@@ -1753,7 +1764,7 @@ mod tests {
     use crate::lexer::lex;
     use crate::source::Span;
 
-    use super::parse;
+    use super::{parse, MAX_SYNTAX_NESTING};
 
     #[test]
     fn parses_binding() {
@@ -2136,6 +2147,29 @@ mod tests {
         ] {
             assert!(parse(lex(source).unwrap()).is_err(), "{source}");
         }
+    }
+
+    #[test]
+    fn rejects_unbounded_else_if_chains_without_stack_overflow() {
+        // Sequential braces do not increase delimiter nesting. The implicit
+        // nested If AST still needs to obey the parser's nesting budget.
+        let allowed = format!(
+            "{}{}",
+            "if false {} else ".repeat(8),
+            "if true { print(1); }"
+        );
+        assert!(parse(lex(&allowed).unwrap()).is_ok());
+
+        let excessive = format!(
+            "{}{}",
+            "if false {} else ".repeat(MAX_SYNTAX_NESTING + 50),
+            "if true {}"
+        );
+        let error = parse(lex(&excessive).unwrap()).unwrap_err();
+        assert!(error.message().contains("exceeds"), "{error:?}");
+        let span = error.primary_span().unwrap();
+        assert!(span.start() < span.end());
+        assert!(span.end() <= excessive.len());
     }
 
     #[test]
