@@ -887,8 +887,15 @@ impl Parser {
 
         let (else_body, end) = if matches!(&self.peek().kind, TokenKind::Else) {
             self.advance();
-            let (body, end) = self.parse_block()?;
-            (body, end)
+            if matches!(&self.peek().kind, TokenKind::If) {
+                // Desugar an `else if` to an if statement inside the else body.
+                // The existing AST, scope rules, and all backends stay unchanged.
+                let nested = self.parse_if()?;
+                let end = nested.span.end();
+                (vec![nested], end)
+            } else {
+                self.parse_block()?
+            }
         } else {
             (Vec::new(), then_end)
         };
@@ -2091,6 +2098,44 @@ mod tests {
         assert_eq!(then_body.len(), 1);
         assert_eq!(else_body.len(), 1);
         assert_eq!(program.statement(0).span, Span::new(0, 40));
+    }
+
+    #[test]
+    fn parses_else_if_chain_as_nested_else_branch() {
+        let source = "if false { print(1); } else if true { print(2); } else if false { print(3); } else { print(4); }";
+        let program = parse(lex(source).unwrap()).unwrap();
+
+        let StmtKind::If { else_body, .. } = &program.statement(0).kind else {
+            panic!("expected outer if");
+        };
+        let StmtKind::If {
+            condition,
+            then_body,
+            else_body,
+        } = &else_body[0].kind
+        else {
+            panic!("expected nested if in else branch");
+        };
+        assert_eq!(condition.kind, ExprKind::Boolean(true));
+        assert_eq!(then_body.len(), 1);
+        assert_eq!(else_body.len(), 1);
+        let StmtKind::If { else_body, .. } = &else_body[0].kind else {
+            panic!("expected third if");
+        };
+        assert_eq!(else_body.len(), 1);
+        assert_eq!(program.statement(0).span, Span::new(0, source.len()));
+    }
+
+    #[test]
+    fn else_if_requires_a_condition_and_block() {
+        for source in [
+            "if true {} else if {}",
+            "if false {} else if true",
+            "if false {} else if true print(1);",
+            "if false {} else print(1);",
+        ] {
+            assert!(parse(lex(source).unwrap()).is_err(), "{source}");
+        }
     }
 
     #[test]
