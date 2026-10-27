@@ -13,6 +13,46 @@ fn else_if_example_runs_on_ir_and_vm() {
 }
 
 #[test]
+fn else_if_preserves_short_circuit_scopes_and_loop_control() {
+    let source = r#"
+        mut calls: i64 = 0;
+        fn observe() -> bool {
+            print("observed");
+            return true;
+        }
+        if true {
+            print("first");
+        } else if observe() {
+            print("unreachable");
+        }
+        mut n: i64 = 0;
+        while n < 3 {
+            n = n + 1;
+            if n == 1 {
+                continue;
+            } else if n == 2 {
+                print("two");
+            } else {
+                break;
+            }
+        }
+        if false {
+            print("never");
+        } else if true {
+            local: i64 = 7;
+            print(local);
+        } else {
+            print("never");
+        }
+    "#;
+    assert_eq!(run_both(source).unwrap(), "first\ntwo\n7\n");
+    assert!(cerune_lang::compile(
+        "if false {} else if true { scoped: i64 = 1; } print(scoped);"
+    )
+    .is_err());
+}
+
+#[test]
 fn simple_examples_match_known_outputs() {
     for (source, expected) in [
         (
