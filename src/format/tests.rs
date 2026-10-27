@@ -50,7 +50,8 @@ fn else_if_chains_format_idempotently_and_preserve_execution() {
 #[test]
 fn else_if_keeps_its_layout_comments_and_optional_final_else() {
     let compact = "if false{print(1);}else if true{print(2);}else{print(3);}";
-    let expected = "if false {\n    print(1);\n} else if true {\n    print(2);\n} else {\n    print(3);\n}\n";
+    let expected =
+        "if false {\n    print(1);\n} else if true {\n    print(2);\n} else {\n    print(3);\n}\n";
     assert_eq!(format(compact, LetStyle::Preserve).unwrap(), expected);
 
     let commented = "if false{}else // reasoning\nif true{print(5);}";
