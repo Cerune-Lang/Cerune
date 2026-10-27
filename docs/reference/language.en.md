@@ -581,13 +581,24 @@ Cerune IR preserves initialization and reassignment as different statements. Byt
 
 ## Conditionals, loops, and block scope
 
-`if` executes statements according to a `bool` condition. The `else` block is optional.
+`if` executes statements according to a `bool` condition. The `else` block is optional. An `else if` chain evaluates conditions in order and executes only the first matching branch. It is represented internally as nested `if` statements in the `else` branch.
 
 ```cerune
 if value < 10 {
     print(value);
 } else {
     print(10);
+}
+```
+
+
+```cerune
+if value < 0 {
+    print("negative");
+} else if value == 0 {
+    print("zero");
+} else {
+    print("positive");
 }
 ```
 
