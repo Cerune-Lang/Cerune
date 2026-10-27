@@ -32,6 +32,21 @@ fn contextual_let_preserves_identifiers_and_for_binding_forms() {
 }
 
 #[test]
+fn else_if_chains_format_idempotently_and_preserve_execution() {
+    let source = "mut x:i64=2;if x<0{print(0);}else if x<2{print(1);}else if x<3{print(2);}else{print(3);}";
+    for style in STYLES {
+        let formatted = format(source, style).unwrap();
+        assert!(formatted.contains("} else if x < 2 {"), "{formatted}");
+        assert!(formatted.contains("} else if x < 3 {"), "{formatted}");
+        assert_eq!(format(&formatted, style).unwrap(), formatted);
+        let original = crate::ir_executor::run(&crate::compile_to_ir(source).unwrap()).unwrap();
+        let after = crate::ir_executor::run(&crate::compile_to_ir(&formatted).unwrap()).unwrap();
+        assert_eq!(original, "2\\n");
+        assert_eq!(original, after);
+    }
+}
+
+#[test]
 fn exact_layout_and_comments_do_not_rewrite_literals() {
     let source = "// heading\r\nlet// prefix\r\nmut x:i64=001; // tail  \r\nif true{print(\"a\\0\\r\\n//日本語\");}\r\n";
     let expected = "// heading\nlet // prefix\nmut x: i64 = 001; // tail  \nif true {\n    print(\"a\\0\\r\\n//日本語\");\n}\n";
