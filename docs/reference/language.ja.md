@@ -581,13 +581,24 @@ Cerune IRでは、最初の初期化と再代入を別の文として保持し�
 
 ## 条件分岐、繰り返し、ブロックスコープ
 
-`if`は`bool`の条件に従って文を実行します。`else`は省略できます。
+`if`は`bool`の条件に従って文を実行します。`else`は省略できます。`else if`を連続して書くこともでき、最初に条件が真になった分岐だけを実行します。内部的には`else`内の入れ子の`if`として扱います。
 
 ```cerune
 if value < 10 {
     print(value);
 } else {
     print(10);
+}
+```
+
+
+```cerune
+if value < 0 {
+    print("negative");
+} else if value == 0 {
+    print("zero");
+} else {
+    print("positive");
 }
 ```
 
