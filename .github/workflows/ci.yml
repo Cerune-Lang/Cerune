@@ -168,12 +168,13 @@ jobs:
           timeout --kill-after=10s 5m cargo test --test standard_input file_io::wat 2>&1 | tee target/linux-wat-files.log
         env:
           CERUNE_TEST_NODE: node
-      - name: Compare Native program arguments
+      - name: Compare Native arguments and file semantics
         if: ${{ matrix.suite == 'native' }}
         shell: bash
         run: |
           set -o pipefail
           timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::native 2>&1 | tee target/linux-native-arguments.log
+          timeout --kill-after=10s 5m cargo test --lib native_files 2>&1 | tee target/linux-native-files.log
         env:
           CERUNE_TEST_ASM_CLANG: clang
       - name: Preserve Linux route diagnostics
@@ -184,6 +185,7 @@ jobs:
           path: |
             target/linux-${{ matrix.suite }}.log
             target/linux-native-arguments.log
+            target/linux-native-files.log
             target/linux-qbe-arguments.log
             target/linux-qbe-files.log
             target/linux-qbe-file-connections.log
@@ -370,11 +372,13 @@ jobs:
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_NODE: node
-      - name: Compare Native program arguments
+      - name: Compare Native arguments and file semantics
         if: ${{ matrix.suite == 'native' }}
         shell: pwsh
         run: |
           cargo test --test standard_input program_arguments::native 2>&1 | Tee-Object target/windows-native-arguments.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --lib native_files 2>&1 | Tee-Object target/windows-native-files.log
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_ASM_CLANG: clang
@@ -386,6 +390,7 @@ jobs:
           path: |
             target/windows-${{ matrix.suite }}.log
             target/windows-native-arguments.log
+            target/windows-native-files.log
             target/windows-qbe-arguments.log
             target/windows-qbe-files.log
             target/windows-qbe-file-connections.log

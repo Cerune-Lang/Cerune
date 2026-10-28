@@ -9,6 +9,7 @@ mod emit;
 #[path = "../../tests/support/native_emitter_reference/mod.rs"]
 mod emitter_reference;
 mod failure;
+mod files;
 mod heap;
 mod input;
 pub mod ir;

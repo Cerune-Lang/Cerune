@@ -2,7 +2,7 @@
 
 [日本語](file-io.ja.md)
 
-**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C/LLVM/QBE OS connections and startup configuration are also implemented. WAT versioned host connections are implemented; its real-OS host and Native remain unsupported.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. The [versioned WAT contract](wat-file-host.en.md) is implemented in generated WAT file operations. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C/LLVM/QBE OS connections and startup configuration are also implemented. WAT versioned host connections are implemented; Native semantics are compared through test connections. Its real-OS host and Native OS connections remain unsupported.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. The [versioned WAT contract](wat-file-host.en.md) is implemented in generated WAT file operations. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
 
 ## Implemented common components
 
@@ -157,7 +157,7 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-Steps 1–3 and C/LLVM/QBE in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. The [WAT contract](wat-file-host.en.md) is implemented and compared using in-memory connections. Native integration is next; a real-OS WAT host requires separate validation. Publish designs and prototype findings before those stages.
+Steps 1–3 and C/LLVM/QBE in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. The [WAT contract](wat-file-host.en.md) is implemented and compared using in-memory connections. Native semantics are compared through ASM/direct Objects and test connections. Native OS connections/startup come next; a real-OS WAT host requires separate validation. Publish designs and prototype findings before those stages.
 
 ## Windows/Linux connections and CLI
 
@@ -239,7 +239,7 @@ OS operations remain visible in generated LLVM. Windows explicitly resolves NtCr
 
 [Shared real-connection tests](../../tests/file_io/generated.rs) apply to C and LLVM. They compare O0/O2 save/readback, existing-file protection, Unicode names and empty files, missing/duplicate/invalid startup settings, and argument limits excluding configuration. They also verify that excess argument counts and invalid Unicode stop before root connection; moving/replacing root while waiting on stdin still accesses the retained directory; and Windows junctions / Linux links and FIFOs are rejected. Read/write/close failure injection continues through independent test connections.
 
-Normal completion releases the root handle and argument snapshot. Root release ends the connection lifetime and is separate from close diagnostics for source read/write operations. As with existing I/O, generated routes do not yet expose the common successful-operation observation API. A real-OS WAT host and Native file support and recording the connection contract in Native build/release remain follow-up work.
+Normal completion releases the root handle and argument snapshot. Root release ends the connection lifetime and is separate from close diagnostics for source read/write operations. As with existing I/O, generated routes do not yet expose the common successful-operation observation API. A real-OS WAT host and Native OS connections and recording the connection contract in Native build/release remain follow-up work.
 
 ## QBE semantics and OS connections
 
@@ -263,4 +263,20 @@ Only generated programs containing file operations interpret the leading marker,
 
 Apply the [shared real-connection cases](../../tests/file_io/generated.rs) to C/LLVM/QBE. Compare save/readback in independent directories, existing-file protection, invalid UTF-8, empty/limit cases, Unicode names, unconfigured access, missing/duplicate/invalid settings, and exclusion of settings from argument limits. Also verify retained-directory access after root move/replacement while waiting for input, Windows junction and Linux link/FIFO rejection, and argument validation before root connection.
 
-Windows/Linux QBE CI jobs require both semantic and real-connection comparisons. Linux reads require procfs; Windows linking requires an MSVC-compatible environment. A real-OS WAT host, Native support, Native artifact connection records, and the generated routes’ common successful-operation observation API remain follow-up work.
+Windows/Linux QBE CI jobs require both semantic and real-connection comparisons. Linux reads require procfs; Windows linking requires an MSVC-compatible environment. A real-OS WAT host, Native OS connections, Native artifact connection records, and the generated routes’ common successful-operation observation API remain follow-up work.
+
+## Native semantics and test connections
+
+**MIR → LIR → typed machine-instruction semantics and independent test connections are implemented.** Windows/Linux OS connections and startup parsing come next. Normal emit-asm / emit-obj / build native still reject file operations with source locations. The internal connection ABI is not a public feature.
+
+The [shared implementation](../../src/codegen/x86_64/files.rs) produces ASM and directly encoded COFF/ELF from the same SASHIMI Program. It neither compiles generated C/LLVM nor reparses assembly text. LIR FileReadText/FileWriteNew retain local values and provenance; typed instructions and Object mappings preserve the source operation. LIR validation requires an operation origin, in-frame value locations, and enabled string ownership support.
+
+Native performs name/limit checks, reservation, partial transfers, interruption retries, close, UTF-8 validation, and file-v1 diagnostics. Internal connection responsibilities and responses match the LLVM section. Reads use at most 4096 bytes and an independent one-byte EOF probe; only successful results enter the existing string owner list. Accounted usage changes from the reserved limit to actual length; empty results use the static string. Preserve an earlier failure while closing once, free reserved storage, and stop.
+
+[Comparison tests](../../src/codegen/x86_64/files/tests.rs) link and execute both ASM and directly encoded Objects on Windows/Linux, comparing output, complete file-v1 records, request sequences, close counts, and remaining content with HIR/MIR/SSA/VM. Fixture C only transfers bytes, injects responses, and records calls. Coverage includes roundtrip.ceru, short transfers, interruption, zero progress, invalid responses, combined transfer/close failures, UTF-8/names/limits, allocation failure, evaluation order, short circuits, recursion, copies, and iteration. Normal completion also requires empty string usage and owner lists; injected read failures additionally check reservation release with independent allocation/free counters.
+
+Next, add target-specific OS connections and the agreed startup-marker parser, then apply shared real-connection tests to ASM/direct Objects. Record the connection contract in Native build/release afterward. A real-OS WAT host and common observation APIs for generated routes' successful operations remain separate follow-ups.
+
+~~~sh
+CERUNE_TEST_ASM_CLANG=clang cargo test --lib native_files
+~~~
