@@ -34,7 +34,7 @@ fn artifact(p: &ir::Program, limits: Limits) -> String {
     )
     .unwrap()
 }
-fn build(text: &str, opt: &str, object: Option<Target>) -> Option<(PathBuf, PathBuf)> {
+pub(crate) fn build(text: &str, opt: &str, object: Option<Target>) -> Option<(PathBuf, PathBuf)> {
     if object.is_none() && !cfg!(any(windows, target_os = "linux")) {
         eprintln!(
             "LLVM arguments execution needs a supported Linux/Windows target; object validation still runs"

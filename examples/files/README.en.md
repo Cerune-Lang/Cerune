@@ -20,7 +20,7 @@ cargo run --quiet -- emit-mir examples/files/roundtrip.ceru
 cargo run --quiet -- emit-bytecode examples/files/roundtrip.ceru
 ~~~
 
-Tests separate real directories and in-memory connections, comparing output, saved bytes, records, and failures. Omitting --file-root stops with unconfigured. LLVM/QBE/WAT/Native generation reports unsupported file I/O. No save location is selected implicitly. Linux reads require /proc/self/fd. See the [contract and coverage](../../docs/design/file-io.en.md).
+Tests separate real directories and in-memory connections, comparing output, saved bytes, records, and failures. Omitting --file-root stops with unconfigured. QBE/WAT/Native generation reports unsupported file I/O. No save location is selected implicitly. Linux reads require /proc/self/fd. See the [contract and coverage](../../docs/design/file-io.en.md).
 
 
 The same example also runs through generated C. Select Windows/Linux through the C compilation target.
@@ -34,7 +34,16 @@ mkdir c-output
 
 In Windows PowerShell use .\roundtrip.exe for the last command. MinGW-targeted Clang also needs -municode for wmain. The terminating -- is required. An omitted connection never defaults to cwd. Subsequent arguments are passed to the program.
 
-Internal LLVM comparison tests also use this .ceru file. OS connections are not implemented yet, so emit-llvm still reports unsupported file I/O. Run the development comparisons with the following command; Clang is required.
+The same example also runs through generated LLVM. Select an explicit target, then use Clang to link. On Linux:
+
+~~~sh
+cargo run --quiet -- emit-llvm examples/files/roundtrip.ceru --target x86_64-unknown-linux-gnu -o roundtrip.ll
+clang --target=x86_64-unknown-linux-gnu roundtrip.ll -o roundtrip
+mkdir llvm-output
+./roundtrip --cerune-runtime-v1 --file-root llvm-output --
+~~~
+
+On Windows, use x86_64-pc-windows-msvc for both targets, roundtrip.exe as output, and .\roundtrip.exe to run. Clang and an MSVC-compatible linking environment are required. Startup settings match C. In addition to real-connection comparisons, development tests inject short transfers and close failures.
 
 ~~~sh
 cargo test --lib codegen::llvm::files::tests

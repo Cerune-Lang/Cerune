@@ -305,13 +305,11 @@ fn standard_module_is_virtual_observable_and_internal_calls_are_private() {
 
 #[test]
 fn generators_reject_file_io_with_source_locations_even_in_unused_functions() {
-    use cerune_lang::codegen::{llvm, qbe, wat, x86_64};
+    use cerune_lang::codegen::{qbe, wat, x86_64};
     let p = hir(
         r#"import "std:fs" as fs; fn unused()->string {return fs::read_text("x",0);} print(1);"#,
     );
     let errors = [
-        llvm::emit_llvm(&p).unwrap_err(),
-        llvm::emit_llvm_with_target(&p, Some(llvm::Target::X86_64UnknownLinuxGnu)).unwrap_err(),
         qbe::emit_qbe(&p).unwrap_err(),
         qbe::emit_qbe_with_target(&p, Some(qbe::Target::X86_64PcWindowsMsvc)).unwrap_err(),
         wat::emit_wat(&p).unwrap_err(),
@@ -481,3 +479,5 @@ mod os;
 
 #[cfg(any(windows, target_os = "linux"))]
 mod c;
+#[cfg(any(windows, target_os = "linux"))]
+mod generated;

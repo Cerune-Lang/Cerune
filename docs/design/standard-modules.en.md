@@ -49,4 +49,4 @@ Bundled arg_count/arg/Argument declarations reuse the same SourceMap, name resol
 
 ## File operations in std:fs
 
-The bundled virtual source declares `read_text` and `write_new`. Common IR connects them to explicit file connections in HIR/MIR/SSA/VM. Windows/Linux CLI uses `--file-root` for OS connections. Generated C selects connections with a dedicated startup marker. LLVM/QBE/WAT/Native remain unimplemented. See the [contract and Rust APIs](file-io.en.md) and [save/readback example](../../examples/files/README.en.md).
+The bundled virtual source declares `read_text` and `write_new`. Common IR connects them to explicit file connections in HIR/MIR/SSA/VM. Windows/Linux CLI uses `--file-root` for OS connections. Generated C/LLVM select connections with a dedicated startup marker. QBE/WAT/Native remain unimplemented. See the [contract and Rust APIs](file-io.en.md) and [save/readback example](../../examples/files/README.en.md).

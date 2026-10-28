@@ -111,7 +111,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 **Main limitations / not yet implemented:**
 
 - **Language:** Public string indexing, character counting and numeric parsing beyond i64, dynamic-array growth and borrowing, catching runtime stops, and generic `Option`/`Result`.
-- **I/O and modules:** File I/O in LLVM/QBE/WAT/Native, network I/O APIs, module re-exports, and package management.
+- **I/O and modules:** File I/O in QBE/WAT/Native, network I/O APIs, module re-exports, and package management.
 - **Build and distribution:** IR/VM `build` and `release` (Native executable construction and distribution directories are supported).
 
 ## Execution and Output

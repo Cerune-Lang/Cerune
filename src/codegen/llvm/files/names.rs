@@ -150,6 +150,11 @@ entry:
   %data = extractvalue %cerune.string %name, 0
   %length = extractvalue %cerune.string %name, 1
   %status = call i32 @cerune_file_host_open(ptr %data, i64 %length, i32 %write, ptr %handle)
+  %code = call ptr @cerune.files.open_code(i32 %status)
+  ret ptr %code
+}
+define internal ptr @cerune.files.open_code(i32 %status) {
+entry:
   switch i32 %status, label %invalid [
     i32 0, label %ok
     i32 1, label %missing

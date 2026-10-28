@@ -24,7 +24,16 @@ fn artifact(p: &crate::ir::Program, target: Target, annotate: bool) -> String {
     let mut module = lower(p);
     module.target = Some(target);
     let text = emit::emit_with_origins(&module, annotate);
-    text.replace("define i32 @main()", "define internal i32 @test.program()") + OWNERSHIP_CHECK
+    let start = text.find("; File OS connection begin").unwrap();
+    let end = text.find("; File OS connection end").unwrap();
+    let text = text[..start].to_owned() + HOST_DECLARATIONS + &text[end..];
+    let start = text.find("; Explicit target startup:").unwrap();
+    let end = text.find("; End explicit target startup").unwrap();
+    let text = text[..start].to_owned() + &text[end..];
+    text.replace(
+        "define internal i32 @cerune.program()",
+        "define internal i32 @test.program()",
+    ) + OWNERSHIP_CHECK
 }
 fn build(text: &str, host: Option<&str>, opt: &str, target: Target) -> Option<(PathBuf, PathBuf)> {
     let configured = std::env::var_os("CERUNE_TEST_LLVM_CLANG");
@@ -301,15 +310,16 @@ fn check_result(
 #[test]
 fn llvm_files_lowering_preserves_origins_and_compiles_both_targets() {
     let p = hir(include_str!("../../../../examples/files/roundtrip.ceru"));
+    let before = p.clone();
+    let error = super::super::emit_llvm(&p).unwrap_err();
+    assert!(
+        error
+            .message()
+            .contains("file I/O requires an explicit --target")
+    );
+    assert_eq!(error.primary_span(), p.first_file_span());
     for target in [Target::X86_64UnknownLinuxGnu, Target::X86_64PcWindowsMsvc] {
-        // OS接続完成前に公開APIから不完全な生成物を返さない。
-        assert!(
-            super::super::emit_llvm_with_target(&p, Some(target))
-                .unwrap_err()
-                .message()
-                .contains("file I/O is not supported yet")
-        );
-        let text = artifact(&p, target, true);
+        let text = super::super::emit_llvm_with_target(&p, Some(target)).unwrap();
         assert!(text.contains("call %cerune.string @cerune.files.read_text"));
         assert!(text.contains("call void @cerune.files.write_new"));
         for opt in ["-O0", "-O2"] {
@@ -318,6 +328,7 @@ fn llvm_files_lowering_preserves_origins_and_compiles_both_targets() {
             }
         }
     }
+    assert_eq!(p, before);
 }
 #[test]
 fn llvm_files_example_and_transfer_failures_match_four_executors() {
@@ -595,3 +606,11 @@ fn llvm_files_allocation_failure_precedes_open_and_redacts_input() {
         fs::remove_dir_all(dir).unwrap();
     }
 }
+
+const HOST_DECLARATIONS: &str = r#"
+declare i32 @cerune_file_host_configured()
+declare i32 @cerune_file_host_open(ptr, i64, i32, ptr)
+declare i64 @cerune_file_host_read(i64, ptr, i64)
+declare i64 @cerune_file_host_write(i64, ptr, i64)
+declare i32 @cerune_file_host_close(i64)
+"#;

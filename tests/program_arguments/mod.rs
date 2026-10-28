@@ -1,5 +1,5 @@
 pub(crate) mod c;
-mod llvm;
+pub(crate) mod llvm;
 mod native;
 mod qbe;
 mod wat;
