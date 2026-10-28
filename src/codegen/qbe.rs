@@ -103,8 +103,18 @@ fn emit_configured(
     limits: crate::runtime::arguments::Limits,
     call_limit: Option<std::num::NonZeroU32>,
 ) -> Result<String, Diagnostic> {
-    super::support::reject_files(program, "QBE")?;
-    if let Some(span) = program.first_argument_span() {
+    if target.is_none()
+        && let Some(span) = program.first_file_span()
+    {
+        return Err(Diagnostic::new(
+            "QBE file I/O requires an explicit --target: x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc",
+            span,
+        ));
+    }
+    if let Some(span) = program
+        .first_argument_span()
+        .or_else(|| program.first_file_span())
+    {
         if target.is_none() {
             return Err(Diagnostic::new(
                 "QBE program arguments require an explicit --target: x86_64-unknown-linux-gnu or x86_64-pc-windows-msvc",

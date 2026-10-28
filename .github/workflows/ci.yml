@@ -148,13 +148,14 @@ jobs:
           CERUNE_TEST_NODE: node
           CERUNE_TEST_OBJDUMP: objdump
           CERUNE_TEST_OBJCOPY: objcopy
-      - name: Compare QBE arguments and file semantics
+      - name: Compare QBE arguments and files
         if: ${{ matrix.suite == 'qbe' }}
         shell: bash
         run: |
           set -o pipefail
           timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::qbe 2>&1 | tee target/linux-qbe-arguments.log
           timeout --kill-after=10s 5m cargo test --lib codegen::qbe::files::tests 2>&1 | tee target/linux-qbe-files.log
+          timeout --kill-after=10s 5m cargo test --test standard_input file_io::generated::qbe_tests 2>&1 | tee target/linux-qbe-file-connections.log
         env:
           CERUNE_TEST_QBE_CLANG: clang
           CERUNE_TEST_CC: clang
@@ -184,6 +185,7 @@ jobs:
             target/linux-native-arguments.log
             target/linux-qbe-arguments.log
             target/linux-qbe-files.log
+            target/linux-qbe-file-connections.log
             target/linux-wat-arguments.log
             target/stdin-*
           if-no-files-found: ignore
@@ -344,13 +346,15 @@ jobs:
           CERUNE_TEST_OBJDUMP: llvm-objdump
           CERUNE_TEST_OBJCOPY: llvm-objcopy
           CERUNE_TEST_NODE: node
-      - name: Compare QBE arguments and file semantics
+      - name: Compare QBE arguments and files
         if: ${{ matrix.suite == 'qbe' }}
         shell: pwsh
         run: |
           cargo test --test standard_input program_arguments::qbe 2>&1 | Tee-Object target/windows-qbe-arguments.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --lib codegen::qbe::files::tests 2>&1 | Tee-Object target/windows-qbe-files.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --test standard_input file_io::generated::qbe_tests 2>&1 | Tee-Object target/windows-qbe-file-connections.log
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_CC: clang
@@ -380,6 +384,7 @@ jobs:
             target/windows-native-arguments.log
             target/windows-qbe-arguments.log
             target/windows-qbe-files.log
+            target/windows-qbe-file-connections.log
             target/windows-wat-arguments.log
             target/qbe-windows-observations
             target/stdin-*

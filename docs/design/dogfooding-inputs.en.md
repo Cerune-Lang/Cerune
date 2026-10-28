@@ -206,4 +206,4 @@ PR #182 merged Native support into master. ASM/Object tests cover allocation fai
 
 ## Next: saving and reloading
 
-[Limited file I/O design](file-io.en.md) covers whole-file UTF-8 reads and new-file creation in an explicit working directory. As of 2026-10-28, std:fs, common IR, four executors, Windows/Linux connections, and CLI connection options are implemented. Generated C/LLVM are also implemented. QBE/WAT/Native follow next. Replacement and subprocesses follow later.
+[Limited file I/O design](file-io.en.md) covers whole-file UTF-8 reads and new-file creation in an explicit working directory. As of 2026-10-28, std:fs, common IR, four executors, Windows/Linux connections, and CLI connection options are implemented. Generated C/LLVM/QBE are also implemented. WAT/Native follow next. Replacement and subprocesses follow later.

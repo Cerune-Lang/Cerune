@@ -505,7 +505,7 @@ HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeに対応して�
 
 `import "std:fs" as fs;`で`fs::read_text(name, max_bytes) -> string`と`fs::write_new(name, text, max_bytes) -> void`を使えます。UTF-8全文の上限は0〜2147483647バイトで、既存ファイルを上書きしません。内容のNUL・CR/LF・結合文字を保持し、異常は位置付き診断で停止します。
 
-**HIR・MIR・SSA・VMで、Rust APIの明示接続またはWindows/LinuxのCLI `--file-root <directory>`を使います。生成C・LLVMもWindows/Linuxで対応します。QBE／WAT／Nativeは未実装です。** 接続未設定は`unconfigured`で停止します。[契約と接続API](../design/file-io.ja.md)・[実行例](../../examples/files/README.md)を参照してください。
+**HIR・MIR・SSA・VMで、Rust APIの明示接続またはWindows/LinuxのCLI `--file-root <directory>`を使います。生成C・LLVM・QBEもWindows/Linuxで対応します。WAT／Nativeは未実装です。** 接続未設定は`unconfigured`で停止します。[契約と接続API](../design/file-io.ja.md)・[実行例](../../examples/files/README.md)を参照してください。
 
 ## 関数とentry point
 

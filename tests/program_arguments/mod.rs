@@ -1,7 +1,7 @@
 pub(crate) mod c;
 pub(crate) mod llvm;
 mod native;
-mod qbe;
+pub(crate) mod qbe;
 mod wat;
 use crate::process;
 use cerune_lang::{

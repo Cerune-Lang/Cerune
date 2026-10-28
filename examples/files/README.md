@@ -20,7 +20,7 @@ cargo run --quiet -- emit-mir examples/files/roundtrip.ceru
 cargo run --quiet -- emit-bytecode examples/files/roundtrip.ceru
 ~~~
 
-テストは実ディレクトリとメモリ接続を分け、出力・保存内容・操作記録・失敗を比較します。--file-root省略時はunconfiguredで停止します。QBE・WAT・Native生成は未対応の診断を返します。保存先を暗黙に選びません。Linuxの読取りには/proc/self/fdが必要です。[契約と対応範囲](../../docs/design/file-io.ja.md)も参照してください。
+テストは実ディレクトリとメモリ接続を分け、出力・保存内容・操作記録・失敗を比較します。--file-root省略時はunconfiguredで停止します。WAT・Native生成は未対応の診断を返します。保存先を暗黙に選びません。Linuxの読取りには/proc/self/fdが必要です。[契約と対応範囲](../../docs/design/file-io.ja.md)も参照してください。
 
 
 生成Cでも同じ例を実行できます。Cのコンパイル対象でWindows/Linuxを選びます。
@@ -49,8 +49,19 @@ Windowsでは両コマンドのtargetをx86_64-pc-windows-msvcにし、出力を
 cargo test --lib codegen::llvm::files::tests
 ~~~
 
-QBEの内部比較も同じ.ceruを使用します。実OS接続は後続で、emit-qbeは未対応診断を維持します。QBE 1.3とClangを用意し、CERUNE_TEST_QBEにQBEのパスを設定すると試験接続で比較できます。
+QBE 1.3でも同じ例を実行できます。Linuxではターゲットをamd64_sysvに明示します。
 
 ~~~sh
+cargo run --quiet -- emit-qbe examples/files/roundtrip.ceru --target x86_64-unknown-linux-gnu -o roundtrip.ssa
+qbe -t amd64_sysv -o roundtrip.s roundtrip.ssa
+clang --target=x86_64-unknown-linux-gnu roundtrip.s -o roundtrip
+mkdir qbe-output
+./roundtrip --cerune-runtime-v1 --file-root qbe-output --
+~~~
+
+WindowsではCeruneとClangのtargetをx86_64-pc-windows-msvc、QBEの-tをamd64_winにし、出力をroundtrip.exe、実行を.\roundtrip.exeにします。ClangとMSVC互換のリンク環境が必要です。起動設定はC・LLVMと同じです。CERUNE_TEST_QBEにQBEのパスを指定すると、実接続と応答注入の比較を必須実行できます。
+
+~~~sh
+cargo test --test standard_input file_io::generated::qbe_tests
 cargo test --lib codegen::qbe::files::tests
 ~~~

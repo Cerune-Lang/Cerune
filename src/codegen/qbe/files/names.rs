@@ -167,6 +167,11 @@ function l $cerune_files_open_file(l %name, w %writing, l %handle) {
   %data =l add %name, 8
   %length =l loadl %name
   %status =w call $cerune_file_host_open(l %data, l %length, w %writing, l %handle)
+  %code =l call $cerune_files_open_code(w %status)
+  ret %code
+}
+function l $cerune_files_open_code(w %status) {
+@start
   %ok =w ceqw %status, 0
   jnz %ok, @ok, @check_missing
 @check_missing

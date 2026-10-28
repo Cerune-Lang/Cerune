@@ -1,7 +1,7 @@
 use super::{execute, hir};
 use crate::process;
 use cerune_lang::{
-    codegen::{c, llvm},
+    codegen::{c, llvm, qbe},
     runtime::files::{Directory, Files},
 };
 use std::{
@@ -393,6 +393,7 @@ fn configuration_is_excluded_from_argument_snapshot_limits(route: Route) {
 enum Route {
     C,
     Llvm,
+    Qbe,
 }
 impl Route {
     fn emit(
@@ -404,6 +405,13 @@ impl Route {
             Self::C => {
                 c::emit_c_with_call_limit(p, std::num::NonZeroU32::new(128).unwrap()).unwrap()
             }
+            Self::Qbe => qbe::emit_qbe_with_runtime_limits(
+                p,
+                Some(qbe::Target::parse(llvm_target().triple()).unwrap()),
+                limits,
+                std::num::NonZeroU32::new(128).unwrap(),
+            )
+            .unwrap(),
             Self::Llvm => llvm::emit_llvm_with_runtime_limits(
                 p,
                 llvm::Options {
@@ -425,6 +433,7 @@ impl Route {
         match self {
             Self::C => crate::program_arguments::c::build(text, opt, flags),
             Self::Llvm => crate::program_arguments::llvm::build(text, opt, None),
+            Self::Qbe => crate::program_arguments::qbe::build(text, None),
         }
     }
 }
@@ -481,6 +490,9 @@ macro_rules! cases {
 }
 mod c_tests {
     cases!(super::Route::C);
+}
+mod qbe_tests {
+    cases!(super::Route::Qbe);
 }
 mod llvm_tests {
     cases!(super::Route::Llvm);

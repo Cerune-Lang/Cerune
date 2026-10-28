@@ -2,7 +2,7 @@
 
 [日本語](file-io.ja.md)
 
-**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C/LLVM OS connections and startup configuration are also implemented. QBE semantics are verified through test connections. QBE OS connections/public emission and WAT/Native remain unsupported.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. WAT connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C/LLVM/QBE OS connections and startup configuration are also implemented. WAT/Native remain unsupported.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. WAT connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
 
 ## Implemented common components
 
@@ -71,7 +71,7 @@ The executor Rust APIs are as follows.
 
 HIR `FileReadText` returns a string; `FileWriteNew` is a void statement. MIR/SSA/bytecode retain `file.read_text.utf8` and `file.write_new.utf8`. Evaluate arguments left to right once and preserve operation NodeId/Span in the standard source. Transfer read results into StringHeap, reserving before open and releasing on failure. Borrow file names and write content without an extra content copy for the operation. Count `std:fs` source-function calls toward call depth, excluding generated helpers.
 
-[Cross-route tests](../../tests/file_io/mod.rs) compare the example, evaluation order, short circuits, ownership, composed input/output/arguments, partial transfers, failures, and origins with independent in-memory connections. Generated C/LLVM support Windows/Linux reads and creation. QBE/WAT/Native reject file operations before generation with source locations, including unused functions. `emit-ir`/`emit-mir`/`emit-bytecode` remain available without executing operations. CLI `--file-root <directory>` supplies an explicit real-filesystem connection.
+[Cross-route tests](../../tests/file_io/mod.rs) compare the example, evaluation order, short circuits, ownership, composed input/output/arguments, partial transfers, failures, and origins with independent in-memory connections. Generated C/LLVM/QBE support Windows/Linux reads and creation. WAT/Native reject file operations before generation with source locations, including unused functions. `emit-ir`/`emit-mir`/`emit-bytecode` remain available without executing operations. CLI `--file-root <directory>` supplies an explicit real-filesystem connection.
 
 ```sh
 cargo test --test standard_input file_io
@@ -100,12 +100,12 @@ The host explicitly supplies and fixes the working directory before execution. A
 | Targets | Regular files only. Reject symlinks, reparse points, directories, devices, and FIFOs as unsupported. Verify that opening a FIFO for validation does not block indefinitely |
 | Resolution | Directory-handle-relative opening is implemented. A string-prefix check or a separate existence check followed by ordinary open does not establish containment |
 | CLI / embedding | Implemented CLI `--file-root` and explicit injection into Rust execution APIs. Existing APIs remain unconfigured. Observation APIs cannot change connections |
-| Generated executables | The leading-marker startup configuration is agreed and implemented in C/LLVM. Preserve marker-free argv semantics; do not silently embed generation-time absolute paths or obtain configuration from environment variables. Propose recording the required connection contract version in Native build/release |
+| Generated executables | The leading-marker startup configuration is agreed and implemented in C/LLVM/QBE. Preserve marker-free argv semantics; do not silently embed generation-time absolute paths or obtain configuration from environment variables. Propose recording the required connection contract version in Native build/release |
 | WAT | Transfer names and bytes through versioned host connections without exposing internal memory or ownership pointers. Fix import names, status values, and transfer protocol before implementation |
 
 Linux uses directory-fd-relative `openat` and `O_CREAT | O_EXCL` for creation. `O_NOFOLLOW` only protects the final component; it does not establish safety for arbitrary multi-component paths. [Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
 
-Windows uses user-mode `NtCreateFile` with RootDirectory, exclusive creation, and no-reparse-following options in the Rust connection. Generated C/LLVM also use this. QBE/custom Object integration remain later work. [Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
+Windows uses user-mode `NtCreateFile` with RootDirectory, exclusive creation, and no-reparse-following options in the Rust connection. Generated C/LLVM/QBE also use this. Custom Object integration remains later work. [Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
 
 The directory is not an OS sandbox. Hard links, concurrent processes, network filesystems, and OS permissions are separate conditions. Initial OS comparisons use managed local temporary directories; identical results under concurrent third-party changes are not guaranteed. Reject connections that cannot enforce the required scope instead of silently relaxing it.
 
@@ -157,7 +157,7 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-Steps 1–3 and C/LLVM in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. QBE semantics are also compared through test connections. QBE Windows/Linux connections and startup are next, followed by the WAT contract and Native integration. Publish designs and prototype findings before those stages.
+Steps 1–3 and C/LLVM/QBE in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. The versioned WAT file connection contract is next, followed by Native integration. Publish designs and prototype findings before those stages.
 
 ## Windows/Linux connections and CLI
 
@@ -184,7 +184,7 @@ Missing/invalid/unsupported roots and open failures stop before execution with f
 [OS tests](../../tests/file_io/os.rs) use independent temporary directories to compare the 16-byte example, empty/exact/over-limit reads, invalid UTF-8, prior output, and failure origins across four executors. They also verify competing creation, root rename/replacement, directories, links, Windows junctions, and Linux FIFOs. Child processes have a 20-second limit. Partial transfers, interruptions, and close failures are injected in common-component tests, not claimed as actual OS close-failure tests. Linux special-file tests use Linux temporary storage because WSL Windows drives do not support FIFO creation.
 
 
-## Generated-executable startup contract (C/LLVM implemented)
+## Generated-executable startup contract (C/LLVM/QBE implemented)
 
 On 2026-10-27 we agreed to interpret runtime configuration only when the dedicated marker is the first argument.
 
@@ -199,7 +199,7 @@ program --cerune-runtime-v1 -- --cerune-runtime-v1
 - Validate all settings before connecting root. Existence and scope are enforced by the OS connection, not the argument parser. Do not supply implicit cwd/environment defaults.
 - Initially only generated programs containing file operations use this startup contract. Preserve startup/argv behavior of existing programs without file operations.
 
-C/LLVM are connected and compared across Windows/Linux, unoptimized/optimized builds, and four executors in independent directories. QBE/Native will adopt the same startup contract in later changes. WAT will use a separate versioned host contract rather than this argv marker. This section does not claim completed support for other generated routes.
+C/LLVM are connected and compared across Windows/Linux, unoptimized/optimized builds, and four executors in independent directories. The same startup contract is also verified with QBE 1.3. Native integration remains follow-up work. WAT will use a separate versioned host contract rather than this argv marker. This section does not claim completed support for other generated routes.
 
 
 ## Generated C validation and comparisons
@@ -239,18 +239,28 @@ OS operations remain visible in generated LLVM. Windows explicitly resolves NtCr
 
 [Shared real-connection tests](../../tests/file_io/generated.rs) apply to C and LLVM. They compare O0/O2 save/readback, existing-file protection, Unicode names and empty files, missing/duplicate/invalid startup settings, and argument limits excluding configuration. They also verify that excess argument counts and invalid Unicode stop before root connection; moving/replacing root while waiting on stdin still accesses the retained directory; and Windows junctions / Linux links and FIFOs are rejected. Read/write/close failure injection continues through independent test connections.
 
-Normal completion releases the root handle and argument snapshot. Root release ends the connection lifetime and is separate from close diagnostics for source read/write operations. As with existing I/O, generated routes do not yet expose the common successful-operation observation API. QBE/WAT/Native file support and recording the connection contract in Native build/release remain follow-up work.
+Normal completion releases the root handle and argument snapshot. Root release ends the connection lifetime and is separate from close diagnostics for source read/write operations. As with existing I/O, generated routes do not yet expose the common successful-operation observation API. WAT/Native file support and recording the connection contract in Native build/release remain follow-up work.
 
-## QBE semantics and test connections
+## QBE semantics and OS connections
 
 Lower existing file operations to FileReadText/FileWriteNew in the internal QBE IR, then emit name/limit checks, transfers, close, UTF-8 validation, ownership, and file-v1 diagnostics directly as QBE IL. Execution does not go through generated C, LLVM IR, or the VM. Preserve the original IR, each operation’s NodeId/SourceId/Span, and left-to-right argument evaluation.
 
-**Public emit-qbe still returns the source-located unsupported diagnostic at this stage.** Windows/Linux OS connections and leading-marker startup settings are the next change. The test connection is not a stable external ABI or a completed public file API.
+**emit-qbe generates real connections for explicitly selected x86_64-unknown-linux-gnu / x86_64-pc-windows-msvc targets.** [OS connections](../../src/codegen/qbe/files/connection.rs) and [startup](../../src/codegen/qbe/files/entry.rs) are separate from language semantics. The emitter host OS does not select the target. Internal test connections are not published as a stable external ABI.
 
 Internal connection responsibilities and status values match the table in the LLVM section. QBE strings store length and content contiguously; reads adopt results into the existing owner list. Reserve the limit before open and reduce accounted usage to actual length after success. Empty strings use the existing static value. Reads request at most 4096 bytes with a separate one-byte EOF probe; writes request the entire remainder. Close occurs once and preserves any earlier failure.
 
 [QBE comparisons](../../src/codegen/qbe/files/tests.rs) and LLVM comparisons use the [same injected-response fixture](../../tests/file_io/compiled_connection.rs). Fixture C only transfers bytes and supplies response sequences/logs; each generated route implements semantic checks, diagnostics, and retries. Compare request sequences, close counts, saved content, prior output, and complete file-v1 records with four executors.
 
-Coverage includes roundtrip.ceru, short transfers, interruption, zero progress, excessive responses, combined transfer/close failures, exact/+1/zero limits, invalid UTF-8, names, unconfigured access, allocation failure, evaluation order, short circuits, recursion, copying, and release after iteration. Success also requires empty string usage and owner lists. Tests verify that public emission remains unsupported.
+Coverage includes roundtrip.ceru, short transfers, interruption, zero progress, excessive responses, combined transfer/close failures, exact/+1/zero limits, invalid UTF-8, names, unconfigured access, allocation failure, evaluation order, short circuits, recursion, copying, and release after iteration. Success also requires empty string usage and owner lists. Tests also verify the public API’s explicit-target requirement and generation for both targets.
 
 Generate assembly with QBE 1.3 amd64_sysv/amd64_win and compare execution on Windows/Linux. Compile test-connection C at Clang O0/O2; this does not switch QBE optimization stages. Linux also instruments test-connection C with ASan/UBSan, not QBE-generated assembly itself. When an older non-Windows assembler does not support COFF section syntax, Windows object validation runs on Windows. Both OS QBE CI jobs require these comparisons.
+
+### QBE OS connections and startup settings
+
+Linux opens relative to the retained directory fd with openat, checks regular-file identity using O_PATH, and reopens through /proc/self/fd for reading. Windows resolves NtCreateFile from ntdll and opens UTF-16 names relative to the retained RootDirectory. Exclusive creation, rejection of final-component root links and target links/reparse points, and fixed target ABI layouts follow the same conditions as C/LLVM. OS calls and checks remain visible in generated QBE IL.
+
+Only generated programs containing file operations interpret the leading marker, including operations in unused functions. Preserve configuration validation → argument validation/snapshot → root connection → execution, excluding settings from argument count/byte limits. Preserve marker-free argv and marker/empty/option-like values after the delimiter. Startup failures use file-v1 with origin=host, argument validation uses arguments-v1, and source operations retain NodeId/SourceId/Span in file-v1. Normal completion releases root and snapshot.
+
+Apply the [shared real-connection cases](../../tests/file_io/generated.rs) to C/LLVM/QBE. Compare save/readback in independent directories, existing-file protection, invalid UTF-8, empty/limit cases, Unicode names, unconfigured access, missing/duplicate/invalid settings, and exclusion of settings from argument limits. Also verify retained-directory access after root move/replacement while waiting for input, Windows junction and Linux link/FIFO rejection, and argument validation before root connection.
+
+Windows/Linux QBE CI jobs require both semantic and real-connection comparisons. Linux reads require procfs; Windows linking requires an MSVC-compatible environment. WAT/Native support, Native artifact connection records, and the generated routes’ common successful-operation observation API remain follow-up work.
