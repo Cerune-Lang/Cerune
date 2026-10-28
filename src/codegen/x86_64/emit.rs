@@ -40,7 +40,7 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
     if let Some(limit) = module.array_heap_limit {
         super::array::append(&mut output.program, limit);
     }
-    if super::input::used(module) || super::arguments::used(module) {
+    if super::input::used(module) || super::arguments::used(module) || super::files::used(module) {
         super::utf8::append(&mut output.program);
     }
     if super::arguments::used(module) {
@@ -48,6 +48,9 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
     }
     if super::input::used(module) {
         super::input::append(&mut output);
+    }
+    if super::files::used(module) {
+        super::files::append(&mut output);
     }
     for function in &module.functions {
         emit_function(function, module, annotate, &mut reporter, &mut output);
@@ -306,6 +309,27 @@ fn emit_instruction(
         Instruction::ArgumentCount => reporter.argument(false, output),
         Instruction::ArgumentGet => reporter.argument(true, output),
         Instruction::ReadLine => reporter.input(output),
+        Instruction::FileReadText { name_offset } => {
+            output.emit(
+                Opcode::Mov64,
+                [address(5, None, *name_offset as i128), r64(10)],
+            );
+            reporter.file(false, output);
+        }
+        Instruction::FileWriteNew {
+            name_offset,
+            text_offset,
+        } => {
+            output.emit(
+                Opcode::Mov64,
+                [address(5, None, *name_offset as i128), r64(10)],
+            );
+            output.emit(
+                Opcode::Mov64,
+                [address(5, None, *text_offset as i128), r64(9)],
+            );
+            reporter.file(true, output);
+        }
         Instruction::Flush => reporter.flush(output),
         Instruction::ArrayAllocate { .. }
         | Instruction::ArrayRangeCheck { .. }

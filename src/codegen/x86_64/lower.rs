@@ -25,6 +25,21 @@ pub fn lower_with_argument_limits(
     target: super::Target,
     argument_limits: crate::runtime::arguments::Limits,
 ) -> Result<Module, crate::diagnostic::Diagnostic> {
+    lower_configured(program, target, argument_limits, false)
+}
+#[cfg(test)]
+pub(super) fn lower_file_tests(
+    program: &mir::Program,
+    target: super::Target,
+) -> Result<Module, crate::diagnostic::Diagnostic> {
+    lower_configured(program, target, Default::default(), true)
+}
+fn lower_configured(
+    program: &mir::Program,
+    target: super::Target,
+    argument_limits: crate::runtime::arguments::Limits,
+    file_test_connection: bool,
+) -> Result<Module, crate::diagnostic::Diagnostic> {
     if argument_limits.max_count > i64::MAX as u64 {
         return Err(crate::diagnostic::Diagnostic::without_span(
             "argument count limit must not exceed i64::MAX",
@@ -37,14 +52,16 @@ pub fn lower_with_argument_limits(
         .chain(std::iter::once(&program.main))
     {
         for i in f.blocks.iter().flat_map(|b| &b.instructions) {
-            if matches!(
-                i.kind,
-                Kind::FileWriteNew { .. }
-                    | Kind::Assign {
-                        value: Op::FileReadText { .. },
-                        ..
-                    }
-            ) {
+            if !file_test_connection
+                && matches!(
+                    i.kind,
+                    Kind::FileWriteNew { .. }
+                        | Kind::Assign {
+                            value: Op::FileReadText { .. },
+                            ..
+                        }
+                )
+            {
                 let o = i.origin.source().expect("validated file origin");
                 return Err(crate::diagnostic::Diagnostic::new(
                     "Native file I/O is not supported yet",
@@ -97,9 +114,12 @@ pub fn lower_with_argument_limits(
                     Kind::Output { .. } => module.uses_write = true,
                     Kind::StringManage { .. }
                     | Kind::Assign {
-                        value: Op::StringConcat { .. } | Op::ReadLine(_),
+                        value: Op::StringConcat { .. } | Op::ReadLine(_) | Op::FileReadText { .. },
                         ..
-                    } => module.string_heap_limit = Some(program.string_heap_limit),
+                    }
+                    | Kind::FileWriteNew { .. } => {
+                        module.string_heap_limit = Some(program.string_heap_limit)
+                    }
                     _ => {}
                 }
             }
@@ -459,7 +479,17 @@ impl Lowerer<'_> {
     }
     fn instruction(&mut self, k: &Kind) {
         match k {
-            Kind::FileWriteNew { .. } => unreachable!("file I/O rejected before lowering"),
+            Kind::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+            } => {
+                self.load(*max_bytes);
+                self.push(Instruction::FileWriteNew {
+                    name_offset: self.offset(*name),
+                    text_offset: self.offset(*text),
+                });
+            }
             Kind::Assign { destination, value } => self.operation(*destination, value),
             Kind::Call {
                 function,
@@ -722,7 +752,12 @@ impl Lowerer<'_> {
                     self.push(Instruction::ArrayLength);
                 }
             },
-            Op::FileReadText { .. } => unreachable!("file I/O rejected before lowering"),
+            Op::FileReadText { name, max_bytes } => {
+                self.load(*max_bytes);
+                self.push(Instruction::FileReadText {
+                    name_offset: self.offset(*name),
+                });
+            }
             Op::ReadLine(v) => {
                 self.load(*v);
                 self.push(Instruction::ReadLine);

@@ -150,6 +150,13 @@ pub enum Instruction {
     ArgumentCount,
     ArgumentGet,
     ReadLine,
+    FileReadText {
+        name_offset: isize,
+    },
+    FileWriteNew {
+        name_offset: isize,
+        text_offset: isize,
+    },
     Flush,
     Output {
         kind: &'static str,

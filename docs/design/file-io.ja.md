@@ -2,7 +2,7 @@
 
 [English](file-io.en.md)
 
-**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成C・LLVM・QBEの実接続・起動設定も実装済み。WATの版付きhost接続も実装済み。WAT実OS hostとNativeは未対応。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成実行ファイルの起動形式は合意済みです。[WATの版付き接続契約](wat-file-host.ja.md)に沿う生成命令と意味処理を実装しました。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
+**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成C・LLVM・QBEの実接続・起動設定も実装済み。WATの版付きhost接続も実装済み。Nativeの意味処理は試験接続で比較済み。WAT実OS hostとNative実OS接続は未対応。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成実行ファイルの起動形式は合意済みです。[WATの版付き接続契約](wat-file-host.ja.md)に沿う生成命令と意味処理を実装しました。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
 
 ## 実装済みの共通部品
 
@@ -157,7 +157,7 @@ Rust共通部品に`file-v1`の診断形式を実装しました。既存io-v1�
 
 比較は同じ初期内容・応答列を持つ独立接続／ディレクトリで行い、stdoutだけでなく要求順・転送数・停止理由・残ったファイルを照合します。同じ実保存先で全経路を順次実行しません。OS接続試験と意味論の注入試験を分け、独立したRust／Python等の期待値計算を維持します。汎用record/replayやeffect systemは前提にしません。
 
-1〜3と4の生成C・LLVM・QBEを実装しました。意味処理を試験接続で比較し、Windows/Linuxの実接続・起動設定も検証しました。[WATの版付き契約](wat-file-host.ja.md)に沿って意味処理を生成し、メモリ接続で比較しました。次はNativeへの接続です。WATの実OS hostは別途検証が必要です。各段階の開始前に設計・試作結果を明示します。
+1〜3と4の生成C・LLVM・QBEを実装しました。意味処理を試験接続で比較し、Windows/Linuxの実接続・起動設定も検証しました。[WATの版付き契約](wat-file-host.ja.md)に沿って意味処理を生成し、メモリ接続で比較しました。Nativeの意味処理をASM／自前Objectと試験接続で比較しました。次はNativeの実OS接続と起動設定です。WATの実OS hostは別途検証が必要です。各段階の開始前に設計・試作結果を明示します。
 
 ## Windows/Linux接続とCLI
 
@@ -239,7 +239,7 @@ OS操作は生成LLVMに直接残します。WindowsはntdllのNtCreateFileを�
 
 [共通の実接続テスト](../../tests/file_io/generated.rs)をC・LLVMに適用します。O0/O2の保存・読戻し、既存ファイルの保護、Unicode名と空ファイル、起動設定の欠落・重複・不正値、設定を除いた引数上限を比較します。引数の件数超過・不正Unicodeがroot接続より先に停止すること、標準入力待機中にrootを移動・置換しても保持したディレクトリへ読み書きすること、Windows junction・Linux link/FIFOの拒否も検証します。read/write/close失敗の注入比較は引き続き独立した試験接続で行います。
 
-通常終了時にroot handleと引数snapshotを解放します。root解放は接続寿命の終了処理であり、ソースのread/writeに伴うclose診断とは区別します。既存I/O同様、成功操作の共通観測APIは生成経路へ未追加です。WAT実OS host・Nativeのファイル対応、Native build/releaseへの接続契約記録は後続です。
+通常終了時にroot handleと引数snapshotを解放します。root解放は接続寿命の終了処理であり、ソースのread/writeに伴うclose診断とは区別します。既存I/O同様、成功操作の共通観測APIは生成経路へ未追加です。WAT実OS host・Nativeの実OS接続、Native build/releaseへの接続契約記録は後続です。
 
 ## QBEの意味処理と実接続
 
@@ -263,4 +263,20 @@ Linuxは保持したdirectory fdからopenatし、O_PATHで通常ファイルを
 
 [実接続テスト](../../tests/file_io/generated.rs)の共通ケースをC・LLVM・QBEに適用します。独立ディレクトリでの保存・読戻し、既存ファイルの保護、不正UTF-8、空・上限、Unicode名、未設定、設定の欠落・重複・不正値、引数上限からの設定除外を比較します。入力待機中のroot移動・置換後も同じディレクトリへ接続すること、Windows junctionとLinux link/FIFOの拒否、引数検査がroot接続より先であることも確認します。
 
-CIのWindows/Linux QBE jobで意味処理と実接続の両方を必須実行します。Linux読取りにはprocfs、WindowsのリンクにはMSVC互換の環境が必要です。WAT実OS host・Native対応、Native成果物の接続契約記録、生成経路の成功操作の共通観測APIは後続です。
+CIのWindows/Linux QBE jobで意味処理と実接続の両方を必須実行します。Linux読取りにはprocfs、WindowsのリンクにはMSVC互換の環境が必要です。WAT実OS host・Native実OS接続、Native成果物の接続契約記録、生成経路の成功操作の共通観測APIは後続です。
+
+## Nativeの意味処理と試験接続
+
+**実装済みなのはMIR→LIR→型付き機械命令の意味処理と独立した試験接続です。** Windows/Linuxの実OS接続・起動解析は次の変更です。通常のemit-asm／emit-obj／build nativeは、引き続きファイル操作を位置付きで拒否します。内部の接続ABIを公開機能として扱いません。
+
+[共通実装](../../src/codegen/x86_64/files.rs)から、同じSASHIMI ProgramをASMと自前COFF/ELFへ生成します。CやLLVMの生成物をコンパイルせず、ASM文字列の再解析も行いません。LIRのFileReadText／FileWriteNewに局所値と出自を残し、型付き命令とObjectの対応からソース操作を追えます。LIR検証は操作の出自、stack内の値の位置、文字列所有管理の有効化を要求します。
+
+名前・上限の検査、予約、部分転送、割込みの再試行、close、UTF-8検査、file-v1診断をNative自身が実行します。内部接続の責務と応答値はLLVM節と同じです。読取りは最大4096バイトと独立した1バイトのEOF確認を使い、成功時だけ既存の文字列所有者リストへ渡します。使用量は予約した上限から実長へ変更し、空文字列は静的値を返します。先行失敗を保ってcloseを一度だけ行い、確保済みの予約領域を解放して停止します。
+
+[比較試験](../../src/codegen/x86_64/files/tests.rs)はWindows/LinuxのASMと自前Objectをそれぞれリンク・実行し、HIR／MIR／SSA／VMと出力、file-v1全文、要求列、close回数、残存内容を比較します。試験用Cはバイト転送・応答注入・記録だけを担当します。roundtrip.ceru、短い転送、割込み、0進行、契約外応答、転送とcloseの複合失敗、UTF-8・名前・各上限、確保失敗、評価順、短絡、再帰、コピーと反復を確認します。正常終了時に文字列の使用量と所有者リストが空であることも検査します。読取り失敗時の予約領域解放は、独立した確保・解放カウンタでも確認します。
+
+次はターゲット別のOS接続と、合意済みの起動マーカー解析を追加し、共通の実接続テストへASM／自前Objectを加えます。その後にNative build/releaseの接続契約記録を扱います。WAT実OS hostと、生成経路の成功操作を読む共通観測APIは引き続き別の残件です。
+
+~~~sh
+CERUNE_TEST_ASM_CLANG=clang cargo test --lib native_files
+~~~

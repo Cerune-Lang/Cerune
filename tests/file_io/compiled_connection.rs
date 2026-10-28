@@ -1,4 +1,4 @@
-// LLVMとQBEの応答注入に同じバイト列・応答・操作ログを使います。
+// LLVM・QBE・Nativeの応答注入に同じバイト列・応答・操作ログを使います。
 use super::test_file_reference::{Memory, Step};
 use crate::runtime::files::OpenError;
 
