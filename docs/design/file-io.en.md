@@ -2,7 +2,7 @@
 
 [日本語](file-io.ja.md)
 
-**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C is also implemented. LLVM/QBE/WAT/Native remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. WAT connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C is also implemented. LLVM semantics are under test; its OS connection and public emission are not supported yet. QBE/WAT/Native remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. WAT connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
 
 ## Implemented common components
 
@@ -157,7 +157,7 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-Steps 1–3 and C in step 4 are implemented. Next connect the same startup contract to LLVM/QBE/Native and define the WAT contract. Publish designs and prototype findings before those stages.
+Steps 1–3 and C in step 4 are implemented. LLVM semantics and comparisons using controlled connections are also added. Next implement LLVM OS connections/startup, then QBE/Native and the WAT contract. Publish designs and prototype findings before those stages.
 
 ## Windows/Linux connections and CLI
 
@@ -211,3 +211,24 @@ Configuration codes are unknown-setting, duplicate-setting, invalid-root, and mi
 Reserve the read limit before open and transfer returned values into existing string ownership. Expand write arguments into ordered locals rather than relying on C argument evaluation order. Retain original NodeId/Span for each operation. Flush prior output before diagnosing and exit without executing later source operations. Emission itself never opens program files.
 
 [Comparison tests](../../tests/file_io/c.rs) cover O0/O2 examples, UTF-8/limits, existing files, names, usage limits, unconfigured access, startup settings, arguments, order, short circuits, recursion, and independent copies. Inject short transfers, interruptions, zero progress, invalid counts, transfer failures, and close failures into independent connections; compare full file-v1 records, prior output, and remaining content with four executors. Reject Windows junctions and Linux links/FIFOs. Linux comparisons also run with AddressSanitizer/UndefinedBehaviorSanitizer. This does not add a common successful-operation observation API to C.
+
+## LLVM semantics and test connections
+
+LLVM lowering, name validation, transfers, ownership, and file-v1 diagnostics are implemented. The [comparison tests](../../src/codegen/llvm/files/tests.rs) lower the existing roundtrip.ceru directly to LLVM and compare independent test connections with all four executors. Execution does not go through generated C or the VM.
+
+**Public LLVM emission still returns the unsupported diagnostic.** This step verifies OS-independent semantics. Windows/Linux OS connections and the agreed startup marker/argument snapshot integration belong to the next change. The test connection is not a public API or a finished file connection.
+
+The internal connection functions have only the following responsibilities. This is not a stable external ABI declaration.
+
+| Connection function | Response and responsibility |
+| --- | --- |
+| configured | Whether a connection exists; do not fill in omitted configuration from cwd or environment |
+| open | Accept UTF-8 name bytes, length, and read/write selection. 0 means success; 1–4 mean missing, existing, unsupported target, or open failure; other values are invalid responses. Return an owned handle only on success |
+| read / write | Return the transferred byte count. -2 means interruption without consumption; other negative values mean failure. Counts exceeding the request leave progress unknown. Generated LLVM decides whether to retry or stop |
+| close | Consume the handle once. 0 means success; other values mean failure. Preserve any earlier primary failure |
+
+Reads request at most 4096 bytes and use separate storage for the one-byte probe at the limit. Writes request the entire remainder. requested stays unknown until EOF; UTF-8 validation follows successful close. Read results enter existing LLVM string ownership and are released after copying, recursion, and iteration. Arguments are evaluated once from left to right, preserving NodeId/SourceId/Span.
+
+Comparisons include request sequences, close counts, retained content, prior output, and complete file-v1 records. Cases include short transfers, interruption, zero progress, invalid responses, transfer failures combined with close failures, empty content, exact/over limits, transfers crossing 4096 bytes, invalid UTF-8, missing configuration, name rules, and usage limits. Injected LLVM allocation failure also verifies stopping before open. Verification covers O0/O2, object generation for both targets, and execution on Windows/Linux. Successful completion additionally checks that string usage and the owner list are empty.
+
+Test-only C code supplies fixed bytes, response sequences, and test logs. It does not implement name semantics, UTF-8 validation, budgets, diagnostics, or retries. These tests do not verify OS directory-relative open or link rejection; subsequent OS connection tests will cover those.

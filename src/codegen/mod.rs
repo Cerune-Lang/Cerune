@@ -5,6 +5,9 @@ pub mod llvm;
 mod output;
 pub mod qbe;
 mod support;
+#[cfg(test)]
+#[path = "../../tests/support/process.rs"]
+mod test_process;
 pub mod wat;
 pub mod x86_64;
 pub mod x86_64_win;
