@@ -1,4 +1,6 @@
-//! ファイル操作の意味をLLVMへ展開します。OS接続の公開前は試験接続で検証します。
+//! ファイル操作の意味をLLVMへ展開します。明示ターゲットのOS接続と試験接続を分離します。
+mod connection;
+pub(super) mod entry;
 mod names;
 #[cfg(test)]
 mod tests;
@@ -9,6 +11,18 @@ use super::{
 };
 use std::fmt::Write;
 
+pub(super) fn used(module: &Module) -> bool {
+    module
+        .instructions
+        .iter()
+        .chain(module.functions.iter().flat_map(|f| &f.instructions))
+        .any(|i| {
+            matches!(
+                i.instruction,
+                Instruction::FileReadText { .. } | Instruction::FileWriteNew { .. }
+            )
+        })
+}
 pub(super) fn origin_name(origin: Origin) -> String {
     let Origin::Source { node_id, span } = origin else {
         panic!("files require source origin")
@@ -134,16 +148,7 @@ pub(super) fn emit_support(module: &Module, out: &mut String) {
     if !out.contains("define internal i1 @cerune.utf8(") {
         out.push_str(super::utf8::SUPPORT);
     }
-    // 非公開の接続契約。本文の意味処理をhostへ移さず、open・転送・closeだけを委ねます。
-    out.push_str(
-        r#"
-declare i32 @cerune_file_host_configured()
-declare i32 @cerune_file_host_open(ptr, i64, i32, ptr)
-declare i64 @cerune_file_host_read(i64, ptr, i64)
-declare i64 @cerune_file_host_write(i64, ptr, i64)
-declare i32 @cerune_file_host_close(i64)
-"#,
-    );
+
     out.push_str(FAILURE);
     out.push_str(if windows {
         "  call i32 @_write(i32 2, ptr %text, i32 %count)\n"
@@ -152,6 +157,8 @@ declare i32 @cerune_file_host_close(i64)
     });
     out.push_str("  br label %exit\nexit:\n  call void @_Exit(i32 1)\n  unreachable\n}\n");
     names::emit(out);
+    entry::support(module.target.unwrap(), out);
+    connection::emit(module.target.unwrap(), out);
     out.push_str(&transfer::SOURCE.replace(
         "@LIMIT@",
         &module.string_heap_limit.expect("file heap").to_string(),

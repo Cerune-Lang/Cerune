@@ -49,4 +49,4 @@ arg_count／arg／Argumentの宣言を同梱し、同じSourceMap・名前解決
 
 ## ファイル操作 std:fs
 
-`read_text`／`write_new`の宣言も同梱仮想ソースです。共通IRを通じ、HIR・MIR・SSA・VMに明示したファイル接続を使います。Windows/LinuxのCLIは`--file-root`で実接続を指定します。生成Cは専用マーカー付き起動で接続を指定します。LLVM／QBE／WAT／Nativeは未実装です。[契約とRust API](file-io.ja.md)・[保存・読戻しのexample](../../examples/files/README.md)を参照してください。
+`read_text`／`write_new`の宣言も同梱仮想ソースです。共通IRを通じ、HIR・MIR・SSA・VMに明示したファイル接続を使います。Windows/LinuxのCLIは`--file-root`で実接続を指定します。生成C・LLVMは専用マーカー付き起動で接続を指定します。QBE／WAT／Nativeは未実装です。[契約とRust API](file-io.ja.md)・[保存・読戻しのexample](../../examples/files/README.md)を参照してください。

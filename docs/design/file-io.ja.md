@@ -2,7 +2,7 @@
 
 [English](file-io.en.md)
 
-**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成Cも実装済み。LLVMは意味処理の試験段階で、実接続・公開生成は未対応。QBE／WAT／Nativeは未実装。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成実行ファイルの起動形式は合意済みです。WATの接続方法は提案段階です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
+**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成C・LLVMの実接続・起動設定も実装済み。QBE／WAT／Nativeは未実装。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成実行ファイルの起動形式は合意済みです。WATの接続方法は提案段階です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
 
 ## 実装済みの共通部品
 
@@ -71,7 +71,7 @@ print(saved == text);
 
 HIRの`FileReadText`はstringを返し、`FileWriteNew`は値を返さない文です。MIR／SSA／bytecodeにも`file.read_text.utf8`・`file.write_new.utf8`を残します。引数を左から一度ずつ評価し、操作と標準ソースのNodeId／Spanを保持します。読取り結果はStringHeapへ移し、予約はopen前、失敗時は解放します。ファイル名・保存内容は借用し、操作のための本文コピーを増やしません。生成補助関数は呼出し深さに数えず、`std:fs`のソース関数は数えます。
 
-[経路比較テスト](../../tests/file_io/mod.rs)は独立したメモリ接続でexample、評価順、短絡、所有、標準入出力・引数との組合せ、部分転送・異常停止と出自を比較します。生成CはWindows/Linuxの読取り・新規保存に対応します。LLVM／QBE／WAT／Nativeは未使用関数内の操作も含め、生成前に位置付きの未対応診断を返します。`emit-ir`／`emit-mir`／`emit-bytecode`は操作を実行せず観測できます。CLIの`--file-root <directory>`で実ファイルを接続できます。
+[経路比較テスト](../../tests/file_io/mod.rs)は独立したメモリ接続でexample、評価順、短絡、所有、標準入出力・引数との組合せ、部分転送・異常停止と出自を比較します。生成C・LLVMはWindows/Linuxの読取り・新規保存に対応します。QBE／WAT／Nativeは未使用関数内の操作も含め、生成前に位置付きの未対応診断を返します。`emit-ir`／`emit-mir`／`emit-bytecode`は操作を実行せず観測できます。CLIの`--file-root <directory>`で実ファイルを接続できます。
 
 ```sh
 cargo test --test standard_input file_io
@@ -100,12 +100,12 @@ cargo test --test standard_input file_io
 | 対象 | 通常ファイルだけ。symlink・reparse point・directory・device・FIFOは専用の未対応診断で拒否する。検査のためにFIFO等のopenで待ち続けないことも確認する |
 | 解決 | 作業ディレクトリのhandleに基づく相対openを実装した。文字列prefix検査や、存在検査→通常openだけで範囲制限が成立したとしない |
 | CLI／埋込み | CLIの`--file-root`と、Rust APIへの明示接続注入を実装。既存APIは未設定のまま。記録を読むAPIから接続を変更しない |
-| 生成実行ファイル | 先頭マーカー付きの起動設定を合意し、生成Cへ実装した。マーカーなしのargvを維持し、生成時の絶対パスや環境変数から暗黙設定しない。Native build/releaseには必要な接続契約の版を記録する案 |
+| 生成実行ファイル | 先頭マーカー付きの起動設定を合意し、生成C・LLVMへ実装した。マーカーなしのargvを維持し、生成時の絶対パスや環境変数から暗黙設定しない。Native build/releaseには必要な接続契約の版を記録する案 |
 | WAT | 版付きhost接続で名前とバイトを転送する。内部memory・所有ポインタを公開しない。import名・状態値・転送手順は実装前に別途固定する |
 
 Linuxではdirectory fdを用いる`openat`と、新規作成の`O_CREAT | O_EXCL`を採用しました。`O_NOFOLLOW`の効果は末尾要素に限られるため、多段パスまで安全と見なしません。[Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
 
-Windowsではユーザーモードの`NtCreateFile`のRootDirectory・排他的作成・reparseを追わない指定をRust接続で採用しました。生成CのClangからも利用します。LLVM／QBE／自前Objectへの接続は後続です。[Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
+Windowsではユーザーモードの`NtCreateFile`のRootDirectory・排他的作成・reparseを追わない指定をRust接続で採用しました。生成C・LLVMからも利用します。QBE／自前Objectへの接続は後続です。[Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
 
 作業ディレクトリはOS全体のsandboxではありません。hard link、他プロセスによる変更、ネットワークファイルシステム、OS権限は別の条件です。初版の実OS比較は管理されたローカルの一時ディレクトリで行い、同時に第三者が変更した場合の同一結果を保証しません。必要な範囲制限を満たせない接続は未対応とし、制約を黙って緩めません。
 
@@ -157,7 +157,7 @@ Rust共通部品に`file-v1`の診断形式を実装しました。既存io-v1�
 
 比較は同じ初期内容・応答列を持つ独立接続／ディレクトリで行い、stdoutだけでなく要求順・転送数・停止理由・残ったファイルを照合します。同じ実保存先で全経路を順次実行しません。OS接続試験と意味論の注入試験を分け、独立したRust／Python等の期待値計算を維持します。汎用record/replayやeffect systemは前提にしません。
 
-1〜3と4の生成Cを実装しました。LLVMの意味処理と試験接続での比較も追加しました。次はLLVMの実接続・起動契約、その後QBE／NativeとWAT契約の具体化です。各段階の開始前に設計・試作結果を明示します。
+1〜3と4の生成C・LLVMを実装しました。意味処理を試験接続で比較し、Windows/Linuxの実接続・起動設定も検証しました。次はQBE、その後WAT契約の具体化とNativeへの接続です。各段階の開始前に設計・試作結果を明示します。
 
 ## Windows/Linux接続とCLI
 
@@ -184,7 +184,7 @@ rootの不在・不正指定・未対応対象・open失敗は、操作のNodeId
 [OS接続テスト](../../tests/file_io/os.rs)は独立した一時ディレクトリで、exampleの16バイト、空／上限ちょうど／上限+1、不正UTF-8、出力後の停止と出自を4実行器で比較します。同名作成の競合、rootの移動・置換、directory・link・Windows junction・Linux FIFOの拒否も検証します。子プロセスには20秒の上限を設けます。部分転送・割込み・close失敗の注入は共通部品のテストで検証し、実OSでclose失敗を発生させた検証とは区別します。Linuxの特殊ファイル試験はLinuxの一時領域を使います。WSLのWindowsドライブではFIFO作成を利用できないためです。
 
 
-## 生成実行ファイルの起動契約（C実装済み）
+## 生成実行ファイルの起動契約（C・LLVM実装済み）
 
 2026-10-27に、先頭の専用マーカーがある場合だけランタイム設定を解釈する方式を合意しました。
 
@@ -199,7 +199,7 @@ program --cerune-runtime-v1 -- --cerune-runtime-v1
 - 設定を全て検証してからrootを接続します。rootの存在確認や範囲制限は引数解析の責務ではなく、既存のOS接続の責務です。cwdや環境変数から接続を補いません。
 - 初版ではファイル操作を含む生成物がこの起動契約を持ちます。ファイル操作を含まない既存生成物の起動・argvの意味は変更しません。
 
-生成Cへ接続し、Windows/Linux、最適化なし／あり、独立した作業ディレクトリで4実行器と比較しました。LLVM・QBE・Nativeは同じ起動契約へ順次接続します。WATはargvの専用マーカーではなく、別途定義する版付きhost契約で接続を明示します。C以外の生成経路の実装完了を意味しません。
+生成C・LLVMへ接続し、Windows/Linux、最適化なし／あり、独立した作業ディレクトリで4実行器と比較しました。QBE・Nativeは同じ起動契約へ順次接続します。WATはargvの専用マーカーではなく、別途定義する版付きhost契約で接続を明示します。QBE・WAT・Nativeの実装完了を意味しません。
 
 
 ## 生成Cの検査と比較
@@ -210,13 +210,13 @@ program --cerune-runtime-v1 -- --cerune-runtime-v1
 
 読取りは上限分をopen前に予約し、返却値を既存の文字列所有管理へ移します。書込み引数は順番を持つ局所値へ展開し、Cの引数評価順に任せません。各操作に元のNodeId/Spanを残します。出力済みの内容をflushして診断し、後続のソース操作を実行せず終了します。観測用の生成操作ではファイルを開きません。
 
-[比較テスト](../../tests/file_io/c.rs)はO0/O2でexample、UTF-8と上限、既存ファイル、名前、使用量上限、未設定、起動設定、プログラム引数、評価順・短絡・再帰・コピー後の独立性を確認します。独立した接続へ短い転送・割込み・0進行・不正受理数・転送失敗・close失敗を注入し、4実行器とfile-v1全体・先行出力・残存内容を比較します。WindowsのjunctionとLinuxのlink/FIFOも拒否します。LinuxではAddressSanitizer/UndefinedBehaviorSanitizerでも比較します。Cに成功操作の共通観測APIを追加したものではありません。
+[実接続比較](../../tests/file_io/generated.rs)と[応答注入テスト](../../tests/file_io/c.rs)はO0/O2でexample、UTF-8と上限、既存ファイル、名前、使用量上限、未設定、起動設定、プログラム引数、評価順・短絡・再帰・コピー後の独立性を確認します。独立した接続へ短い転送・割込み・0進行・不正受理数・転送失敗・close失敗を注入し、4実行器とfile-v1全体・先行出力・残存内容を比較します。WindowsのjunctionとLinuxのlink/FIFOも拒否します。LinuxではAddressSanitizer/UndefinedBehaviorSanitizerでも比較します。Cに成功操作の共通観測APIを追加したものではありません。
 
-## LLVMの意味処理と試験接続
+## LLVMの意味処理と実接続
 
 LLVMへのlowering・名前検査・転送・所有管理・file-v1診断を実装しました。[比較テスト](../../src/codegen/llvm/files/tests.rs)では、既存のroundtrip.ceruをLLVMへ直接展開し、独立した試験接続で4実行器と比較します。C生成物やVMを経由して実行する方式ではありません。
 
-**公開LLVM生成は引き続き未対応診断を返します。** 今回はOS非依存の意味処理を検証する段階です。Windows/Linuxの実接続と、合意済みの起動マーカー・引数snapshotへの接続は次の変更で実装します。試験接続を利用者向けAPIや完成したファイル接続として公開しません。
+**emit-llvmは、明示したx86_64-unknown-linux-gnu／x86_64-pc-windows-msvc向けの実接続を生成します。** [OS接続](../../src/codegen/llvm/files/connection.rs)と[起動処理](../../src/codegen/llvm/files/entry.rs)を意味処理から分離しています。生成器を実行するOSは接続の選択に使いません。ファイル操作を含む生成物では、未使用関数内の操作も含めて既存の引数snapshotに起動設定を接続します。設定検査→引数検査→root接続→実行の順序と、引数上限から設定を除く規則は生成Cと同じです。
 
 内部の接続関数は次の責務だけを持ちます。これは安定した外部ABIの宣言ではありません。
 
@@ -231,4 +231,12 @@ LLVMへのlowering・名前検査・転送・所有管理・file-v1診断を実�
 
 比較対象は通常の出力だけでなく、要求列・close回数・残存内容・停止前出力・file-v1全文です。短い転送、割込み、0進行、契約外応答、転送とcloseの複合失敗、空内容、上限ちょうど／+1、4096バイトをまたぐ転送、不正UTF-8、未設定、名前検査、使用量上限を含みます。LLVM内の確保失敗も注入し、open前に停止することを確認します。O0/O2、両ターゲットのObject生成とWindows/Linuxでの実行を検証します。成功後は文字列の使用量と所有者リストが空であることも試験します。
 
-試験用Cコードは固定データの転送・応答列・試験ログだけを担当します。ファイル名の意味検査、UTF-8検査、予算、診断、再試行を代行しません。これは実OSのdirectory相対openやリンク拒否の検証ではなく、それらは後続の実接続試験で確認します。
+試験用Cコードは固定データの転送・応答列・試験ログだけを担当します。ファイル名の意味検査、UTF-8検査、予算、診断、再試行を代行しません。これらの応答注入テストとは別に、実OS接続を検証します。
+
+### LLVMのOS接続と検証範囲
+
+OS操作は生成LLVMに直接残します。WindowsはntdllのNtCreateFileを明示的に取得し、UTF-16のrootを開いたhandleに対して子ファイルを開きます。Linuxは上記のopenatと/proc/self/fdを使います。x86-64 GNUのstat、Win64のNT構造体など、対象ABIの配置は接続モジュールに固定し、別ABIへ流用しません。
+
+[共通の実接続テスト](../../tests/file_io/generated.rs)をC・LLVMに適用します。O0/O2の保存・読戻し、既存ファイルの保護、Unicode名と空ファイル、起動設定の欠落・重複・不正値、設定を除いた引数上限を比較します。引数の件数超過・不正Unicodeがroot接続より先に停止すること、標準入力待機中にrootを移動・置換しても保持したディレクトリへ読み書きすること、Windows junction・Linux link/FIFOの拒否も検証します。read/write/close失敗の注入比較は引き続き独立した試験接続で行います。
+
+通常終了時にroot handleと引数snapshotを解放します。root解放は接続寿命の終了処理であり、ソースのread/writeに伴うclose診断とは区別します。既存I/O同様、成功操作の共通観測APIは生成経路へ未追加です。QBE・WAT・Nativeのファイル対応、Native build/releaseへの接続契約記録は後続です。

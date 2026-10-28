@@ -2,7 +2,7 @@
 
 [日本語](file-io.ja.md)
 
-**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C is also implemented. LLVM semantics are under test; its OS connection and public emission are not supported yet. QBE/WAT/Native remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. WAT connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C/LLVM OS connections and startup configuration are also implemented. QBE/WAT/Native remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. WAT connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
 
 ## Implemented common components
 
@@ -71,7 +71,7 @@ The executor Rust APIs are as follows.
 
 HIR `FileReadText` returns a string; `FileWriteNew` is a void statement. MIR/SSA/bytecode retain `file.read_text.utf8` and `file.write_new.utf8`. Evaluate arguments left to right once and preserve operation NodeId/Span in the standard source. Transfer read results into StringHeap, reserving before open and releasing on failure. Borrow file names and write content without an extra content copy for the operation. Count `std:fs` source-function calls toward call depth, excluding generated helpers.
 
-[Cross-route tests](../../tests/file_io/mod.rs) compare the example, evaluation order, short circuits, ownership, composed input/output/arguments, partial transfers, failures, and origins with independent in-memory connections. Generated C supports Windows/Linux reads and creation. LLVM/QBE/WAT/Native reject file operations before generation with source locations, including unused functions. `emit-ir`/`emit-mir`/`emit-bytecode` remain available without executing operations. CLI `--file-root <directory>` supplies an explicit real-filesystem connection.
+[Cross-route tests](../../tests/file_io/mod.rs) compare the example, evaluation order, short circuits, ownership, composed input/output/arguments, partial transfers, failures, and origins with independent in-memory connections. Generated C/LLVM support Windows/Linux reads and creation. QBE/WAT/Native reject file operations before generation with source locations, including unused functions. `emit-ir`/`emit-mir`/`emit-bytecode` remain available without executing operations. CLI `--file-root <directory>` supplies an explicit real-filesystem connection.
 
 ```sh
 cargo test --test standard_input file_io
@@ -100,12 +100,12 @@ The host explicitly supplies and fixes the working directory before execution. A
 | Targets | Regular files only. Reject symlinks, reparse points, directories, devices, and FIFOs as unsupported. Verify that opening a FIFO for validation does not block indefinitely |
 | Resolution | Directory-handle-relative opening is implemented. A string-prefix check or a separate existence check followed by ordinary open does not establish containment |
 | CLI / embedding | Implemented CLI `--file-root` and explicit injection into Rust execution APIs. Existing APIs remain unconfigured. Observation APIs cannot change connections |
-| Generated executables | The leading-marker startup configuration is agreed and implemented in C. Preserve marker-free argv semantics; do not silently embed generation-time absolute paths or obtain configuration from environment variables. Propose recording the required connection contract version in Native build/release |
+| Generated executables | The leading-marker startup configuration is agreed and implemented in C/LLVM. Preserve marker-free argv semantics; do not silently embed generation-time absolute paths or obtain configuration from environment variables. Propose recording the required connection contract version in Native build/release |
 | WAT | Transfer names and bytes through versioned host connections without exposing internal memory or ownership pointers. Fix import names, status values, and transfer protocol before implementation |
 
 Linux uses directory-fd-relative `openat` and `O_CREAT | O_EXCL` for creation. `O_NOFOLLOW` only protects the final component; it does not establish safety for arbitrary multi-component paths. [Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
 
-Windows uses user-mode `NtCreateFile` with RootDirectory, exclusive creation, and no-reparse-following options in the Rust connection. Generated C also uses this through Clang. LLVM/QBE/custom Object integration remain later work. [Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
+Windows uses user-mode `NtCreateFile` with RootDirectory, exclusive creation, and no-reparse-following options in the Rust connection. Generated C/LLVM also use this. QBE/custom Object integration remain later work. [Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
 
 The directory is not an OS sandbox. Hard links, concurrent processes, network filesystems, and OS permissions are separate conditions. Initial OS comparisons use managed local temporary directories; identical results under concurrent third-party changes are not guaranteed. Reject connections that cannot enforce the required scope instead of silently relaxing it.
 
@@ -157,7 +157,7 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-Steps 1–3 and C in step 4 are implemented. LLVM semantics and comparisons using controlled connections are also added. Next implement LLVM OS connections/startup, then QBE/Native and the WAT contract. Publish designs and prototype findings before those stages.
+Steps 1–3 and C/LLVM in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. QBE is next, followed by the WAT contract and Native integration. Publish designs and prototype findings before those stages.
 
 ## Windows/Linux connections and CLI
 
@@ -184,7 +184,7 @@ Missing/invalid/unsupported roots and open failures stop before execution with f
 [OS tests](../../tests/file_io/os.rs) use independent temporary directories to compare the 16-byte example, empty/exact/over-limit reads, invalid UTF-8, prior output, and failure origins across four executors. They also verify competing creation, root rename/replacement, directories, links, Windows junctions, and Linux FIFOs. Child processes have a 20-second limit. Partial transfers, interruptions, and close failures are injected in common-component tests, not claimed as actual OS close-failure tests. Linux special-file tests use Linux temporary storage because WSL Windows drives do not support FIFO creation.
 
 
-## Generated-executable startup contract (C implemented)
+## Generated-executable startup contract (C/LLVM implemented)
 
 On 2026-10-27 we agreed to interpret runtime configuration only when the dedicated marker is the first argument.
 
@@ -199,7 +199,7 @@ program --cerune-runtime-v1 -- --cerune-runtime-v1
 - Validate all settings before connecting root. Existence and scope are enforced by the OS connection, not the argument parser. Do not supply implicit cwd/environment defaults.
 - Initially only generated programs containing file operations use this startup contract. Preserve startup/argv behavior of existing programs without file operations.
 
-C is connected and compared across Windows/Linux, unoptimized/optimized builds, and four executors in independent directories. LLVM/QBE/Native will adopt the same startup contract in later changes. WAT will use a separate versioned host contract rather than this argv marker. This section does not claim completed support for other generated routes.
+C/LLVM are connected and compared across Windows/Linux, unoptimized/optimized builds, and four executors in independent directories. QBE/Native will adopt the same startup contract in later changes. WAT will use a separate versioned host contract rather than this argv marker. This section does not claim completed support for other generated routes.
 
 
 ## Generated C validation and comparisons
@@ -210,13 +210,13 @@ Configuration codes are unknown-setting, duplicate-setting, invalid-root, and mi
 
 Reserve the read limit before open and transfer returned values into existing string ownership. Expand write arguments into ordered locals rather than relying on C argument evaluation order. Retain original NodeId/Span for each operation. Flush prior output before diagnosing and exit without executing later source operations. Emission itself never opens program files.
 
-[Comparison tests](../../tests/file_io/c.rs) cover O0/O2 examples, UTF-8/limits, existing files, names, usage limits, unconfigured access, startup settings, arguments, order, short circuits, recursion, and independent copies. Inject short transfers, interruptions, zero progress, invalid counts, transfer failures, and close failures into independent connections; compare full file-v1 records, prior output, and remaining content with four executors. Reject Windows junctions and Linux links/FIFOs. Linux comparisons also run with AddressSanitizer/UndefinedBehaviorSanitizer. This does not add a common successful-operation observation API to C.
+[Real-connection comparisons](../../tests/file_io/generated.rs) and [injected-response tests](../../tests/file_io/c.rs) cover O0/O2 examples, UTF-8/limits, existing files, names, usage limits, unconfigured access, startup settings, arguments, order, short circuits, recursion, and independent copies. Inject short transfers, interruptions, zero progress, invalid counts, transfer failures, and close failures into independent connections; compare full file-v1 records, prior output, and remaining content with four executors. Reject Windows junctions and Linux links/FIFOs. Linux comparisons also run with AddressSanitizer/UndefinedBehaviorSanitizer. This does not add a common successful-operation observation API to C.
 
-## LLVM semantics and test connections
+## LLVM semantics and OS connections
 
 LLVM lowering, name validation, transfers, ownership, and file-v1 diagnostics are implemented. The [comparison tests](../../src/codegen/llvm/files/tests.rs) lower the existing roundtrip.ceru directly to LLVM and compare independent test connections with all four executors. Execution does not go through generated C or the VM.
 
-**Public LLVM emission still returns the unsupported diagnostic.** This step verifies OS-independent semantics. Windows/Linux OS connections and the agreed startup marker/argument snapshot integration belong to the next change. The test connection is not a public API or a finished file connection.
+**emit-llvm generates real connections for explicitly selected x86_64-unknown-linux-gnu / x86_64-pc-windows-msvc targets.** [OS connections](../../src/codegen/llvm/files/connection.rs) and [startup](../../src/codegen/llvm/files/entry.rs) are separate from language semantics. The emitter host OS does not select the connection. Generated programs containing file operations, including unused functions, connect startup settings to the existing argument snapshot. Configuration validation → argument validation → root connection → execution, and exclusion of settings from argument limits, match generated C.
 
 The internal connection functions have only the following responsibilities. This is not a stable external ABI declaration.
 
@@ -231,4 +231,12 @@ Reads request at most 4096 bytes and use separate storage for the one-byte probe
 
 Comparisons include request sequences, close counts, retained content, prior output, and complete file-v1 records. Cases include short transfers, interruption, zero progress, invalid responses, transfer failures combined with close failures, empty content, exact/over limits, transfers crossing 4096 bytes, invalid UTF-8, missing configuration, name rules, and usage limits. Injected LLVM allocation failure also verifies stopping before open. Verification covers O0/O2, object generation for both targets, and execution on Windows/Linux. Successful completion additionally checks that string usage and the owner list are empty.
 
-Test-only C code supplies fixed bytes, response sequences, and test logs. It does not implement name semantics, UTF-8 validation, budgets, diagnostics, or retries. These tests do not verify OS directory-relative open or link rejection; subsequent OS connection tests will cover those.
+Test-only C code supplies fixed bytes, response sequences, and test logs. It does not implement name semantics, UTF-8 validation, budgets, diagnostics, or retries. Real OS connections are verified separately from these injected responses.
+
+### LLVM OS connections and verification scope
+
+OS operations remain visible in generated LLVM. Windows explicitly resolves NtCreateFile from ntdll, opens the UTF-16 root, then opens children relative to its handle. Linux uses the openat and /proc/self/fd sequence above. Target ABI layouts, including x86-64 GNU stat and Win64 NT structures, are fixed in the connection module and are not reused for other ABIs.
+
+[Shared real-connection tests](../../tests/file_io/generated.rs) apply to C and LLVM. They compare O0/O2 save/readback, existing-file protection, Unicode names and empty files, missing/duplicate/invalid startup settings, and argument limits excluding configuration. They also verify that excess argument counts and invalid Unicode stop before root connection; moving/replacing root while waiting on stdin still accesses the retained directory; and Windows junctions / Linux links and FIFOs are rejected. Read/write/close failure injection continues through independent test connections.
+
+Normal completion releases the root handle and argument snapshot. Root release ends the connection lifetime and is separate from close diagnostics for source read/write operations. As with existing I/O, generated routes do not yet expose the common successful-operation observation API. QBE/WAT/Native file support and recording the connection contract in Native build/release remain follow-up work.
