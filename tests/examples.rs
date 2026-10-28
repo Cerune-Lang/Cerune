@@ -46,10 +46,10 @@ fn else_if_preserves_short_circuit_scopes_and_loop_control() {
         }
     "#;
     assert_eq!(run_both(source).unwrap(), "first\ntwo\n7\n");
-    assert!(cerune_lang::compile(
-        "if false {} else if true { scoped: i64 = 1; } print(scoped);"
-    )
-    .is_err());
+    assert!(
+        cerune_lang::compile("if false {} else if true { scoped: i64 = 1; } print(scoped);")
+            .is_err()
+    );
 }
 
 #[test]

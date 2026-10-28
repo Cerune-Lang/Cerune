@@ -894,9 +894,7 @@ impl Parser {
                 // braces. Count those nodes toward the usual syntax budget so
                 // delimiter-free chains cannot recurse without bound.
                 if self.block_nesting + 1 >= MAX_SYNTAX_NESTING {
-                    return Err(self.error(format!(
-                        "else-if nesting exceeds {MAX_SYNTAX_NESTING}"
-                    )));
+                    return Err(self.error(format!("else-if nesting exceeds {MAX_SYNTAX_NESTING}")));
                 }
                 self.block_nesting += 1;
                 let nested = self.parse_if();
@@ -1764,7 +1762,7 @@ mod tests {
     use crate::lexer::lex;
     use crate::source::Span;
 
-    use super::{parse, MAX_SYNTAX_NESTING};
+    use super::{MAX_SYNTAX_NESTING, parse};
 
     #[test]
     fn parses_binding() {
