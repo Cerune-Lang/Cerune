@@ -1,4 +1,6 @@
-//! ファイルの意味処理をQBE ILへ直接展開します。OS接続は別段階です。
+//! ファイルの意味処理をQBE ILへ直接展開します。明示ターゲットのOS接続と意味処理を分離します。
+mod connection;
+pub(super) mod entry;
 mod names;
 #[cfg(test)]
 mod tests;
@@ -9,6 +11,18 @@ use super::{
 };
 use std::fmt::Write;
 
+pub(super) fn used(module: &Module) -> bool {
+    module
+        .instructions
+        .iter()
+        .chain(module.functions.iter().flat_map(|f| &f.instructions))
+        .any(|i| {
+            matches!(
+                i,
+                Instruction::FileReadText { .. } | Instruction::FileWriteNew { .. }
+            )
+        })
+}
 pub(super) fn origin_name(origin: FailureOrigin) -> String {
     format!(
         "cerune_files_origin_{}_{}_{}",
@@ -128,6 +142,8 @@ pub(super) fn emit(module: &Module, out: &mut String) {
     });
     out.push_str("  jmp @exit\n@exit\n  call $_Exit(w 1)\n  hlt\n}\n");
     names::emit(out);
+    entry::emit(target, out);
+    connection::emit(target, out);
     out.push_str(&transfer::SOURCE.replace(
         "@LIMIT@",
         &module.string_heap_limit.expect("file heap").to_string(),

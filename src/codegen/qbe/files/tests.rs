@@ -20,8 +20,14 @@ fn target() -> Target {
 fn artifact(p: &crate::ir::Program, target: Target) -> String {
     let mut module = lower(p);
     module.target = Some(target);
-    emit::emit(&module).replace("export function w $main()", "function w $test_program()")
-        + OWNERSHIP_CHECK
+    let text = emit::emit(&module);
+    let start = text.find("# File OS connection begin").unwrap();
+    let end = text.find("# File OS connection end").unwrap();
+    let text = text[..start].to_owned() + &text[end..];
+    let start = text.find("# Explicit target startup:").unwrap();
+    let end = text.find("# End explicit target startup").unwrap();
+    let text = text[..start].to_owned() + &text[end..];
+    text.replace("function w $cerune_program()", "function w $test_program()") + OWNERSHIP_CHECK
 }
 fn build(text: &str, host: Option<&str>, opt: &str, target: Target) -> Option<(PathBuf, PathBuf)> {
     let configured = std::env::var_os("CERUNE_TEST_QBE");
@@ -179,14 +185,15 @@ fn check_result(
 fn qbe_files_lowering_preserves_origins_and_compiles_both_targets() {
     let p = hir(include_str!("../../../../examples/files/roundtrip.ceru"));
     let before = p.clone();
+    let error = super::super::emit_qbe(&p).unwrap_err();
     assert!(
-        super::super::emit_qbe_with_target(&p, Some(target()))
-            .unwrap_err()
+        error
             .message()
-            .contains("file I/O is not supported yet")
+            .contains("file I/O requires an explicit --target")
     );
+    assert_eq!(error.primary_span(), p.first_file_span());
     for target in [Target::X86_64UnknownLinuxGnu, Target::X86_64PcWindowsMsvc] {
-        let text = artifact(&p, target);
+        let text = super::super::emit_qbe_with_target(&p, Some(target)).unwrap();
         assert!(text.contains("call $cerune_files_read_text"));
         assert!(text.contains("call $cerune_files_write_new"));
         for opt in ["-O0", "-O2"] {
