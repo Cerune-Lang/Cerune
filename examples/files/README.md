@@ -48,3 +48,9 @@ Windowsでは両コマンドのtargetをx86_64-pc-windows-msvcにし、出力を
 ~~~sh
 cargo test --lib codegen::llvm::files::tests
 ~~~
+
+QBEの内部比較も同じ.ceruを使用します。実OS接続は後続で、emit-qbeは未対応診断を維持します。QBE 1.3とClangを用意し、CERUNE_TEST_QBEにQBEのパスを設定すると試験接続で比較できます。
+
+~~~sh
+cargo test --lib codegen::qbe::files::tests
+~~~

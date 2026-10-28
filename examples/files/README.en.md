@@ -48,3 +48,9 @@ On Windows, use x86_64-pc-windows-msvc for both targets, roundtrip.exe as output
 ~~~sh
 cargo test --lib codegen::llvm::files::tests
 ~~~
+
+Internal QBE comparisons use the same .ceru file. OS connections are follow-up work; emit-qbe retains its unsupported diagnostic. With QBE 1.3 and Clang available, set CERUNE_TEST_QBE to the QBE path to run test-connection comparisons.
+
+~~~sh
+cargo test --lib codegen::qbe::files::tests
+~~~

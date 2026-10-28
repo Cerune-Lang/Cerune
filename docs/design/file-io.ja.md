@@ -2,7 +2,7 @@
 
 [English](file-io.en.md)
 
-**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成C・LLVMの実接続・起動設定も実装済み。QBE／WAT／Nativeは未実装。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成実行ファイルの起動形式は合意済みです。WATの接続方法は提案段階です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
+**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成C・LLVMの実接続・起動設定も実装済み。QBEの意味処理は試験接続で検証済み。QBEの実接続・公開生成とWAT／Nativeは未対応。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成実行ファイルの起動形式は合意済みです。WATの接続方法は提案段階です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
 
 ## 実装済みの共通部品
 
@@ -157,7 +157,7 @@ Rust共通部品に`file-v1`の診断形式を実装しました。既存io-v1�
 
 比較は同じ初期内容・応答列を持つ独立接続／ディレクトリで行い、stdoutだけでなく要求順・転送数・停止理由・残ったファイルを照合します。同じ実保存先で全経路を順次実行しません。OS接続試験と意味論の注入試験を分け、独立したRust／Python等の期待値計算を維持します。汎用record/replayやeffect systemは前提にしません。
 
-1〜3と4の生成C・LLVMを実装しました。意味処理を試験接続で比較し、Windows/Linuxの実接続・起動設定も検証しました。次はQBE、その後WAT契約の具体化とNativeへの接続です。各段階の開始前に設計・試作結果を明示します。
+1〜3と4の生成C・LLVMを実装しました。意味処理を試験接続で比較し、Windows/Linuxの実接続・起動設定も検証しました。QBEの意味処理も試験接続で比較しました。次はQBEのWindows/Linux実接続・起動設定、その後WAT契約の具体化とNativeへの接続です。各段階の開始前に設計・試作結果を明示します。
 
 ## Windows/Linux接続とCLI
 
@@ -240,3 +240,17 @@ OS操作は生成LLVMに直接残します。WindowsはntdllのNtCreateFileを�
 [共通の実接続テスト](../../tests/file_io/generated.rs)をC・LLVMに適用します。O0/O2の保存・読戻し、既存ファイルの保護、Unicode名と空ファイル、起動設定の欠落・重複・不正値、設定を除いた引数上限を比較します。引数の件数超過・不正Unicodeがroot接続より先に停止すること、標準入力待機中にrootを移動・置換しても保持したディレクトリへ読み書きすること、Windows junction・Linux link/FIFOの拒否も検証します。read/write/close失敗の注入比較は引き続き独立した試験接続で行います。
 
 通常終了時にroot handleと引数snapshotを解放します。root解放は接続寿命の終了処理であり、ソースのread/writeに伴うclose診断とは区別します。既存I/O同様、成功操作の共通観測APIは生成経路へ未追加です。QBE・WAT・Nativeのファイル対応、Native build/releaseへの接続契約記録は後続です。
+
+## QBEの意味処理と試験接続
+
+既存のファイル操作をQBE内部IRのFileReadText／FileWriteNewへloweringし、名前・上限の検査、転送、close、UTF-8検査、所有とfile-v1診断をQBE ILへ直接展開します。C生成物やLLVM IR、VMを経由しません。元のIRを変更せず、各操作のNodeId/SourceId/Spanと引数の左からの評価順を保持します。
+
+**この段階では公開emit-qbeは位置付きの未対応診断を維持します。** Windows/LinuxのOS接続と先頭マーカーによる起動設定は次の変更です。試験接続を安定した外部ABIや完成したファイルAPIとして公開しません。
+
+内部接続の責務・状態値はLLVM節の表と同じです。QBEの文字列は長さと内容が連続した領域であり、読取り結果は既存の所有者リストへ登録します。上限分をopen前に予約し、成功後は実長へ使用量を調整します。空文字列は既存の静的値を返します。読取りは最大4096バイトと独立した1バイトのEOF確認、書込みは残り全体を要求します。closeは一度だけで、先行失敗を上書きしません。
+
+[QBE比較](../../src/codegen/qbe/files/tests.rs)とLLVM比較は[同じ応答注入fixture](../../tests/file_io/compiled_connection.rs)を使います。fixtureのCはバイト転送・応答列・ログだけを担当し、意味検査・診断・再試行は各生成経路が行います。4実行器と要求列、close回数、保存内容、停止前出力、file-v1全文を比較します。
+
+roundtrip.ceru、短い転送、割込み、0進行、過大応答、転送とcloseの複合失敗、上限ちょうど／+1／0、不正UTF-8、名前、未設定、確保失敗、評価順、短絡、再帰、コピー・反復後の解放を検証します。成功後は文字列使用量と所有者リストが空であることも確認します。公開APIが未対応を維持することも試験します。
+
+QBE 1.3のamd64_sysv／amd64_winでassemblyを生成し、Windows/Linuxで実行比較します。試験接続のCをClangのO0/O2でコンパイルしますが、QBE自体の最適化段階を切り替える試験ではありません。Linuxでは試験接続CにASan/UBSanも適用します。QBE生成assembly自体を計装した検証ではありません。古い非Windows assemblerがCOFFのsection書式に非対応の場合、Windows Objectの検証はWindowsで行います。CIの両OSのQBE jobで比較を必須実行します。

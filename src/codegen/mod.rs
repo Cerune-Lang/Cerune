@@ -1,3 +1,5 @@
+#[cfg(test)]
+use crate as language;
 pub mod c;
 mod call;
 mod display;
@@ -5,6 +7,12 @@ pub mod llvm;
 mod output;
 pub mod qbe;
 mod support;
+#[cfg(test)]
+#[path = "../../tests/file_io/compiled_connection.rs"]
+mod test_file_connection;
+#[cfg(test)]
+#[path = "../../tests/file_io/support.rs"]
+mod test_file_reference;
 #[cfg(test)]
 #[path = "../../tests/support/process.rs"]
 mod test_process;
