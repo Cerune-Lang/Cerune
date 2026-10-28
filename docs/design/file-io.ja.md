@@ -2,7 +2,7 @@
 
 [English](file-io.en.md)
 
-**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成C・LLVM・QBEの実接続・起動設定も実装済み。WAT／Nativeは未対応。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成実行ファイルの起動形式は合意済みです。WATの接続方法は提案段階です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
+**状態：std:fs・共通IR・HIR／MIR／SSA／VMを実装済み。Windows/Linuxの実OS接続とCLIの接続指定も実装済み。生成C・LLVM・QBEの実接続・起動設定も実装済み。WAT／Nativeは未対応。** 2026-10-26に「明示した作業範囲での上限付きUTF-8全文読取り＋新規保存」から進めることを合意しました。既存ファイルの置換は初版に含めません。生成実行ファイルの起動形式は合意済みです。[WATの版付き接続契約](wat-file-host.ja.md)は設計・Wasm接続試作済みで、生成命令への接続は未実装です。[#89](https://github.com/Cerune-Lang/Cerune/issues/89)・[#173](https://github.com/Cerune-Lang/Cerune/issues/173)の保存・再読込みを扱い、比較時の外部作用は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)に従って分離します。
 
 ## 実装済みの共通部品
 
@@ -157,7 +157,7 @@ Rust共通部品に`file-v1`の診断形式を実装しました。既存io-v1�
 
 比較は同じ初期内容・応答列を持つ独立接続／ディレクトリで行い、stdoutだけでなく要求順・転送数・停止理由・残ったファイルを照合します。同じ実保存先で全経路を順次実行しません。OS接続試験と意味論の注入試験を分け、独立したRust／Python等の期待値計算を維持します。汎用record/replayやeffect systemは前提にしません。
 
-1〜3と4の生成C・LLVM・QBEを実装しました。意味処理を試験接続で比較し、Windows/Linuxの実接続・起動設定も検証しました。次はWATの版付きファイル接続契約、その後Nativeへの接続です。各段階の開始前に設計・試作結果を明示します。
+1〜3と4の生成C・LLVM・QBEを実装しました。意味処理を試験接続で比較し、Windows/Linuxの実接続・起動設定も検証しました。[WATの版付き契約と接続試作](wat-file-host.ja.md)を用意しました。次は生成WATの意味処理と比較、その後Nativeへの接続です。各段階の開始前に設計・試作結果を明示します。
 
 ## Windows/Linux接続とCLI
 

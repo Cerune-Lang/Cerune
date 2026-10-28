@@ -2,7 +2,7 @@
 
 [日本語](file-io.ja.md)
 
-**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C/LLVM/QBE OS connections and startup configuration are also implemented. WAT/Native remain unsupported.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. WAT connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C/LLVM/QBE OS connections and startup configuration are also implemented. WAT/Native remain unsupported.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. The [versioned WAT contract](wat-file-host.en.md) has a design and Wasm transport prototype; generated file operations remain unimplemented. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
 
 ## Implemented common components
 
@@ -157,7 +157,7 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-Steps 1–3 and C/LLVM/QBE in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. The versioned WAT file connection contract is next, followed by Native integration. Publish designs and prototype findings before those stages.
+Steps 1–3 and C/LLVM/QBE in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. The [WAT contract and transport prototype](wat-file-host.en.md) are available. Generated WAT semantics and comparisons are next, followed by Native integration. Publish designs and prototype findings before those stages.
 
 ## Windows/Linux connections and CLI
 
