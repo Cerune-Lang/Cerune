@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: dtolnay/rust-toolchain@1.120.0
         with:
           components: rustfmt, clippy
       - uses: actions/setup-node@v7
@@ -93,7 +93,7 @@ jobs:
               --test c_strings --test dynamic_arrays --test standard_input
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: dtolnay/rust-toolchain@1.120.0
       - uses: actions/setup-node@v7
         with:
           node-version: "20.20.2"
@@ -197,7 +197,7 @@ jobs:
         suite: [lean_verification, lean_ssa]
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: dtolnay/rust-toolchain@1.120.0
       - name: Install pinned Lean
         run: |
           mkdir -p target/lean-verification-test
@@ -264,7 +264,7 @@ jobs:
               --test stdin_routes
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: dtolnay/rust-toolchain@1.120.0
       - uses: actions/setup-node@v7
         with:
           node-version: "20.20.2"
@@ -398,7 +398,7 @@ jobs:
         suite: [core, c, wat]
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: dtolnay/rust-toolchain@1.120.0
       - uses: actions/setup-node@v7
         with:
           node-version: "20.20.2"
@@ -478,7 +478,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: dtolnay/rust-toolchain@1.120.0
         with:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
