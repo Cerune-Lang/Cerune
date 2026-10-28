@@ -30,6 +30,7 @@
 - [上限付きUTF-8行入力](design/line-input.ja.md)
 - [限定的なファイル入出力（設計中）](design/file-io.ja.md)
 - [WATの版付き入力host](design/wat-input-host.ja.md)
+- [WATのファイルhost契約案・接続試作](design/wat-file-host.ja.md)
 - [Native build](design/native-build.ja.md)
 - [Native release：配布構成・runtime要求・内容確認](design/native-release.ja.md)
 - [実行・配布の責務](design/owned-routes.ja.md)

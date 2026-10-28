@@ -73,7 +73,7 @@ jobs:
           - suite: wat
             timeout: 25
             tests: >-
-              --test wat_output
+              --test wat_output --test wat_files_protocol
           - suite: qbe
             timeout: 25
             tests: >-
@@ -249,7 +249,7 @@ jobs:
           - suite: wat
             timeout: 15
             tests: >-
-              --test wat_output
+              --test wat_output --test wat_files_protocol
           - suite: cross-io
             timeout: 25
             tests: >-
@@ -459,7 +459,7 @@ jobs:
                 cargo test --test c_strings --test c_output
                 ;;
               wat)
-                cargo test --test wat_output
+                cargo test --test wat_output --test wat_files_protocol
                 cargo test --test standard_input program_arguments::wat
                 ;;
               *) echo "Unsupported macOS test suite"; exit 1 ;;
