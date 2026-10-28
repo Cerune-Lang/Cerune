@@ -1,9 +1,9 @@
-# Proposed WAT file host contract v1
+# WAT file host contract v1
 
 [日本語](wat-file-host.ja.md)
 
-**Status: contract proposal and a Wasm transport prototype. std:fs in emit-wat is still unimplemented.**
-Connect reads and new-file creation under the [common file contract](file-io.en.md). Keep the common IR, filename rules, UTF-8, usage limits, and stopping policy. This change checks ABI feasibility; generated WAT semantics and OS connections require subsequent validation.
+**Status: std:fs in emit-wat and versioned host support are implemented. A real-OS file host is not provided.**
+Connect reads and new-file creation under the [common file contract](file-io.en.md). Keep the common IR, filename rules, UTF-8, usage limits, and stopping policy. Generated WAT semantics are compared against four executors using independent in-memory connections. OS connections require separate validation.
 
 ## Responsibilities and rationale
 
@@ -19,7 +19,7 @@ Keep connection, handles, and pending name per instance. Do not infer a connecti
 
 ## Imports and values
 
-The proposal requires these seven imports from cerune for programs containing file operations, including unused functions. Names are proposals before implementation, not a published stable ABI.
+Programs containing file operations, including unused functions, require these seven imports from cerune. Treat them as the v1 contract; incompatible changes require a different version.
 
 | Import | Type | Meaning |
 | --- | --- | --- |
@@ -96,23 +96,19 @@ This change adds no common observation API for successful generated operations. 
 
 Keep the existing WAT library restrictions for pure public functions. This change does not add WASI, an OS file host, general file handles, or a stable embedding API.
 
-## Prototype validation and subsequent implementation
+## Implementation, verification, and remaining work
 
-The [test host](../../tests/support/wat_files.cjs) provides independent in-memory connections. The [ABI test](../../tests/wat_files_protocol.rs) assembles probe WAT with WABT and invokes real Wasm imports in Node. The product emitter remains unchanged and still rejects std:fs operations.
+The [emitter](../../src/codegen/wat/files.rs) directly expands common IR FileReadText/FileWriteNew into WAT. It shares existing string allocation and UTF-8 validation. Reads reserve their limit before opening, release on failure/empty content, and adjust usage and length to actual bytes before returning ownership. Reject a second main invocation before recapturing arguments or accessing files.
 
-Verified coverage includes the 16-byte UTF-8/NUL/CR/LF/combining-character payload and all 256 byte values; short transfers, interruptions, zero progress, failures, and invalid response transport; EOF; empty creation; existing-content protection; handle consumption after close failure; observation independence; copying initial state; missing imports; host exception propagation; and private memory. Probe calling loops do not implement Cerune name/UTF-8/usage checks or file-v1 semantics.
+The [comparisons](../../tests/file_io/wat.rs) use independent in-memory connections to compare output, complete file-v1 records, residual content, and close counts against four executors. Cases include names, empty/zero/exact/+1 limits, transfers over 4096 bytes, invalid UTF-8, partial transfers, interruptions, zero progress, invalid responses, combined transfer/close failure, usage limits, evaluation order, short circuits, recursion, copying, and release after iteration. A test-only memory maximum forces physical memory.grow failure and verifies allocation-failed before open, separately from usage exhaustion. Tests also cover stdin/arguments/flush composition, missing required imports on old hosts, and imports required by unused functions.
+
+The [test host](../../tests/support/wat_files.cjs) performs byte transfer and response injection, not Cerune name/UTF-8/usage/file-v1 semantics. Initial data and responses are explicit; it does not connect to OS files. Its events are read-only copies without payloads; contents is a separate copy for expected-value comparisons. The [ABI test](../../tests/wat_files_protocol.rs) remains, covering all 256 byte values, known i64 patterns, handle consumption, observation independence, and host exceptions. Probe transport exports are not added to generated products.
 
 ~~~sh
 cargo test --test wat_files_protocol
+cargo test --test standard_input file_io::wat
 ~~~
 
-Run with Node and WABT available. Windows/Linux/macOS WAT CI jobs require execution with CERUNE_TEST_NODE and CERUNE_TEST_WAT2WASM_JS configured.
+Node and WABT are required. Windows/Linux/macOS WAT CI jobs require both through CERUNE_TEST_NODE and CERUNE_TEST_WAT2WASM_JS. The [roundtrip.ceru instructions](../../examples/files/README.en.md) also demonstrate save/readback.
 
-Subsequent changes connect generated WAT in this order:
-
-1. Lower common IR and implement name/limit/reservation checks using existing string ownership and UTF-8 support.
-2. Transfer through these imports; compare complete file-v1 records, prior output, stopping, and close precedence against four executors.
-3. Compare byte-position-based response injection, zero/exact/+1/over-4096 cases, split UTF-8, evaluation order, short circuits, recursion, copying/release, and allocation failures.
-4. Run examples/files/roundtrip.ceru as generated WAT and update Japanese/English instructions and support tables.
-
-Provide a real OS host only after separately validating scope, exclusive creation, and link rejection. Ordinary Node path-based open alone does not establish the existing OS contract.
+A real-OS WAT host is not provided. Validate scope, exclusive creation, and link rejection separately before providing one. Ordinary Node path-based open alone does not establish the existing OS contract. A common generated-route observation API for successful operations also remains pending.

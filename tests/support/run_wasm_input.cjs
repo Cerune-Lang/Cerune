@@ -6,6 +6,8 @@ const events = [], diagnostics = [];
 if (process.env.CERUNE_TEST_WAT_ARGUMENTS !== undefined && process.env.CERUNE_TEST_WAT_ARGUMENTS_FILE !== undefined) throw new Error('duplicate argument input');
 const argumentConfig = process.env.CERUNE_TEST_WAT_ARGUMENTS_FILE === undefined ? process.env.CERUNE_TEST_WAT_ARGUMENTS : fs.readFileSync(process.env.CERUNE_TEST_WAT_ARGUMENTS_FILE,'utf8');
 const argumentHost = argumentConfig === undefined ? null : require('./wat_arguments.cjs').createArguments(JSON.parse(argumentConfig));
+const fileConfig = process.env.CERUNE_TEST_WAT_FILES_FILE === undefined ? null : JSON.parse(fs.readFileSync(process.env.CERUNE_TEST_WAT_FILES_FILE, 'utf8'));
+const fileHost = fileConfig === null ? null : require('./wat_files.cjs').createFiles(fileConfig);
 const connection = process.platform === 'win32' && require('node:tty').isatty(0) ? 2 : 0;
 let consumed = 0, reads = 0, interrupted = false, interruptedAfter = false, failed = false;
 const imports = { cerune: {
@@ -51,6 +53,7 @@ const imports = { cerune: {
 }};
 
 if (argumentHost) Object.assign(imports.cerune, argumentHost.imports);
+if (fileHost) Object.assign(imports.cerune, fileHost.imports);
 const memoryEvents = [];
 if (process.env.CERUNE_TEST_WAT_MEMORY_TRACE) {
   imports.probe = { memory(phase, logical, capacity, free, owners, pages) {
@@ -118,6 +121,10 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]),imports).then(({instanc
   if (!(error instanceof WebAssembly.RuntimeError) || error.message!=='unreachable' || !diagnostics.length) console.error(error.message);
   process.exitCode=1;
 }).finally(()=>{
+  if (fileHost && process.env.CERUNE_TEST_WAT_FILES_TRACE) fs.writeFileSync(process.env.CERUNE_TEST_WAT_FILES_TRACE, JSON.stringify({
+    events: fileHost.events(), handles: fileHost.openHandles(),
+    contents: Object.fromEntries((fileConfig.inspect || []).map(name => [name, fileHost.contents(name) === undefined ? null : [...fileHost.contents(name)]])),
+  }));
   if (process.env.CERUNE_TEST_WAT_STORAGE_TRACE) fs.writeFileSync(process.env.CERUNE_TEST_WAT_STORAGE_TRACE,storageEvents.join('\n')+'\n');
   if (process.env.CERUNE_TEST_WAT_INPUT_TRACE) fs.writeFileSync(process.env.CERUNE_TEST_WAT_INPUT_TRACE,JSON.stringify({consumed,reads,events}));
 });

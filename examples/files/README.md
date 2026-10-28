@@ -20,7 +20,7 @@ cargo run --quiet -- emit-mir examples/files/roundtrip.ceru
 cargo run --quiet -- emit-bytecode examples/files/roundtrip.ceru
 ~~~
 
-テストは実ディレクトリとメモリ接続を分け、出力・保存内容・操作記録・失敗を比較します。--file-root省略時はunconfiguredで停止します。WAT・Native生成は未対応の診断を返します。保存先を暗黙に選びません。Linuxの読取りには/proc/self/fdが必要です。[契約と対応範囲](../../docs/design/file-io.ja.md)も参照してください。
+テストは実ディレクトリとメモリ接続を分け、出力・保存内容・操作記録・失敗を比較します。--file-root省略時はunconfiguredで停止します。Native生成は未対応の診断を返します。WATは下記の版付きテストhostで実行できます。保存先を暗黙に選びません。Linuxの読取りには/proc/self/fdが必要です。[契約と対応範囲](../../docs/design/file-io.ja.md)も参照してください。
 
 
 生成Cでも同じ例を実行できます。Cのコンパイル対象でWindows/Linuxを選びます。
@@ -64,4 +64,20 @@ WindowsではCeruneとClangのtargetをx86_64-pc-windows-msvc、QBEの-tをamd64
 ~~~sh
 cargo test --test standard_input file_io::generated::qbe_tests
 cargo test --lib codegen::qbe::files::tests
+~~~
+
+WATでも同じCeruneソースを実行できます。以下は実ファイルを開かないメモリ上のテストhostです。設定ファイルは初期状態と確認対象を指定し、保存内容は任意の試験記録へコピーします。
+
+~~~sh
+cargo run --quiet -- emit-wat examples/files/roundtrip.ceru -o target/files-roundtrip.wat
+node target/wasm-tools/node_modules/wabt/bin/wat2wasm target/files-roundtrip.wat -o target/files-roundtrip.wasm
+CERUNE_TEST_WAT_FILES_FILE=tests/fixtures/file_io/wat_host.json CERUNE_TEST_WAT_FILES_TRACE=target/files-trace.json node tests/support/run_wasm_input.cjs target/files-roundtrip.wasm
+~~~
+
+NodeとWABT 1.0.39を使います。WindowsのPowerShellでは最後の行の前に、$env:CERUNE_TEST_WAT_FILES_FILE='tests/fixtures/file_io/wat_host.json' と $env:CERUNE_TEST_WAT_FILES_TRACE='target/files-trace.json' を設定し、node以降を実行します。期待出力はtrue、16です。files-trace.jsonのcontents.sample.txtに16バイトの配列が残ります。毎回独立したメモリ接続を作るため、実OSディレクトリへsample.txtを保存した検証ではありません。
+
+[WATのファイルhost契約](../../docs/design/wat-file-host.ja.md)に従うhostが必要です。旧hostはimport欠落で停止します。未設定はconfigured=falseで表し、操作時にunconfiguredで停止します。実OSのファイルhostは別途必要で、--file-rootやcwdを自動で使いません。
+
+~~~sh
+cargo test --test standard_input file_io::wat
 ~~~

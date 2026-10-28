@@ -111,7 +111,7 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 **主な未実装・制限：**
 
 - **言語機能：** 文字列の公開添字参照・文字数取得・i64以外の数値読取り、動的配列の伸長・借用、実行時停止の捕捉、汎用`Option`/`Result`。
-- **入出力・モジュール：** WAT／NativeのファイルI/O、ネットワークI/O、モジュールの再エクスポート、パッケージ管理。
+- **入出力・モジュール：** NativeのファイルI/OとWATの実OSファイルhost、ネットワークI/O、モジュールの再エクスポート、パッケージ管理。
 - **ビルド・配布：** IR/VMの`build`・`release`（Nativeの実行ファイル構築・配布ディレクトリ作成には対応）。
 
 ## 実行と出力
