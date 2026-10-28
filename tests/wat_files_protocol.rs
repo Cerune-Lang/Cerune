@@ -1,10 +1,10 @@
-//! ABI prototype only: this does not claim that emit-wat supports std:fs yet.
+//! Test the transport ABI separately from generated Cerune file semantics.
 #[path = "support/process.rs"]
 mod process;
 use std::{fs, path::PathBuf, process::Command, time::Duration};
 
 #[test]
-fn proposed_file_host_abi_runs_in_wasm_without_public_memory() {
+fn file_host_abi_runs_in_wasm_without_public_memory() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let node_config = std::env::var_os("CERUNE_TEST_NODE");
     let node = node_config.clone().unwrap_or_else(|| "node".into());

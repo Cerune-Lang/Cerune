@@ -3,6 +3,7 @@ use cerune_lang::runtime::files::*;
 use cerune_lang::{bytecode, ir, ir_executor, mir, mir_executor, modules, ssa_executor, vm};
 use std::io::{self, Write};
 mod support;
+mod wat;
 use support::*;
 
 #[test]
@@ -305,14 +306,11 @@ fn standard_module_is_virtual_observable_and_internal_calls_are_private() {
 
 #[test]
 fn generators_reject_file_io_with_source_locations_even_in_unused_functions() {
-    use cerune_lang::codegen::{wat, x86_64};
+    use cerune_lang::codegen::x86_64;
     let p = hir(
         r#"import "std:fs" as fs; fn unused()->string {return fs::read_text("x",0);} print(1);"#,
     );
-    let errors = [
-        wat::emit_wat(&p).unwrap_err(),
-        x86_64::emit_asm(&p, x86_64::Target::X86_64UnknownLinuxGnu).unwrap_err(),
-    ];
+    let errors = [x86_64::emit_asm(&p, x86_64::Target::X86_64UnknownLinuxGnu).unwrap_err()];
     for e in errors {
         assert!(e.message().contains("file I/O is not supported yet"));
         assert!(e.primary_span().is_some());

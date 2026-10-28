@@ -505,7 +505,7 @@ Existing embedding APIs never read OS arguments implicitly and report unconfigur
 
 Import `"std:fs" as fs` to use `fs::read_text(name, max_bytes) -> string` and `fs::write_new(name, text, max_bytes) -> void`. Whole-file UTF-8 limits range from 0 to 2147483647 bytes. Existing files are never overwritten. Preserve NUL, CR/LF, and combining characters, and stop with source diagnostics on errors.
 
-**HIR/MIR/SSA/VM support explicit Rust API connections and Windows/Linux CLI `--file-root <directory>`. Generated C/LLVM/QBE also support Windows/Linux. WAT/Native remain unimplemented.** Unconfigured access stops with `unconfigured`. See the [contract and connection APIs](../design/file-io.en.md) and [example](../../examples/files/README.en.md).
+**HIR/MIR/SSA/VM support explicit Rust API connections and Windows/Linux CLI `--file-root <directory>`. Generated C/LLVM/QBE also support Windows/Linux. WAT supports versioned host connections; a real-OS host is not provided. Native remains unimplemented.** Unconfigured access stops with `unconfigured`. See the [contract and connection APIs](../design/file-io.en.md) and [example](../../examples/files/README.en.md).
 
 ## Functions and entrypoint
 

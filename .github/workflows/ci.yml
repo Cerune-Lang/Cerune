@@ -159,12 +159,13 @@ jobs:
         env:
           CERUNE_TEST_QBE_CLANG: clang
           CERUNE_TEST_CC: clang
-      - name: Compare WAT program arguments
+      - name: Compare WAT arguments and files
         if: ${{ matrix.suite == 'wat' }}
         shell: bash
         run: |
           set -o pipefail
           timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::wat 2>&1 | tee target/linux-wat-arguments.log
+          timeout --kill-after=10s 5m cargo test --test standard_input file_io::wat 2>&1 | tee target/linux-wat-files.log
         env:
           CERUNE_TEST_NODE: node
       - name: Compare Native program arguments
@@ -187,6 +188,7 @@ jobs:
             target/linux-qbe-files.log
             target/linux-qbe-file-connections.log
             target/linux-wat-arguments.log
+            target/linux-wat-files.log
             target/stdin-*
           if-no-files-found: ignore
 
@@ -358,11 +360,13 @@ jobs:
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_CC: clang
-      - name: Compare WAT program arguments
+      - name: Compare WAT arguments and files
         if: ${{ matrix.suite == 'wat' }}
         shell: pwsh
         run: |
           cargo test --test standard_input program_arguments::wat 2>&1 | Tee-Object target/windows-wat-arguments.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --test standard_input file_io::wat 2>&1 | Tee-Object target/windows-wat-files.log
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_NODE: node
@@ -386,6 +390,7 @@ jobs:
             target/windows-qbe-files.log
             target/windows-qbe-file-connections.log
             target/windows-wat-arguments.log
+            target/windows-wat-files.log
             target/qbe-windows-observations
             target/stdin-*
           if-no-files-found: ignore
@@ -461,6 +466,7 @@ jobs:
               wat)
                 cargo test --test wat_output --test wat_files_protocol
                 cargo test --test standard_input program_arguments::wat
+                cargo test --test standard_input file_io::wat
                 ;;
               *) echo "Unsupported macOS test suite"; exit 1 ;;
             esac

@@ -1,9 +1,9 @@
-# WATのファイル接続契約 v1案
+# WATのファイル接続契約 v1
 
 [English](wat-file-host.en.md)
 
-**状態：契約案とWasm接続試作。emit-watのstd:fs対応はまだ未実装です。**
-[共通ファイル契約](file-io.ja.md)の読取り・新規保存を接続します。既存の共通IR・名前規則・UTF-8・使用量上限・停止方針は変えません。今回の試作はABIの実現性を検証し、生成WATの意味処理とOS接続は後続変更で検証します。
+**状態：emit-watのstd:fsと版付きhost接続を実装済み。実OSのファイルhostは未提供です。**
+[共通ファイル契約](file-io.ja.md)の読取り・新規保存を接続します。既存の共通IR・名前規則・UTF-8・使用量上限・停止方針は変えません。生成WATの意味処理を独立したメモリ接続で4実行器と比較しています。OS接続の検証は別途行います。
 
 ## 責務と選択理由
 
@@ -19,7 +19,7 @@ hostはinstanceごとに接続・handle・準備中の名前を保持します�
 
 ## importと値
 
-ファイル操作を含む生成物は、未使用関数内の操作も含め、ceruneから次の7関数を要求する案です。名前は実装前の提案であり、公開済みの安定ABIではありません。
+ファイル操作を含む生成物は、未使用関数内の操作も含め、ceruneから次の7関数を要求します。v1の契約として扱い、互換性を壊す変更では別の版を使います。
 
 | import | 型 | 意味 |
 | --- | --- | --- |
@@ -96,23 +96,19 @@ file-v1のwrite requestedはソース操作の本文全長であり、8へ縮め
 
 WAT libraryは純粋な公開関数を対象とする既存の制限を維持します。WASI、OSファイルhost、汎用ファイルhandle、安定した埋込みAPIはこの変更で導入しません。
 
-## 試作の検証と次の実装
+## 実装・検証と残件
 
-[試験host](../../tests/support/wat_files.cjs)は独立したメモリ接続です。[ABI試験](../../tests/wat_files_protocol.rs)がWABTで試験用WATを組み立て、Nodeで実際のWasm importを呼びます。製品emitterは変更せず、std:fsを含むemit-watは引き続き未対応診断を返します。
+[生成処理](../../src/codegen/wat/files.rs)は共通IRのFileReadText／FileWriteNewを直接WATへ展開します。既存の文字列allocatorとUTF-8検査を共有し、readはopen前に上限分を予約します。失敗・空内容では解放し、成功時は使用量と長さを実長へ調整して所有を返します。mainの再実行は最初に拒否し、引数やファイルを再読取りしません。
 
-検証済みの範囲は、UTF-8・NUL・CR/LF・結合文字の16バイトと全256バイト値の転送、短い転送・割込み・0進行・失敗・契約外応答の受渡し、EOF、空の新規作成、既存内容の保持、close失敗後のhandle消費、記録の不干渉、初期値のコピー、必須import欠落、host例外の伝播、memory非公開です。試験用の呼出しループはCeruneの名前・UTF-8・使用量・file-v1意味処理の実装ではありません。
+[比較テスト](../../tests/file_io/wat.rs)は独立したメモリ接続で4実行器と出力・file-v1全文・残存内容・close回数を比較します。名前、空・0・ちょうど・+1、4096を超える転送、不正UTF-8、部分転送、割込み、0進行、不正応答、closeとの複合失敗、使用量上限、評価順・短絡・再帰・コピーと反復後の解放を含みます。物理memory.grow失敗は試験用memory上限を指定し、使用量上限の失敗とは別に、open前のallocation-failedを確認します。標準入力・引数・flushとの併用、旧hostでの必須import欠落、未使用関数にもimportが必要なことも検証します。
+
+[試験host](../../tests/support/wat_files.cjs)はバイト転送と応答注入だけを担当し、名前・UTF-8・使用量・file-v1意味処理を代行しません。初期データと応答設定を明示的に渡し、実OSファイルへは接続しません。試験記録のeventsは本文を含まない読取り専用コピー、contentsは期待値照合用の別のコピーです。[ABI試験](../../tests/wat_files_protocol.rs)も維持し、全256バイト値、既知i64ビット列、handle消費、記録の不干渉、host例外を検証します。試験用の転送exportは製品生成物に追加しません。
 
 ~~~sh
 cargo test --test wat_files_protocol
+cargo test --test standard_input file_io::wat
 ~~~
 
-NodeとWABTを利用できる環境で実行します。CIのWindows/Linux/macOS WAT jobではCERUNE_TEST_NODEとCERUNE_TEST_WAT2WASM_JSを指定して必須実行します。
+NodeとWABTが必要です。CIのWindows/Linux/macOS WAT jobではCERUNE_TEST_NODEとCERUNE_TEST_WAT2WASM_JSを指定して必須実行します。[roundtrip.ceruの実行手順](../../examples/files/README.md)からも保存・読戻しを試せます。
 
-次の変更では、順に生成WATへ接続します。
-
-1. 共通IRからのlowering、既存の文字列所有・UTF-8検査、名前・上限・予約を実装する。
-2. 上記importへ転送し、file-v1全文・先行出力・失敗後の停止・close優先順を4実行器と比較する。
-3. byte位置基準の応答注入、0／ちょうど／+1／4096超、UTF-8分割、評価順・短絡・再帰・コピーと解放、確保失敗を比較する。
-4. examples/files/roundtrip.ceruを生成WATで実行し、日英の実行手順と対応表を更新する。
-
-実OSのWAT hostは、作業範囲・排他的作成・リンク拒否を保証する接続を別途検証してから提供します。Nodeの通常パスopenだけで既存のOS契約を満たすとは扱いません。
+実OSのWAT hostは未提供です。作業範囲・排他的作成・リンク拒否を保証する接続を別途検証してから提供します。Nodeの通常パスopenだけで既存のOS契約を満たすとは扱いません。成功操作の生成経路共通観測APIも残件です。

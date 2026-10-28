@@ -20,7 +20,7 @@ cargo run --quiet -- emit-mir examples/files/roundtrip.ceru
 cargo run --quiet -- emit-bytecode examples/files/roundtrip.ceru
 ~~~
 
-Tests separate real directories and in-memory connections, comparing output, saved bytes, records, and failures. Omitting --file-root stops with unconfigured. WAT/Native generation reports unsupported file I/O. No save location is selected implicitly. Linux reads require /proc/self/fd. See the [contract and coverage](../../docs/design/file-io.en.md).
+Tests separate real directories and in-memory connections, comparing output, saved bytes, records, and failures. Omitting --file-root stops with unconfigured. Native generation reports unsupported file I/O. WAT runs through the versioned test host below. No save location is selected implicitly. Linux reads require /proc/self/fd. See the [contract and coverage](../../docs/design/file-io.en.md).
 
 
 The same example also runs through generated C. Select Windows/Linux through the C compilation target.
@@ -64,4 +64,20 @@ On Windows, use x86_64-pc-windows-msvc for Cerune and Clang, amd64_win for QBE -
 ~~~sh
 cargo test --test standard_input file_io::generated::qbe_tests
 cargo test --lib codegen::qbe::files::tests
+~~~
+
+The same Cerune source also runs as WAT. The following test host uses in-memory files, not the OS filesystem. Its configuration selects initial state and inspected names; optional test records receive copies of saved contents.
+
+~~~sh
+cargo run --quiet -- emit-wat examples/files/roundtrip.ceru -o target/files-roundtrip.wat
+node target/wasm-tools/node_modules/wabt/bin/wat2wasm target/files-roundtrip.wat -o target/files-roundtrip.wasm
+CERUNE_TEST_WAT_FILES_FILE=tests/fixtures/file_io/wat_host.json CERUNE_TEST_WAT_FILES_TRACE=target/files-trace.json node tests/support/run_wasm_input.cjs target/files-roundtrip.wasm
+~~~
+
+Use Node and WABT 1.0.39. In Windows PowerShell, set $env:CERUNE_TEST_WAT_FILES_FILE='tests/fixtures/file_io/wat_host.json' and $env:CERUNE_TEST_WAT_FILES_TRACE='target/files-trace.json', then run the final command starting at node. Expected output is true, 16. The contents.sample.txt field of files-trace.json contains the 16-byte array. Each run creates an independent in-memory connection; this does not test saving sample.txt into an OS directory.
+
+A host implementing the [WAT file contract](../../docs/design/wat-file-host.en.md) is required. Old hosts fail on missing imports. Set configured=false to represent an unconfigured connection; the operation stops as unconfigured. A real-OS file host is separate; --file-root or cwd is not used automatically.
+
+~~~sh
+cargo test --test standard_input file_io::wat
 ~~~

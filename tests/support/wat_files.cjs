@@ -1,6 +1,7 @@
 'use strict';
-// In-memory test connection for the proposed ABI. No OS filesystem or Wasm memory.
+// In-memory test connection for the versioned ABI. No OS filesystem or Wasm memory.
 function createFiles(config = {}) {
+  config = {...config, openResponse: config.openResponse ? [...config.openResponse] : undefined};
   const files = new Map((config.files || []).map(([name, bytes]) =>
     [Buffer.from(name, 'utf8').toString('hex'), Buffer.from(bytes)]));
   const reads = [...(config.reads || [])], writes = [...(config.writes || [])];
@@ -32,11 +33,12 @@ function createFiles(config = {}) {
     return h;
   }
   const imports = {
-    files_status_v1() { return configured ? 0 : 1; },
+    files_status_v1() { return config.status ?? (configured ? 0 : 1); },
     file_name_begin_v1(length) {
       pending = null;
       if (!configured || !Number.isInteger(length) || length < 1 || length > 255)
         throw new Error('invalid name preparation');
+      if (config.beginStatus) return config.beginStatus;
       pending = {bytes: Buffer.alloc(length), offset: 0};
       return 0;
     },
@@ -44,6 +46,7 @@ function createFiles(config = {}) {
       const bytes = unpack(bits, length);
       if (!pending || pending.offset + length > pending.bytes.length)
         throw new Error('invalid name chunk');
+      if (config.chunkStatus) { pending = null; return config.chunkStatus; }
       bytes.copy(pending.bytes, pending.offset); pending.offset += length;
       return 0;
     },
@@ -51,6 +54,7 @@ function createFiles(config = {}) {
       const name = pending; pending = null;
       if (!configured || !name || name.offset !== name.bytes.length || (mode !== 0 && mode !== 1))
         throw new Error('invalid open protocol');
+      if (config.openResponse) { record('open', mode, config.openResponse[1]); return [...config.openResponse]; }
       const key = name.bytes.toString('hex');
       if (mode === 0 && !files.has(key)) { record('open', mode, 1); return [0, 1]; }
       if (mode === 1 && files.has(key)) { record('open', mode, 2); return [0, 2]; }
@@ -62,7 +66,8 @@ function createFiles(config = {}) {
     },
     file_read_v1(id, requested) {
       count(requested); const h = handle(id, 0), bytes = files.get(h.key);
-      const answer = reads.length ? reads.shift() : Math.min(requested, bytes.length - h.offset);
+      const response = reads.length ? reads.shift() : null;
+      const answer = response === 'invalid' ? requested + 1 : response === null ? Math.min(requested, bytes.length - h.offset) : response;
       record('read', requested, answer);
       if (answer <= 0 || answer > requested) return [0n, answer];
       if (answer > bytes.length - h.offset) throw new Error('test response exceeds stored data');
@@ -71,7 +76,8 @@ function createFiles(config = {}) {
     },
     file_write_v1(id, bits, requested) {
       const bytes = unpack(bits, requested), h = handle(id, 1);
-      const answer = writes.length ? writes.shift() : requested;
+      const response = writes.length ? writes.shift() : null;
+      const answer = response === 'invalid' ? requested + 1 : response === null ? requested : response;
       record('write', requested, answer);
       if (answer > 0 && answer <= requested) {
         files.set(h.key, Buffer.concat([files.get(h.key), bytes.subarray(0, answer)]));

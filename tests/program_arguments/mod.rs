@@ -2,7 +2,7 @@ pub(crate) mod c;
 pub(crate) mod llvm;
 mod native;
 pub(crate) mod qbe;
-mod wat;
+pub(crate) mod wat;
 use crate::process;
 use cerune_lang::{
     bytecode, ir, ir_executor, mir, mir_executor, modules,
