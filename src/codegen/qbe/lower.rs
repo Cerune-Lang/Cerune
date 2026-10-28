@@ -340,8 +340,24 @@ impl Lowerer<'_> {
                 });
                 false
             }
-            cerune_ir::StatementKind::FileWriteNew { .. } => {
-                unreachable!("file I/O rejected before lowering")
+            cerune_ir::StatementKind::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+            } => {
+                let (_, name) = self.lower_scalar_expr(name);
+                let (_, text) = self.lower_scalar_expr(text);
+                let (_, max_bytes) = self.lower_scalar_expr(max_bytes);
+                self.instructions.push(Instruction::FileWriteNew {
+                    name,
+                    text,
+                    max_bytes,
+                    origin: FailureOrigin {
+                        node: statement.id,
+                        span: statement.span,
+                    },
+                });
+                false
             }
             cerune_ir::StatementKind::Flush => {
                 self.instructions.push(Instruction::Flush {
@@ -715,8 +731,20 @@ impl Lowerer<'_> {
                     operand: Operand::Temp(dest),
                 }
             }
-            cerune_ir::ExprKind::FileReadText { .. } => {
-                unreachable!("file I/O rejected before lowering")
+            cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
+                let (_, name) = self.lower_scalar_expr(name);
+                let (_, max_bytes) = self.lower_scalar_expr(max_bytes);
+                let dest = self.next_temp();
+                self.instructions.push(Instruction::FileReadText {
+                    dest,
+                    name,
+                    max_bytes,
+                    origin: expr.into(),
+                });
+                Value::Scalar {
+                    ty: Type::String,
+                    operand: Operand::Temp(dest),
+                }
             }
             cerune_ir::ExprKind::ReadLine { max_bytes } => {
                 let (_, max_bytes) = self.lower_scalar_expr(max_bytes);

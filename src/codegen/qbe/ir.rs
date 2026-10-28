@@ -153,6 +153,18 @@ pub enum Instruction {
         value: Operand,
         retain: bool,
     },
+    FileReadText {
+        dest: Temp,
+        name: Operand,
+        max_bytes: Operand,
+        origin: FailureOrigin,
+    },
+    FileWriteNew {
+        name: Operand,
+        text: Operand,
+        max_bytes: Operand,
+        origin: FailureOrigin,
+    },
     ReadLine {
         dest: Temp,
         max_bytes: Operand,

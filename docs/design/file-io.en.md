@@ -2,7 +2,7 @@
 
 [日本語](file-io.ja.md)
 
-**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C/LLVM OS connections and startup configuration are also implemented. QBE/WAT/Native remain unimplemented.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. WAT connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
+**Status: std:fs, common IR, and HIR/MIR/SSA/VM execution implemented. Windows/Linux OS connections and CLI configuration are also implemented. Generated C/LLVM OS connections and startup configuration are also implemented. QBE semantics are verified through test connections. QBE OS connections/public emission and WAT/Native remain unsupported.** On 2026-10-26, we agreed to start with bounded whole-file UTF-8 reads and new-file creation in an explicit working directory. Replacement is outside the first version. The generated-executable startup format is agreed. WAT connections remain proposals. This covers saving/reloading in [#89](https://github.com/Cerune-Lang/Cerune/issues/89) and [#173](https://github.com/Cerune-Lang/Cerune/issues/173), isolating comparison effects according to [#104](https://github.com/Cerune-Lang/Cerune/issues/104).
 
 ## Implemented common components
 
@@ -157,7 +157,7 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-Steps 1–3 and C/LLVM in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. QBE is next, followed by the WAT contract and Native integration. Publish designs and prototype findings before those stages.
+Steps 1–3 and C/LLVM in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. QBE semantics are also compared through test connections. QBE Windows/Linux connections and startup are next, followed by the WAT contract and Native integration. Publish designs and prototype findings before those stages.
 
 ## Windows/Linux connections and CLI
 
@@ -240,3 +240,17 @@ OS operations remain visible in generated LLVM. Windows explicitly resolves NtCr
 [Shared real-connection tests](../../tests/file_io/generated.rs) apply to C and LLVM. They compare O0/O2 save/readback, existing-file protection, Unicode names and empty files, missing/duplicate/invalid startup settings, and argument limits excluding configuration. They also verify that excess argument counts and invalid Unicode stop before root connection; moving/replacing root while waiting on stdin still accesses the retained directory; and Windows junctions / Linux links and FIFOs are rejected. Read/write/close failure injection continues through independent test connections.
 
 Normal completion releases the root handle and argument snapshot. Root release ends the connection lifetime and is separate from close diagnostics for source read/write operations. As with existing I/O, generated routes do not yet expose the common successful-operation observation API. QBE/WAT/Native file support and recording the connection contract in Native build/release remain follow-up work.
+
+## QBE semantics and test connections
+
+Lower existing file operations to FileReadText/FileWriteNew in the internal QBE IR, then emit name/limit checks, transfers, close, UTF-8 validation, ownership, and file-v1 diagnostics directly as QBE IL. Execution does not go through generated C, LLVM IR, or the VM. Preserve the original IR, each operation’s NodeId/SourceId/Span, and left-to-right argument evaluation.
+
+**Public emit-qbe still returns the source-located unsupported diagnostic at this stage.** Windows/Linux OS connections and leading-marker startup settings are the next change. The test connection is not a stable external ABI or a completed public file API.
+
+Internal connection responsibilities and status values match the table in the LLVM section. QBE strings store length and content contiguously; reads adopt results into the existing owner list. Reserve the limit before open and reduce accounted usage to actual length after success. Empty strings use the existing static value. Reads request at most 4096 bytes with a separate one-byte EOF probe; writes request the entire remainder. Close occurs once and preserves any earlier failure.
+
+[QBE comparisons](../../src/codegen/qbe/files/tests.rs) and LLVM comparisons use the [same injected-response fixture](../../tests/file_io/compiled_connection.rs). Fixture C only transfers bytes and supplies response sequences/logs; each generated route implements semantic checks, diagnostics, and retries. Compare request sequences, close counts, saved content, prior output, and complete file-v1 records with four executors.
+
+Coverage includes roundtrip.ceru, short transfers, interruption, zero progress, excessive responses, combined transfer/close failures, exact/+1/zero limits, invalid UTF-8, names, unconfigured access, allocation failure, evaluation order, short circuits, recursion, copying, and release after iteration. Success also requires empty string usage and owner lists. Tests verify that public emission remains unsupported.
+
+Generate assembly with QBE 1.3 amd64_sysv/amd64_win and compare execution on Windows/Linux. Compile test-connection C at Clang O0/O2; this does not switch QBE optimization stages. Linux also instruments test-connection C with ASan/UBSan, not QBE-generated assembly itself. When an older non-Windows assembler does not support COFF section syntax, Windows object validation runs on Windows. Both OS QBE CI jobs require these comparisons.
