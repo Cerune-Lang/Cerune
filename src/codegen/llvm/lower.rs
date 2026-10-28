@@ -48,7 +48,8 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
         array_heap_limit: program
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
-        string_heap_limit: crate::codegen::support::string_heap_limit(program),
+        string_heap_limit: crate::codegen::support::string_heap_limit(program)
+            .or_else(|| program.first_file_span().map(|_| program.string_heap_limit)),
         target: None,
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
         type_definitions: program
@@ -348,8 +349,20 @@ impl Lowerer<'_> {
                 });
                 false
             }
-            cerune_ir::StatementKind::FileWriteNew { .. } => {
-                unreachable!("file I/O rejected before lowering")
+            cerune_ir::StatementKind::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+            } => {
+                let name = self.lower_expr(name).operand;
+                let text = self.lower_expr(text).operand;
+                let max_bytes = self.lower_expr(max_bytes).operand;
+                self.push(Instruction::FileWriteNew {
+                    name,
+                    text,
+                    max_bytes,
+                });
+                false
             }
             cerune_ir::StatementKind::Flush => {
                 self.push(Instruction::Flush);
@@ -700,8 +713,19 @@ impl Lowerer<'_> {
                     operand: Operand::Temp(dest),
                 }
             }
-            cerune_ir::ExprKind::FileReadText { .. } => {
-                unreachable!("file I/O rejected before lowering")
+            cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
+                let name = self.lower_expr(name).operand;
+                let max_bytes = self.lower_expr(max_bytes).operand;
+                let dest = self.next_temp();
+                self.push(Instruction::FileReadText {
+                    dest,
+                    name,
+                    max_bytes,
+                });
+                Value {
+                    ty: Type::String,
+                    operand: Operand::Temp(dest),
+                }
             }
             cerune_ir::ExprKind::ReadLine { max_bytes } => {
                 let max_bytes = self.lower_expr(max_bytes).operand;

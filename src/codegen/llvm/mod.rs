@@ -4,6 +4,7 @@ mod call;
 mod conversion;
 mod emit;
 mod failure;
+mod files;
 mod heap;
 mod input;
 mod integer;

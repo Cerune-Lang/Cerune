@@ -33,3 +33,9 @@ mkdir c-output
 ~~~
 
 WindowsのPowerShellでは最後を .\roundtrip.exe に読み替えます。MinGW向けClangではwmainを使うため-municodeも指定します。設定の後の--は必須です。省略した接続を作業ディレクトリで補いません。以降の引数はプログラムへ渡されます。
+
+LLVMの内部比較テストでもこの.ceruを使います。実OS接続は未実装のため、emit-llvmはまだ未対応診断を返します。開発用の比較は次のコマンドで実行できます。Clangが必要です。
+
+~~~sh
+cargo test --lib codegen::llvm::files::tests
+~~~

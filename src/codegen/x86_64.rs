@@ -26,8 +26,7 @@ mod output;
 mod rounding;
 mod string;
 #[cfg(test)]
-#[path = "../../tests/support/process.rs"]
-mod test_process;
+use super::test_process;
 mod unsigned;
 mod utf8;
 

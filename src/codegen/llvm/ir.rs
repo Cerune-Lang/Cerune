@@ -139,6 +139,16 @@ pub enum Instruction {
         dest: Temp,
         index: Operand,
     },
+    FileReadText {
+        dest: Temp,
+        name: Operand,
+        max_bytes: Operand,
+    },
+    FileWriteNew {
+        name: Operand,
+        text: Operand,
+        max_bytes: Operand,
+    },
     ReadLine {
         dest: Temp,
         max_bytes: Operand,

@@ -33,3 +33,9 @@ mkdir c-output
 ~~~
 
 In Windows PowerShell use .\roundtrip.exe for the last command. MinGW-targeted Clang also needs -municode for wmain. The terminating -- is required. An omitted connection never defaults to cwd. Subsequent arguments are passed to the program.
+
+Internal LLVM comparison tests also use this .ceru file. OS connections are not implemented yet, so emit-llvm still reports unsupported file I/O. Run the development comparisons with the following command; Clang is required.
+
+~~~sh
+cargo test --lib codegen::llvm::files::tests
+~~~
