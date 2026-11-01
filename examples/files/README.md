@@ -82,6 +82,18 @@ NodeとWABT 1.0.39を使います。WindowsのPowerShellでは最後の行の前
 cargo test --test standard_input file_io::wat
 ~~~
 
+## WATを実ファイルへ接続する
+
+Windows/Linuxでは独立した[参照host](../../experiments/wat_host/README.md)を使えます。リポジトリ直下で実行します。
+
+~~~sh
+cargo run --quiet -- emit-wat examples/files/roundtrip.ceru -o target/files.wat
+mkdir target/wat-files-data
+cargo run --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host -- target/files.wat --file-root target/wat-files-data --
+~~~
+
+出力はtrueと16です。指定したディレクトリのsample.txtへ16バイトを保存して読み戻します。同じ保存先での再実行はalready-existsで停止します。末尾の--はhost設定の終端で、その後がプログラム引数です。root省略時は未設定になります。内部memoryは公開しません。WATはemit-onlyのままで、参照hostはCeruneのbuild/releaseに含めません。
+
 ## Nativeで実行
 
 Linuxでは、Objectを生成して明示したClangでリンクします。保存先は新規ディレクトリにします。

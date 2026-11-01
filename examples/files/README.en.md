@@ -82,6 +82,18 @@ A host implementing the [WAT file contract](../../docs/design/wat-file-host.en.m
 cargo test --test standard_input file_io::wat
 ~~~
 
+## Connect WAT to real files
+
+On Windows/Linux, use the independent [reference host](../../experiments/wat_host/README.en.md). Run from the repository root.
+
+~~~sh
+cargo run --quiet -- emit-wat examples/files/roundtrip.ceru -o target/files.wat
+mkdir target/wat-files-data
+cargo run --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host -- target/files.wat --file-root target/wat-files-data --
+~~~
+
+Expected output is true and 16. The program saves and reloads 16 bytes in sample.txt under the selected directory. Reusing that directory stops with already-exists. The final -- ends host settings; subsequent values are program arguments. Omitting root leaves files unconfigured. Internal memory stays private. WAT remains emit-only; the reference host is not part of Cerune build/release.
+
 ## Run through Native
 
 On Linux, generate an Object and link using an explicitly selected Clang. Use a fresh output directory.

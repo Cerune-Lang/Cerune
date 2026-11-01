@@ -2,8 +2,8 @@
 
 [日本語](wat-file-host.ja.md)
 
-**Status: std:fs in emit-wat and versioned host support are implemented. A real-OS file host is not provided.**
-Connect reads and new-file creation under the [common file contract](file-io.en.md). Keep the common IR, filename rules, UTF-8, usage limits, and stopping policy. Generated WAT semantics are compared against four executors using independent in-memory connections. OS connections require separate validation.
+**Status: std:fs in emit-wat and versioned host support are implemented. The Windows/Linux real-OS reference host is also verified.**
+Connect reads and new-file creation under the [common file contract](file-io.en.md). Keep the common IR, filename rules, UTF-8, usage limits, and stopping policy. Generated WAT semantics are compared against four executors using independent in-memory connections. OS connections are validated through an independent reference host.
 
 ## Responsibilities and rationale
 
@@ -94,7 +94,7 @@ This change adds no common observation API for successful generated operations. 
 | New host, unconfigured | files_status_v1=1; the operation stops as unconfigured |
 | Combined std:io/std:env/output | Preserve existing imports, startup argument snapshot, and explicit flush semantics |
 
-Keep the existing WAT library restrictions for pure public functions. This change does not add WASI, an OS file host, general file handles, or a stable embedding API.
+Keep the existing WAT library restrictions for pure public functions. This does not add WASI, general file handles, or a stable embedding API.
 
 ## Implementation, verification, and remaining work
 
@@ -111,4 +111,14 @@ cargo test --test standard_input file_io::wat
 
 Node and WABT are required. Windows/Linux/macOS WAT CI jobs require both through CERUNE_TEST_NODE and CERUNE_TEST_WAT2WASM_JS. The [roundtrip.ceru instructions](../../examples/files/README.en.md) also demonstrate save/readback.
 
-A real-OS WAT host is not provided. Validate scope, exclusive creation, and link rejection separately before providing one. Ordinary Node path-based open alone does not establish the existing OS contract. A common generated-route observation API for successful operations also remains pending.
+## Real-OS reference host
+
+[experiments/wat_host](../../experiments/wat_host/README.en.md) is an independent Rust crate. It uses Wasmi 2.0.0 only in that crate, sharing Windows/Linux scope, exclusive creation, and link rejection through runtime::files::Directory. It does not substitute ordinary Node path-based open for the OS contract. WAT remains emit-only.
+
+The host opens --file-root before execution and passes arguments after -- to the program. Host settings are execution control, not observation APIs. File transport uses at most eight bytes as values; checks, ownership, retries, UTF-8, and file-v1 remain in generated WAT. Existing stdin, argument, scalar/aggregate output, and flush imports are connected. Float formatting shares the executors' pure functions.
+
+Host-local handle numbers are distinct from OS handles and are never reused. Close consumes a handle once on success or failure. Host/engine failure cleanup reclaims remaining handles without deleting partial files. The host runs a main-only generated module once, exposes no internal memory, and never resumes after stopping. Physical engine failures are not converted to semantic limit failures.
+
+Windows/Linux CI compares real-file roundtrips, complete failure diagnostics, and remaining contents against four executors. Tests also cover root movement/replacement while waiting for input, link rejection, and standard I/O/arguments. Explicit test connections exercise short transfers, interruptions, invalid responses, and close consumption in the adapter. The reference host's paired READMEs document commands and scope.
+
+A common generated-route observation API for successful operations remains pending.
