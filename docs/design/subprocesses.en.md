@@ -20,6 +20,40 @@ The user confirmed that **subprocess failures must be observable and the caller 
 
 The existing linker and test helpers collect output into temporary files and enforce timeouts. They are not a common language runtime satisfying output-capacity contracts, recoverable result types, and complete cleanup records. Even if low-level code is shared, build/test operations remain separate from source-program semantics.
 
+## Partial common-runtime implementation
+
+`runtime::process::Processes<B>` and a [scripted test connection](../../src/runtime/process/tests.rs) now validate requests, transfers, results, and cleanup as Rust components. **OS connections, `std:process`, IR instructions, executors, and generated routes remain unimplemented.** Cerune programs cannot yet launch subprocesses.
+
+| Component | Current behavior |
+| --- | --- |
+| `Request` / `Limits` | Explicit target name, arguments, input, output limits, and `Duration` deadlines; no default limits yet |
+| `Processes::run` | Returns an `Outcome` per call; ordinary failures leave the connection usable for an explicit subsequent call |
+| `Outcome` | Stdout/stderr contents plus a `Report` with origin, accepted counts, termination status, failure, and cleanup; `completed()` does not mean child exit code zero |
+| `Backend::start` | Distinguishes started, confirmed not started, and uncertain launch; uncertain launch still receives one cleanup attempt |
+| `Backend::poll` | Receives input and both output buffers of at most 4096 bytes each, plus a deadline; the connection multiplexes pipes/termination and returns one event |
+| `Backend::cleanup` | Called once for started/uncertain operations, on both success and failure; retain the original failure separately from cleanup |
+| `events()` | Read-only records of request number, phase, offered transfer sizes and close/wait flags, progress, and origin; no contents, target names, or arguments |
+
+This Rust API is not a stable embedding ABI. Registration tables and OS configuration remain connection responsibilities to be developed in OS prototypes. The scripted connection exists only inside unit tests; it is not a substitute exposed through user-facing execution routes.
+
+Validation precedence is disabled connection, invalid request, request capacity, unconfigured connection, output-buffer allowance, allocation, representable deadline addition, then launch. Request capacity includes argument count, combined UTF-8 bytes of target name and arguments, stdin length, combined stdout/stderr limits, and timeout. Empty target names, NUL in targets/arguments, and zero operation/cleanup durations fail before launch.
+
+Reserve both output buffers before launching. `available_output_bytes` bounds this component's byte buffers, not language array storage. Lifetime management after return and reservations for conversion to `[u8]` will be added with IR integration. Short results currently retain their reserved buffer capacity.
+
+Transfer responses exceeding offered sizes, repeated responses on closed streams, and duplicate termination status are contract violations. After retaining confirmed progress, check clock regression, deadline expiry, then the event's failure, in that order. Transfer at the deadline yields timeout with partial results retained. Direct-child exit does not complete collection before pipe EOF. Only interruption of poll waiting retries with zero transfer; close and launch are not implicitly retried.
+
+Disable the connection after incomplete cleanup, or after a complete reply with a regressing clock or a reached/exceeded cleanup deadline. Still return flags describing already reclaimed resources. Subsequent calls on a disabled connection perform no additional clock reads, launch, transfer, or cleanup.
+
+This synchronous component cannot forcibly interrupt a connection that ignores deadlines and never returns. Bounded waiting, fair multiplexing, ownership of unreclaimed resources, and shutdown behavior are OS-connection responsibilities to measure before exposing real connections. Exhausted observation capacity or failed observation allocation does not affect operation results.
+
+Run the following tests to compare success/nonzero exit, continuation after failure, partial bytes, exact-limit EOF checks, timeouts, cleanup, invalid replies, and observation enabled/disabled.
+
+```text
+cargo test --lib runtime::process
+```
+
+Next, use minimal Windows/Linux OS prototypes to validate cleanup, deadlines, and argv before finalizing public result types and integrating the standard module and common IR.
+
 ## Calls and connections
 
 Candidate names are the virtual standard module `std:process` and operation `run`. Use the reserved names, virtual sources, and SourceIds of [existing standard modules](standard-modules.en.md), without changing relative imports or introducing implicit file search.
