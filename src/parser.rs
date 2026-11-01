@@ -887,8 +887,24 @@ impl Parser {
 
         let (else_body, end) = if matches!(&self.peek().kind, TokenKind::Else) {
             self.advance();
-            let (body, end) = self.parse_block()?;
-            (body, end)
+            if matches!(&self.peek().kind, TokenKind::If) {
+                // Desugar an `else if` to an if statement inside the else body.
+                // The existing AST, scope rules, and all backends stay unchanged.
+                // An else-if chain creates nested If nodes without nested
+                // braces. Count those nodes toward the usual syntax budget so
+                // delimiter-free chains cannot recurse without bound.
+                if self.block_nesting + 1 >= MAX_SYNTAX_NESTING {
+                    return Err(self.error(format!("else-if nesting exceeds {MAX_SYNTAX_NESTING}")));
+                }
+                self.block_nesting += 1;
+                let nested = self.parse_if();
+                self.block_nesting -= 1;
+                let nested = nested?;
+                let end = nested.span.end();
+                (vec![nested], end)
+            } else {
+                self.parse_block()?
+            }
         } else {
             (Vec::new(), then_end)
         };
@@ -1746,7 +1762,7 @@ mod tests {
     use crate::lexer::lex;
     use crate::source::Span;
 
-    use super::parse;
+    use super::{MAX_SYNTAX_NESTING, parse};
 
     #[test]
     fn parses_binding() {
@@ -2091,6 +2107,67 @@ mod tests {
         assert_eq!(then_body.len(), 1);
         assert_eq!(else_body.len(), 1);
         assert_eq!(program.statement(0).span, Span::new(0, 40));
+    }
+
+    #[test]
+    fn parses_else_if_chain_as_nested_else_branch() {
+        let source = "if false { print(1); } else if true { print(2); } else if false { print(3); } else { print(4); }";
+        let program = parse(lex(source).unwrap()).unwrap();
+
+        let StmtKind::If { else_body, .. } = &program.statement(0).kind else {
+            panic!("expected outer if");
+        };
+        let StmtKind::If {
+            condition,
+            then_body,
+            else_body,
+        } = &else_body[0].kind
+        else {
+            panic!("expected nested if in else branch");
+        };
+        assert_eq!(condition.kind, ExprKind::Boolean(true));
+        assert_eq!(then_body.len(), 1);
+        assert_eq!(else_body.len(), 1);
+        let StmtKind::If { else_body, .. } = &else_body[0].kind else {
+            panic!("expected third if");
+        };
+        assert_eq!(else_body.len(), 1);
+        assert_eq!(program.statement(0).span, Span::new(0, source.len()));
+    }
+
+    #[test]
+    fn else_if_requires_a_condition_and_block() {
+        for source in [
+            "if true {} else if {}",
+            "if false {} else if true",
+            "if false {} else if true print(1);",
+            "if false {} else print(1);",
+        ] {
+            assert!(parse(lex(source).unwrap()).is_err(), "{source}");
+        }
+    }
+
+    #[test]
+    fn rejects_unbounded_else_if_chains_without_stack_overflow() {
+        // Sequential braces do not increase delimiter nesting. The implicit
+        // nested If AST still needs to obey the parser's nesting budget.
+        let allowed = format!(
+            "{}{}",
+            "if false {} else ".repeat(8),
+            "if true { print(1); }"
+        );
+        assert!(parse(lex(&allowed).unwrap()).is_ok());
+
+        let excessive = format!(
+            "{}{}",
+            "if false {} else ".repeat(MAX_SYNTAX_NESTING + 50),
+            "if true {}"
+        );
+        let error = parse(lex(&excessive).unwrap()).unwrap_err();
+        assert!(error.message().contains("exceeds"), "{error:?}");
+        let span = error.primary_span().unwrap();
+        assert!(span.start() < span.end());
+        assert!(span.end() <= excessive.len());
     }
 
     #[test]

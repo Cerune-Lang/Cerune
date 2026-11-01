@@ -5,6 +5,54 @@ fn run_both(source: &str) -> Result<String, cerune_lang::RunError> {
 }
 
 #[test]
+fn else_if_example_runs_on_four_executors() {
+    assert_eq!(
+        run_else_if_routes(include_str!("../examples/else_if.ceru")),
+        "negative\nzero\nsmall\nlarge\nmatched\n"
+    );
+}
+
+#[test]
+fn else_if_preserves_short_circuit_scopes_and_loop_control() {
+    let source = r#"
+
+        fn observe() -> bool {
+            print("observed");
+            return true;
+        }
+        if true {
+            print("first");
+        } else if observe() {
+            print("unreachable");
+        }
+        mut n: i64 = 0;
+        while n < 3 {
+            n = n + 1;
+            if n == 1 {
+                continue;
+            } else if n == 2 {
+                print("two");
+            } else {
+                break;
+            }
+        }
+        if false {
+            print("never");
+        } else if true {
+            local: i64 = 7;
+            print(local);
+        } else {
+            print("never");
+        }
+    "#;
+    assert_eq!(run_else_if_routes(source), "first\ntwo\n7\n");
+    assert!(
+        cerune_lang::compile("if false {} else if true { scoped: i64 = 1; } print(scoped);")
+            .is_err()
+    );
+}
+
+#[test]
 fn simple_examples_match_known_outputs() {
     for (source, expected) in [
         (
@@ -500,4 +548,41 @@ fn deterministic_seed_has_known_results_across_executors() {
     assert_eq!(ssa_executor::run(&ssa).unwrap(), expected);
     assert_eq!(ir_executor::run(&hir).unwrap(), expected);
     assert_eq!(ir::text::emit(&hir), before);
+}
+
+fn run_else_if_routes(source: &str) -> String {
+    let expected = run_both(source).unwrap();
+    let hir = cerune_lang::compile_to_ir(source).unwrap();
+    let mir = cerune_lang::mir::lower(&hir).unwrap();
+    let ssa = cerune_lang::mir::ssa::construct(&mir).unwrap();
+    assert_eq!(cerune_lang::mir_executor::run(&mir).unwrap(), expected);
+    assert_eq!(cerune_lang::ssa_executor::run(&ssa).unwrap(), expected);
+    expected
+}
+
+#[test]
+fn else_if_condition_failure_keeps_its_source_and_prior_output() {
+    use cerune_lang::{RunError, bytecode::InstructionOrigin, source::Span};
+    let source = "print(1); if false {} else if 1 / 0 == 0 {} else { print(99); }";
+    let RunError::Execution(vm) = cerune_lang::run_vm(source).unwrap_err() else {
+        panic!()
+    };
+    let Some(InstructionOrigin::Source { span, .. }) = vm.origin() else {
+        panic!()
+    };
+    let start = source.find("1 / 0").unwrap();
+    assert_eq!(span, Span::new(start, start + 5));
+    let hir = cerune_lang::compile_to_ir(source).unwrap();
+    let mir = cerune_lang::mir::lower(&hir).unwrap();
+    let ssa = cerune_lang::mir::ssa::construct(&mir).unwrap();
+    let a = cerune_lang::ir_executor::run(&hir).unwrap_err();
+    let b = cerune_lang::mir_executor::run(&mir).unwrap_err();
+    let c = cerune_lang::ssa_executor::run(&ssa).unwrap_err();
+    assert_eq!(a.runtime_failure(), vm.runtime_failure());
+    assert_eq!(b.runtime_failure(), vm.runtime_failure());
+    assert_eq!(c.runtime_failure(), vm.runtime_failure());
+    assert_eq!(a.output(), "1\n");
+    assert_eq!(b.output(), "1\n");
+    assert_eq!(c.output(), "1\n");
+    assert_eq!(vm.vm_error().output(), "1\n");
 }

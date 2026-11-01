@@ -183,6 +183,7 @@ Argument counts and types must match the declaration; there is no fixed count li
 | [countdown.ceru](countdown.ceru) | Use a mutable `i64` and `while` to print 3, 2, 1 and finish |
 | [short_circuit.ceru](short_circuit.ceru) | combining conditions with `&&`/`\|\|` to skip unnecessary division, indexing, and function calls |
 | [conditional.ceru](conditional.ceru) | `if` / `else` and scope |
+| [else_if.ceru](else_if.ceru) | `else if` chains, ordered condition checks, and optional final `else` |
 | [loop_control.ceru](loop_control.ceru) | `while`, `break`, and `continue` |
 | [for_sum.ceru](for_sum.ceru) | `for` and assignment as its start statement |
 | [generic_functions.ceru](generic_functions.ceru) | Reuse aggregation/copying with explicit types and lengths: strings, u64, products, sums |

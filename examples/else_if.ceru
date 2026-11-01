@@ -1,0 +1,24 @@
+// The first matching branch runs, without evaluating later conditions.
+fn check(value: i64) -> void {
+    if value < 0 {
+        print("negative");
+    } else if value == 0 {
+        print("zero");
+    } else if value < 10 {
+        print("small");
+    } else {
+        print("large");
+    }
+}
+
+check(-2);
+check(0);
+check(7);
+check(20);
+
+// An else-if chain without a final else is also valid.
+if false {
+    print("wrong");
+} else if true {
+    print("matched");
+}

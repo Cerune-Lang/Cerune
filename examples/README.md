@@ -183,6 +183,7 @@ cargo run --quiet -- emit-c examples/linear_regression.ceru
 | [countdown.ceru](countdown.ceru) | `mut i64`と`while`で3・2・1を表示して終了 |
 | [short_circuit.ceru](short_circuit.ceru) | `&&`・`\|\|`で条件を組み合わせ、不要な割り算・配列参照・関数呼び出しを省略する |
 | [conditional.ceru](conditional.ceru) | `if` / `else`とscope |
+| [else_if.ceru](else_if.ceru) | `else if`の連鎖、上から順の条件判定、最後の`else`省略 |
 | [loop_control.ceru](loop_control.ceru) | `while`、`break`、`continue` |
 | [for_sum.ceru](for_sum.ceru) | `for`と開始文の再代入 |
 | [generic_functions.ceru](generic_functions.ceru) | 型・長さを指定して集計・コピーを共用。文字列・u64・構造体・直和型 |
