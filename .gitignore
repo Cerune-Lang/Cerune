@@ -22,3 +22,5 @@
 
 # Fixed pre-migration Native runtime assembly
 !tests/support/native_runtime_reference/*.s
+
+/experiments/wat_host/target

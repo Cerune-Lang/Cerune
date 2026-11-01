@@ -10,6 +10,7 @@ use sashimi_assembler::program::Linkage;
 
 pub(super) struct Generated {
     pub files: Vec<(&'static str, Vec<u8>)>,
+    pub file_connection: serde_json::Value,
 }
 pub(super) fn prepare(
     source: &Compilation,
@@ -52,6 +53,7 @@ pub(super) fn prepare(
         "program.lir.txt",
         native::lir::emit(&lir).map_err(|e| source.render(&e))?,
     );
+    let file_connection = super::file_connection::record(target, lir.uses_file_io());
     let program = native::build_program_from_lir(&lir, true).map_err(|e| source.render(&e))?;
     text(
         "program.origins.s",
@@ -89,14 +91,15 @@ pub(super) fn prepare(
     text(
         "runtime.json",
         format!(
-            "{{\"schema\":\"cerune-native-runtime-v1\",\"policy\":\"target-system-runtime\",\"target\":{},\"external_symbols\":[{externals}],\"cerune_runtime\":\"in-object\",\"system_libraries_bundled\":false,\"requirements\":{}}}\n",
+            "{{\"schema\":\"cerune-native-runtime-v1\",\"policy\":\"target-system-runtime\",\"target\":{},\"external_symbols\":[{externals}],\"cerune_runtime\":\"in-object\",\"system_libraries_bundled\":false,\"requirements\":{},\"file_connection\":{}}}\n",
             json(target.triple()),
             json(match target {
                 Target::X86_64UnknownLinuxGnu =>
                     "x86-64 Linux with the glibc, libm and ELF loader required by the selected Clang toolchain; no minimum glibc version or cross-system portability is promised",
                 Target::X86_64PcWindowsMsvc =>
                     "x64 Windows with Win32 APIs and the MSVC/UCRT runtime selected by the Clang toolchain; no runtime redistributables are bundled",
-            })
+            }),
+            file_connection
         ),
     );
     let index = source
@@ -127,5 +130,8 @@ pub(super) fn prepare(
         text("sources.json", source.source_manifest());
     }
     files.push(("program.o", artifact.object));
-    Ok(Generated { files })
+    Ok(Generated {
+        files,
+        file_connection,
+    })
 }
