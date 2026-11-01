@@ -2,6 +2,19 @@ use super::*;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
+fn assert_hash(text: &str, bytes: &[u8]) {
+    assert_eq!(text.len(), 64);
+    assert!(
+        text.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    );
+    let decoded: Vec<u8> = (0..64)
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).unwrap())
+        .collect();
+    assert_eq!(decoded.as_slice(), Sha256::digest(bytes).as_slice());
+}
+
 fn release(input: &Path, dir: &Path) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_cerune"));
     cmd.args(["release", "native"])
@@ -65,17 +78,11 @@ fn release_preserves_build_bytes_and_runs_after_relocation_without_tools() {
         for entry in m["files"].as_array().unwrap() {
             let bytes = fs::read(packaged.join(entry["path"].as_str().unwrap())).unwrap();
             assert_eq!(entry["bytes"], bytes.len());
-            assert_eq!(entry["sha256"], format!("{:x}", Sha256::digest(&bytes)));
+            assert_hash(entry["sha256"].as_str().unwrap(), &bytes);
         }
         for line in text(&packaged, "SHA256SUMS").lines() {
             let (hash, name) = line.split_once("  ").unwrap();
-            assert_eq!(
-                hash,
-                format!(
-                    "{:x}",
-                    Sha256::digest(fs::read(packaged.join(name)).unwrap())
-                )
-            );
+            assert_hash(hash, &fs::read(packaged.join(name)).unwrap());
         }
         let r = record(&packaged, "runtime-requirements.json");
         assert_eq!(r["target"], target());
