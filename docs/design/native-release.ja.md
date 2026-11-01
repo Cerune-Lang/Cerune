@@ -24,7 +24,7 @@
 | --- | --- |
 | `build/` | 元のbuildの全規定ファイル。実行ファイル、非最適化HIR/MIR、選択したSSA/LIR、型付き命令・Object、出自・リンク記録を同じバイト列で保持 |
 | `release.json` | schema `cerune-native-release-v1`、status、target、入口の相対パス、本文同梱の有無、ファイル別サイズ・SHA-256。全書込みの最後に作成 |
-| `runtime-requirements.json` | 実行ファイルを非実行で解析した直接のruntime要求 |
+| `runtime-requirements.json` | 実行ファイルを非実行で解析した直接のruntime要求と、buildから継承したファイル接続の要件 |
 | `SHA256SUMS` | payloadとrelease.jsonのSHA-256。自分自身は含まない |
 | `README.md`・`README.en.md` | target、実行方法、依存条件、観測記録・ハッシュの意味 |
 | `CERUNE-LICENSE-MIT`・`CERUNE-LICENSE-APACHE` | Ceruneのライセンス本文。利用者のプログラムのライセンスを設定する操作ではない |
@@ -54,5 +54,21 @@ build manifestの形式・成功状態・target・選択オプションと規定
 
 Windows/Linuxでbuild→release→別ディレクトリへ移動→実行を試し、IR/MIR/VMと比較済みのexampleの期待値を確認します。通常MIR/SSA・本文あり／なし、全ファイルのバイト一致・SHA-256、直接依存物、記録の不整合・欠落・既存先保護を検証します。[example](../../examples/build_native/README.md)にコマンドを載せています。
 
-対象システムruntimeを要求する配布初版までを本変更の区切りとします。IR/VM Image、より広い配布互換性・依存物同梱は別作業です。次の言語機能は[ロードマップ](language-roadmap.ja.md)の再帰です。
+対象システムruntimeを要求する配布初版までを本変更の区切りとします。IR/VM Image、より広い配布互換性・依存物同梱は別作業です。再帰と限定ファイルI/Oの進捗は[ロードマップ](language-roadmap.ja.md)を参照してください。
 releaseはbuildのcall_depth_limitを変更せず引き継ぎます。旧buildで未記録なら既定値を補わず、release.jsonではnull（不明）とします。記録値が1〜128の整数でなければ拒否します。
+
+## ファイル接続の継承と互換性
+
+buildのmanifestとruntimeにある`file_connection`を照合し、targetに対応する既知の契約と完全に一致することを確認してから出力を作ります。検証した値は`release.json`と`runtime-requirements.json`へ保持し、元のbuildファイルもバイト列を変えずコピーします。
+
+| 入力の記録 | 扱い |
+| --- | --- |
+| 両方に既知の同じ契約 | enabledとOS要件を検証して引き継ぐ |
+| 両方に未記録（旧build） | 不明として両出力へnullを保存。未使用や既定設定を補わない |
+| 片方だけ欠落、値の不一致、null、不正型、未知の版・フィールド、targetと異なるOS要件 | 出力を作る前に拒否する |
+
+配布物の日英READMEにも、明示rootを使う起動例・未設定時の停止・OS要件を載せます。未使用の場合は起動マーカーを解釈しないこと、旧buildでは要件が不明なことを明記します。rootの実パスは記録から作成・接続・探索しません。
+
+procfsとNtCreateFileの要求はCeruneが生成時に記録した条件で、実行ファイルから抽出する直接依存一覧とは区別します。releaseは配布先OSを検証せず、`deployment_verified: false`を維持します。記録の整合性検証は、変更された実行ファイルと記録の意味対応や真正性を証明するものではありません。
+
+検証では、通常MIR／SSAのファイルexampleをbuild・releaseして別ディレクトリへ移し、明示した新しいrootで実行します。HIR／MIR／SSA／VMと出力・保存バイトを比較し、未設定・既存ファイル拒否、出自付き停止、旧記録と不整合の扱いも確認します。

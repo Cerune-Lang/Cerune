@@ -1,5 +1,7 @@
 //! ファイルの意味処理を型付き機械命令で構築します。意味処理とOS接続を分離します。
-use super::ir::{Instruction, Module};
+#[cfg(test)]
+use super::ir::Instruction;
+use super::ir::Module;
 use super::machine::{EntryKind, Linkage, Opcode, Operand, Section, r32, r64};
 use super::program::{NativeProgram, address};
 pub(super) mod connection;
@@ -8,15 +10,7 @@ mod names;
 mod tests;
 
 pub(super) fn used(m: &Module) -> bool {
-    m.instructions
-        .iter()
-        .chain(m.functions.iter().flat_map(|f| &f.instructions))
-        .any(|i| {
-            matches!(
-                i,
-                Instruction::FileReadText { .. } | Instruction::FileWriteNew { .. }
-            )
-        })
+    m.uses_file_io()
 }
 // 入口: rax=上限、r10=名前、r9=本文、r11=出自。戻り値: rax=文字列またはunit。
 // 呼出し前RSPを16byte整列し、先頭128byteを両ABIの外部引数に使います。

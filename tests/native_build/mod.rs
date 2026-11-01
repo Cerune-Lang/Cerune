@@ -393,3 +393,5 @@ fn native_build_rejects_missing_or_non_clang_drivers() {
 }
 
 mod release;
+
+mod file_connection;

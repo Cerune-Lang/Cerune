@@ -96,3 +96,20 @@ mkdir native-output
 Windowsではtargetを`x86_64-pc-windows-msvc`、Objectを`roundtrip.obj`、実行ファイルを`roundtrip.exe`にし、`./roundtrip.exe`で起動します。MSVC互換のリンク環境が必要です。`emit-asm`で生成したASMからのリンクも可能です。`--ssa`でSSA経由の生成を選べます。
 
 出力は`true`と`16`です。保存内容の日本語・NUL・CR/LF・結合文字をそのまま読み戻します。同じ保存先で再実行すると既存ファイルの上書きを拒否するため、比較ごとに別ディレクトリを使います。
+
+## buildして配布する
+
+同じroundtripを完成成果物として保存・配布できます。Linuxの例です。
+
+```sh
+cargo run --quiet -- build native examples/files/roundtrip.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin/clang -o target/files-build
+cargo run --quiet -- release native target/files-build -o target/files-release
+mkdir target/files-data
+./target/files-release/build/program --cerune-runtime-v1 --file-root target/files-data --
+```
+
+Windowsではbuildのtargetを`x86_64-pc-windows-msvc`、linkerを実際のClangパスへ変更し、`./target/files-release/build/program.exe`で起動します。各出力先は新規に用意します。`--ssa`をbuildに付けるとSSA経由になります。
+
+出力と保存内容は上の例と同じです。配布ディレクトリを別の場所へ移しても、起動時に明示したrootを使います。build/release自体はsample.txtを作らず、実行ファイルの再リンクや最適化もreleaseでは行いません。
+
+`manifest.json`・`runtime.json`の`file_connection`に起動契約とOS要件が記録され、release.json・runtime-requirements.jsonへ引き継がれます。実際の保存先は埋め込みません。[build](../../docs/design/native-build.ja.md)・[release](../../docs/design/native-release.ja.md)の契約も参照してください。

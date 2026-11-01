@@ -100,7 +100,7 @@ The host explicitly supplies and fixes the working directory before execution. A
 | Targets | Regular files only. Reject symlinks, reparse points, directories, devices, and FIFOs as unsupported. Verify that opening a FIFO for validation does not block indefinitely |
 | Resolution | Directory-handle-relative opening is implemented. A string-prefix check or a separate existence check followed by ordinary open does not establish containment |
 | CLI / embedding | Implemented CLI `--file-root` and explicit injection into Rust execution APIs. Existing APIs remain unconfigured. Observation APIs cannot change connections |
-| Generated executables | The leading-marker startup configuration is agreed and implemented in C/LLVM/QBE/Native. Preserve marker-free argv semantics; do not silently embed generation-time absolute paths or obtain configuration from environment variables. Propose recording the required connection contract version in Native build/release |
+| Generated executables | The leading-marker startup configuration is agreed and implemented in C/LLVM/QBE/Native. Preserve marker-free argv semantics; do not silently embed generation-time absolute paths or obtain configuration from environment variables. Native build/release record the contract version, startup format, and OS requirements, without embedding an execution-time root |
 | WAT | Transfer names and bytes through versioned host connections without exposing internal memory or ownership pointers. The [v1 contract](wat-file-host.en.md) and generated operations are implemented; a real-OS host needs separate validation |
 
 Linux uses directory-fd-relative `openat` and `O_CREAT | O_EXCL` for creation. `O_NOFOLLOW` only protects the final component; it does not establish safety for arbitrary multi-component paths. [Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
@@ -157,7 +157,7 @@ Required cases include empty content, Japanese, NUL, CR/LF, combining characters
 
 Compare independent connections/directories with identical initial content and responses. Check request order, transferred counts, failure reasons, and residual files as well as stdout. Do not run every route sequentially against the same real directory. Separate OS connection tests from injected semantic tests and retain independent Rust/Python oracles. General record/replay or an effect system is not a prerequisite.
 
-Steps 1–3 and C/LLVM/QBE in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. The [WAT contract](wat-file-host.en.md) is implemented and compared using in-memory connections. Native semantics are compared through ASM/direct Objects and test connections. Native OS connections/startup are also verified. Native build/release connection records come next; a real-OS WAT host requires separate validation. Publish designs and prototype findings before those stages.
+Steps 1–3 and C/LLVM/QBE in step 4 are implemented. Semantics are compared using controlled connections, and Windows/Linux OS connections/startup are verified. The [WAT contract](wat-file-host.en.md) is implemented and compared using in-memory connections. Native semantics are compared through ASM/direct Objects and test connections. Native OS connections/startup are also verified. Native build/release connection records are also implemented; a real-OS WAT host requires separate validation. Publish designs and prototype findings before those stages.
 
 ## Windows/Linux connections and CLI
 
@@ -239,7 +239,7 @@ OS operations remain visible in generated LLVM. Windows explicitly resolves NtCr
 
 [Shared real-connection tests](../../tests/file_io/generated.rs) apply to C and LLVM. They compare O0/O2 save/readback, existing-file protection, Unicode names and empty files, missing/duplicate/invalid startup settings, and argument limits excluding configuration. They also verify that excess argument counts and invalid Unicode stop before root connection; moving/replacing root while waiting on stdin still accesses the retained directory; and Windows junctions / Linux links and FIFOs are rejected. Read/write/close failure injection continues through independent test connections.
 
-Normal completion releases the root handle and argument snapshot. Root release ends the connection lifetime and is separate from close diagnostics for source read/write operations. As with existing I/O, generated routes do not yet expose the common successful-operation observation API. A real-OS WAT host and recording the connection contract in Native build/release remain follow-up work.
+Normal completion releases the root handle and argument snapshot. Root release ends the connection lifetime and is separate from close diagnostics for source read/write operations. As with existing I/O, generated routes do not yet expose the common successful-operation observation API. Native build/release connection records are implemented. A real-OS WAT host remains follow-up work.
 
 ## QBE semantics and OS connections
 
@@ -263,7 +263,7 @@ Only generated programs containing file operations interpret the leading marker,
 
 Apply the [shared real-connection cases](../../tests/file_io/generated.rs) to C/LLVM/QBE. Compare save/readback in independent directories, existing-file protection, invalid UTF-8, empty/limit cases, Unicode names, unconfigured access, missing/duplicate/invalid settings, and exclusion of settings from argument limits. Also verify retained-directory access after root move/replacement while waiting for input, Windows junction and Linux link/FIFO rejection, and argument validation before root connection.
 
-Windows/Linux QBE CI jobs require both semantic and real-connection comparisons. Linux reads require procfs; Windows linking requires an MSVC-compatible environment. A real-OS WAT host, Native artifact connection records, and the generated routes’ common successful-operation observation API remain follow-up work.
+Windows/Linux QBE CI jobs require both semantic and real-connection comparisons. Linux reads require procfs; Windows linking requires an MSVC-compatible environment. Native artifact connection records are implemented. A real-OS WAT host and the generated routes’ common successful-operation observation API remain follow-up work.
 
 ## Native semantics and OS connections
 
@@ -275,7 +275,7 @@ Native performs name/limit checks, reservation, partial transfers, interruption 
 
 [Comparison tests](../../src/codegen/x86_64/files/tests.rs) link and execute both ASM and directly encoded Objects on Windows/Linux, comparing output, complete file-v1 records, request sequences, close counts, and remaining content with HIR/MIR/SSA/VM. Fixture C only transfers bytes, injects responses, and records calls. Coverage includes roundtrip.ceru, short transfers, interruption, zero progress, invalid responses, combined transfer/close failures, UTF-8/names/limits, allocation failure, evaluation order, short circuits, recursion, copies, and iteration. Normal completion also requires empty string usage and owner lists; injected read failures additionally check reservation release with independent allocation/free counters.
 
-Target-specific OS connections and the agreed startup-marker parser are implemented, with shared real-connection tests for ASM/direct Objects. Recording the connection contract in Native build/release comes next. A real-OS WAT host and common observation APIs for generated routes' successful operations remain separate follow-ups.
+Target-specific OS connections and the agreed startup-marker parser are implemented, with shared real-connection tests for ASM/direct Objects. [Native build](native-build.en.md) / [release](native-release.en.md) connection records and execution comparisons after relocation are also implemented. A real-OS WAT host and common observation APIs for generated routes' successful operations remain separate follow-ups.
 
 ~~~sh
 CERUNE_TEST_ASM_CLANG=clang cargo test --lib native_files
