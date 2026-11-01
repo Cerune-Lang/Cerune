@@ -241,7 +241,13 @@ fn encoded(value: &Value) -> Result<Vec<u8>, String> {
     serde_json::to_vec_pretty(value).map_err(|e| e.to_string())
 }
 fn hash(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut text = String::with_capacity(64);
+    for byte in Sha256::digest(bytes) {
+        text.push(char::from(HEX[usize::from(byte >> 4)]));
+        text.push(char::from(HEX[usize::from(byte & 15)]));
+    }
+    text
 }
 fn require(value: &Value, key: &str, expected: Value) -> Result<(), String> {
     if value.get(key) != Some(&expected) {
@@ -428,5 +434,20 @@ fn file_guide(target: Target, executable: &str, english: bool, contract: &Value)
         format!(
             "このbuildはcerune-native-file-connection-v1のファイル接続を含みます。<directory>を既存の作業ディレクトリへ置き換え、実行時に明示します。build/releaseは接続先を選択・openしません。\n\n    {command} --cerune-runtime-v1 --file-root <directory> -- <プログラム引数...>\n\n先頭のマーカーがある場合だけ設定を解釈し、--以降はそのままプログラム引数にします。root未設定でファイル操作を行うとfile-v1/unconfiguredで停止します。既存ファイルは上書きしません。{os} 記録は必要条件を示すもので、実行設定の変更や配布先の検証は行いません。\n\n"
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn sha256_records_keep_the_standard_lowercase_encoding() {
+        assert_eq!(
+            super::hash(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            super::hash(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 }
