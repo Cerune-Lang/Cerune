@@ -42,6 +42,8 @@ pub enum PollEvent {
     WaitFailed,
 }
 
+/// 同期契約です。pollの借用bufferを返却後まで保持してはいけません。
+/// 複数の進行中転送を扱うtransfers部品との接続は後続です。
 /// 一つの接続は同時に一つの操作を管理します。
 /// nowは単調時計です。pollは全pipeと終了を多重化し、一つの事象だけを返します。
 /// 対応するbuffer/flagが無効な操作は行わず、deadlineを超えて新しい転送を始めません。

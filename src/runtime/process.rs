@@ -4,6 +4,7 @@ pub use super::output::Origin;
 use std::time::Duration;
 mod backend;
 mod records;
+pub mod transfers;
 pub use backend::{Backend, Launch, Poll, PollEvent, StartError};
 pub use records::{
     Channel, Cleanup, CleanupError, Code, Event, Exit, Failure, Limits, Offered, Outcome, Phase,
