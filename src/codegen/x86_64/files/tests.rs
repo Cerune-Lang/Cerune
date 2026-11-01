@@ -19,8 +19,9 @@ fn target() -> Target {
 }
 fn artifact(p: &crate::ir::Program, t: Target) -> NativeProgram {
     let mir = crate::mir::lower(p).unwrap();
-    let module = lower::lower_file_tests(&mir, t).unwrap();
-    let mut native = build_program_from_lir(&module, true).unwrap();
+    let module = lower::lower(&mir, t).unwrap();
+    super::super::lir::validate(&module).unwrap();
+    let mut native = super::super::emit::build_with_file_connection(&module, true, false);
     // 試験用mainから、Ceruneの処理終了時に所有領域が回収済みか確認します。
     for s in &mut native.program.symbols {
         match s.name.as_str() {
@@ -172,11 +173,7 @@ fn native_files_lowering_preserves_origins_and_both_object_targets() {
     let p = hir(include_str!("../../../../examples/files/roundtrip.ceru"));
     let mir = crate::mir::lower(&p).unwrap();
     for t in [Target::X86_64PcWindowsMsvc, Target::X86_64UnknownLinuxGnu] {
-        assert!(
-            super::super::lower_mir(&mir, t).is_err(),
-            "OS connection is not public yet"
-        );
-        let m = lower::lower_file_tests(&mir, t).unwrap();
+        let m = lower::lower(&mir, t).unwrap();
         let native = build_program_from_lir(&m, true).unwrap();
         let asm = native.render_asm().unwrap();
         assert!(asm.contains("cerune_file_read_text"));
@@ -398,7 +395,7 @@ fn native_files_allocation_failure_precedes_open_and_redacts_input() {
         r#"import "std:fs" as fs; print(7); print(fs::read_text("private-name",3)); print(8);"#,
     );
     let mir = crate::mir::lower(&p).unwrap();
-    let m = lower::lower_file_tests(&mir, target()).unwrap();
+    let m = lower::lower(&mir, target()).unwrap();
     let source = m
         .instructions
         .iter()
@@ -455,7 +452,7 @@ fn native_files_allocation_failure_precedes_open_and_redacts_input() {
 fn native_files_lir_requires_origin_frame_and_heap() {
     let p = hir(include_str!("../../../../examples/files/roundtrip.ceru"));
     let mir = crate::mir::lower(&p).unwrap();
-    let m = lower::lower_file_tests(&mir, target()).unwrap();
+    let m = lower::lower(&mir, target()).unwrap();
     let original = m.clone();
     let native = build_program_from_lir(&m, true).unwrap();
     assert_eq!(m, original);

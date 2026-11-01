@@ -1,7 +1,8 @@
-//! ファイルの意味処理を型付き機械命令で構築します。接続は現在、試験時だけ供給します。
+//! ファイルの意味処理を型付き機械命令で構築します。意味処理とOS接続を分離します。
 use super::ir::{Instruction, Module};
 use super::machine::{EntryKind, Linkage, Opcode, Operand, Section, r32, r64};
 use super::program::{NativeProgram, address};
+pub(super) mod connection;
 mod names;
 #[cfg(test)]
 mod tests;
@@ -78,7 +79,7 @@ fn local(o: &mut NativeProgram, s: &str) -> Operand {
 fn compare(o: &mut NativeProgram, value: Operand, with: i128) {
     o.emit(Opcode::Cmp64, [imm(with), value]);
 }
-fn call(o: &mut NativeProgram, name: &str, args: &[Operand]) {
+fn call_arguments(o: &mut NativeProgram, args: &[Operand]) {
     let linux = o.program.target == sashimi_assembler::Target::X86_64UnknownLinuxGnu;
     let regs: &[u8] = if linux {
         &[7, 6, 2, 1, 8, 9]
@@ -101,7 +102,16 @@ fn call(o: &mut NativeProgram, name: &str, args: &[Operand]) {
     if linux {
         o.emit(Opcode::Xor32, [r32(0), r32(0)]);
     }
-    let symbol = o.symbol(name, Linkage::External);
+}
+fn call(o: &mut NativeProgram, name: &str, args: &[Operand]) {
+    call_arguments(o, args);
+    let linkage = o
+        .program
+        .symbols
+        .iter()
+        .find(|s| s.name == name)
+        .map_or(Linkage::External, |s| s.linkage);
+    let symbol = o.symbol(name, linkage);
     o.emit(Opcode::Call, [Operand::Symbol(symbol)]);
 }
 fn fail(o: &mut NativeProgram, code: &str, to: &str) {
