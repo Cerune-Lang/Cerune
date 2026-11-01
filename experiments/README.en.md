@@ -10,6 +10,7 @@ Models, transformations, and external-tool verification live separately from the
 | [host_calls](host_calls/README.en.md) | Compare values, failures, type adaptation and size when calling the same functions through VM embedding and generated WAT |
 | [call_depth](call_depth/README.en.md) | Compare explicit depth limits across executors and generated routes; save representations and measure physical stack separately from logical depth |
 | [ssa](ssa/README.en.md) | Rust API examples for SSA construction, observation, and direct execution; not a separate language specification replacing public CLI behavior |
+| [subprocess](subprocess/README.en.md) | Windows/Linux OS probe for argv, concurrent I/O, deadlines, and descendant cleanup; separate from language APIs and production OS connections |
 
 There is no LIR direct-execution experiment. The [overall inventory](../docs/design/development-status.en.md) distinguishes implementation, observation, and proof coverage.
 

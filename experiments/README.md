@@ -10,6 +10,7 @@
 | [host_calls](host_calls/README.md) | 同じ関数をVM埋め込みと生成WATから呼び、値・停止・型変換・サイズを比較 |
 | [call_depth](call_depth/README.md) | 4実行器と生成経路の深さ上限を比較。各表現の保存、物理スタックと意味上の深さを分けた実測 |
 | [ssa](ssa/README.md) | SSA構築・観測・直接実行のRust API例。公開CLIの代わりに別の言語仕様を作るものではない |
+| [subprocess](subprocess/README.md) | Windows/Linuxでargv・同時入出力・期限・子孫回収を検証するOS試作。言語APIや本体の実OS接続とは区別 |
 
 LIR直接実行の実験はありません。[全体の現状](../docs/design/development-status.ja.md)で実装・観測・証明範囲を区別します。
 

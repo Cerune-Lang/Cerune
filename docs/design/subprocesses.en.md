@@ -52,7 +52,9 @@ Run the following tests to compare success/nonzero exit, continuation after fail
 cargo test --lib runtime::process
 ```
 
-Next, use minimal Windows/Linux OS prototypes to validate cleanup, deadlines, and argv before finalizing public result types and integrating the standard module and common IR.
+The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) verifies nine cases including argv, concurrent transfer, deadlines, and descendant reclamation. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor.
+
+Next, refine the connection contract for starting, completing, cancelling, and counting transfers in flight. The concurrent-worker prototype cannot directly implement the current single-event poll contract. Define supervisor isolation from Linux embedding hosts and resource ownership after cleanup failures before production OS integration. Public result types, the standard module, and common IR follow.
 
 ## Calls and connections
 
