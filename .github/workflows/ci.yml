@@ -553,3 +553,26 @@ jobs:
           name: typed-host-call-observations
           path: target/host-calls/
           if-no-files-found: ignore
+
+  subprocess-os-probe:
+    name: Subprocess OS / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.98.0
+      - name: Check ABI and quoting helpers
+        run: cargo test --example subprocess_probe
+      - name: Probe argv, pipes, deadlines, and descendant cleanup
+        run: cargo run --example subprocess_probe -- target/subprocess-os-probe
+      - name: Preserve bounded observations
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: subprocess-os-${{ matrix.os }}
+          path: target/subprocess-os-probe/observations.jsonl
+          if-no-files-found: ignore
