@@ -1,3 +1,4 @@
+use super::transfers::{CancelReply, Completion, Kind, Ticket, Transfer};
 use super::*;
 use crate::{ir::NodeId, source::Span};
 use std::collections::VecDeque;
@@ -36,58 +37,90 @@ fn complete() -> Cleanup {
         termination_requested: false,
     }
 }
-fn incomplete() -> Cleanup {
-    Cleanup::Incomplete {
-        child_reaped: false,
-        handles_closed: true,
-        scope_finished: false,
-        error: CleanupError::Reap,
+fn code(out: &Outcome) -> Option<Code> {
+    out.report.failure.map(|f| f.code)
+}
+struct Reply {
+    channel: usize,
+    bytes: Vec<u8>,
+    n: usize,
+    result: Completion,
+}
+fn done(channel: usize, bytes: &[u8], n: usize, result: Completion) -> Reply {
+    Reply {
+        channel,
+        bytes: bytes.to_vec(),
+        n,
+        result,
     }
 }
-enum Action {
-    Event(PollEvent),
-    Output(Channel, Vec<u8>),
+struct Step {
+    at: Duration,
+    replies: Vec<Reply>,
+    exit: Option<Result<Exit, WaitError>>,
+    cleanup: Option<Cleanup>,
+    wake: Wake,
+    acknowledge: bool,
+}
+fn step(at: u64, replies: Vec<Reply>) -> Step {
+    Step {
+        at: ms(at),
+        replies,
+        exit: None,
+        cleanup: None,
+        wake: Wake::Events,
+        acknowledge: false,
+    }
 }
 struct Plan {
     launch: Launch,
-    steps: VecDeque<(Duration, Action)>,
-    cleanup: Cleanup,
+    steps: VecDeque<Step>,
+    cleanup: Option<VecDeque<Step>>,
     start_time: Option<Duration>,
-    cleanup_time: Option<Duration>,
+    submit_time: Option<Duration>,
+    begin_time: Option<Duration>,
 }
-fn plan(events: Vec<PollEvent>) -> Plan {
+fn plan(steps: Vec<Step>) -> Plan {
     Plan {
         launch: Launch::Started,
-        steps: events
-            .into_iter()
-            .enumerate()
-            .map(|(i, e)| (ms(i as u64 + 1), Action::Event(e)))
-            .collect(),
-        cleanup: complete(),
+        steps: steps.into(),
+        cleanup: None,
         start_time: None,
-        cleanup_time: None,
+        submit_time: None,
+        begin_time: None,
     }
 }
 fn finished(code: u32) -> Plan {
-    plan(vec![
-        PollEvent::StdinClosed,
-        PollEvent::Read(Channel::Stdout, 0),
-        PollEvent::Read(Channel::Stderr, 0),
-        PollEvent::Exited(Exit::Code(code)),
-    ])
+    let mut s = step(
+        1,
+        vec![
+            done(0, b"", 0, Completion::Done),
+            done(1, b"", 0, Completion::Eof),
+            done(2, b"", 0, Completion::Eof),
+        ],
+    );
+    s.exit = Some(Ok(Exit::Code(code)));
+    plan(vec![s])
+}
+#[derive(Debug, PartialEq, Eq)]
+enum Action {
+    Start,
+    Submit(Ticket, Kind, usize),
+    Cancel(Ticket),
+    Cleanup(bool),
+    Poll,
 }
 #[derive(Default)]
 struct Script {
     plans: VecDeque<Plan>,
     active: Option<Plan>,
-    unreclaimed: Option<Plan>,
+    pending: [Option<Transfer>; 3],
+    cancellations: Vec<Ticket>,
+    cleaning: bool,
     now: Duration,
-    starts: usize,
-    polls: usize,
-    cleanups: Vec<(bool, Duration)>,
+    actions: Vec<Action>,
     sent: Vec<u8>,
     args: Vec<String>,
-    offers: Vec<(usize, usize, usize)>,
 }
 impl Script {
     fn new(plans: Vec<Plan>) -> Self {
@@ -102,614 +135,769 @@ impl Backend for Script {
         self.now
     }
     fn start(&mut self, request: &Request<'_>, _: Duration) -> Launch {
-        assert!(
-            self.active.is_none() && self.unreclaimed.is_none(),
-            "no overlapping starts"
-        );
-        self.starts += 1;
-        self.args = request.arguments.iter().map(|s| (*s).to_owned()).collect();
+        assert!(self.active.is_none());
+        assert!(self.pending.iter().all(Option::is_none));
+        self.actions.push(Action::Start);
+        self.args = request.arguments.iter().map(|s| s.to_string()).collect();
         let next = self.plans.pop_front().expect("unexpected launch");
-        let launch = next.launch;
         if let Some(time) = next.start_time {
             self.now = time;
         }
+        self.cleaning = false;
+        let launch = next.launch;
         if !matches!(launch, Launch::NotStarted(_)) {
             self.active = Some(next);
         }
         launch
     }
-    fn poll(&mut self, request: Poll<'_>) -> PollEvent {
-        self.polls += 1;
-        self.offers.push((
-            request.stdin.len(),
-            request.stdout.len(),
-            request.stderr.len(),
+    fn submit(&mut self, transfer: Transfer, _: Duration) {
+        let i = transfer.kind().index();
+        assert!(self.pending[i].is_none());
+        self.actions.push(Action::Submit(
+            transfer.ticket(),
+            transfer.kind(),
+            transfer.bytes().len(),
         ));
-        let Some((time, action)) = self.active.as_mut().unwrap().steps.pop_front() else {
-            self.now = request.deadline;
-            return PollEvent::Deadline;
-        };
-        self.now = time;
-        match action {
-            Action::Event(PollEvent::Written(n)) => {
-                if n <= request.stdin.len() {
-                    self.sent.extend_from_slice(&request.stdin[..n]);
-                }
-                PollEvent::Written(n)
-            }
-            Action::Event(event) => event,
-            Action::Output(channel, bytes) => {
-                let into = match channel {
-                    Channel::Stdout => request.stdout,
-                    Channel::Stderr => request.stderr,
-                    _ => panic!(),
-                };
-                assert!(bytes.len() <= into.len(), "fixture exceeds requested read");
-                into[..bytes.len()].copy_from_slice(&bytes);
-                PollEvent::Read(channel, bytes.len())
-            }
-        }
-    }
-    fn cleanup(&mut self, terminate: bool, deadline: Duration) -> Cleanup {
-        self.cleanups.push((terminate, deadline));
-        let plan = self.active.take().expect("cleanup exactly once");
-        if let Some(time) = plan.cleanup_time {
+        self.pending[i] = Some(transfer);
+        if let Some(time) = self.active.as_mut().unwrap().submit_time.take() {
             self.now = time;
         }
-        let cleanup = plan.cleanup;
-        if matches!(cleanup, Cleanup::Incomplete { .. }) {
-            self.unreclaimed = Some(plan);
-        }
-        cleanup
     }
-}
-fn run(script: Script, request: Request<'_>) -> (Outcome, Script) {
-    let mut p = Processes::new(script, limits());
-    let out = p.run(request, 16384, origin());
-    (out, p.into_inner().unwrap())
-}
-fn code(out: &Outcome) -> Option<Code> {
-    out.report.failure.map(|f| f.code)
-}
-
-#[test]
-fn nonzero_exit_is_a_completed_operation_and_another_call_can_follow() {
-    let mut second = finished(0);
-    for (time, _) in &mut second.steps {
-        *time += ms(10);
-    }
-    let mut p =
-        Processes::with_trace_limit(Script::new(vec![finished(u32::MAX), second]), limits(), 100);
-    let first = p.run(request(), 64, origin());
-    assert!(first.completed());
-    assert_eq!(first.report.exit, Some(Exit::Code(u32::MAX)));
-    assert!(p.run(request(), 64, origin()).completed());
-    assert_eq!(p.events().last().unwrap().sequence, 2);
-    assert!(p.events().iter().all(|e| e.report.origin == origin()));
-    let backend = p.into_inner().unwrap();
-    assert_eq!(backend.starts, 2);
-    assert_eq!(
-        backend.cleanups.iter().map(|x| x.0).collect::<Vec<_>>(),
-        [false, false]
-    );
-}
-
-#[test]
-fn failure_retains_binary_output_and_accepted_input_without_automatic_retry() {
-    let mut first = plan(vec![
-        PollEvent::Written(2),
-        PollEvent::TransferFailed(Channel::Stdin),
-    ]);
-    first.steps.insert(
-        1,
-        (ms(1), Action::Output(Channel::Stdout, vec![0, 255, 13, 10])),
-    );
-    let mut second = finished(7);
-    for (t, _) in &mut second.steps {
-        *t += ms(10);
-    }
-    let mut p = Processes::new(Script::new(vec![first, second]), limits());
-    let req = Request {
-        stdin: b"abcdef",
-        ..request()
-    };
-    let first = p.run(req, 64, origin());
-    assert_eq!(code(&first), Some(Code::TransferFailed));
-    assert_eq!(
-        first.report.failure.unwrap().phase,
-        Phase::Transfer(Channel::Stdin)
-    );
-    assert_eq!(first.report.stdin_accepted, 2);
-    assert_eq!(first.stdout, [0, 255, 13, 10]);
-    assert!(!p.is_disabled());
-    let mut copy = first.clone();
-    copy.stdout[0] = 42;
-    assert_eq!(first.stdout[0], 0);
-    assert!(p.run(request(), 64, origin()).completed());
-    let backend = p.into_inner().unwrap();
-    assert_eq!(backend.sent, b"ab");
-    assert_eq!(backend.starts, 2);
-    assert_eq!(
-        backend.cleanups.iter().map(|x| x.0).collect::<Vec<_>>(),
-        [true, false]
-    );
-}
-
-#[test]
-fn exact_limits_require_eof_and_overflow_retains_only_the_limit() {
-    for channel in [Channel::Stdout, Channel::Stderr] {
-        for (limit, bytes, expected) in [
-            (0, vec![], None),
-            (3, b"abc".to_vec(), None),
-            (0, vec![255], Some(Code::OutputLimit)),
-            (3, b"abcd".to_vec(), Some(Code::OutputLimit)),
-        ] {
-            let mut script = finished(0);
-            if !bytes.is_empty() {
-                script
-                    .steps
-                    .push_front((ms(0), Action::Output(channel, bytes.clone())));
+    fn poll(&mut self, deadline: Duration) -> Batch {
+        self.actions.push(Action::Poll);
+        let active = self.active.as_mut().unwrap();
+        let next = if self.cleaning {
+            match active.cleanup.as_mut() {
+                Some(steps) => steps.pop_front(),
+                None => {
+                    let mut s = step(self.now.as_millis() as u64, vec![]);
+                    for (i, pending) in self.pending.iter().enumerate() {
+                        if pending.is_some() {
+                            s.replies.push(done(i, b"", 0, Completion::Cancelled));
+                        }
+                    }
+                    s.cleanup = Some(complete());
+                    s.acknowledge = true;
+                    Some(s)
+                }
             }
-            let req = Request {
-                stdout_limit: limit,
-                stderr_limit: limit,
-                ..request()
-            };
-            let (out, backend) = run(Script::new(vec![script]), req);
-            assert_eq!(code(&out), expected);
-            let (retained, read) = if channel == Channel::Stdout {
-                (&out.stdout, out.report.stdout_read)
-            } else {
-                (&out.stderr, out.report.stderr_read)
-            };
-            assert_eq!(retained, &bytes[..bytes.len().min(limit)]);
-            assert_eq!(read, bytes.len());
-            assert_eq!(backend.cleanups.len(), 1);
-            if expected.is_none() {
-                assert_eq!(out.report.exit, Some(Exit::Code(0)));
-            }
-        }
-    }
-}
-
-#[test]
-fn stdin_and_both_outputs_can_progress_before_child_exit() {
-    let mut p = plan(vec![]);
-    p.steps = [
-        (
-            ms(1),
-            Action::Output(Channel::Stdout, b"before-input".to_vec()),
-        ),
-        (ms(2), Action::Output(Channel::Stderr, b"warning".to_vec())),
-        (ms(3), Action::Event(PollEvent::Written(1))),
-        (ms(4), Action::Event(PollEvent::Interrupted)),
-        (ms(5), Action::Event(PollEvent::Written(2))),
-        (ms(6), Action::Event(PollEvent::StdinClosed)),
-        (ms(7), Action::Event(PollEvent::Exited(Exit::Signal(9)))),
-        (ms(8), Action::Event(PollEvent::Read(Channel::Stdout, 0))),
-        (ms(9), Action::Event(PollEvent::Read(Channel::Stderr, 0))),
-    ]
-    .into();
-    let req = Request {
-        stdin: b"abc",
-        arguments: &["", "a b", "\"quoted\"", "日本語"],
-        ..request()
-    };
-    let (out, backend) = run(Script::new(vec![p]), req);
-    assert!(out.completed());
-    assert_eq!(out.stdout, b"before-input");
-    assert_eq!(out.stderr, b"warning");
-    assert_eq!(out.report.exit, Some(Exit::Signal(9)));
-    assert_eq!(backend.sent, b"abc");
-    assert_eq!(backend.args, req.arguments);
-    assert!(backend.offers[0].0 > 0 && backend.offers[0].1 > 0 && backend.offers[0].2 > 0);
-}
-
-#[test]
-fn timeout_preserves_progress_and_child_exit_does_not_imply_pipe_eof() {
-    let mut p = plan(vec![PollEvent::Exited(Exit::Code(0))]);
-    p.steps
-        .push_back((ms(99), Action::Output(Channel::Stdout, b"partial".to_vec())));
-    let (out, backend) = run(Script::new(vec![p]), request());
-    assert_eq!(code(&out), Some(Code::Timeout));
-    assert_eq!(out.stdout, b"partial");
-    assert_eq!(out.report.exit, Some(Exit::Code(0)));
-    assert_eq!(backend.cleanups, [(true, ms(110))]);
-}
-
-#[test]
-fn deadline_wins_over_same_poll_error_but_transferred_bytes_are_kept() {
-    for action in [
-        Action::Output(Channel::Stdout, b"late".to_vec()),
-        Action::Event(PollEvent::TransferFailed(Channel::Stdin)),
-    ] {
-        let mut p = plan(vec![]);
-        p.steps.push_back((ms(100), action));
-        let req = Request {
-            stdin: b"x",
-            ..request()
-        };
-        let (out, _) = run(Script::new(vec![p]), req);
-        assert_eq!(code(&out), Some(Code::Timeout));
-        if !out.stdout.is_empty() {
-            assert_eq!(out.stdout, b"late");
-        }
-    }
-}
-
-#[test]
-fn incomplete_cleanup_preserves_original_error_and_disables_only_this_connection() {
-    let mut first = plan(vec![PollEvent::TransferFailed(Channel::Stdout)]);
-    first.cleanup = incomplete();
-    let mut p = Processes::with_trace_limit(Script::new(vec![first]), limits(), 32);
-    let result = p.run(request(), 64, origin());
-    assert_eq!(code(&result), Some(Code::TransferFailed));
-    assert_eq!(result.report.cleanup, Some(incomplete()));
-    assert!(p.is_disabled());
-    let second = p.run(request(), 64, origin());
-    assert_eq!(code(&second), Some(Code::ConnectionDisabled));
-    assert_eq!(second.report.started, Started::No);
-    assert_eq!(second.report.cleanup, None);
-    let backend = p.into_inner().unwrap();
-    assert_eq!(backend.starts, 1);
-    assert_eq!(backend.cleanups.len(), 1);
-    assert!(backend.unreclaimed.is_some());
-    assert!(run(Script::new(vec![finished(0)]), request()).0.completed());
-}
-
-#[test]
-fn cleanup_failure_after_normal_exit_is_not_success() {
-    let mut p = finished(0);
-    p.cleanup = incomplete();
-    let (out, _) = run(Script::new(vec![p]), request());
-    assert_eq!(code(&out), Some(Code::CleanupFailed));
-    assert_eq!(out.report.exit, Some(Exit::Code(0)));
-}
-
-#[test]
-fn known_launch_failure_can_be_retried_explicitly_uncertain_launch_is_cleaned_once() {
-    for uncertain in [false, true] {
-        let mut first = plan(vec![]);
-        first.launch = if uncertain {
-            Launch::Uncertain(StartError::Resources)
         } else {
-            Launch::NotStarted(StartError::Resources)
+            active.steps.pop_front()
         };
-        let mut p = Processes::new(Script::new(vec![first, finished(0)]), limits());
-        let out = p.run(request(), 64, origin());
-        assert_eq!(code(&out), Some(Code::Resources));
+        let Some(step) = next else {
+            self.now = deadline;
+            return Batch {
+                wake: Wake::Deadline,
+                ..Batch::default()
+            };
+        };
+        self.now = step.at;
+        let mut batch = Batch {
+            exit: step.exit,
+            cleanup: step.cleanup,
+            wake: step.wake,
+            ..Batch::default()
+        };
+        for (slot, reply) in step.replies.into_iter().enumerate() {
+            let mut transfer = self.pending[reply.channel]
+                .take()
+                .expect("reply without submission");
+            if let Some(buffer) = transfer.read_buffer() {
+                assert!(reply.bytes.len() <= buffer.len());
+                buffer[..reply.bytes.len()].copy_from_slice(&reply.bytes);
+            } else if reply.n <= transfer.bytes().len() {
+                self.sent.extend_from_slice(&transfer.bytes()[..reply.n]);
+            }
+            batch.transfers[slot] = Some(Completed {
+                transfer,
+                confirmed: reply.n,
+                result: reply.result,
+            });
+        }
+        if step.acknowledge {
+            for (slot, ticket) in self.cancellations.drain(..).enumerate() {
+                batch.cancellations[slot] = Some((ticket, CancelReply::Requested));
+            }
+        }
+        if batch.cleanup.is_some() && self.pending.iter().all(Option::is_none) {
+            self.active = None;
+        }
+        batch
+    }
+    fn cancel(&mut self, ticket: Ticket, _: Duration) {
+        assert!(!self.cancellations.contains(&ticket));
+        self.actions.push(Action::Cancel(ticket));
+        self.cancellations.push(ticket);
+    }
+    fn begin_cleanup(&mut self, terminate: bool, _: Duration) {
+        assert!(!self.cleaning, "cleanup once");
+        self.actions.push(Action::Cleanup(terminate));
+        self.cleaning = true;
+        if let Some(time) = self.active.as_ref().unwrap().begin_time {
+            self.now = time;
+        }
+    }
+}
+fn run(plan: Plan, request: Request<'_>) -> (Outcome, Script) {
+    let mut p = Processes::new(Script::new(vec![plan]), limits());
+    let result = p.run(request, 32768, origin());
+    (result, p.into_inner().unwrap())
+}
+
+#[test]
+fn nonzero_exit_and_explicit_next_call_have_distinct_ids() {
+    let mut p = Processes::new(Script::new(vec![finished(7), finished(0)]), limits());
+    let mut req = request();
+    req.arguments = &["", "日本語", "a b", "\"quoted\""];
+    let first = p.run(req, 32768, origin());
+    let second = p.run(req, 32768, origin());
+    assert!(first.completed() && second.completed());
+    assert_eq!(first.report.exit, Some(Exit::Code(7)));
+    assert_eq!(second.report.exit, Some(Exit::Code(0)));
+    assert_ne!(
+        first.transfers.unwrap().call,
+        second.transfers.unwrap().call
+    );
+    assert_eq!(first.report.origin, origin());
+    let backend = p.into_inner().unwrap();
+    assert_eq!(backend.args, req.arguments);
+    assert_eq!(
+        backend
+            .actions
+            .iter()
+            .filter(|a| matches!(a, Action::Start))
+            .count(),
+        2
+    );
+    assert_eq!(
+        backend
+            .actions
+            .iter()
+            .filter(|a| matches!(a, Action::Cleanup(false)))
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn simultaneous_notifications_use_stream_order_and_keep_all_partial_results() {
+    for order in [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ] {
+        let replies = order
+            .into_iter()
+            .map(|i| match i {
+                0 => done(0, b"", 2, Completion::Done),
+                1 => done(1, b"ab!", 3, Completion::Done),
+                _ => done(2, b"e", 1, Completion::Failed),
+            })
+            .collect();
+        let mut req = request();
+        req.stdin = b"abc";
+        req.stdout_limit = 2;
+        let (out, backend) = run(plan(vec![step(1, replies)]), req);
+        assert_eq!(code(&out), Some(Code::OutputLimit));
         assert_eq!(
-            out.report.started,
-            if uncertain {
+            out.report.failure.unwrap().phase,
+            Phase::Transfer(Channel::Stdout)
+        );
+        assert_eq!(out.report.stdin_accepted, 2);
+        assert_eq!(out.report.stdout_read, 3);
+        assert_eq!(out.stdout, b"ab");
+        assert_eq!(out.stderr, b"e");
+        assert_eq!(
+            backend
+                .actions
+                .iter()
+                .filter(|a| matches!(a, Action::Submit(..)))
+                .count(),
+            3
+        );
+    }
+}
+
+#[test]
+fn operation_deadline_wins_over_same_batch_failure_but_preserves_bytes_and_exit() {
+    let mut s = step(
+        100,
+        vec![
+            done(2, b"err", 3, Completion::Failed),
+            done(0, b"", 1, Completion::Done),
+            done(1, b"\0\r\n", 3, Completion::Done),
+        ],
+    );
+    s.exit = Some(Ok(Exit::Code(9)));
+    let mut req = request();
+    req.stdin = b"abc";
+    let (out, backend) = run(plan(vec![s]), req);
+    assert_eq!(code(&out), Some(Code::Timeout));
+    assert_eq!(out.report.stdin_accepted, 1);
+    assert_eq!(out.report.exit, Some(Exit::Code(9)));
+    assert_eq!(out.stdout, b"\0\r\n");
+    assert_eq!(out.stderr, b"err");
+    assert_eq!(
+        backend
+            .actions
+            .iter()
+            .filter(|a| matches!(a, Action::Cleanup(true)))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn timeout_cancels_once_then_collects_late_partial_transfers_and_replies() {
+    let mut late = step(
+        101,
+        vec![
+            done(1, b"late", 4, Completion::Done),
+            done(2, &[0xff], 1, Completion::Failed),
+            done(0, b"", 2, Completion::Cancelled),
+        ],
+    );
+    late.acknowledge = true;
+    late.exit = Some(Ok(Exit::Signal(9)));
+    late.cleanup = Some(complete());
+    let mut next = plan(vec![]);
+    next.cleanup = Some(vec![late].into());
+    let mut req = request();
+    req.stdin = b"abc";
+    let mut p = Processes::with_trace_limit(Script::new(vec![next]), limits(), 100);
+    let out = p.run(req, 32768, origin());
+    assert_eq!(code(&out), Some(Code::Timeout));
+    assert_eq!(out.stdout, b"late");
+    assert_eq!(out.stderr, [0xff]);
+    assert_eq!(out.report.stdin_accepted, 2);
+    assert!(out.report.progress_known);
+    assert!(!p.is_disabled());
+    assert!(p.events().iter().any(|e| !e.report.progress_known));
+    let b = p.into_inner().unwrap();
+    assert_eq!(
+        b.actions
+            .iter()
+            .filter(|a| matches!(a, Action::Cancel(_)))
+            .count(),
+        3
+    );
+    assert!(b.pending.iter().all(Option::is_none));
+}
+
+#[test]
+fn cleanup_complete_without_transfer_notifications_disables_connection_and_keeps_buffers() {
+    let mut s = step(101, vec![]);
+    s.cleanup = Some(complete());
+    s.acknowledge = true;
+    let mut next = plan(vec![]);
+    next.cleanup = Some(vec![s].into());
+    let mut p = Processes::new(Script::new(vec![next, finished(0)]), limits());
+    let out = p.run(request(), 32768, origin());
+    assert_eq!(code(&out), Some(Code::Timeout));
+    assert!(!out.report.progress_known);
+    assert!(p.is_disabled());
+    assert!(
+        out.transfers
+            .unwrap()
+            .operations
+            .iter()
+            .all(|o| o.unwrap().state == State::Submitted)
+    );
+    let before = p.backend.as_ref().unwrap().actions.len();
+    let again = p.run(request(), 32768, origin());
+    assert_eq!(code(&again), Some(Code::ConnectionDisabled));
+    assert_eq!(p.backend.as_ref().unwrap().actions.len(), before);
+    assert_eq!(
+        p.into_inner()
+            .unwrap()
+            .pending
+            .iter()
+            .filter(|p| p.is_some())
+            .count(),
+        3
+    );
+}
+
+#[test]
+fn normal_completion_waits_for_both_eofs_and_child_exit() {
+    let mut first = step(1, vec![done(0, b"", 0, Completion::Done)]);
+    first.exit = Some(Ok(Exit::Code(0)));
+    let (out, _) = run(plan(vec![first]), request());
+    assert_eq!(code(&out), Some(Code::Timeout));
+    assert_eq!(out.report.exit, Some(Exit::Code(0)));
+}
+
+#[test]
+fn exact_and_zero_output_limits_require_eof_and_probe_is_excluded() {
+    for limit in [0, 2] {
+        for overflow in [false, true] {
+            let mut steps = vec![step(
+                1,
+                vec![
+                    done(0, b"", 0, Completion::Done),
+                    done(2, b"", 0, Completion::Eof),
+                ],
+            )];
+            if limit != 0 {
+                steps[0].replies.push(done(1, b"ab", 2, Completion::Done));
+            }
+            let mut end = step(
+                2,
+                vec![done(
+                    1,
+                    if overflow { b"!" } else { b"" },
+                    usize::from(overflow),
+                    if overflow {
+                        Completion::Done
+                    } else {
+                        Completion::Eof
+                    },
+                )],
+            );
+            end.exit = Some(Ok(Exit::Code(0)));
+            steps.push(end);
+            let mut req = request();
+            req.stdout_limit = limit;
+            let (out, b) = run(plan(steps), req);
+            assert_eq!(code(&out), overflow.then_some(Code::OutputLimit));
+            assert_eq!(out.stdout, &b"ab"[..limit]);
+            assert_eq!(out.report.stdout_read, limit + usize::from(overflow));
+            assert!(
+                b.actions
+                    .iter()
+                    .any(|a| matches!(a, Action::Submit(_, Kind::Read(Channel::Stdout), 1)))
+            );
+        }
+    }
+}
+
+#[test]
+fn short_input_is_resubmitted_only_from_confirmed_position_then_closed() {
+    let mut final_step = step(4, vec![done(0, b"", 0, Completion::Done)]);
+    final_step.exit = Some(Ok(Exit::Code(0)));
+    let steps = vec![
+        step(
+            1,
+            vec![
+                done(0, b"", 1, Completion::Done),
+                done(1, b"", 0, Completion::Eof),
+                done(2, b"", 0, Completion::Eof),
+            ],
+        ),
+        step(2, vec![done(0, b"", 2, Completion::Done)]),
+        final_step,
+    ];
+    let mut req = request();
+    req.stdin = b"abc";
+    let (out, b) = run(plan(steps), req);
+    assert!(out.completed());
+    assert_eq!(b.sent, b"abc");
+    let offered: Vec<_> = b
+        .actions
+        .iter()
+        .filter_map(|a| match a {
+            Action::Submit(_, Kind::Write, n) => Some(*n),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(offered, [3, 2]);
+}
+
+#[test]
+fn launch_failure_is_recoverable_and_uncertain_launch_is_cleaned_once() {
+    for launch in [
+        Launch::NotStarted(StartError::Denied),
+        Launch::Uncertain(StartError::Failed),
+    ] {
+        let mut next = plan(vec![]);
+        next.launch = launch;
+        let mut p = Processes::new(Script::new(vec![next, finished(0)]), limits());
+        let first = p.run(request(), 32768, origin());
+        assert_eq!(
+            first.report.started,
+            if matches!(launch, Launch::Uncertain(_)) {
                 Started::Unknown
             } else {
                 Started::No
             }
         );
-        assert_eq!(out.report.cleanup.is_some(), uncertain);
-        assert!(p.run(request(), 64, origin()).completed());
-        let backend = p.into_inner().unwrap();
-        assert_eq!(backend.starts, 2);
-        assert_eq!(backend.cleanups.len(), if uncertain { 2 } else { 1 });
-    }
-}
-
-#[test]
-fn invalid_responses_are_not_interpreted_as_progress_or_completion() {
-    for event in [
-        PollEvent::Written(9),
-        PollEvent::StdinClosed,
-        PollEvent::Read(Channel::Stdin, 1),
-        PollEvent::Read(Channel::Stdout, 34),
-        PollEvent::Exited(Exit::Signal(0)),
-        PollEvent::Deadline,
-    ] {
-        let (out, backend) = run(
-            Script::new(vec![plan(vec![event])]),
-            Request {
-                stdin: b"abc",
-                ..request()
-            },
-        );
-        assert_eq!(code(&out), Some(Code::InvalidResponse), "{event:?}");
-        assert!(!out.report.progress_known);
-        assert_eq!(out.report.stdin_accepted, 0);
-        assert_eq!(backend.cleanups.len(), 1);
-    }
-    let (out, _) = run(
-        Script::new(vec![plan(vec![PollEvent::Written(0)])]),
-        Request {
-            stdin: b"abc",
-            ..request()
-        },
-    );
-    assert_eq!(code(&out), Some(Code::ZeroProgress));
-    assert!(out.report.progress_known);
-}
-
-#[test]
-fn backwards_clock_and_start_timeout_stop_without_more_transfers() {
-    let mut p = plan(vec![]);
-    p.start_time = Some(ms(100));
-    let (out, backend) = run(Script::new(vec![p]), request());
-    assert_eq!(code(&out), Some(Code::Timeout));
-    assert_eq!(backend.polls, 0);
-    let mut p = plan(vec![]);
-    p.steps
-        .push_back((ms(3), Action::Event(PollEvent::Interrupted)));
-    p.steps
-        .push_back((ms(2), Action::Event(PollEvent::Interrupted)));
-    let (out, backend) = run(Script::new(vec![p]), request());
-    assert_eq!(code(&out), Some(Code::InvalidResponse));
-    assert_eq!(backend.polls, 2);
-    assert_eq!(backend.cleanups.len(), 1);
-}
-
-#[test]
-fn validation_and_reservation_fail_before_any_launch_and_do_not_poison_connection() {
-    let cases = [
-        (
-            Request {
-                target: "",
-                ..request()
-            },
-            64,
-            Code::InvalidRequest,
-        ),
-        (
-            Request {
-                arguments: &["a\0b"],
-                ..request()
-            },
-            64,
-            Code::InvalidRequest,
-        ),
-        (
-            Request {
-                timeout: Duration::ZERO,
-                ..request()
-            },
-            64,
-            Code::InvalidRequest,
-        ),
-        (
-            Request {
-                timeout: ms(101),
-                ..request()
-            },
-            64,
-            Code::RequestLimit,
-        ),
-        (
-            Request {
-                stdout_limit: usize::MAX,
-                ..request()
-            },
-            64,
-            Code::RequestLimit,
-        ),
-        (request(), 63, Code::OutputBudget),
-    ];
-    for (req, available, expected) in cases {
-        let mut p = Processes::new(Script::new(vec![finished(0)]), limits());
-        assert_eq!(code(&p.run(req, available, origin())), Some(expected));
-        assert!(p.run(request(), 64, origin()).completed());
-        assert_eq!(p.into_inner().unwrap().starts, 1);
-    }
-    let mut p = Processes::<Script>::unconfigured(limits());
-    assert_eq!(
-        code(&p.run(request(), 64, origin())),
-        Some(Code::Unconfigured)
-    );
-    let mut p = Processes::new(Script::new(vec![finished(0)]), limits());
-    p.fail_allocation = true;
-    assert_eq!(
-        code(&p.run(request(), 64, origin())),
-        Some(Code::AllocationFailed)
-    );
-    assert!(p.run(request(), 64, origin()).completed());
-    assert_eq!(p.into_inner().unwrap().starts, 1);
-}
-
-#[test]
-fn observation_is_read_only_bounded_and_independent_of_results() {
-    let mut results = Vec::new();
-    for (trace_limit, allocation_failure) in [(0, false), (1, false), (32, true), (32, false)] {
-        let mut p =
-            Processes::with_trace_limit(Script::new(vec![finished(7)]), limits(), trace_limit);
-        p.fail_record_allocation = allocation_failure;
-        let outcome = p.run(
-            Request {
-                target: "private-target",
-                arguments: &["private-argument"],
-                ..request()
-            },
-            64,
-            origin(),
-        );
-        let events = format!("{:?}", p.events());
-        assert!(!events.contains("private"));
-        assert!(p.events().len() <= trace_limit);
-        assert_eq!(p.trace_truncated(), trace_limit == 1 || allocation_failure);
-        let backend = p.into_inner().unwrap();
-        results.push((outcome, backend.starts, backend.polls, backend.cleanups));
-    }
-    assert!(results.windows(2).all(|r| r[0] == r[1]));
-}
-
-#[test]
-fn large_requests_use_bounded_chunks_and_capacity_includes_both_outputs() {
-    let input = vec![42; CHUNK + 1];
-    let mut p = finished(0);
-    p.steps
-        .push_front((ms(0), Action::Event(PollEvent::Written(1))));
-    p.steps
-        .push_front((ms(0), Action::Event(PollEvent::Written(CHUNK))));
-    let req = Request {
-        stdin: &input,
-        stdout_limit: 8192,
-        stderr_limit: 8192,
-        ..request()
-    };
-    let (out, backend) = run(Script::new(vec![p]), req);
-    assert!(out.completed());
-    assert_eq!(backend.sent, input);
-    assert!(
-        backend
-            .offers
-            .iter()
-            .all(|&(i, o, e)| i <= CHUNK && o <= CHUNK && e <= CHUNK)
-    );
-}
-
-#[test]
-fn close_wait_and_duplicate_terminal_responses_have_distinct_failures() {
-    let cases = [
-        (vec![PollEvent::CloseFailed], Code::CloseFailed),
-        (vec![PollEvent::WaitFailed], Code::WaitFailed),
-        (
-            vec![PollEvent::StdinClosed, PollEvent::StdinClosed],
-            Code::InvalidResponse,
-        ),
-        (
-            vec![
-                PollEvent::Read(Channel::Stdout, 0),
-                PollEvent::Read(Channel::Stdout, 0),
-            ],
-            Code::InvalidResponse,
-        ),
-        (
-            vec![
-                PollEvent::Exited(Exit::Code(1)),
-                PollEvent::Exited(Exit::Code(2)),
-            ],
-            Code::InvalidResponse,
-        ),
-    ];
-    for (events, expected) in cases {
-        let (out, backend) = run(Script::new(vec![plan(events)]), request());
-        assert_eq!(code(&out), Some(expected));
-        assert_eq!(backend.cleanups.len(), 1);
-    }
-}
-
-#[test]
-fn request_limits_and_unrepresentable_deadlines_prevent_launch() {
-    let args = ["x"; 9];
-    let long = "x".repeat(129);
-    let input = vec![0; 8193];
-    for req in [
-        Request {
-            target: "a\0b",
-            ..request()
-        },
-        Request {
-            arguments: &args,
-            ..request()
-        },
-        Request {
-            arguments: &[&long],
-            ..request()
-        },
-        Request {
-            stdin: &input,
-            ..request()
-        },
-        Request {
-            stdout_limit: 16384,
-            ..request()
-        },
-    ] {
-        let (out, backend) = run(Script::default(), req);
-        assert!(matches!(
-            code(&out),
-            Some(Code::RequestLimit | Code::InvalidRequest)
-        ));
-        assert_eq!(backend.starts, 0);
-    }
-    let backend = Script {
-        now: Duration::MAX,
-        ..Script::default()
-    };
-    let (out, backend) = run(backend, request());
-    assert_eq!(code(&out), Some(Code::InvalidRequest));
-    assert_eq!(backend.starts, 0);
-}
-
-#[test]
-fn cleanup_deadline_or_backwards_clock_cannot_claim_success() {
-    for time in [ms(0), ms(14)] {
-        let mut next = finished(0);
-        next.cleanup_time = Some(time);
-        let mut p = Processes::new(Script::new(vec![next]), limits());
-        let out = p.run(request(), 64, origin());
-        assert_eq!(code(&out), Some(Code::CleanupFailed));
-        assert!(matches!(
-            out.report.cleanup,
-            Some(Cleanup::Incomplete {
-                child_reaped: true,
-                handles_closed: true,
-                scope_finished: true,
-                ..
-            })
-        ));
-        assert!(p.is_disabled());
+        assert!(p.run(request(), 32768, origin()).completed());
+        let b = p.into_inner().unwrap();
         assert_eq!(
-            code(&p.run(request(), 64, origin())),
-            Some(Code::ConnectionDisabled)
+            b.actions
+                .iter()
+                .filter(|a| matches!(a, Action::Cleanup(_)))
+                .count(),
+            if matches!(launch, Launch::Uncertain(_)) {
+                2
+            } else {
+                1
+            }
         );
-        assert_eq!(p.into_inner().unwrap().starts, 1);
     }
 }
 
 #[test]
-fn trace_records_offered_counts_before_the_response_changes_state() {
-    let mut next = finished(0);
-    next.steps
-        .push_front((ms(0), Action::Output(Channel::Stdout, b"abc".to_vec())));
-    let mut p = Processes::with_trace_limit(Script::new(vec![next]), limits(), 32);
-    let out = p.run(
-        Request {
-            stdout_limit: 3,
-            ..request()
-        },
-        64,
-        origin(),
-    );
-    assert!(out.completed());
-    let reads: Vec<_> = p
-        .events()
-        .iter()
-        .filter(|e| e.phase == Phase::Transfer(Channel::Stdout))
-        .collect();
-    assert_eq!(reads[0].offered.unwrap().stdout, 4);
-    assert_eq!(reads[0].report.stdout_retained, 3);
-    assert_eq!(reads[1].offered.unwrap().stdout, 1);
-    let exit = p
-        .events()
-        .iter()
-        .find(|e| e.offered.is_some() && e.report.exit.is_some())
-        .unwrap();
-    assert!(exit.offered.unwrap().wait_for_exit);
-}
-
-#[test]
-fn clock_recovery_during_cleanup_does_not_hide_earlier_regression() {
+fn cleanup_deadline_keeps_returned_progress_and_reclaimed_flags() {
     let mut next = plan(vec![]);
-    next.steps
-        .push_back((ms(3), Action::Event(PollEvent::Interrupted)));
-    next.steps
-        .push_back((ms(2), Action::Event(PollEvent::Interrupted)));
-    next.cleanup_time = Some(ms(4));
+    let mut late = step(
+        110,
+        vec![
+            done(0, b"", 0, Completion::Cancelled),
+            done(1, b"late", 4, Completion::Done),
+            done(2, b"", 0, Completion::Cancelled),
+        ],
+    );
+    late.cleanup = Some(complete());
+    next.cleanup = Some(vec![late].into());
     let mut p = Processes::new(Script::new(vec![next]), limits());
-    let out = p.run(request(), 64, origin());
-    assert_eq!(code(&out), Some(Code::InvalidResponse));
-    assert!(matches!(
+    let out = p.run(request(), 32768, origin());
+    assert_eq!(code(&out), Some(Code::Timeout));
+    assert_eq!(out.stdout, b"late");
+    assert_eq!(
         out.report.cleanup,
         Some(Cleanup::Incomplete {
-            error: CleanupError::InvalidResponse,
-            ..
+            child_reaped: true,
+            handles_closed: true,
+            scope_finished: true,
+            error: CleanupError::Timeout,
         })
-    ));
+    );
     assert!(p.is_disabled());
+}
+
+#[test]
+fn cleanup_failure_after_success_is_not_a_successful_operation() {
+    let mut next = finished(0);
+    let mut clean = step(2, vec![]);
+    clean.cleanup = Some(Cleanup::Incomplete {
+        child_reaped: true,
+        handles_closed: false,
+        scope_finished: false,
+        error: CleanupError::Close,
+    });
+    next.cleanup = Some(vec![clean].into());
+    let (out, _) = run(next, request());
+    assert_eq!(code(&out), Some(Code::CleanupFailed));
+    assert_eq!(out.report.exit, Some(Exit::Code(0)));
+}
+
+#[test]
+fn empty_or_early_deadline_batches_are_protocol_failures() {
+    for wake in [Wake::Events, Wake::Deadline] {
+        let mut invalid = step(1, vec![]);
+        invalid.wake = wake;
+        let mut p = Processes::new(Script::new(vec![plan(vec![invalid])]), limits());
+        let out = p.run(request(), 32768, origin());
+        assert_eq!(code(&out), Some(Code::InvalidResponse));
+        assert!(p.is_disabled());
+    }
+}
+
+#[test]
+fn invalid_counts_and_exit_notifications_do_not_block_other_stream_collection() {
+    let mut invalid = step(
+        1,
+        vec![
+            done(1, b"", 34, Completion::Done),
+            done(2, b"ok", 2, Completion::Done),
+        ],
+    );
+    invalid.exit = Some(Ok(Exit::Signal(0)));
+    let mut p = Processes::new(Script::new(vec![plan(vec![invalid])]), limits());
+    let out = p.run(request(), 32768, origin());
+    assert_eq!(code(&out), Some(Code::InvalidResponse));
+    assert!(out.stdout.is_empty());
+    assert_eq!(out.stderr, b"ok");
+    assert!(!out.report.progress_known);
+    assert!(p.is_disabled());
+}
+
+#[test]
+fn wait_failure_and_duplicate_exit_are_distinct_from_nonzero_exit() {
+    for duplicate in [false, true] {
+        let mut a = step(1, vec![]);
+        a.exit = Some(Ok(Exit::Code(7)));
+        let mut b = step(2, vec![]);
+        b.exit = Some(Ok(Exit::Code(7)));
+        let steps = if duplicate {
+            vec![a, b]
+        } else {
+            a.exit = Some(Err(WaitError::Failed));
+            vec![a]
+        };
+        let (out, _) = run(plan(steps), request());
+        assert_eq!(
+            code(&out),
+            Some(if duplicate {
+                Code::InvalidResponse
+            } else {
+                Code::WaitFailed
+            })
+        );
+    }
+}
+
+#[test]
+fn startup_and_submission_timeouts_prevent_further_submissions() {
+    for startup in [false, true] {
+        let mut next = plan(vec![]);
+        if startup {
+            next.start_time = Some(ms(100));
+        } else {
+            next.submit_time = Some(ms(100));
+        }
+        let (out, b) = run(next, request());
+        assert_eq!(code(&out), Some(Code::Timeout));
+        assert_eq!(
+            b.actions
+                .iter()
+                .filter(|a| matches!(a, Action::Submit(..)))
+                .count(),
+            usize::from(!startup)
+        );
+        assert_eq!(
+            b.actions
+                .iter()
+                .filter(|a| matches!(a, Action::Cleanup(true)))
+                .count(),
+            1
+        );
+    }
+}
+
+#[test]
+fn backwards_clock_is_not_hidden_by_cleanup_recovery() {
+    let mut next = plan(vec![
+        step(3, vec![done(1, b"x", 1, Completion::Done)]),
+        step(2, vec![]),
+    ]);
+    next.begin_time = Some(ms(4));
+    let mut p = Processes::new(Script::new(vec![next]), limits());
+    let out = p.run(request(), 32768, origin());
+    assert_eq!(code(&out), Some(Code::InvalidResponse));
+    assert_eq!(out.stdout, b"x");
+    assert!(p.is_disabled());
+}
+
+#[test]
+fn validation_buffer_budget_allocation_and_id_exhaustion_do_not_launch() {
+    let mut p = Processes::new(Script::new(vec![]), limits());
+    let mut req = request();
+    req.target = "";
+    assert_eq!(
+        code(&p.run(req, 32768, origin())),
+        Some(Code::InvalidRequest)
+    );
+    req = request();
+    req.arguments = &["a\0b"];
+    assert_eq!(
+        code(&p.run(req, 32768, origin())),
+        Some(Code::InvalidRequest)
+    );
+    req = request();
+    req.stdout_limit = usize::MAX;
+    assert_eq!(
+        code(&p.run(req, usize::MAX, origin())),
+        Some(Code::RequestLimit)
+    );
+    assert_eq!(
+        code(&p.run(request(), 3 * CHUNK + 63, origin())),
+        Some(Code::OutputBudget)
+    );
+    p.fail_allocation = true;
+    assert_eq!(
+        code(&p.run(request(), 32768, origin())),
+        Some(Code::AllocationFailed)
+    );
+    p.sequence = u64::MAX;
+    assert_eq!(
+        code(&p.run(request(), 32768, origin())),
+        Some(Code::ConnectionDisabled)
+    );
+    assert!(p.into_inner().unwrap().actions.is_empty());
+    let mut p = Processes::<Script>::unconfigured(limits());
+    assert_eq!(
+        code(&p.run(request(), 32768, origin())),
+        Some(Code::Unconfigured)
+    );
+}
+
+#[test]
+fn traces_are_read_only_bounded_and_do_not_change_results_or_control() {
+    let mut baseline = None;
+    for (limit, fail) in [(0, false), (1, false), (100, false), (100, true)] {
+        let mut p = Processes::with_trace_limit(Script::new(vec![finished(7)]), limits(), limit);
+        p.fail_record_allocation = fail;
+        let out = p.run(request(), 32768, origin());
+        assert_eq!(p.events(), p.events());
+        assert!(p.events().len() <= limit);
+        if limit == 1 || fail {
+            assert!(p.trace_truncated());
+        }
+        let actions = p.into_inner().unwrap().actions;
+        if let Some((expected, expected_actions)) = &baseline {
+            assert_eq!(&out, expected);
+            assert_eq!(&actions, expected_actions);
+        } else {
+            baseline = Some((out, actions));
+        }
+    }
+}
+
+#[test]
+fn results_match_the_previous_synchronous_model_for_shared_cases() {
+    let mut output = finished(0);
+    output
+        .steps
+        .push_front(step(0, vec![done(1, b"ab", 2, Completion::Done)]));
+    let mut exited = step(1, vec![]);
+    exited.exit = Some(Ok(Exit::Code(0)));
+    let overflow = plan(vec![step(
+        1,
+        vec![done(1, &[b'x'; 33], 33, Completion::Done)],
+    )]);
+    let plans = [finished(7), output, plan(vec![exited]), overflow];
+    for (plan, previous) in plans
+        .into_iter()
+        .zip(super::synchronous::tests::comparison_cases())
+    {
+        let (current, _) = run(plan, request());
+        assert_eq!(current.report, previous.report);
+        assert_eq!(current.stdout, previous.stdout);
+        assert_eq!(current.stderr, previous.stderr);
+    }
+}
+
+#[test]
+fn terminal_transfers_do_not_hide_missing_cancellation_replies() {
+    for acknowledge in [false, true] {
+        let late = step(
+            101,
+            vec![
+                done(0, b"", 0, Completion::Cancelled),
+                done(1, b"ok", 2, Completion::Done),
+                done(2, b"", 0, Completion::Cancelled),
+            ],
+        );
+        let mut settled = step(102, vec![]);
+        settled.acknowledge = acknowledge;
+        settled.cleanup = Some(complete());
+        let mut next = plan(vec![]);
+        next.cleanup = Some(vec![late, settled].into());
+        let mut p = Processes::new(Script::new(vec![next]), limits());
+        let out = p.run(request(), 32768, origin());
+        assert_eq!(code(&out), Some(Code::Timeout));
+        assert_eq!(out.stdout, b"ok");
+        assert!(out.report.progress_known);
+        assert_eq!(p.is_disabled(), !acknowledge);
+        assert_eq!(out.transfers.unwrap().protocol_failed, !acknowledge);
+    }
+}
+
+#[test]
+fn unknown_progress_keeps_prefix_and_never_allows_reuse() {
+    let next = plan(vec![step(
+        1,
+        vec![done(1, b"part", 4, Completion::ProgressUnknown)],
+    )]);
+    let mut p = Processes::new(Script::new(vec![next]), limits());
+    let out = p.run(request(), 32768, origin());
+    assert_eq!(code(&out), Some(Code::ProgressUnknown));
+    assert_eq!(out.stdout, b"part");
+    assert_eq!(out.report.stdout_read, 4);
+    assert!(!out.report.progress_known);
+    assert!(p.is_disabled());
+}
+
+#[test]
+fn rejected_close_is_reported_as_close_failure() {
+    let (out, _) = run(
+        plan(vec![step(
+            1,
+            vec![done(0, b"", 0, Completion::NotSubmitted)],
+        )]),
+        request(),
+    );
+    assert_eq!(code(&out), Some(Code::CloseFailed));
+    assert_eq!(out.report.failure.unwrap().phase, Phase::CloseStdin);
+}
+
+#[test]
+fn large_stdin_uses_bounded_chunks_and_exactly_one_close() {
+    let mut last = step(3, vec![done(0, b"", 0, Completion::Done)]);
+    last.exit = Some(Ok(Exit::Code(0)));
+    let next = plan(vec![
+        step(
+            1,
+            vec![
+                done(0, b"", CHUNK, Completion::Done),
+                done(1, b"", 0, Completion::Eof),
+                done(2, b"", 0, Completion::Eof),
+            ],
+        ),
+        step(2, vec![done(0, b"", 1, Completion::Done)]),
+        last,
+    ]);
+    let input = vec![b'x'; CHUNK + 1];
+    let mut req = request();
+    req.stdin = &input;
+    let (out, b) = run(next, req);
+    assert!(out.completed());
+    assert_eq!(b.sent, input);
+    assert_eq!(
+        b.actions
+            .iter()
+            .filter(|a| matches!(a, Action::Submit(_, Kind::CloseStdin, 0)))
+            .count(),
+        1
+    );
+    assert!(
+        b.actions
+            .iter()
+            .all(|a| !matches!(a, Action::Submit(_, _, n) if *n > CHUNK))
+    );
+}
+
+#[test]
+fn launch_deadline_also_applies_when_non_launch_is_confirmed() {
+    let mut next = plan(vec![]);
+    next.launch = Launch::NotStarted(StartError::Denied);
+    next.start_time = Some(ms(100));
+    let (out, b) = run(next, request());
+    assert_eq!(code(&out), Some(Code::Timeout));
+    assert_eq!(out.report.started, Started::No);
+    assert_eq!(out.transfers.unwrap().failure, out.report.failure);
+    assert_eq!(out.report.cleanup, None);
+    assert_eq!(b.actions, [Action::Start]);
+}
+
+#[test]
+fn cleanup_report_is_preserved_separately_from_deadline_verdict() {
+    let mut next = finished(0);
+    let mut late = step(11, vec![]);
+    late.cleanup = Some(Cleanup::Complete {
+        termination_requested: true,
+    });
+    next.cleanup = Some(vec![late].into());
+    let (out, _) = run(next, request());
+    assert_eq!(code(&out), Some(Code::CleanupFailed));
+    assert_eq!(
+        out.report.cleanup_reported,
+        Some(Cleanup::Complete {
+            termination_requested: true
+        })
+    );
+    assert_eq!(
+        out.report.cleanup,
+        Some(Cleanup::Incomplete {
+            child_reaped: true,
+            handles_closed: true,
+            scope_finished: true,
+            error: CleanupError::Timeout,
+        })
+    );
 }
