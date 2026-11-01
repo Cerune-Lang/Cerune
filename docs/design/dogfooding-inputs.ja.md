@@ -206,4 +206,4 @@ PR #182でNativeもmasterへ統合済みです。起動・OS文字列変換・sn
 
 ## 次の保存・再読込み
 
-[限定ファイルI/Oの設計](file-io.ja.md)で、明示した作業範囲でのUTF-8全文読取りと新規保存を扱います。2026-11-01現在はstd:fs・共通IR・4実行器・Windows/Linux実接続・CLI接続指定を実装済みです。生成C・LLVM・QBEも実装済みです。WATの版付きhost接続も実装済みです。NativeのWindows/Linux実接続も実装済みです。Native成果物への接続契約記録も実装済みです。WATのWindows/Linux実OS参照hostも検証済みです。上書き・子プロセスは後続です。
+[限定ファイルI/Oの設計](file-io.ja.md)で、明示した作業範囲でのUTF-8全文読取りと新規保存を扱います。2026-11-01現在はstd:fs・共通IR・4実行器・Windows/Linux実接続・CLI接続指定を実装済みです。生成C・LLVM・QBEも実装済みです。WATの版付きhost接続も実装済みです。NativeのWindows/Linux実接続も実装済みです。Native成果物への接続契約記録も実装済みです。WATのWindows/Linux実OS参照hostも検証済みです。上書きは後続です。次は[子プロセスの契約案](subprocesses.ja.md)に沿って、終了状態・部分出力・失敗を値として回収し、呼出し元が処理を継続できる操作を設計します。子プロセスは未実装です。

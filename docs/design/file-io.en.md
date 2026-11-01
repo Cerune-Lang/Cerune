@@ -105,7 +105,7 @@ The host explicitly supplies and fixes the working directory before execution. A
 
 Linux uses directory-fd-relative `openat` and `O_CREAT | O_EXCL` for creation. `O_NOFOLLOW` only protects the final component; it does not establish safety for arbitrary multi-component paths. [Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
 
-Windows uses user-mode `NtCreateFile` with RootDirectory, exclusive creation, and no-reparse-following options in the Rust connection. Generated C/LLVM/QBE also use this. Custom Object integration remains later work. [Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
+Windows uses user-mode `NtCreateFile` with RootDirectory, exclusive creation, and no-reparse-following options in the Rust connection. Generated C/LLVM/QBE and Native assembly/self-encoded objects also use this. [Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
 
 The directory is not an OS sandbox. Hard links, concurrent processes, network filesystems, and OS permissions are separate conditions. Initial OS comparisons use managed local temporary directories; identical results under concurrent third-party changes are not guaranteed. Reject connections that cannot enforce the required scope instead of silently relaxing it.
 

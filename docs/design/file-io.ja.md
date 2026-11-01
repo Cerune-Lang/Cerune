@@ -105,7 +105,7 @@ cargo test --test standard_input file_io
 
 Linuxではdirectory fdを用いる`openat`と、新規作成の`O_CREAT | O_EXCL`を採用しました。`O_NOFOLLOW`の効果は末尾要素に限られるため、多段パスまで安全と見なしません。[Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
 
-Windowsではユーザーモードの`NtCreateFile`のRootDirectory・排他的作成・reparseを追わない指定をRust接続で採用しました。生成C・LLVM・QBEからも利用します。自前Objectへの接続は後続です。[Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
+Windowsではユーザーモードの`NtCreateFile`のRootDirectory・排他的作成・reparseを追わない指定をRust接続で採用しました。生成C・LLVM・QBE・NativeのASM／自前Objectからも利用します。[Microsoft NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
 
 作業ディレクトリはOS全体のsandboxではありません。hard link、他プロセスによる変更、ネットワークファイルシステム、OS権限は別の条件です。初版の実OS比較は管理されたローカルの一時ディレクトリで行い、同時に第三者が変更した場合の同一結果を保証しません。必要な範囲制限を満たせない接続は未対応とし、制約を黙って緩めません。
 
