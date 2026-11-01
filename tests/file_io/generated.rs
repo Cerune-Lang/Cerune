@@ -394,14 +394,38 @@ enum Route {
     C,
     Llvm,
     Qbe,
+    Native(bool),
 }
 impl Route {
     fn emit(
         self,
         p: &cerune_lang::ir::Program,
         limits: cerune_lang::runtime::arguments::Limits,
-    ) -> String {
+    ) -> Vec<u8> {
         match self {
+            Self::Native(object) => {
+                use cerune_lang::{codegen::x86_64 as n, mir};
+                let m = mir::lower(p).unwrap();
+                let m = if object {
+                    mir::ssa::lower(&mir::ssa::construct(&m).unwrap())
+                        .unwrap()
+                        .program
+                } else {
+                    m
+                };
+                let lir = n::lower_mir_with_runtime_limits(
+                    &m,
+                    n::Target::parse(llvm_target().triple()).unwrap(),
+                    limits,
+                    std::num::NonZeroU32::new(128).unwrap(),
+                )
+                .unwrap();
+                return if object {
+                    n::emit_object_from_lir(&lir, true).unwrap()
+                } else {
+                    n::emit_asm_from_lir(&lir, true).unwrap().into_bytes()
+                };
+            }
             Self::C => {
                 c::emit_c_with_call_limit(p, std::num::NonZeroU32::new(128).unwrap()).unwrap()
             }
@@ -423,14 +447,20 @@ impl Route {
             )
             .unwrap(),
         }
+        .into_bytes()
     }
     fn build(
         self,
-        text: &str,
+        text: &[u8],
         opt: &str,
         flags: &[&str],
     ) -> Option<(std::path::PathBuf, std::path::PathBuf)> {
+        if let Self::Native(object) = self {
+            return native_build(text, object);
+        }
+        let text = std::str::from_utf8(text).unwrap();
         match self {
+            Self::Native(_) => unreachable!(),
             Self::C => crate::program_arguments::c::build(text, opt, flags),
             Self::Llvm => crate::program_arguments::llvm::build(text, opt, None),
             Self::Qbe => crate::program_arguments::qbe::build(text, None),
@@ -664,4 +694,62 @@ fn unicode_names_and_empty_creation_use_exclusive_open(route: Route) {
         assert_eq!(fs::read(root.join("日本語-é.txt")).unwrap(), b"");
         fs::remove_dir_all(dir).unwrap();
     }
+}
+
+fn native_build(bytes: &[u8], object: bool) -> Option<(std::path::PathBuf, std::path::PathBuf)> {
+    if !cfg!(all(
+        target_arch = "x86_64",
+        any(windows, target_os = "linux")
+    )) {
+        return None;
+    }
+    let configured = std::env::var_os("CERUNE_TEST_ASM_CLANG");
+    let cc = configured.clone().unwrap_or_else(|| "clang".into());
+    if !Command::new(&cc)
+        .arg("--version")
+        .output()
+        .is_ok_and(|o| o.status.success())
+    {
+        assert!(configured.is_none(), "required Native linker unavailable");
+        eprintln!("Native file comparison skipped; set CERUNE_TEST_ASM_CLANG");
+        return None;
+    }
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let dir = std::env::temp_dir().join(format!(
+        "cerune-native-files-os-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(if object { "program.o" } else { "program.s" });
+    fs::write(&path, bytes).unwrap();
+    let exe = dir.join(if cfg!(windows) {
+        "program.exe"
+    } else {
+        "program"
+    });
+    let output = process::bounded_output(
+        Command::new(cc)
+            .args(["-target", llvm_target().triple()])
+            .arg(&path)
+            .arg("-o")
+            .arg(&exe),
+        &dir,
+        "native-files-link",
+        Duration::from_secs(60),
+    )
+    .unwrap();
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stderr),
+        path.display()
+    );
+    Some((dir, exe))
+}
+mod native_asm_tests {
+    cases!(super::Route::Native(false));
+}
+mod native_object_tests {
+    cases!(super::Route::Native(true));
 }

@@ -16,6 +16,15 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
         .expect("compiler-generated Native Program")
 }
 pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
+    build_with_file_connection(module, annotate, true)
+}
+pub(super) fn build_with_file_connection(
+    module: &Module,
+    annotate: bool,
+    file_connection: bool,
+) -> NativeProgram {
+    let files = super::files::used(module) && file_connection;
+    let arguments = super::arguments::used(module) || files;
     let mut reporter = Reporter::new(module.target);
     let mut output = NativeProgram::new(module.target);
     if annotate {
@@ -43,11 +52,14 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
     if super::input::used(module) || super::arguments::used(module) || super::files::used(module) {
         super::utf8::append(&mut output.program);
     }
-    if super::arguments::used(module) {
+    if arguments {
         super::arguments::append(&mut output, module);
     }
     if super::input::used(module) {
         super::input::append(&mut output);
+    }
+    if files {
+        super::files::connection::append(&mut output);
     }
     if super::files::used(module) {
         super::files::append(&mut output);
@@ -60,11 +72,7 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
     if annotate {
         output.comment("cerune-origin: synthetic");
     }
-    let entry = if super::arguments::used(module) {
-        "cerune_program"
-    } else {
-        "main"
-    };
+    let entry = if arguments { "cerune_program" } else { "main" };
 
     output.push(EntryKind::Align(4));
 
@@ -139,8 +147,8 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
     }
     emit_epilogue(module.frame_size, true, &mut output);
 
-    if super::arguments::used(module) {
-        super::arguments::append_entry(&mut output);
+    if arguments {
+        super::arguments::append_entry_with_files(&mut output, files);
     }
     if !reporter.data.is_empty() {
         output.push(EntryKind::Section(Section::ReadOnlyData));

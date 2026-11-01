@@ -649,9 +649,9 @@ fn failure(out: &mut NativeProgram, linux: bool) {
     out.label(".Largs_failure_format");
 }
 
-pub(super) fn append_entry(out: &mut NativeProgram) {
+pub(super) fn append_entry_with_files(out: &mut NativeProgram, files: bool) {
     let linux = out.program.target == sashimi_assembler::Target::X86_64UnknownLinuxGnu;
-    entry(out, linux);
+    entry(out, linux, files);
     if linux {
         linux_value(out);
     } else {
@@ -660,27 +660,49 @@ pub(super) fn append_entry(out: &mut NativeProgram) {
 }
 // OS conversion precedes common capture, as in C/LLVM/QBE. argc excludes argv[0].
 // Frame: 64 count,72 argv,80 temporary pairs,88 index,96 result.
-fn entry(out: &mut NativeProgram, linux: bool) {
+fn entry(out: &mut NativeProgram, linux: bool, files: bool) {
     let (first, argv) = if linux { (7, 6) } else { (1, 2) };
 
     out.push(EntryKind::Section(Section::Text));
     out.global_label(if linux { "main" } else { "wmain" });
-    out.emit(Opcode::Sub64, [Operand::Immediate(120), r64(4)]);
+    out.emit(
+        Opcode::Sub64,
+        [Operand::Immediate(if files { 136 } else { 120 }), r64(4)],
+    );
     out.emit(Opcode::Mov64, [r64(argv), address(4, None, 72)]);
-    out.emit(Opcode::Mov32, [r32(first), r32(0)]);
-    out.emit(Opcode::Test32, [r32(0), r32(0)]);
+    if files {
+        out.emit(Opcode::Mov32, [r32(first), r32(0)]);
+        out.emit(Opcode::Mov64, [r64(0), address(4, None, 64)]);
+        out.emit(Opcode::Mov64, [r64(0), r64(first)]);
+        let symbol = out.symbol("cerune_files_parse", Linkage::Local);
+        out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+        out.emit(Opcode::Mov64, [r64(2), address(4, None, 112)]);
+        out.emit(Opcode::Mov64, [r64(0), address(4, None, 104)]);
+        out.emit(Opcode::Sub64, [Operand::Immediate(1), r64(0)]);
+        out.emit(Opcode::ShiftLeft64, [Operand::Immediate(3), r64(0)]);
+        out.emit(Opcode::Add64, [r64(0), address(4, None, 72)]);
+        out.emit(Opcode::Mov64, [address(4, None, 64), r64(0)]);
+        out.emit(Opcode::Sub64, [address(4, None, 104), r64(0)]);
+        let ready = out.symbol(".Largs_file_count_ready", Linkage::Local);
+        out.emit(Opcode::JumpNs, [Operand::Symbol(ready)]);
+        out.emit(Opcode::Xor32, [r32(0), r32(0)]);
+        out.label(".Largs_file_count_ready");
+    } else {
+        out.emit(Opcode::Mov32, [r32(first), r32(0)]);
+        out.emit(Opcode::Test32, [r32(0), r32(0)]);
 
-    let symbol = out.symbol(".Largs_start_empty", Linkage::Local);
-    out.emit(Opcode::JumpLe, [Operand::Symbol(symbol)]);
+        let symbol = out.symbol(".Largs_start_empty", Linkage::Local);
+        out.emit(Opcode::JumpLe, [Operand::Symbol(symbol)]);
 
-    out.emit(Opcode::Sub32, [Operand::Immediate(1), r32(0)]);
+        out.emit(Opcode::Sub32, [Operand::Immediate(1), r32(0)]);
 
-    let symbol = out.symbol(".Largs_start_size", Linkage::Local);
-    out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
+        let symbol = out.symbol(".Largs_start_size", Linkage::Local);
+        out.emit(Opcode::Jump, [Operand::Symbol(symbol)]);
 
-    out.label(".Largs_start_empty");
-    out.emit(Opcode::Xor32, [r32(0), r32(0)]);
-    out.label(".Largs_start_size");
+        out.label(".Largs_start_empty");
+        out.emit(Opcode::Xor32, [r32(0), r32(0)]);
+        out.label(".Largs_start_size");
+    }
     out.emit(Opcode::Mov64, [r64(0), address(4, None, 64)]);
     out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 80)]);
     out.emit(Opcode::Mov64, [Operand::Immediate(0), address(4, None, 88)]);
@@ -742,16 +764,28 @@ fn entry(out: &mut NativeProgram, linux: bool) {
     let symbol = out.symbol("free", Linkage::External);
     out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
 
+    if files {
+        out.emit(Opcode::Mov64, [address(4, None, 112), r64(first)]);
+        let s = out.symbol("cerune_files_connect", Linkage::Local);
+        out.emit(Opcode::Call, [Operand::Symbol(s)]);
+    }
     let symbol = out.symbol("cerune_program", Linkage::Local);
     out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
 
     out.emit(Opcode::Mov64, [r64(0), address(4, None, 96)]);
 
+    if files {
+        let s = out.symbol("cerune_files_disconnect", Linkage::Local);
+        out.emit(Opcode::Call, [Operand::Symbol(s)]);
+    }
     let symbol = out.symbol("cerune_arguments_dispose", Linkage::Local);
     out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
 
     out.emit(Opcode::Mov64, [address(4, None, 96), r64(0)]);
-    out.emit(Opcode::Add64, [Operand::Immediate(120), r64(4)]);
+    out.emit(
+        Opcode::Add64,
+        [Operand::Immediate(if files { 136 } else { 120 }), r64(4)],
+    );
     out.emit(Opcode::Ret, []);
     out.label(".Largs_start_allocation");
 

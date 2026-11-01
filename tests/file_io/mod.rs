@@ -305,15 +305,20 @@ fn standard_module_is_virtual_observable_and_internal_calls_are_private() {
 }
 
 #[test]
-fn generators_reject_file_io_with_source_locations_even_in_unused_functions() {
+fn native_generators_include_file_startup_for_unused_functions() {
     use cerune_lang::codegen::x86_64;
     let p = hir(
         r#"import "std:fs" as fs; fn unused()->string {return fs::read_text("x",0);} print(1);"#,
     );
-    let errors = [x86_64::emit_asm(&p, x86_64::Target::X86_64UnknownLinuxGnu).unwrap_err()];
-    for e in errors {
-        assert!(e.message().contains("file I/O is not supported yet"));
-        assert!(e.primary_span().is_some());
+    for target in [
+        x86_64::Target::X86_64UnknownLinuxGnu,
+        x86_64::Target::X86_64PcWindowsMsvc,
+    ] {
+        let asm = x86_64::emit_asm(&p, target).unwrap();
+        assert!(asm.contains("cerune_file_read_text"));
+        assert!(asm.contains("cerune_files_parse"));
+        assert!(asm.contains("cerune_files_connect"));
+        assert!(!x86_64::emit_object(&p, target, true).unwrap().is_empty());
     }
 }
 

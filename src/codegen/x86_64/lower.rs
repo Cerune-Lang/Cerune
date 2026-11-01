@@ -25,51 +25,12 @@ pub fn lower_with_argument_limits(
     target: super::Target,
     argument_limits: crate::runtime::arguments::Limits,
 ) -> Result<Module, crate::diagnostic::Diagnostic> {
-    lower_configured(program, target, argument_limits, false)
-}
-#[cfg(test)]
-pub(super) fn lower_file_tests(
-    program: &mir::Program,
-    target: super::Target,
-) -> Result<Module, crate::diagnostic::Diagnostic> {
-    lower_configured(program, target, Default::default(), true)
-}
-fn lower_configured(
-    program: &mir::Program,
-    target: super::Target,
-    argument_limits: crate::runtime::arguments::Limits,
-    file_test_connection: bool,
-) -> Result<Module, crate::diagnostic::Diagnostic> {
     if argument_limits.max_count > i64::MAX as u64 {
         return Err(crate::diagnostic::Diagnostic::without_span(
             "argument count limit must not exceed i64::MAX",
         ));
     }
     mir::validate(program).map_err(|e| e.diagnostic())?;
-    for f in program
-        .functions
-        .iter()
-        .chain(std::iter::once(&program.main))
-    {
-        for i in f.blocks.iter().flat_map(|b| &b.instructions) {
-            if !file_test_connection
-                && matches!(
-                    i.kind,
-                    Kind::FileWriteNew { .. }
-                        | Kind::Assign {
-                            value: Op::FileReadText { .. },
-                            ..
-                        }
-                )
-            {
-                let o = i.origin.source().expect("validated file origin");
-                return Err(crate::diagnostic::Diagnostic::new(
-                    "Native file I/O is not supported yet",
-                    o.span,
-                ));
-            }
-        }
-    }
     let mut module = Module {
         call_limit: None,
         source_functions: program

@@ -20,7 +20,7 @@ cargo run --quiet -- emit-mir examples/files/roundtrip.ceru
 cargo run --quiet -- emit-bytecode examples/files/roundtrip.ceru
 ~~~
 
-テストは実ディレクトリとメモリ接続を分け、出力・保存内容・操作記録・失敗を比較します。--file-root省略時はunconfiguredで停止します。Native生成は未対応の診断を返します。WATは下記の版付きテストhostで実行できます。保存先を暗黙に選びません。Linuxの読取りには/proc/self/fdが必要です。[契約と対応範囲](../../docs/design/file-io.ja.md)も参照してください。
+テストは実ディレクトリとメモリ接続を分け、出力・保存内容・操作記録・失敗を比較します。--file-root省略時はunconfiguredで停止します。Nativeも明示したWindows/Linux targetで利用できます。WATは下記の版付きテストhostで実行できます。保存先を暗黙に選びません。Linuxの読取りには/proc/self/fdが必要です。[契約と対応範囲](../../docs/design/file-io.ja.md)も参照してください。
 
 
 生成Cでも同じ例を実行できます。Cのコンパイル対象でWindows/Linuxを選びます。
@@ -81,3 +81,18 @@ NodeとWABT 1.0.39を使います。WindowsのPowerShellでは最後の行の前
 ~~~sh
 cargo test --test standard_input file_io::wat
 ~~~
+
+## Nativeで実行
+
+Linuxでは、Objectを生成して明示したClangでリンクします。保存先は新規ディレクトリにします。
+
+```sh
+cargo run --quiet -- emit-obj examples/files/roundtrip.ceru --target x86_64-unknown-linux-gnu -o roundtrip.o
+clang --target=x86_64-unknown-linux-gnu roundtrip.o -o roundtrip
+mkdir native-output
+./roundtrip --cerune-runtime-v1 --file-root native-output --
+```
+
+Windowsではtargetを`x86_64-pc-windows-msvc`、Objectを`roundtrip.obj`、実行ファイルを`roundtrip.exe`にし、`./roundtrip.exe`で起動します。MSVC互換のリンク環境が必要です。`emit-asm`で生成したASMからのリンクも可能です。`--ssa`でSSA経由の生成を選べます。
+
+出力は`true`と`16`です。保存内容の日本語・NUL・CR/LF・結合文字をそのまま読み戻します。同じ保存先で再実行すると既存ファイルの上書きを拒否するため、比較ごとに別ディレクトリを使います。
