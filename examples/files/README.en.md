@@ -20,7 +20,7 @@ cargo run --quiet -- emit-mir examples/files/roundtrip.ceru
 cargo run --quiet -- emit-bytecode examples/files/roundtrip.ceru
 ~~~
 
-Tests separate real directories and in-memory connections, comparing output, saved bytes, records, and failures. Omitting --file-root stops with unconfigured. LLVM/QBE/WAT/Native generation reports unsupported file I/O. No save location is selected implicitly. Linux reads require /proc/self/fd. See the [contract and coverage](../../docs/design/file-io.en.md).
+Tests separate real directories and in-memory connections, comparing output, saved bytes, records, and failures. Omitting --file-root stops with unconfigured. Native also supports explicit Windows/Linux targets. WAT runs through the versioned test host below. No save location is selected implicitly. Linux reads require /proc/self/fd. See the [contract and coverage](../../docs/design/file-io.en.md).
 
 
 The same example also runs through generated C. Select Windows/Linux through the C compilation target.
@@ -33,3 +33,95 @@ mkdir c-output
 ~~~
 
 In Windows PowerShell use .\roundtrip.exe for the last command. MinGW-targeted Clang also needs -municode for wmain. The terminating -- is required. An omitted connection never defaults to cwd. Subsequent arguments are passed to the program.
+
+The same example also runs through generated LLVM. Select an explicit target, then use Clang to link. On Linux:
+
+~~~sh
+cargo run --quiet -- emit-llvm examples/files/roundtrip.ceru --target x86_64-unknown-linux-gnu -o roundtrip.ll
+clang --target=x86_64-unknown-linux-gnu roundtrip.ll -o roundtrip
+mkdir llvm-output
+./roundtrip --cerune-runtime-v1 --file-root llvm-output --
+~~~
+
+On Windows, use x86_64-pc-windows-msvc for both targets, roundtrip.exe as output, and .\roundtrip.exe to run. Clang and an MSVC-compatible linking environment are required. Startup settings match C. In addition to real-connection comparisons, development tests inject short transfers and close failures.
+
+~~~sh
+cargo test --lib codegen::llvm::files::tests
+~~~
+
+The same example runs with QBE 1.3. On Linux, explicitly select amd64_sysv:
+
+~~~sh
+cargo run --quiet -- emit-qbe examples/files/roundtrip.ceru --target x86_64-unknown-linux-gnu -o roundtrip.ssa
+qbe -t amd64_sysv -o roundtrip.s roundtrip.ssa
+clang --target=x86_64-unknown-linux-gnu roundtrip.s -o roundtrip
+mkdir qbe-output
+./roundtrip --cerune-runtime-v1 --file-root qbe-output --
+~~~
+
+On Windows, use x86_64-pc-windows-msvc for Cerune and Clang, amd64_win for QBE -t, roundtrip.exe as output, and .\roundtrip.exe to run. Clang and an MSVC-compatible link environment are required. Startup settings match C/LLVM. Set CERUNE_TEST_QBE to the QBE path to require real-connection and injected-response comparisons.
+
+~~~sh
+cargo test --test standard_input file_io::generated::qbe_tests
+cargo test --lib codegen::qbe::files::tests
+~~~
+
+The same Cerune source also runs as WAT. The following test host uses in-memory files, not the OS filesystem. Its configuration selects initial state and inspected names; optional test records receive copies of saved contents.
+
+~~~sh
+cargo run --quiet -- emit-wat examples/files/roundtrip.ceru -o target/files-roundtrip.wat
+node target/wasm-tools/node_modules/wabt/bin/wat2wasm target/files-roundtrip.wat -o target/files-roundtrip.wasm
+CERUNE_TEST_WAT_FILES_FILE=tests/fixtures/file_io/wat_host.json CERUNE_TEST_WAT_FILES_TRACE=target/files-trace.json node tests/support/run_wasm_input.cjs target/files-roundtrip.wasm
+~~~
+
+Use Node and WABT 1.0.39. In Windows PowerShell, set $env:CERUNE_TEST_WAT_FILES_FILE='tests/fixtures/file_io/wat_host.json' and $env:CERUNE_TEST_WAT_FILES_TRACE='target/files-trace.json', then run the final command starting at node. Expected output is true, 16. The contents.sample.txt field of files-trace.json contains the 16-byte array. Each run creates an independent in-memory connection; this does not test saving sample.txt into an OS directory.
+
+A host implementing the [WAT file contract](../../docs/design/wat-file-host.en.md) is required. Old hosts fail on missing imports. Set configured=false to represent an unconfigured connection; the operation stops as unconfigured. A real-OS file host is separate; --file-root or cwd is not used automatically.
+
+~~~sh
+cargo test --test standard_input file_io::wat
+~~~
+
+## Connect WAT to real files
+
+On Windows/Linux, use the independent [reference host](../../experiments/wat_host/README.en.md). Run from the repository root.
+
+~~~sh
+cargo run --quiet -- emit-wat examples/files/roundtrip.ceru -o target/files.wat
+mkdir target/wat-files-data
+cargo run --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host -- target/files.wat --file-root target/wat-files-data --
+~~~
+
+Expected output is true and 16. The program saves and reloads 16 bytes in sample.txt under the selected directory. Reusing that directory stops with already-exists. The final -- ends host settings; subsequent values are program arguments. Omitting root leaves files unconfigured. Internal memory stays private. WAT remains emit-only; the reference host is not part of Cerune build/release.
+
+## Run through Native
+
+On Linux, generate an Object and link using an explicitly selected Clang. Use a fresh output directory.
+
+```sh
+cargo run --quiet -- emit-obj examples/files/roundtrip.ceru --target x86_64-unknown-linux-gnu -o roundtrip.o
+clang --target=x86_64-unknown-linux-gnu roundtrip.o -o roundtrip
+mkdir native-output
+./roundtrip --cerune-runtime-v1 --file-root native-output --
+```
+
+On Windows, use target `x86_64-pc-windows-msvc`, Object `roundtrip.obj`, executable `roundtrip.exe`, and launch `./roundtrip.exe`. An MSVC-compatible linking environment is required. Linking ASM generated by `emit-asm` also works. Select `--ssa` to generate through SSA.
+
+Output is `true` followed by `16`. The saved Japanese text, NUL, CR/LF, and combining character are read back unchanged. Rerunning in the same directory rejects overwriting the existing file, so use separate directories for comparisons.
+
+## Build and distribute
+
+The same roundtrip can be saved and distributed as a complete Native artifact. On Linux:
+
+```sh
+cargo run --quiet -- build native examples/files/roundtrip.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin/clang -o target/files-build
+cargo run --quiet -- release native target/files-build -o target/files-release
+mkdir target/files-data
+./target/files-release/build/program --cerune-runtime-v1 --file-root target/files-data --
+```
+
+On Windows, select `x86_64-pc-windows-msvc` and the actual Clang path, then launch `./target/files-release/build/program.exe`. Use fresh output directories. Add `--ssa` to build to generate through SSA.
+
+Output and saved contents match the earlier example. Moving the distribution does not change the explicit root selected at startup. Build/release do not create sample.txt, and release neither relinks nor optimizes the executable.
+
+The `file_connection` records in `manifest.json` and `runtime.json` describe startup and OS requirements, inherited by release.json and runtime-requirements.json. No actual save directory is embedded. See the [build](../../docs/design/native-build.en.md) and [release](../../docs/design/native-release.en.md) contracts.

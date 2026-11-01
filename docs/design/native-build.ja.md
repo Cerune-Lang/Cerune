@@ -58,3 +58,22 @@ stdinはnullです。timeout時は専用プロセスグループ（Unix）／dri
 Windows/Linuxで、通常MIR／SSAのbuild→実行、既存emitとの一致、引数・予算・失敗理由と出自を比較します。異常系はdriverの失敗・timeout・成功を装う未生成出力、構文／型エラーと既存出力保護を検証します。[実行example](../../examples/build_native/README.md)を参照してください。
 
 buildは `--call-depth-limit N`（既定128・範囲1〜128）を生成LIR・検査・manifestのcall_depth_limitへ保持します。物理stack／memoryの安全保証ではありません。
+
+## ファイル接続の記録
+
+`manifest.json`と`runtime.json`の`file_connection`に、同じ`cerune-native-file-connection-v1`オブジェクトを保存します。実際に生成へ渡すLIRを調べ、未使用関数内も含めてファイル操作があれば`enabled: true`、なければ`false`とします。OS接続の生成と同じ判定を共有し、ソース文字列やimport名から推測しません。
+
+接続を生成する場合の記録は次のとおりです。
+
+| フィールド | 意味 |
+| --- | --- |
+| `startup` | `marker: --cerune-runtime-v1`、`file_root_option: --file-root`、`argument_delimiter: --`、`recognition: leading-marker-only` |
+| `root_binding` | `execution-time-argument`。接続先は実行時の引数だけで選ぶ |
+| `missing_root` | `unconfigured-on-file-operation`。設定省略だけでは停止せず、ファイル操作時に停止する |
+| `diagnostic_schema` | `file-v1` |
+| `os_requirements`（Linux） | `connection: openat-directory-fd`、`read_reopen: /proc/self/fd`。読取りにはprocfsが必要 |
+| `os_requirements`（Windows） | `connection: nt-root-directory-handle`、`dynamic_library: ntdll.dll`、`dynamic_symbol: NtCreateFile`。PEの直接import一覧とは別の動的な要求 |
+
+`enabled: false`の場合はschemaとenabledだけを保存します。build時の保存先、実行時のroot、環境変数を接続設定として埋め込みません。buildはファイル操作を実行せず、rootをopenしません。記録を読むことは実行設定の変更ではありません。生成過程・Object・出自は従来どおり保持します。
+
+[release](native-release.ja.md)はこの記録を検証・引継ぎします。[ファイルexample](../../examples/files/README.md)で、通常MIR／SSAのbuild→release→移動後実行を試せます。

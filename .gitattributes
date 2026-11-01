@@ -39,3 +39,5 @@ examples/call_frames/*.stdout text eol=lf
 experiments/call_depth/*.cjs text eol=lf -linguist-detectable
 
 examples/recursion/*.stdout text eol=lf
+
+experiments/wat_host/** -linguist-detectable

@@ -18,7 +18,7 @@ HIR → MIR（明示SSA経由も可）→ x86-64 LIR → 型付きProgram
 
 ## SASHIMIへの接続（2026-10-23）
 
-Object生成は[SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/ee8f6b132aea322af3d4ff1909035c7903836cd5)のRustライブラリへ接続しました。Cargo.tomlの完全なコミットIDとCargo.lockで版を固定します。隣のSASHIMI cloneは調査・開発用で、Ceruneのビルドにローカルpath依存はありません。初回ビルドには依存ソースの取得が必要ですが、生成した実行ファイルにSASHIMIの別プロセスや動的ライブラリは不要です。
+Object生成は[SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/06b9737451d9492e59d498f5b1d290461dc12e43)のRustライブラリへ接続しました。Cargo.tomlの完全なコミットIDとCargo.lockで版を固定します。隣のSASHIMI cloneは調査・開発用で、Ceruneのビルドにローカルpath依存はありません。初回ビルドには依存ソースの取得が必要ですが、生成した実行ファイルにSASHIMIの別プロセスや動的ライブラリは不要です。
 
 | 担当 | 責務 |
 | --- | --- |
@@ -26,13 +26,13 @@ Object生成は[SASHIMI](https://github.com/Cerune-Lang/SASHIMI/tree/ee8f6b132ae
 | SASHIMI | 型付きProgramの検証、ASM表示、命令符号化、ラベル解決、再配置、ELF64/COFFと位置対応の出力 |
 | 接続コード | 明示Target、OriginIdとCeruneの出自、符号化診断のSpanを対応付ける |
 
-[SASHIMI PR #5](https://github.com/Cerune-Lang/SASHIMI/pull/5)で、同じ型付きProgramからASM・Object・OriginIdの出自対応表を生成するAPIを実装しました。[SASHIMI PR #6](https://github.com/Cerune-Lang/SASHIMI/pull/6)でData32/Data64を追加し、[SASHIMI PR #7](https://github.com/Cerune-Lang/SASHIMI/pull/7)の読める終端付き文字列対応へ固定して既存経路の互換性を検証しています。本番接続は[プログラム全体の型付き構築](native-typed-runtime.ja.md)へ移行しました。起動・関数ABI・入力・引数・出力・flush・確保管理・全LIR命令と失敗診断が対象です。内部／外部シンボルは明示宣言し、同じProgramからASMとObjectを生成します。安定した公開ABIは別の将来作業です。
+[SASHIMI PR #5](https://github.com/Cerune-Lang/SASHIMI/pull/5)で、同じ型付きProgramからASM・Object・OriginIdの出自対応表を生成するAPIを実装しました。[SASHIMI PR #6](https://github.com/Cerune-Lang/SASHIMI/pull/6)でData32/Data64を追加し、[SASHIMI PR #7](https://github.com/Cerune-Lang/SASHIMI/pull/7)で読める終端付き文字列に対応しました。現在は[#9の間接call対応](https://github.com/Cerune-Lang/SASHIMI/pull/9)へ固定し、既存経路の互換性を検証しています。Windowsのファイル接続はこれを利用します。OS APIとABIの選択はCeruneの責務です。本番接続は[プログラム全体の型付き構築](native-typed-runtime.ja.md)へ移行しました。起動・関数ABI・入力・引数・出力・flush・確保管理・全LIR命令と失敗診断が対象です。内部／外部シンボルは明示宣言し、同じProgramからASMとObjectを生成します。安定した公開ABIは別の将来作業です。
 
 [旧エンコーダ](../../tests/support/native_object_reference/README.md)は移行比較用にテスト専用へ移し、本番ビルドには含めません。新機能の追加先にはしません。[接続テスト](../../tests/support/sashimi_connection.rs)は移行完了時の135個の実行用exampleを固定し、両ターゲット・通常MIR/SSA・出自注釈の有無を組み合わせ、Object全体と失敗診断を旧実装に照合します。この一致は切替前後の同等性であり、双方に共通する不具合を否定する証明ではありません。外部アセンブラとの比較・既知の期待値・リンク後実行も維持します。
 
 SASHIMIはOriginIdに複数範囲・0バイトの操作・合成命令を対応させます。位置はObjectのセクション内オフセットであり、リンク後アドレスではありません。Ceruneの `NativeProgram::origins()` がNodeId／SourceId／Span・MIR・LIRの対応を保持します。`assemble()` はObjectと位置対応を返し、`render_asm()` は同じProgramを表示します。[Cerune言語へのSASHIMI移植](https://github.com/Cerune-Lang/SASHIMI/issues/2)は別段階です。
 
-契約と実行例は[SASHIMIのProgram API](https://github.com/Cerune-Lang/SASHIMI/blob/ee8f6b132aea322af3d4ff1909035c7903836cd5/docs/design/typed-program.ja.md)を参照してください。新APIはELFの外部call・jmp・jccにPLT32を使用し、ASM表示にも@PLTを付け、Windows/LinuxのASM/Object実行比較を行います。旧テキスト入口の外部jmpは互換性のためPC32のままです。現在のCerune生成と失敗注入用ObjectはABIに従うcallを使います。
+契約と実行例は[SASHIMIのProgram API](https://github.com/Cerune-Lang/SASHIMI/blob/06b9737451d9492e59d498f5b1d290461dc12e43/docs/design/typed-program.ja.md)を参照してください。新APIはELFの外部call・jmp・jccにPLT32を使用し、ASM表示にも@PLTを付け、Windows/LinuxのASM/Object実行比較を行います。旧テキスト入口の外部jmpは互換性のためPC32のままです。現在のCerune生成と失敗注入用ObjectはABIに従うcallを使います。
 
 ## 符号化と再配置
 

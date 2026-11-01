@@ -5,16 +5,17 @@ use super::{
 use std::fmt::Write;
 
 pub(super) fn used(module: &Module) -> bool {
-    module
-        .instructions
-        .iter()
-        .chain(module.functions.iter().flat_map(|f| &f.instructions))
-        .any(|i| {
-            matches!(
-                i,
-                Instruction::ArgumentCount { .. } | Instruction::ArgumentGet { .. }
-            )
-        })
+    super::files::used(module)
+        || module
+            .instructions
+            .iter()
+            .chain(module.functions.iter().flat_map(|f| &f.instructions))
+            .any(|i| {
+                matches!(
+                    i,
+                    Instruction::ArgumentCount { .. } | Instruction::ArgumentGet { .. }
+                )
+            })
 }
 pub(super) fn origin_name(origin: FailureOrigin) -> String {
     format!(
@@ -402,8 +403,13 @@ pub(super) fn emit_entry(module: &Module, out: &mut String) {
     }
     let windows = module.target.expect("arguments target") == Target::X86_64PcWindowsMsvc;
     out.push_str(if windows { WINDOWS } else { LINUX });
+    let entry = if super::files::used(module) {
+        super::files::entry::adapt(ENTRY)
+    } else {
+        ENTRY.to_owned()
+    };
     out.push_str(
-        &ENTRY
+        &entry
             .replace("@ENTRY@", if windows { "wmain" } else { "main" })
             .replace(
                 "@TEMP_FREE@",
@@ -414,6 +420,7 @@ pub(super) fn emit_entry(module: &Module, out: &mut String) {
                 },
             ),
     );
+    out.push_str("# End explicit target startup\n");
 }
 const LINUX: &str = r#"
 function $cerune_arguments_os_value(l %text, l %index, l %result) {

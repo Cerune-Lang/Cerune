@@ -236,6 +236,9 @@ fn emit_instruction(
         return;
     }
     match instruction {
+        Instruction::FileReadText { .. } | Instruction::FileWriteNew { .. } => {
+            panic!("file operations were added after the reference emitter was frozen")
+        }
         Instruction::ArgumentCount => reporter.argument(false, output),
         Instruction::ArgumentGet => reporter.argument(true, output),
         Instruction::ReadLine => reporter.input(output),

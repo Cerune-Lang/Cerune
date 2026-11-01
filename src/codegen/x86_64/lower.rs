@@ -31,28 +31,6 @@ pub fn lower_with_argument_limits(
         ));
     }
     mir::validate(program).map_err(|e| e.diagnostic())?;
-    for f in program
-        .functions
-        .iter()
-        .chain(std::iter::once(&program.main))
-    {
-        for i in f.blocks.iter().flat_map(|b| &b.instructions) {
-            if matches!(
-                i.kind,
-                Kind::FileWriteNew { .. }
-                    | Kind::Assign {
-                        value: Op::FileReadText { .. },
-                        ..
-                    }
-            ) {
-                let o = i.origin.source().expect("validated file origin");
-                return Err(crate::diagnostic::Diagnostic::new(
-                    "Native file I/O is not supported yet",
-                    o.span,
-                ));
-            }
-        }
-    }
     let mut module = Module {
         call_limit: None,
         source_functions: program
@@ -97,9 +75,12 @@ pub fn lower_with_argument_limits(
                     Kind::Output { .. } => module.uses_write = true,
                     Kind::StringManage { .. }
                     | Kind::Assign {
-                        value: Op::StringConcat { .. } | Op::ReadLine(_),
+                        value: Op::StringConcat { .. } | Op::ReadLine(_) | Op::FileReadText { .. },
                         ..
-                    } => module.string_heap_limit = Some(program.string_heap_limit),
+                    }
+                    | Kind::FileWriteNew { .. } => {
+                        module.string_heap_limit = Some(program.string_heap_limit)
+                    }
                     _ => {}
                 }
             }
@@ -459,7 +440,17 @@ impl Lowerer<'_> {
     }
     fn instruction(&mut self, k: &Kind) {
         match k {
-            Kind::FileWriteNew { .. } => unreachable!("file I/O rejected before lowering"),
+            Kind::FileWriteNew {
+                name,
+                text,
+                max_bytes,
+            } => {
+                self.load(*max_bytes);
+                self.push(Instruction::FileWriteNew {
+                    name_offset: self.offset(*name),
+                    text_offset: self.offset(*text),
+                });
+            }
             Kind::Assign { destination, value } => self.operation(*destination, value),
             Kind::Call {
                 function,
@@ -722,7 +713,12 @@ impl Lowerer<'_> {
                     self.push(Instruction::ArrayLength);
                 }
             },
-            Op::FileReadText { .. } => unreachable!("file I/O rejected before lowering"),
+            Op::FileReadText { name, max_bytes } => {
+                self.load(*max_bytes);
+                self.push(Instruction::FileReadText {
+                    name_offset: self.offset(*name),
+                });
+            }
             Op::ReadLine(v) => {
                 self.load(*v);
                 self.push(Instruction::ReadLine);

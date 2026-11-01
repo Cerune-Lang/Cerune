@@ -1,0 +1,12 @@
+[package]
+name = "cerune-wat-host"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+cerune-lang = { path = "../.." }
+wasmi = "=2.0.0"
+
+[dev-dependencies]
+serde_json = "1.0"

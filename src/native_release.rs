@@ -110,7 +110,13 @@ pub(super) fn run(mut args: impl Iterator<Item = String>) -> Result<(), String> 
         return Err("build directory contains missing or unexpected files".into());
     }
     validate_records(&files, target, executable)?;
-    let requirements = dependencies::inspect(&files[executable], target)?;
+    let file_connection = super::native_build::file_connection::validate(
+        &manifest,
+        &parse(&files["runtime.json"])?,
+        target,
+    )?;
+    let mut requirements = dependencies::inspect(&files[executable], target)?;
+    requirements["file_connection"] = file_connection.clone();
     #[cfg(unix)]
     if target == Target::X86_64UnknownLinuxGnu {
         use std::os::unix::fs::PermissionsExt;
@@ -131,11 +137,11 @@ pub(super) fn run(mut args: impl Iterator<Item = String>) -> Result<(), String> 
     payload.insert("runtime-requirements.json".into(), encoded(&requirements)?);
     payload.insert(
         "README.md".into(),
-        guide(target, executable, false).into_bytes(),
+        guide(target, executable, false, &file_connection).into_bytes(),
     );
     payload.insert(
         "README.en.md".into(),
-        guide(target, executable, true).into_bytes(),
+        guide(target, executable, true, &file_connection).into_bytes(),
     );
     payload.insert(
         "CERUNE-LICENSE-MIT".into(),
@@ -154,7 +160,8 @@ pub(super) fn run(mut args: impl Iterator<Item = String>) -> Result<(), String> 
         "runtime_policy":"target-system-runtime", "libraries_bundled":false,
         "compiled":false, "linked":false, "executed":false, "optimization_passes":[],
         "sources_included":manifest["sources_included"], "files":entries,
-        "call_depth_limit":manifest["call_depth_limit"]
+        "call_depth_limit":manifest["call_depth_limit"],
+        "file_connection":file_connection
     }))?;
     let mut sums = payload
         .iter()
@@ -357,20 +364,69 @@ fn validate_records(
     }
     Ok(())
 }
-fn guide(target: Target, executable: &str, english: bool) -> String {
+fn guide(target: Target, executable: &str, english: bool, file_connection: &Value) -> String {
     let command = match target {
-        Target::X86_64UnknownLinuxGnu => format!("./build/{executable} 3"),
-        Target::X86_64PcWindowsMsvc => format!(".\\build\\{executable} 3"),
+        Target::X86_64UnknownLinuxGnu => format!("./build/{executable}"),
+        Target::X86_64PcWindowsMsvc => format!(".\\build\\{executable}"),
     };
+    let command = if file_connection["enabled"] == true {
+        format!("{command} --cerune-runtime-v1 --file-root <directory> --")
+    } else {
+        format!("{command} 3")
+    };
+    let files = file_guide(target, executable, english, file_connection);
     if english {
         format!(
-            "# Native distribution\n\n[日本語](README.md)\n\nTarget: {}. Entry: build/{executable}. From this directory, run the entry with your program arguments, for example:\n\n    {command}\n\nNo Cerune compiler or Clang is needed to run it. The target OS must supply the dependencies recorded in runtime-requirements.json, including their own transitive dependencies. This records direct binary requirements, not a tested minimum OS or a guarantee of compatibility. No system libraries are bundled.\n\nCopy the whole directory. Preserve execute permission on Linux (chmod +x build/program if transferred through Windows). SHA256SUMS covers all payload files and release.json; verify it with sha256sum -c SHA256SUMS or a SHA-256 tool such as Get-FileHash. These hashes detect changed contents; they are not signatures or proof of provenance.\n\nThe build/ files are unchanged snapshots, including generation stages and failure-origin maps. Paths in link logs describe the original build environment. Packaging performs no compilation, link, execution, stripping, or optimization. Source contents are included only if selected at build time, but code literals, filenames and local toolchain paths may still appear. See release.json for the source-inclusion choice and file inventory.\n",
+            "# Native distribution\n\n[日本語](README.md)\n\nTarget: {}. Entry: build/{executable}. From this directory, run the entry with your program arguments, for example:\n\n    {command}\n\n{files}No Cerune compiler or Clang is needed to run it. The target OS must supply the dependencies recorded in runtime-requirements.json, including their own transitive dependencies. The direct list records binary dependencies; file_connection records Cerune connection requirements. Neither is a tested minimum OS or a guarantee of compatibility. No system libraries are bundled.\n\nCopy the whole directory. Preserve execute permission on Linux (chmod +x build/program if transferred through Windows). SHA256SUMS covers all payload files and release.json; verify it with sha256sum -c SHA256SUMS or a SHA-256 tool such as Get-FileHash. These hashes detect changed contents; they are not signatures or proof of provenance.\n\nThe build/ files are unchanged snapshots, including generation stages and failure-origin maps. Paths in link logs describe the original build environment. Packaging performs no compilation, link, execution, stripping, or optimization. Source contents are included only if selected at build time, but code literals, filenames and local toolchain paths may still appear. See release.json for the source-inclusion choice and file inventory.\n",
             target.triple()
         )
     } else {
         format!(
-            "# Native配布物\n\n[English](README.en.md)\n\ntarget: {}。実行入口: build/{executable}。このディレクトリから、用途に応じた引数で実行します。例：\n\n    {command}\n\n実行にCeruneコンパイラ・Clangは不要です。対象OSにはruntime-requirements.jsonの依存物と、その依存先が必要です。記録は実行ファイルの直接の要求であり、検証済み最低OSや互換性の保証ではありません。システムライブラリは同梱しません。\n\nディレクトリ全体をコピーします。Linuxでは実行権限を保ってください（Windows経由の転送時はchmod +x build/program）。SHA256SUMSはpayload全体とrelease.jsonを対象とします。sha256sum -c SHA256SUMSまたはGet-FileHash等のSHA-256ツールで確認できます。ハッシュは内容の変更検知であり、署名や出自の証明ではありません。\n\nbuild/には生成過程・停止出自を含む元のバイト列を保持します。リンク記録内のパスは元の構築環境の履歴です。配布処理はコンパイル・リンク・実行・strip・最適化を行いません。本文はbuild時の選択を引き継ぎますが、省略時もリテラル・ファイル名・toolchainのローカルパスは含まれることがあります。本文同梱の有無と一覧はrelease.jsonに記録します。\n",
+            "# Native配布物\n\n[English](README.en.md)\n\ntarget: {}。実行入口: build/{executable}。このディレクトリから、用途に応じた引数で実行します。例：\n\n    {command}\n\n{files}実行にCeruneコンパイラ・Clangは不要です。対象OSにはruntime-requirements.jsonの依存物と、その依存先が必要です。directは実行ファイルの直接依存、file_connectionはCerune接続の必要条件を示します。検証済み最低OSや互換性の保証ではありません。システムライブラリは同梱しません。\n\nディレクトリ全体をコピーします。Linuxでは実行権限を保ってください（Windows経由の転送時はchmod +x build/program）。SHA256SUMSはpayload全体とrelease.jsonを対象とします。sha256sum -c SHA256SUMSまたはGet-FileHash等のSHA-256ツールで確認できます。ハッシュは内容の変更検知であり、署名や出自の証明ではありません。\n\nbuild/には生成過程・停止出自を含む元のバイト列を保持します。リンク記録内のパスは元の構築環境の履歴です。配布処理はコンパイル・リンク・実行・strip・最適化を行いません。本文はbuild時の選択を引き継ぎますが、省略時もリテラル・ファイル名・toolchainのローカルパスは含まれることがあります。本文同梱の有無と一覧はrelease.jsonに記録します。\n",
             target.triple()
+        )
+    }
+}
+
+fn file_guide(target: Target, executable: &str, english: bool, contract: &Value) -> String {
+    let Some(enabled) = contract["enabled"].as_bool() else {
+        return if english {
+            "File connection requirements were not recorded in this older build; absence is not proof that file operations are unused. Consult the program provider before execution.\n\n".into()
+        } else {
+            "旧buildではファイル接続の要件が未記録です。未使用を意味しません。実行前にプログラムの提供元へ確認してください。\n\n".into()
+        };
+    };
+    if !enabled {
+        return if english {
+            "This build does not generate a file connection or interpret the file startup marker.\n\n".into()
+        } else {
+            "このbuildはファイル接続を生成せず、ファイル接続用の起動マーカーを解釈しません。\n\n"
+                .into()
+        };
+    }
+    let command = match target {
+        Target::X86_64UnknownLinuxGnu => format!("./build/{executable}"),
+        Target::X86_64PcWindowsMsvc => format!(".\\build\\{executable}"),
+    };
+    let os = match (target, english) {
+        (Target::X86_64UnknownLinuxGnu, true) => "Linux reads require /proc/self/fd (procfs).",
+        (Target::X86_64UnknownLinuxGnu, false) => {
+            "Linuxの読取りには/proc/self/fd（procfs）が必要です。"
+        }
+        (Target::X86_64PcWindowsMsvc, true) => {
+            "Windows requires NtCreateFile from ntdll.dll, resolved dynamically; this requirement does not come from the PE import table."
+        }
+        (Target::X86_64PcWindowsMsvc, false) => {
+            "Windowsはntdll.dllのNtCreateFileを動的に解決します。この要件はPE import tableから得たものではありません。"
+        }
+    };
+    if english {
+        format!(
+            "This build includes file-connection contract cerune-native-file-connection-v1. Select an existing working directory explicitly at execution time, replacing <directory>; build/release never select or open it:\n\n    {command} --cerune-runtime-v1 --file-root <directory> -- <program-arguments...>\n\nOnly a leading marker enables configuration; everything after -- is passed to the program unchanged. With no root configured, a file operation stops with file-v1/unconfigured. Existing files are not overwritten. {os} The metadata describes requirements; it neither configures execution nor verifies the deployment environment.\n\n"
+        )
+    } else {
+        format!(
+            "このbuildはcerune-native-file-connection-v1のファイル接続を含みます。<directory>を既存の作業ディレクトリへ置き換え、実行時に明示します。build/releaseは接続先を選択・openしません。\n\n    {command} --cerune-runtime-v1 --file-root <directory> -- <プログラム引数...>\n\n先頭のマーカーがある場合だけ設定を解釈し、--以降はそのままプログラム引数にします。root未設定でファイル操作を行うとfile-v1/unconfiguredで停止します。既存ファイルは上書きしません。{os} 記録は必要条件を示すもので、実行設定の変更や配布先の検証は行いません。\n\n"
         )
     }
 }

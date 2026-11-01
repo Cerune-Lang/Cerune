@@ -1,166 +1,10 @@
+use cerune_lang as language;
 use cerune_lang::runtime::files::*;
 use cerune_lang::{bytecode, ir, ir_executor, mir, mir_executor, modules, ssa_executor, vm};
-use std::{
-    cell::RefCell,
-    collections::{BTreeMap, VecDeque},
-    io::{self, Read, Write},
-    rc::Rc,
-};
-#[derive(Clone, Copy)]
-enum Step {
-    Count(usize),
-    Interrupted,
-    Fail,
-    Invalid,
-    Zero,
-}
-#[derive(Default)]
-struct State {
-    files: BTreeMap<String, Vec<u8>>,
-    calls: Vec<String>,
-    reads: VecDeque<Step>,
-    writes: VecDeque<Step>,
-    open_error: Option<OpenError>,
-    close_error: bool,
-}
-#[derive(Clone, Default)]
-struct Memory(Rc<RefCell<State>>);
-struct MemoryHandle {
-    memory: Memory,
-    name: String,
-    position: usize,
-}
-impl Backend for Memory {
-    type Handle = MemoryHandle;
-    fn open(&mut self, name: &str, operation: Operation) -> Result<MemoryHandle, OpenError> {
-        let mut s = self.0.borrow_mut();
-        s.calls.push(format!("open:{operation:?}:{name}"));
-        if let Some(error) = s.open_error {
-            return Err(error);
-        }
-        match operation {
-            Operation::ReadText if !s.files.contains_key(name) => return Err(OpenError::NotFound),
-            Operation::WriteNew => {
-                if s.files.contains_key(name) {
-                    return Err(OpenError::AlreadyExists);
-                }
-                s.files.insert(name.to_owned(), Vec::new());
-            }
-            _ => {}
-        }
-        Ok(MemoryHandle {
-            memory: self.clone(),
-            name: name.to_owned(),
-            position: 0,
-        })
-    }
-}
-fn count(step: Option<Step>, requested: usize) -> io::Result<usize> {
-    match step {
-        Some(Step::Count(n)) => Ok(n.min(requested)),
-        Some(Step::Interrupted) => Err(io::ErrorKind::Interrupted.into()),
-        Some(Step::Fail) => Err(io::Error::other("private OS error")),
-        Some(Step::Invalid) => Ok(requested + 1),
-        Some(Step::Zero) => Ok(0),
-        None => Ok(requested),
-    }
-}
-impl Read for MemoryHandle {
-    fn read(&mut self, into: &mut [u8]) -> io::Result<usize> {
-        let mut s = self.memory.0.borrow_mut();
-        s.calls.push(format!("read:{}", into.len()));
-        let n = count(s.reads.pop_front(), into.len())?;
-        if n > into.len() {
-            return Ok(n);
-        }
-        let data = &s.files[&self.name];
-        let n = n.min(data.len() - self.position);
-        into[..n].copy_from_slice(&data[self.position..self.position + n]);
-        self.position += n;
-        Ok(n)
-    }
-}
-impl Write for MemoryHandle {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        let mut s = self.memory.0.borrow_mut();
-        s.calls.push(format!("write:{}", bytes.len()));
-        let n = count(s.writes.pop_front(), bytes.len())?;
-        if n <= bytes.len() {
-            s.files
-                .get_mut(&self.name)
-                .unwrap()
-                .extend_from_slice(&bytes[..n]);
-        }
-        Ok(n)
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        panic!("file operations must not implicitly flush stdout")
-    }
-}
-impl Handle for MemoryHandle {
-    fn close(self) -> io::Result<()> {
-        let mut s = self.memory.0.borrow_mut();
-        s.calls.push("close".to_owned());
-        if s.close_error {
-            Err(io::ErrorKind::Interrupted.into())
-        } else {
-            Ok(())
-        }
-    }
-}
-
-fn hir(source: &str) -> ir::Program {
-    modules::from_source(source).unwrap().to_ir().unwrap()
-}
-fn execute<B: Backend>(
-    route: usize,
-    hir: &ir::Program,
-    files: &mut Files<B>,
-) -> Result<String, (Failure, String)> {
-    match route {
-        0 => ir_executor::run_with_files(hir, files).map_err(|e| {
-            let ir_executor::ErrorKind::Files(f) = e.kind() else {
-                panic!("{e:?}")
-            };
-            assert_eq!(e.origin().unwrap().span, f.details.origin.span);
-            (**f, e.output().into())
-        }),
-        1 => mir_executor::run_with_files(&mir::lower(hir).unwrap(), files).map_err(|e| {
-            let mir_executor::ErrorKind::Files(f) = e.kind() else {
-                panic!("{e:?}")
-            };
-            assert_eq!(e.origin().unwrap().span, f.details.origin.span);
-            assert!(e.location().is_some());
-            (**f, e.output().into())
-        }),
-        2 => ssa_executor::run_with_files(
-            &mir::ssa::construct(&mir::lower(hir).unwrap()).unwrap(),
-            files,
-        )
-        .map_err(|e| {
-            let ssa_executor::ErrorKind::Files(f) = e.kind() else {
-                panic!("{e:?}")
-            };
-            assert_eq!(e.origin().unwrap().span, f.details.origin.span);
-            assert!(e.location().is_some());
-            (**f, e.output().into())
-        }),
-        _ => vm::run_with_files(&bytecode::lower(hir).unwrap(), files).map_err(|e| {
-            let vm::VmErrorKind::Files(f) = e.kind() else {
-                panic!("{e:?}")
-            };
-            let code = bytecode::lower(hir).unwrap();
-            let instructions = &code.functions[e.function_id().unwrap()].instructions;
-            let bytecode::InstructionOrigin::Source { node_id, span } =
-                instructions[e.instruction_index()].origin
-            else {
-                panic!()
-            };
-            assert_eq!(f.details.origin, Origin { node_id, span });
-            (*f, e.output().into())
-        }),
-    }
-}
+use std::io::{self, Write};
+mod support;
+mod wat;
+use support::*;
 
 #[test]
 fn roundtrip_example_preserves_bytes_and_ir_with_independent_connections() {
@@ -461,22 +305,20 @@ fn standard_module_is_virtual_observable_and_internal_calls_are_private() {
 }
 
 #[test]
-fn generators_reject_file_io_with_source_locations_even_in_unused_functions() {
-    use cerune_lang::codegen::{llvm, qbe, wat, x86_64};
+fn native_generators_include_file_startup_for_unused_functions() {
+    use cerune_lang::codegen::x86_64;
     let p = hir(
         r#"import "std:fs" as fs; fn unused()->string {return fs::read_text("x",0);} print(1);"#,
     );
-    let errors = [
-        llvm::emit_llvm(&p).unwrap_err(),
-        llvm::emit_llvm_with_target(&p, Some(llvm::Target::X86_64UnknownLinuxGnu)).unwrap_err(),
-        qbe::emit_qbe(&p).unwrap_err(),
-        qbe::emit_qbe_with_target(&p, Some(qbe::Target::X86_64PcWindowsMsvc)).unwrap_err(),
-        wat::emit_wat(&p).unwrap_err(),
-        x86_64::emit_asm(&p, x86_64::Target::X86_64UnknownLinuxGnu).unwrap_err(),
-    ];
-    for e in errors {
-        assert!(e.message().contains("file I/O is not supported yet"));
-        assert!(e.primary_span().is_some());
+    for target in [
+        x86_64::Target::X86_64UnknownLinuxGnu,
+        x86_64::Target::X86_64PcWindowsMsvc,
+    ] {
+        let asm = x86_64::emit_asm(&p, target).unwrap();
+        assert!(asm.contains("cerune_file_read_text"));
+        assert!(asm.contains("cerune_files_parse"));
+        assert!(asm.contains("cerune_files_connect"));
+        assert!(!x86_64::emit_object(&p, target, true).unwrap().is_empty());
     }
 }
 
@@ -638,3 +480,5 @@ mod os;
 
 #[cfg(any(windows, target_os = "linux"))]
 mod c;
+#[cfg(any(windows, target_os = "linux"))]
+mod generated;

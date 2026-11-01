@@ -19,6 +19,12 @@ pub struct Stdin {
     reader: platform::Reader,
     unavailable: Option<Code>,
 }
+impl Stdin {
+    /// Reports connection availability without reading or changing the stream.
+    pub fn connection_error(&self) -> Option<Code> {
+        self.unavailable
+    }
+}
 impl Read for Stdin {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
         if let Some(code) = self.unavailable {
