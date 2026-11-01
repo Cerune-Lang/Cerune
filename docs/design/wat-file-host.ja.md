@@ -2,8 +2,8 @@
 
 [English](wat-file-host.en.md)
 
-**状態：emit-watのstd:fsと版付きhost接続を実装済み。実OSのファイルhostは未提供です。**
-[共通ファイル契約](file-io.ja.md)の読取り・新規保存を接続します。既存の共通IR・名前規則・UTF-8・使用量上限・停止方針は変えません。生成WATの意味処理を独立したメモリ接続で4実行器と比較しています。OS接続の検証は別途行います。
+**状態：emit-watのstd:fsと版付きhost接続を実装済み。Windows/Linuxの実OS参照hostも検証済みです。**
+[共通ファイル契約](file-io.ja.md)の読取り・新規保存を接続します。既存の共通IR・名前規則・UTF-8・使用量上限・停止方針は変えません。生成WATの意味処理を独立したメモリ接続で4実行器と比較しています。実OS接続は独立した参照hostで検証しています。
 
 ## 責務と選択理由
 
@@ -50,7 +50,7 @@ begin/chunkの0は全量受理、1は準備失敗です。部分受理・再試�
 
 通常のopenエラーは作成・変更なしを保証します。失敗時にhost内部で取得したhandleの回収もhostの責務です。成功handleはinstance内で現在有効な他のhandleと重複させず、OSのfd・ポインタを直接渡しません。生成WATは正しい成功handleだけを使用し、未知のhandleでcloseを試みません。契約外応答で作成有無・消費量を推測しません。
 
-hostは通常ファイルと作業範囲をOS接続側で保証します。名前の文字検査や文字列prefix比較だけを範囲保証に使いません。今回のメモリ上の試験hostはOSパスを開かず、Windows/Linuxの作業範囲の安全性を検証したものではありません。
+hostは通常ファイルと作業範囲をOS接続側で保証します。名前の文字検査や文字列prefix比較だけを範囲保証に使いません。メモリ上の試験hostはOSパスを開きません。Windows/Linuxの作業範囲は後述する実OS参照hostで別途検証します。
 
 ### 転送・終了
 
@@ -94,7 +94,7 @@ file-v1のwrite requestedはソース操作の本文全長であり、8へ縮め
 | 新hostで未設定 | files_status_v1=1。操作時にunconfiguredで停止 |
 | std:io／std:env／通常出力併用 | 既存import・起動時の引数snapshot・明示flushの意味は維持 |
 
-WAT libraryは純粋な公開関数を対象とする既存の制限を維持します。WASI、OSファイルhost、汎用ファイルhandle、安定した埋込みAPIはこの変更で導入しません。
+WAT libraryは純粋な公開関数を対象とする既存の制限を維持します。WASI、汎用ファイルhandle、安定した埋込みAPIは導入しません。
 
 ## 実装・検証と残件
 
@@ -111,4 +111,14 @@ cargo test --test standard_input file_io::wat
 
 NodeとWABTが必要です。CIのWindows/Linux/macOS WAT jobではCERUNE_TEST_NODEとCERUNE_TEST_WAT2WASM_JSを指定して必須実行します。[roundtrip.ceruの実行手順](../../examples/files/README.md)からも保存・読戻しを試せます。
 
-実OSのWAT hostは未提供です。作業範囲・排他的作成・リンク拒否を保証する接続を別途検証してから提供します。Nodeの通常パスopenだけで既存のOS契約を満たすとは扱いません。成功操作の生成経路共通観測APIも残件です。
+## 実OS参照host
+
+[experiments/wat_host](../../experiments/wat_host/README.md)に独立したRust crateを追加しました。Wasmi 2.0.0をそのcrateだけで使い、既存のruntime::files::DirectoryでWindows/Linuxの作業範囲・排他的作成・リンク拒否を共有します。OS操作をNodeの通常パスopenへ置き換えません。WATはemit-onlyのままです。
+
+--file-rootで実行前にrootを開き、--以降の引数をプログラムへ渡します。host設定は実行制御であり、観測APIではありません。ファイル転送は最大8バイトの値だけを使い、検査・所有・再試行・UTF-8・file-v1は生成WATに残します。標準入力・引数・数値や複合値表示・flushの既存importも接続します。浮動小数点整形は実行器の純粋関数を共有します。
+
+host内のhandle番号はOS handleと分離し、再使用しません。closeは成功・失敗とも一度だけ消費します。host例外やエンジン停止時に残ったhandleは終了時に回収し、部分ファイルは削除しません。mainだけを公開する生成物を一度実行します。内部memoryを公開せず、停止後に再開しません。エンジンの物理的な失敗を意味上の上限超過へ変換しません。
+
+Windows/Linux CIでは、実ファイルでのroundtrip・異常時のfile-v1全文・残存内容を4実行器と比較します。入力待ち中のroot移動と差替え、リンク拒否、標準入出力・引数の併用も検証します。短い転送・割込み・不正応答・close消費はadapterへ試験接続を注入して検証します。実行手順と対象範囲は参照hostの日英READMEにまとめています。
+
+成功操作の生成経路共通観測APIは残件です。
