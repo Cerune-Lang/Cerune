@@ -22,39 +22,41 @@ The existing linker and test helpers collect output into temporary files and enf
 
 ## Partial common-runtime implementation
 
-`runtime::process::Processes<B>` and a [scripted test connection](../../src/runtime/process/tests.rs) now validate requests, transfers, results, and cleanup as Rust components. **OS connections, `std:process`, IR instructions, executors, and generated routes remain unimplemented.** Cerune programs cannot yet launch subprocesses.
+`runtime::process::Processes<B>` now integrates [in-flight transfer state](subprocess-transfers.en.md). A [scripted connection](../../src/runtime/process/tests.rs) verifies requests, launch, transfers, deadlines, exit monitoring, and cleanup. **Production OS connections, `std:process`, IR instructions, executors, and generated routes remain unimplemented.** Cerune programs cannot yet launch subprocesses.
 
 | Component | Current behavior |
 | --- | --- |
-| `Request` / `Limits` | Explicit target name, arguments, input, output limits, and `Duration` deadlines; no default limits yet |
-| `Processes::run` | Returns an `Outcome` per call; ordinary failures leave the connection usable for an explicit subsequent call |
-| `Outcome` | Stdout/stderr contents plus a `Report` with origin, accepted counts, termination status, failure, and cleanup; `completed()` does not mean child exit code zero |
+| `Request` / `Limits` | Explicit target, arguments, input, output limits, and `Duration` deadlines; no default limits yet |
+| `Processes::run` | Synchronously returns an `Outcome` while progressing three streams concurrently; ordinary failures with confirmed reclamation allow a later explicit call |
+| `Outcome` | Stdout/stderr contents, a `Report` with origin/counts/exit/failure/cleanup, and transfer state; `completed()` does not mean child exit code zero |
 | `Backend::start` | Distinguishes started, confirmed not started, and uncertain launch; uncertain launch still receives one cleanup attempt |
-| `Backend::poll` | Receives input and both output buffers of at most 4096 bytes each, plus a deadline; the connection multiplexes pipes/termination and returns one event |
-| `Backend::cleanup` | Called once for started/uncertain operations, on both success and failure; retain the original failure separately from cleanup |
-| `events()` | Read-only records of request number, phase, offered transfer sizes and close/wait flags, progress, and origin; no contents, target names, or arguments |
+| `Backend::submit` | Takes ownership of a buffer of at most 4096 bytes; even submission failure returns a terminal notification |
+| `Backend::poll` | Waits until the deadline, returning transfers, cancellation replies, child exit, and cleanup in a fixed-capacity `Batch` |
+| `Backend::cancel` | Requested once per pending operation; cancellation replies and transfer termination are separate |
+| `Backend::begin_cleanup` | Begins once for started/uncertain calls, on success and failure; poll continues collecting late notifications during cleanup |
+| `events()` | Read-only call/phase/origin, offered/confirmed/retained counts per operation, states, cancellation and terminal outcomes; no contents, targets, or arguments |
 
-This Rust API is not a stable embedding ABI. Registration tables and OS configuration remain connection responsibilities to be developed in OS prototypes. The scripted connection exists only inside unit tests; it is not a substitute exposed through user-facing execution routes.
+The Rust connection contract changed. The old borrowed-buffer `Poll`/`PollEvent` interface is removed from production; the [old synchronous model](../../src/runtime/process/synchronous.rs) remains only for comparison tests. This is not a stable embedding ABI; no existing language CLI or production OS connection is broken. Registration and OS configuration remain connection responsibilities, and the scripted connection is not a user-facing execution route.
 
-Validation precedence is disabled connection, invalid request, request capacity, unconfigured connection, output-buffer allowance, allocation, representable deadline addition, then launch. Request capacity includes argument count, combined UTF-8 bytes of target name and arguments, stdin length, combined stdout/stderr limits, and timeout. Empty target names, NUL in targets/arguments, and zero operation/cleanup durations fail before launch.
+Validation precedence is disabled connection, invalid request, request capacity, unconfigured connection, buffer allowance, allocation, representable deadline addition, then launch. Request capacity includes argument count, combined UTF-8 bytes of target and arguments, stdin length, combined output limits, and timeout. Empty targets, NUL in targets/arguments, and zero operation/cleanup durations fail before launch. Exhausted call identities disable further launch without wrapping.
 
-Reserve both output buffers before launching. `available_output_bytes` bounds this component's byte buffers, not language array storage. Lifetime management after return and reservations for conversion to `[u8]` will be added with IR integration. Short results currently retain their reserved buffer capacity.
+Reserve both retained output buffers plus three 4096-byte transfer buffers before launch. `available_bytes` bounds their sum, not language array storage. Lifetime management after return and reservations for conversion to `[u8]` follow with IR integration. Short results retain reserved capacity.
 
-Transfer responses exceeding offered sizes, repeated responses on closed streams, and duplicate termination status are contract violations. After retaining confirmed progress, check clock regression, deadline expiry, then the event's failure, in that order. Transfer at the deadline yields timeout with partial results retained. Direct-child exit does not complete collection before pipe EOF. Only interruption of poll waiting retries with zero transfer; close and launch are not implicitly retried.
+Check clock regression/deadlines before notifications, then process stdin, stdout, stderr, cancellation replies, exit status, and cleanup reports in that order. Even at the deadline, retain accepted counts and partial contents without replacing the first failure. Excessive counts, stale operations, duplicate exits, and empty ordinary event batches violate the contract. Direct-child exit alone is insufficient: normal completion also requires stdin close and both output EOFs. Interrupted waiting waits again; launch and close are not implicitly retried.
 
-Disable the connection after incomplete cleanup, or after a complete reply with a regressing clock or a reached/exceeded cleanup deadline. Still return flags describing already reclaimed resources. Subsequent calls on a disabled connection perform no additional clock reads, launch, transfer, or cleanup.
+Do not reuse connections after incomplete cleanup, clock regression, cleanup deadline expiry, unknown progress, protocol violations, or missing transfer/cancellation notifications. Preserve the connection's report in `cleanup_reported` and the deadline-aware verdict in `cleanup`, including reclaimed-resource flags and whether termination was requested. Later calls on disabled connections perform no clock reads, launch, transfer, or cleanup.
 
-This synchronous component cannot forcibly interrupt a connection that ignores deadlines and never returns. Bounded waiting, fair multiplexing, ownership of unreclaimed resources, and shutdown behavior are OS-connection responsibilities to measure before exposing real connections. Exhausted observation capacity or failed observation allocation does not affect operation results.
+Control operations do not wait; poll performs bounded waiting. The common runtime cannot forcibly interrupt a connection that ignores the contract and never returns. Waiting, fairness, ownership of unreclaimed resources, and shutdown behavior require real-OS verification. Disabling, truncating, or failing to allocate observation history changes neither results nor control actions.
 
-Run the following tests to compare success/nonzero exit, continuation after failure, partial bytes, exact-limit EOF checks, timeouts, cleanup, invalid replies, and observation enabled/disabled.
+Run the tests with:
 
 ```text
 cargo test --lib runtime::process
 ```
 
-The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) verifies nine cases including argv, concurrent transfer, deadlines, and descendant reclamation. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor.
+Tests compare all six notification-array orders, late partial transfers, delayed/missing cancellation replies, EOF/limits, cleanup, later calls, and observation enabled/disabled. Normal exit, output, timeout, and capacity failure also compare results against the old synchronous model.
 
-The [in-flight transfer/cancellation contract](subprocess-transfers.en.md) and `Transfers` state component now test counts, partial results, buffer ownership, and reuse conditions. Integration with existing `Processes::run` remains pending; next connect launch, deadlines, exit monitoring, and cleanup. The concurrent-worker prototype cannot directly implement the current single-event poll contract. Define supervisor isolation from Linux embedding hosts and resource ownership after cleanup failures before production OS integration. Public result types, the standard module, and common IR follow.
+The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) already verifies nine cases including argv, concurrent transfer, deadlines, and descendants. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor. Next implement production connections against this ownership contract. Define Linux supervisor placement, cancellation/terminal notifications, and ownership after cleanup failures before public result types, standard modules, and common IR.
 
 ## Calls and connections
 

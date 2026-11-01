@@ -1,4 +1,4 @@
-//! 進行中の転送と取消しを分ける状態管理です。同期Backendへの接続は後続です。
+//! 進行中の転送と取消しを分ける状態管理です。Processesから起動・期限・後始末へ接続します。
 use super::{CHUNK, Channel, Cleanup, Code, Failure, Origin, Phase};
 use std::num::NonZeroU64;
 
@@ -22,13 +22,13 @@ pub enum Kind {
     CloseStdin,
 }
 impl Kind {
-    fn index(self) -> usize {
+    pub(super) fn index(self) -> usize {
         match self {
             Self::Write | Self::CloseStdin => 0,
             Self::Read(c) => index(c),
         }
     }
-    fn phase(self) -> Phase {
+    pub(super) fn phase(self) -> Phase {
         match self {
             Self::Write => Phase::Transfer(Channel::Stdin),
             Self::Read(c) => Phase::Transfer(c),
@@ -208,6 +208,9 @@ impl Transfers {
     }
     fn fail(&mut self, code: Code, phase: Phase) {
         self.stop(Failure { code, phase });
+    }
+    pub(super) fn protocol_error(&mut self, phase: Phase) {
+        self.invalid(phase);
     }
     fn invalid(&mut self, phase: Phase) -> Code {
         self.snapshot.protocol_failed = true;
@@ -390,7 +393,7 @@ impl Transfers {
             Completion::Done if confirmed == 0 => self.fail(Code::ZeroProgress, phase),
             Completion::Done => {}
             Completion::Eof => self.snapshot.progress[i].ended = true,
-            Completion::Failed | Completion::Cancelled => {
+            Completion::Failed | Completion::Cancelled | Completion::NotSubmitted => {
                 self.fail(
                     if kind == Kind::CloseStdin {
                         Code::CloseFailed
@@ -400,7 +403,6 @@ impl Transfers {
                     phase,
                 );
             }
-            Completion::NotSubmitted => self.fail(Code::TransferFailed, phase),
             Completion::ProgressUnknown => {
                 self.snapshot.progress[i].known = false;
                 self.fail(Code::ProgressUnknown, phase);

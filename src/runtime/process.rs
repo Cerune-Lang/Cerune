@@ -1,16 +1,16 @@
 //! 回復可能な子プロセス操作と、その読取り専用記録です。
 //! 言語命令・実OS接続・返却後の配列所有はまだ接続していません。
 pub use super::output::Origin;
-use std::time::Duration;
+use std::{num::NonZeroU64, time::Duration};
 mod backend;
 mod records;
 pub mod transfers;
-pub use backend::{Backend, Launch, Poll, PollEvent, StartError};
+pub use backend::{Backend, Batch, Completed, Launch, StartError, WaitError, Wake};
 pub use records::{
     Channel, Cleanup, CleanupError, Code, Event, Exit, Failure, Limits, Offered, Outcome, Phase,
     Report, Request, Started,
 };
-
+use transfers::{Snapshot, State, Transfers};
 const CHUNK: usize = 4096;
 
 pub struct Processes<B> {
@@ -61,22 +61,14 @@ impl<B: Backend> Processes<B> {
     pub fn is_disabled(&self) -> bool {
         self.disabled
     }
-
-    /// 接続の管理情報を所有者へ返します。暗黙の再起動・cleanupは行いません。
+    /// 未回収資源があれば接続が所有し続けます。暗黙の待機・再起動は行いません。
     pub fn into_inner(self) -> Option<B> {
         self.backend
     }
 
-    /// available_output_bytesはこの部品のバイトbuffer上限です。
-    /// 言語側の配列領域・返却後の所有管理は、将来の呼出し側で別途検査します。
-    pub fn run(
-        &mut self,
-        request: Request<'_>,
-        available_output_bytes: usize,
-        origin: Origin,
-    ) -> Outcome {
-        self.sequence = self.sequence.saturating_add(1);
-        let mut outcome = Outcome {
+    /// available_bytesは両出力と3個の転送bufferの上限です。言語の配列領域とは別です。
+    pub fn run(&mut self, request: Request<'_>, available_bytes: usize, origin: Origin) -> Outcome {
+        let mut out = Outcome {
             report: Report {
                 origin,
                 started: Started::No,
@@ -93,33 +85,101 @@ impl<B: Backend> Processes<B> {
                 exit: None,
                 failure: None,
                 cleanup: None,
+                cleanup_reported: None,
             },
             stdout: Vec::new(),
             stderr: Vec::new(),
+            transfers: None,
         };
-        self.record(Phase::Validate, outcome.report, None);
-        if let Err(failure) = self.execute(&request, available_output_bytes, &mut outcome) {
-            outcome.report.failure = Some(failure);
+        match self.sequence.checked_add(1) {
+            Some(n) => self.sequence = n,
+            None => self.disabled = true,
         }
-        let phase = if outcome.report.cleanup.is_some() {
-            Phase::Cleanup
-        } else {
-            outcome.report.failure.map_or(Phase::Wait, |f| f.phase)
-        };
-        self.record(phase, outcome.report, None);
-        outcome
+        self.record(Phase::Validate, &out);
+        if let Err(failure) = self.execute(&request, available_bytes, &mut out) {
+            out.report.failure.get_or_insert(failure);
+        }
+        self.record(
+            if out.report.cleanup.is_some() {
+                Phase::Cleanup
+            } else {
+                out.report.failure.map_or(Phase::Wait, |f| f.phase)
+            },
+            &out,
+        );
+        out
     }
-
     fn execute(
         &mut self,
         request: &Request<'_>,
         available: usize,
         out: &mut Outcome,
     ) -> Result<(), Failure> {
-        let fail = |code| Failure {
-            code,
-            phase: Phase::Validate,
-        };
+        self.validate(request)?;
+        self.record(Phase::Reserve, out);
+        #[cfg(test)]
+        if std::mem::take(&mut self.fail_allocation) {
+            return Err(failure(Code::AllocationFailed, Phase::Reserve));
+        }
+        let mut transfers = Transfers::new(
+            NonZeroU64::new(self.sequence).unwrap(),
+            out.report.origin,
+            [
+                request.stdin.len(),
+                request.stdout_limit,
+                request.stderr_limit,
+            ],
+            available,
+        )
+        .map_err(|code| failure(code, Phase::Reserve))?;
+        let mut previous = self.backend.as_mut().unwrap().now();
+        let deadline = previous
+            .checked_add(request.timeout)
+            .ok_or(failure(Code::InvalidRequest, Phase::Start))?;
+        self.update(&transfers, out);
+        self.record(Phase::Start, out);
+        let launch = self.backend.as_mut().unwrap().start(request, deadline);
+        self.clock(deadline, &mut previous, &mut transfers, Phase::Start);
+        match launch {
+            Launch::NotStarted(error) => {
+                transfers.stop(start_failure(error));
+                self.disabled |= transfers.snapshot().protocol_failed;
+                self.update(&transfers, out);
+                return Err(transfers.snapshot().failure.unwrap());
+            }
+            Launch::Uncertain(error) => {
+                out.report.started = Started::Unknown;
+                transfers.stop(start_failure(error));
+            }
+            Launch::Started => out.report.started = Started::Yes,
+        }
+        loop {
+            self.clock(deadline, &mut previous, &mut transfers, Phase::Wait);
+            let snapshot = transfers.snapshot();
+            if snapshot.failure.is_some()
+                || (snapshot.progress.iter().all(|p| p.ended) && out.report.exit.is_some())
+            {
+                break;
+            }
+            self.submit_ready(request, deadline, &mut previous, &mut transfers, out);
+            if transfers.snapshot().failure.is_some() {
+                break;
+            }
+            let batch = self.backend.as_mut().unwrap().poll(deadline);
+            let now = self.clock(deadline, &mut previous, &mut transfers, Phase::Wait);
+            self.receive(batch, now, deadline, false, &mut transfers, out);
+        }
+        self.cleanup(&mut transfers, &mut previous, out);
+        let settlement = transfers.finish(out.report.cleanup.unwrap());
+        self.disabled |= !settlement.reusable;
+        out.transfers = Some(settlement.snapshot);
+        apply_snapshot(settlement.snapshot, &mut out.report);
+        out.stdout = settlement.stdout;
+        out.stderr = settlement.stderr;
+        Ok(())
+    }
+    fn validate(&self, request: &Request<'_>) -> Result<(), Failure> {
+        let fail = |code| failure(code, Phase::Validate);
         if self.disabled {
             return Err(fail(Code::ConnectionDisabled));
         }
@@ -151,260 +211,248 @@ impl<B: Backend> Processes<B> {
         if self.backend.is_none() {
             return Err(fail(Code::Unconfigured));
         }
-        self.record(Phase::Reserve, out.report, None);
-        if total > available {
-            return Err(Failure {
-                code: Code::OutputBudget,
-                phase: Phase::Reserve,
-            });
-        }
-        #[cfg(test)]
-        if std::mem::take(&mut self.fail_allocation) {
-            return Err(Failure {
-                code: Code::AllocationFailed,
-                phase: Phase::Reserve,
-            });
-        }
-        out.stdout
-            .try_reserve_exact(request.stdout_limit)
-            .and_then(|()| out.stderr.try_reserve_exact(request.stderr_limit))
-            .map_err(|_| Failure {
-                code: Code::AllocationFailed,
-                phase: Phase::Reserve,
-            })?;
-        let mut now = self.backend.as_mut().unwrap().now();
-        let deadline = now.checked_add(request.timeout).ok_or(Failure {
-            code: Code::InvalidRequest,
-            phase: Phase::Start,
-        })?;
-        self.record(Phase::Start, out.report, None);
-        match self.backend.as_mut().unwrap().start(request, deadline) {
-            Launch::NotStarted(error) => return Err(start_failure(error)),
-            Launch::Uncertain(error) => {
-                out.report.started = Started::Unknown;
-                out.report.failure = Some(start_failure(error));
-            }
-            Launch::Started => {
-                out.report.started = Started::Yes;
-                out.report.failure = self.transfer(request, deadline, &mut now, out).err();
-            }
-        }
-        let cleanup_now = self.backend.as_mut().unwrap().now();
-        let cleanup_clock_invalid = cleanup_now < now;
-        if cleanup_clock_invalid {
-            out.report.failure.get_or_insert(Failure {
-                code: Code::InvalidResponse,
-                phase: Phase::Cleanup,
-            });
-        }
-        let cleanup_deadline = cleanup_now
-            .max(now)
-            .checked_add(self.limits.cleanup_timeout)
-            .unwrap_or(cleanup_now.max(now));
-        let mut cleanup = self
-            .backend
-            .as_mut()
-            .unwrap()
-            .cleanup(out.report.failure.is_some(), cleanup_deadline);
-        let cleanup_end = self.backend.as_mut().unwrap().now();
-        if matches!(cleanup, Cleanup::Complete { .. })
-            && (cleanup_clock_invalid
-                || cleanup_end < cleanup_now.max(now)
-                || cleanup_end >= cleanup_deadline)
-        {
-            cleanup = Cleanup::Incomplete {
-                child_reaped: true,
-                handles_closed: true,
-                scope_finished: true,
-                error: if cleanup_clock_invalid || cleanup_end < cleanup_now.max(now) {
-                    CleanupError::InvalidResponse
-                } else {
-                    CleanupError::Timeout
-                },
-            };
-        }
-        out.report.cleanup = Some(cleanup);
-        if matches!(cleanup, Cleanup::Incomplete { .. }) {
-            self.disabled = true;
-            out.report.failure.get_or_insert(Failure {
-                code: Code::CleanupFailed,
-                phase: Phase::Cleanup,
-            });
-        }
         Ok(())
     }
-
-    fn transfer(
+    fn submit_ready(
         &mut self,
         request: &Request<'_>,
         deadline: Duration,
         previous: &mut Duration,
+        transfers: &mut Transfers,
         out: &mut Outcome,
-    ) -> Result<(), Failure> {
-        let (mut closed, mut stdout_eof, mut stderr_eof) = (false, false, false);
-        let mut stdout = [0; CHUNK];
-        let mut stderr = [0; CHUNK];
-        loop {
-            self.check_clock(deadline, previous, Phase::Wait)?;
-            if closed && stdout_eof && stderr_eof && out.report.exit.is_some() {
-                return Ok(());
+    ) {
+        for i in 0..3 {
+            self.clock(deadline, previous, transfers, Phase::Wait);
+            let snapshot = transfers.snapshot();
+            if snapshot.failure.is_some() {
+                break;
             }
-            let stdin = &request.stdin[out.report.stdin_accepted..];
-            let stdin = &stdin[..stdin.len().min(CHUNK)];
-            let close_stdin = !closed && stdin.is_empty();
-            let stdout_len = if stdout_eof {
-                0
-            } else {
-                (request.stdout_limit - out.stdout.len())
-                    .saturating_add(1)
-                    .min(CHUNK)
+            if snapshot.progress[i].ended
+                || snapshot.operations[i].is_some_and(|op| op.state != State::Terminal)
+            {
+                continue;
+            }
+            let prepared = match i {
+                0 if snapshot.progress[0].confirmed == request.stdin.len() => {
+                    transfers.prepare_close_stdin()
+                }
+                0 => transfers.prepare_write(&request.stdin[snapshot.progress[0].confirmed..]),
+                1 => transfers.prepare_read(Channel::Stdout),
+                _ => transfers.prepare_read(Channel::Stderr),
             };
-            let stderr_len = if stderr_eof {
-                0
-            } else {
-                (request.stderr_limit - out.stderr.len())
-                    .saturating_add(1)
-                    .min(CHUNK)
-            };
-            let offered = Offered {
-                stdin: stdin.len(),
-                stdout: stdout_len,
-                stderr: stderr_len,
-                close_stdin,
-                wait_for_exit: out.report.exit.is_none(),
-            };
-            let event = self.backend.as_mut().unwrap().poll(Poll {
-                stdin,
-                close_stdin,
-                stdout: &mut stdout[..stdout_len],
-                stderr: &mut stderr[..stderr_len],
-                wait_for_exit: out.report.exit.is_none(),
-                deadline,
-            });
-            let phase = event_phase(event);
-            let result = match event {
-                PollEvent::Written(n) => {
-                    if closed || stdin.is_empty() || n > stdin.len() {
-                        invalid(out)
-                    } else if n == 0 {
-                        Err(Code::ZeroProgress)
-                    } else {
-                        out.report.stdin_accepted += n;
-                        Ok(())
-                    }
-                }
-                PollEvent::StdinClosed => {
-                    if !close_stdin {
-                        invalid(out)
-                    } else {
-                        closed = true;
-                        Ok(())
-                    }
-                }
-                PollEvent::Read(Channel::Stdout, n) => {
-                    if stdout_eof || n > stdout_len {
-                        invalid(out)
-                    } else {
-                        stdout_eof = n == 0;
-                        retain(
-                            &mut out.stdout,
-                            &stdout[..n],
-                            request.stdout_limit,
-                            &mut out.report.stdout_read,
-                            &mut out.report.stdout_retained,
-                        )
-                    }
-                }
-                PollEvent::Read(Channel::Stderr, n) => {
-                    if stderr_eof || n > stderr_len {
-                        invalid(out)
-                    } else {
-                        stderr_eof = n == 0;
-                        retain(
-                            &mut out.stderr,
-                            &stderr[..n],
-                            request.stderr_limit,
-                            &mut out.report.stderr_read,
-                            &mut out.report.stderr_retained,
-                        )
-                    }
-                }
-                PollEvent::Read(Channel::Stdin, _) => invalid(out),
-                PollEvent::Exited(exit) => {
-                    if out.report.exit.is_some() || exit == Exit::Signal(0) {
-                        invalid(out)
-                    } else {
-                        out.report.exit = Some(exit);
-                        Ok(())
-                    }
-                }
-                PollEvent::Interrupted => Ok(()),
-                PollEvent::Deadline => {
-                    if self.backend.as_mut().unwrap().now() < deadline {
-                        invalid(out)
-                    } else {
-                        Err(Code::Timeout)
-                    }
-                }
-                PollEvent::TransferFailed(channel) => {
-                    let active = match channel {
-                        Channel::Stdin => !closed && !stdin.is_empty(),
-                        Channel::Stdout => !stdout_eof,
-                        Channel::Stderr => !stderr_eof,
-                    };
-                    if !active {
-                        invalid(out)
-                    } else {
-                        Err(Code::TransferFailed)
-                    }
-                }
-                PollEvent::CloseFailed => {
-                    if !close_stdin {
-                        invalid(out)
-                    } else {
-                        Err(Code::CloseFailed)
-                    }
-                }
-                PollEvent::WaitFailed => {
-                    if out.report.exit.is_some() {
-                        invalid(out)
-                    } else {
-                        Err(Code::WaitFailed)
-                    }
+            let transfer = match prepared {
+                Ok(transfer) => transfer,
+                Err(_) => {
+                    transfers.protocol_error(Phase::Wait);
+                    break;
                 }
             };
-            // 進行を保存してから時計を検査します。期限超過が同時のI/O失敗より優先です。
-            let result = self
-                .check_clock(deadline, previous, phase)
-                .and(result.map_err(|code| Failure { code, phase }));
-            out.report.failure = result.err();
-            self.record(phase, out.report, Some(offered));
-            result?;
+            let phase = transfer.kind().phase();
+            // prepareはI/Oを行いません。submit直前に期限を再確認します。
+            self.clock(deadline, previous, transfers, phase);
+            if transfers.snapshot().failure.is_some() {
+                let _ = transfers.withdraw(transfer);
+                break;
+            }
+            if transfers.submit(transfer.ticket()).is_err() {
+                let _ = transfers.withdraw(transfer);
+                break;
+            }
+            self.update(transfers, out);
+            self.record(phase, out);
+            self.backend.as_mut().unwrap().submit(transfer, deadline);
+            self.clock(deadline, previous, transfers, phase);
         }
     }
-    fn check_clock(
+    fn clock(
         &mut self,
         deadline: Duration,
         previous: &mut Duration,
+        transfers: &mut Transfers,
         phase: Phase,
-    ) -> Result<(), Failure> {
+    ) -> Duration {
         let now = self.backend.as_mut().unwrap().now();
         if now < *previous {
-            return Err(Failure {
-                code: Code::InvalidResponse,
-                phase,
-            });
+            transfers.protocol_error(phase);
+        } else {
+            *previous = now;
+            if now >= deadline {
+                transfers.stop(failure(Code::Timeout, phase));
+            }
         }
-        *previous = now;
-        if now >= deadline {
-            return Err(Failure {
-                code: Code::Timeout,
-                phase,
-            });
-        }
-        Ok(())
+        now
     }
-    fn record(&mut self, phase: Phase, report: Report, offered: Option<Offered>) {
+    fn receive(
+        &mut self,
+        mut batch: Batch,
+        now: Duration,
+        deadline: Duration,
+        cleaning: bool,
+        transfers: &mut Transfers,
+        out: &mut Outcome,
+    ) -> Option<Cleanup> {
+        let any = batch.transfers.iter().any(Option::is_some)
+            || batch.cancellations.iter().any(Option::is_some)
+            || batch.exit.is_some()
+            || batch.cleanup.is_some();
+        if (batch.wake == Wake::Deadline && now < deadline) || (batch.wake == Wake::Events && !any)
+        {
+            transfers.protocol_error(Phase::Wait);
+        }
+        // 固定長配列をその場で整列します。待機通知の配列位置に意味を持たせません。
+        batch.transfers.sort_unstable_by_key(|item| {
+            item.as_ref().map_or((3, u64::MAX), |c| {
+                (c.transfer.kind().index(), c.transfer.ticket().sequence())
+            })
+        });
+        for completed in batch.transfers.into_iter().flatten() {
+            let phase = completed.transfer.kind().phase();
+            let _ = transfers.complete(completed.transfer, completed.confirmed, completed.result);
+            self.update(transfers, out);
+            self.record(phase, out);
+        }
+        batch.cancellations.sort_unstable_by_key(|item| {
+            item.map(|(ticket, _)| (ticket.call(), ticket.sequence()))
+        });
+        for (ticket, reply) in batch.cancellations.into_iter().flatten() {
+            let _ = transfers.cancel_reply(ticket, reply);
+            self.update(transfers, out);
+            self.record(Phase::Cleanup, out);
+        }
+        if let Some(exit) = batch.exit {
+            match exit {
+                Ok(exit) if out.report.exit.is_none() && exit != Exit::Signal(0) => {
+                    out.report.exit = Some(exit)
+                }
+                Ok(_) => transfers.protocol_error(Phase::Wait),
+                Err(_) => {
+                    if out.report.exit.is_some() {
+                        transfers.protocol_error(Phase::Wait);
+                    } else {
+                        transfers.stop(failure(Code::WaitFailed, Phase::Wait));
+                    }
+                }
+            }
+            self.update(transfers, out);
+            self.record(Phase::Wait, out);
+        }
+        if batch.cleanup.is_some() && !cleaning {
+            transfers.protocol_error(Phase::Cleanup);
+        }
+        self.update(transfers, out);
+        self.record(
+            if cleaning {
+                Phase::Cleanup
+            } else {
+                Phase::Wait
+            },
+            out,
+        );
+        if cleaning { batch.cleanup } else { None }
+    }
+    fn cleanup(&mut self, transfers: &mut Transfers, previous: &mut Duration, out: &mut Outcome) {
+        let start = self.backend.as_mut().unwrap().now();
+        let mut invalid_clock = start < *previous;
+        if invalid_clock {
+            transfers.protocol_error(Phase::Cleanup);
+        }
+        *previous = start.max(*previous);
+        let deadline = previous
+            .checked_add(self.limits.cleanup_timeout)
+            .unwrap_or(*previous);
+        for op in transfers.snapshot().operations.into_iter().flatten() {
+            if op.state == State::Submitted {
+                // 正常経路は全転送の終端後にだけここへ到達します。
+                if transfers.request_cancel(op.ticket).unwrap_or(false) {
+                    self.update(transfers, out);
+                    self.record(Phase::Cleanup, out);
+                    self.backend.as_mut().unwrap().cancel(op.ticket, deadline);
+                }
+            }
+        }
+        let terminate = transfers.snapshot().failure.is_some();
+        self.backend
+            .as_mut()
+            .unwrap()
+            .begin_cleanup(terminate, deadline);
+        self.update(transfers, out);
+        self.record(Phase::Cleanup, out);
+        let mut reported = None;
+        let mut timed_out;
+        loop {
+            let now = self.backend.as_mut().unwrap().now();
+            if now < *previous {
+                invalid_clock = true;
+                transfers.protocol_error(Phase::Cleanup);
+            }
+            *previous = (*previous).max(now);
+            if invalid_clock || now >= deadline {
+                timed_out = now >= deadline;
+                break;
+            }
+            let batch = self.backend.as_mut().unwrap().poll(deadline);
+            let end = self.backend.as_mut().unwrap().now();
+            if end < *previous {
+                invalid_clock = true;
+                transfers.protocol_error(Phase::Cleanup);
+            }
+            *previous = (*previous).max(end);
+            timed_out = end >= deadline;
+            if timed_out {
+                transfers.stop(failure(Code::CleanupFailed, Phase::Cleanup));
+            }
+            // 後始末期限の通知も回収してから停止します。元の失敗を上書きしません。
+            reported = self.receive(batch, end, deadline, true, transfers, out);
+            if reported.is_some() || invalid_clock || timed_out {
+                break;
+            }
+        }
+        let cleanup = match reported {
+            Some(Cleanup::Complete { .. }) if invalid_clock || timed_out => Cleanup::Incomplete {
+                child_reaped: true,
+                handles_closed: true,
+                scope_finished: true,
+                error: if invalid_clock {
+                    CleanupError::InvalidResponse
+                } else {
+                    CleanupError::Timeout
+                },
+            },
+            Some(cleanup) => cleanup,
+            None => Cleanup::Incomplete {
+                child_reaped: false,
+                handles_closed: false,
+                scope_finished: false,
+                error: if invalid_clock {
+                    CleanupError::InvalidResponse
+                } else {
+                    CleanupError::Timeout
+                },
+            },
+        };
+        out.report.cleanup_reported = reported;
+        out.report.cleanup = Some(cleanup);
+        if transfers
+            .snapshot()
+            .operations
+            .into_iter()
+            .flatten()
+            .any(|op| op.cancel_requested && op.cancel_reply.is_none())
+        {
+            transfers.protocol_error(Phase::Cleanup);
+        }
+        if matches!(cleanup, Cleanup::Incomplete { .. }) {
+            transfers.stop(failure(Code::CleanupFailed, Phase::Cleanup));
+        }
+        self.update(transfers, out);
+        self.record(Phase::Cleanup, out);
+    }
+    fn update(&self, transfers: &Transfers, out: &mut Outcome) {
+        let snapshot = transfers.snapshot();
+        apply_snapshot(snapshot, &mut out.report);
+        out.transfers = Some(snapshot);
+    }
+    fn record(&mut self, phase: Phase, out: &Outcome) {
         if self.trace_limit == 0 {
             return;
         }
@@ -417,61 +465,41 @@ impl<B: Backend> Processes<B> {
             self.events.push(Event {
                 sequence: self.sequence,
                 phase,
-                report,
-                offered,
+                report: out.report,
+                offered: None,
+                transfers: out.transfers,
             });
         } else {
             self.truncated = true;
         }
     }
 }
-fn invalid(out: &mut Outcome) -> Result<(), Code> {
-    out.report.progress_known = false;
-    Err(Code::InvalidResponse)
+fn apply_snapshot(snapshot: Snapshot, report: &mut Report) {
+    report.stdin_accepted = snapshot.progress[0].confirmed;
+    report.stdout_read = snapshot.progress[1].confirmed;
+    report.stderr_read = snapshot.progress[2].confirmed;
+    report.stdout_retained = snapshot.progress[1].retained;
+    report.stderr_retained = snapshot.progress[2].retained;
+    report.progress_known = snapshot.progress.iter().all(|p| p.known);
+    report.failure = snapshot.failure;
 }
-fn retain(
-    into: &mut Vec<u8>,
-    bytes: &[u8],
-    limit: usize,
-    read: &mut usize,
-    retained: &mut usize,
-) -> Result<(), Code> {
-    *read = read.checked_add(bytes.len()).ok_or(Code::InvalidResponse)?;
-    let n = bytes.len().min(limit - into.len());
-    into.extend_from_slice(&bytes[..n]);
-    *retained = into.len();
-    if n != bytes.len() {
-        Err(Code::OutputLimit)
-    } else {
-        Ok(())
-    }
+fn failure(code: Code, phase: Phase) -> Failure {
+    Failure { code, phase }
 }
 fn start_failure(error: StartError) -> Failure {
-    let code = match error {
-        StartError::NotFound => Code::NotFound,
-        StartError::Denied => Code::Denied,
-        StartError::Resources => Code::Resources,
-        StartError::Unsupported => Code::Unsupported,
-        StartError::Unregistered => Code::Unregistered,
-        StartError::Failed => Code::StartFailed,
-    };
-    Failure {
-        code,
-        phase: Phase::Start,
-    }
+    failure(
+        match error {
+            StartError::NotFound => Code::NotFound,
+            StartError::Denied => Code::Denied,
+            StartError::Resources => Code::Resources,
+            StartError::Unsupported => Code::Unsupported,
+            StartError::Unregistered => Code::Unregistered,
+            StartError::Failed => Code::StartFailed,
+        },
+        Phase::Start,
+    )
 }
-fn event_phase(event: PollEvent) -> Phase {
-    match event {
-        PollEvent::Written(_) => Phase::Transfer(Channel::Stdin),
-        PollEvent::Read(channel, _) | PollEvent::TransferFailed(channel) => {
-            Phase::Transfer(channel)
-        }
-        PollEvent::StdinClosed | PollEvent::CloseFailed => Phase::CloseStdin,
-        PollEvent::Exited(_)
-        | PollEvent::Interrupted
-        | PollEvent::Deadline
-        | PollEvent::WaitFailed => Phase::Wait,
-    }
-}
+#[cfg(test)]
+mod synchronous;
 #[cfg(test)]
 mod tests;

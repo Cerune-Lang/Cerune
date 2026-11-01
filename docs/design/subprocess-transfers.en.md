@@ -10,11 +10,11 @@ This specifies the transfer portion of the [subprocess contract](subprocesses.en
 | --- | --- |
 | [`Transfers`](../../src/runtime/process/transfers.rs) | Implemented Rust state component: transfer identity, buffer ownership, cancellation, confirmed counts, partial output, and reuse conditions |
 | [Transition tests](../../src/runtime/process/transfers/tests.rs) | Inject ordering, races, and invalid responses without launching OS processes |
-| `Processes::run` / `Backend::poll` | Existing synchronous component, not integrated with this component yet. Borrowed buffers cannot outlive poll; a poll must not perform multiple transfers |
+| `Processes::run` / `Backend` | Integrated: the common runtime controls owned transfers, deadlines, exit monitoring, cancellation, and bounded cleanup |
 | Production OS connections | Not implemented. Do not directly incorporate the probe workers into the runtime |
 | Language API, IR, and execution routes | Not implemented. This adds neither an execution route nor separate language semantics |
 
-The component does not launch processes, read clocks, request termination, track child exit status, or reclaim OS resources. Integration with the common runtime responsible for these operations comes next. Its Rust API is an integration-stage interface, not the public language API.
+`Transfers` alone does not launch processes, read clocks, or reclaim OS resources; the integrated `Processes` requests these operations through `Backend`. The Rust API precedes production OS integration and is not the public language API.
 
 ## Transfer units and ownership
 
@@ -82,14 +82,33 @@ Pending operations prevent reuse even if the connection reports `Cleanup::Comple
 
 ## Observation and verification
 
-`snapshot()` copies call identity, NodeId/Span/SourceId, limits, operation identities, offered/confirmed/retained counts, states, cancellation replies, terminal results, and the first failure. It includes no contents and performs no allocation, clock reading, or I/O. Observation is separate from execution APIs. Retain only the latest operation per stream; this change adds no operation history.
+`snapshot()` copies call identity, NodeId/Span/SourceId, limits, operation identities, offered/confirmed/retained counts, states, cancellation replies, terminal results, and the first failure. It includes no contents and performs no allocation, clock reading, or I/O. Observation is separate from execution APIs. `Transfers` retains only the latest operation per stream. The common runtime saves bounded snapshots at each stage in `events()`; disabling, exhausting, or failing to allocate history does not change execution. `Outcome.transfers` retains final state independently of history settings.
 
 Tests cover all six completion orders across three streams, three cancellation replies racing with terminal outcomes, late cancellation replies, missing notifications, partial input failure, zero/exact/exceeded limits, zero progress versus EOF, unknown progress, withdrawal before submission, duplicate/foreign/stale responses, budgets, cleanup, and observation enabled/disabled.
 
+## Integration with the common runtime
+
+`Processes::run` connects this component to launch, deadlines, exit monitoring, and cleanup. It never reuses call identities and submits the next operation only after that stream's previous operation terminates. Advance stdin by confirmed acceptance only, then submit close after all input is accepted.
+
+The connection owns buffers through `submit` and returns fixed-capacity `Batch` values from `poll(deadline)`. A batch contains at most three terminal transfers, three cancellation replies, one exit status, and one cleanup report. Simultaneous notifications follow this order:
+
+1. Clock regression, then deadline expiry. Record failure first, without discarding received notifications.
+2. Terminal stdin, stdout, then stderr transfers. Inspect invalid multiple notifications on one stream in identifier order.
+3. Cancellation replies, including replies after the associated terminal transfer.
+4. Child exit status. Duplicate exits and signal zero violate the contract.
+5. Cleanup reports. Reports before cleanup begins violate the contract.
+
+Empty ordinary batches and premature `Deadline` notifications are also invalid. `Interrupted` permits another wait. Array positions do not define operation order; collecting returned contents is distinct from performing external effects.
+
+After failure, submit no new transfers. Request cancellation once per remaining operation and call `begin_cleanup` once. Successful calls also reclaim their managed scope. Control operations do not wait; cleanup polling uses a separate finite deadline. Account for partial results returned at or beyond that deadline before stopping.
+
+`Report.cleanup_reported` retains the connection's raw report; `Report.cleanup` records the clock/deadline-aware verdict. Late complete reports retain reclaimed-resource flags but fail the deadline and prevent reuse. Missing cancellation replies also violate the contract and prevent reuse even if all transfers terminated.
+
+Keep the old synchronous model only under `cfg(test)` to compare shared cases. This migration changes the Rust `Backend` contract; language CLI, generated-route, and production OS connection contracts have not yet been introduced.
+
 ## Next integration steps
 
-1. Integrate with common-runtime launch, deadlines, exit monitoring, and cleanup; fix simultaneous-notification ordering through a scripted connection. Keep responsibilities distinct from existing synchronous poll.
-2. Verify terminal notifications, cancellation, and buffer lifetimes in Windows/Linux connections. Design Linux supervisor placement and ownership of outstanding resources.
-3. Then connect public types, standard modules, IR, and execution routes.
+1. Verify terminal notifications, cancellation, and buffer lifetimes in Windows/Linux connections. Design Linux supervisor placement and ownership of outstanding resources.
+2. Then connect public types, standard modules, IR, and execution routes.
 
 Cross-route language support remains incomplete. Do not add unimplemented `.ceru` APIs to the executable example catalog.

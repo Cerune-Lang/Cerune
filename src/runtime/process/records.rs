@@ -113,16 +113,19 @@ pub struct Report {
     pub stderr_read: usize,
     pub stdout_retained: usize,
     pub stderr_retained: usize,
-    /// falseなら転送数は契約違反の前までに確認できた数です。
+    /// falseなら転送数は確認済みの下限です。進行中・不明・不正な通知を含みます。
     pub progress_known: bool,
     pub exit: Option<Exit>,
     pub failure: Option<Failure>,
     pub cleanup: Option<Cleanup>,
+    /// 接続の生の回収報告です。期限などを判定したcleanupと分離します。
+    pub cleanup_reported: Option<Cleanup>,
 }
 #[must_use]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Outcome {
     pub report: Report,
+    pub transfers: Option<super::transfers::Snapshot>,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
 }
@@ -145,5 +148,6 @@ pub struct Event {
     pub sequence: u64,
     pub phase: Phase,
     pub report: Report,
+    pub transfers: Option<super::transfers::Snapshot>,
     pub offered: Option<Offered>,
 }
