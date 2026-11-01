@@ -1,4 +1,5 @@
 //! CLI orchestration; generation and external linking have separate contracts.
+pub(super) mod file_connection;
 mod generate;
 mod link;
 use cerune_lang::{codegen::x86_64::Target, runtime::arguments::Limits};
@@ -127,7 +128,7 @@ pub(super) fn run(
     write("link-plan.json", request.plan().as_bytes())?;
     let manifest = |status: &str, error: Option<&str>| {
         format!(
-            "{{\n  \"schema\":\"cerune-native-build-v1\",\n  \"status\":{},\n  \"cerune_version\":{},\n  \"route\":\"native\",\n  \"target\":{},\n  \"executable\":{},\n  \"executed\":false,\n  \"optimization_passes\":[],\n  \"ssa\":{},\n  \"string_heap_limit\":{},\n  \"array_heap_limit\":{},\n  \"argument_count_limit\":{},\n  \"call_depth_limit\":{},\n  \"argument_byte_limit\":{},\n  \"sources_included\":{},\n  \"artifacts\":[{}],\n  \"link_plan\":\"link-plan.json\",\n  \"link_result\":\"link-result.json\",\n  \"runtime_policy\":\"target-system-runtime\",\n  \"error\":{}\n}}\n",
+            "{{\n  \"schema\":\"cerune-native-build-v1\",\n  \"status\":{},\n  \"cerune_version\":{},\n  \"route\":\"native\",\n  \"target\":{},\n  \"executable\":{},\n  \"executed\":false,\n  \"optimization_passes\":[],\n  \"ssa\":{},\n  \"string_heap_limit\":{},\n  \"array_heap_limit\":{},\n  \"argument_count_limit\":{},\n  \"call_depth_limit\":{},\n  \"argument_byte_limit\":{},\n  \"sources_included\":{},\n  \"artifacts\":[{}],\n  \"link_plan\":\"link-plan.json\",\n  \"link_result\":\"link-result.json\",\n  \"runtime_policy\":\"target-system-runtime\",\n  \"file_connection\":{},\n  \"error\":{}\n}}\n",
             json(status),
             json(env!("CARGO_PKG_VERSION")),
             json(options.target.triple()),
@@ -145,6 +146,7 @@ pub(super) fn run(
                 .map(|(name, _)| json(name))
                 .collect::<Vec<_>>()
                 .join(","),
+            generated.file_connection,
             error.map(json).unwrap_or("null".into())
         )
     };

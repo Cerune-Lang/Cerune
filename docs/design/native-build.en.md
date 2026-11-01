@@ -58,3 +58,22 @@ Tool stdin is null. On timeout terminate the dedicated process group (Unix) or d
 On Windows/Linux compare baseline/SSA build→execution, exact existing emit output, arguments, limits, failure reasons and origins. Test failing/timed-out drivers, successful exit without output, syntax/type errors and existing-output preservation. See the [runnable example](../../examples/build_native/README.en.md).
 
 Build retains `--call-depth-limit N` (default 128, range 1–128) in LIR, generated checks, and manifest call_depth_limit. This is not a physical stack/memory guarantee.
+
+## File-connection records
+
+`manifest.json` and `runtime.json` save the same `cerune-native-file-connection-v1` object in `file_connection`. Inspect the actual LIR selected for generation: file operations, including uncalled functions, set `enabled: true`; otherwise it is `false`. The check is shared with OS-connection generation, without inferring usage from source text or import names.
+
+When a connection is generated, record the following fields.
+
+| Field | Meaning |
+| --- | --- |
+| `startup` | `marker: --cerune-runtime-v1`, `file_root_option: --file-root`, `argument_delimiter: --`, `recognition: leading-marker-only` |
+| `root_binding` | `execution-time-argument`: select the connection directory only through execution-time arguments |
+| `missing_root` | `unconfigured-on-file-operation`: omission alone does not stop execution; a file operation does |
+| `diagnostic_schema` | `file-v1` |
+| `os_requirements` (Linux) | `connection: openat-directory-fd`, `read_reopen: /proc/self/fd`; reads require procfs |
+| `os_requirements` (Windows) | `connection: nt-root-directory-handle`, `dynamic_library: ntdll.dll`, `dynamic_symbol: NtCreateFile`; a dynamic requirement separate from direct PE imports |
+
+For `enabled: false`, save only schema and enabled. Neither the build output directory, an execution-time root, nor environment variables are embedded as connection settings. Build performs no file operation and opens no root. Reading metadata does not configure execution. Generation stages, Objects, and origins remain preserved.
+
+[Release](native-release.en.md) validates and carries these records forward. The [file example](../../examples/files/README.en.md) covers baseline MIR/SSA build, release, and execution after relocation.

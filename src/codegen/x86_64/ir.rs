@@ -47,6 +47,21 @@ pub struct Module {
     pub instructions: Vec<Instruction>,
 }
 
+impl Module {
+    /// Whether generation includes file operations, including uncalled functions.
+    pub fn uses_file_io(&self) -> bool {
+        self.instructions
+            .iter()
+            .chain(self.functions.iter().flat_map(|f| &f.instructions))
+            .any(|i| {
+                matches!(
+                    i,
+                    Instruction::FileReadText { .. } | Instruction::FileWriteNew { .. }
+                )
+            })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     pub origins: Vec<Origin>,
