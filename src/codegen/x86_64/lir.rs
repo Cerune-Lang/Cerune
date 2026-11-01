@@ -120,6 +120,8 @@ fn body(
             Instruction::ArgumentCount
                 | Instruction::ArgumentGet
                 | Instruction::ReadLine
+                | Instruction::FileReadText { .. }
+                | Instruction::FileWriteNew { .. }
                 | Instruction::Flush
                 | Instruction::Output { .. }
         ) && !matches!(origins[index], Origin::Source { .. })
@@ -253,6 +255,14 @@ fn body(
             }
             | StringConcat { left_offset: o, .. }
             | CompareString { left_offset: o, .. } => stack(*o, 1)?,
+            FileReadText { name_offset } => stack(*name_offset, 1)?,
+            FileWriteNew {
+                name_offset,
+                text_offset,
+            } => {
+                stack(*name_offset, 1)?;
+                stack(*text_offset, 1)?;
+            }
             ArrayRangeCheck {
                 length_offset,
                 start_offset,
@@ -412,7 +422,13 @@ fn body(
         }
         if matches!(
             i,
-            ArgumentCount | ArgumentGet | ReadLine | StringConcat { .. } | StringManage { .. }
+            ArgumentCount
+                | ArgumentGet
+                | ReadLine
+                | FileReadText { .. }
+                | FileWriteNew { .. }
+                | StringConcat { .. }
+                | StringManage { .. }
         ) && m.string_heap_limit.is_none()
         {
             return Err(fail("string heap runtime is absent"));

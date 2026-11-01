@@ -24,7 +24,7 @@ The distribution format is a directory. External archive tools may package it, p
 | --- | --- |
 | `build/` | Every prescribed build file, byte-for-byte: executable, baseline HIR/MIR, selected SSA/LIR, typed instructions/Object, origins and link records |
 | `release.json` | Schema `cerune-native-release-v1`, status, target, relative entry path, source inclusion, per-file sizes and SHA-256; written last |
-| `runtime-requirements.json` | Direct runtime requirements inspected from the executable without execution |
+| `runtime-requirements.json` | Direct runtime requirements inspected without executing the binary, plus file-connection requirements inherited from build |
 | `SHA256SUMS` | SHA-256 of all payload files and release.json, excluding itself |
 | `README.md`, `README.en.md` | Target, invocation, dependency conditions, observation records and checksum meaning |
 | `CERUNE-LICENSE-MIT`, `CERUNE-LICENSE-APACHE` | Cerune license texts; this does not assign a license to the user's program |
@@ -54,5 +54,21 @@ Do not concurrently modify inputs. This does not isolate hostile concurrent writ
 
 On Windows/Linux, build, package, relocate and execute the example with known results already compared with IR/MIR/VM. Cover baseline/SSA, included/omitted sources, byte-for-byte preservation, hashes, direct dependencies, inconsistent/missing records and existing-output preservation. Commands are in the [example](../../examples/build_native/README.en.md).
 
-This change completes the initial distribution mode requiring a target system runtime. IR/VM Images, broader portability and library bundling remain separate work. The next language feature in the [roadmap](language-roadmap.en.md) is recursion.
+This change completes the initial distribution mode requiring a target system runtime. IR/VM Images, broader portability and library bundling remain separate work. See the [roadmap](language-roadmap.en.md) for recursion and limited file-I/O progress.
 Release preserves build call_depth_limit unchanged. Missing legacy records are not filled with a default; release.json records null (unknown). Present values must be integers in 1–128.
+
+## File-connection inheritance and compatibility
+
+Compare `file_connection` in the build manifest and runtime records, and require an exact known contract for the selected target before creating output. Carry the validated value into `release.json` and `runtime-requirements.json`, while copying the original build files unchanged.
+
+| Input records | Handling |
+| --- | --- |
+| Both contain the same known contract | Validate enabled and OS requirements, then preserve the value |
+| Neither contains a record (older build) | Save null in both outputs as unknown; infer neither non-use nor defaults |
+| One missing, unequal values, null, invalid types, unknown versions/fields, or requirements for another target | Reject before creating output |
+
+The distribution's Japanese/English README includes explicit-root startup, unconfigured stopping behavior, and OS requirements. For disabled connections, explain that the startup marker is not interpreted; for older builds, explain that requirements are unknown. Never create, connect, or discover a root from the recorded metadata.
+
+The procfs and NtCreateFile requirements are Cerune generation-time records, separate from direct dependencies extracted from the executable. Release does not verify the deployment OS and retains `deployment_verified: false`. Record consistency is not proof of semantic correspondence with a modified executable or of authenticity.
+
+Tests build/release the file example through baseline MIR and SSA, move the distribution, and execute using a new explicit root. Compare output and saved bytes with HIR/MIR/SSA/VM; also verify missing configuration, existing-file rejection, failure origins, legacy records, and inconsistent records.

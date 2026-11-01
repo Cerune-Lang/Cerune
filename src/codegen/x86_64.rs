@@ -9,6 +9,7 @@ mod emit;
 #[path = "../../tests/support/native_emitter_reference/mod.rs"]
 mod emitter_reference;
 mod failure;
+mod files;
 mod heap;
 mod input;
 pub mod ir;
@@ -26,8 +27,7 @@ mod output;
 mod rounding;
 mod string;
 #[cfg(test)]
-#[path = "../../tests/support/process.rs"]
-mod test_process;
+use super::test_process;
 mod unsigned;
 mod utf8;
 

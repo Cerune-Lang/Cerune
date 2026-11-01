@@ -43,6 +43,7 @@ const expected = [
   "string_routes",
   "sums",
   "truncating_conversions",
+  "wat_files_protocol",
   "wat_output",
 ];
 const repository = path.resolve(__dirname, '..');

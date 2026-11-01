@@ -104,6 +104,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     super::output::emit_support(module, &mut output);
     super::arguments::emit_support(module, &mut output);
     super::input::emit_support(module, &mut output);
+    super::files::emit_support(module, &mut output);
     for ty in &array_types {
         emit_array_get(ty, module, &mut output);
         output.push('\n');
@@ -348,6 +349,22 @@ fn emit_instruction(
                 super::arguments::origin_name(origin)
             )
             .unwrap();
+        }
+        Instruction::FileReadText {
+            dest,
+            name,
+            max_bytes,
+        } => {
+            writeln!(output, "  {} = call %cerune.string @cerune.files.read_text(%cerune.string {}, i64 {}, ptr {})",
+                temp(*dest), operand(*name), operand(*max_bytes), super::files::origin_name(origin)).unwrap();
+        }
+        Instruction::FileWriteNew {
+            name,
+            text,
+            max_bytes,
+        } => {
+            writeln!(output, "  call void @cerune.files.write_new(%cerune.string {}, %cerune.string {}, i64 {}, ptr {})",
+                operand(*name), operand(*text), operand(*max_bytes), super::files::origin_name(origin)).unwrap();
         }
         Instruction::ReadLine { dest, max_bytes } => {
             writeln!(

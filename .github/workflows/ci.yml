@@ -73,7 +73,7 @@ jobs:
           - suite: wat
             timeout: 25
             tests: >-
-              --test wat_output
+              --test wat_output --test wat_files_protocol
           - suite: qbe
             timeout: 25
             tests: >-
@@ -148,29 +148,42 @@ jobs:
           CERUNE_TEST_NODE: node
           CERUNE_TEST_OBJDUMP: objdump
           CERUNE_TEST_OBJCOPY: objcopy
-      - name: Compare QBE program arguments
+      - name: Compare QBE arguments and files
         if: ${{ matrix.suite == 'qbe' }}
         shell: bash
         run: |
           set -o pipefail
           timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::qbe 2>&1 | tee target/linux-qbe-arguments.log
+          timeout --kill-after=10s 5m cargo test --lib codegen::qbe::files::tests 2>&1 | tee target/linux-qbe-files.log
+          timeout --kill-after=10s 5m cargo test --test standard_input file_io::generated::qbe_tests 2>&1 | tee target/linux-qbe-file-connections.log
         env:
           CERUNE_TEST_QBE_CLANG: clang
           CERUNE_TEST_CC: clang
-      - name: Compare WAT program arguments
+      - name: Compare WAT arguments and files
         if: ${{ matrix.suite == 'wat' }}
         shell: bash
         run: |
           set -o pipefail
           timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::wat 2>&1 | tee target/linux-wat-arguments.log
+          timeout --kill-after=10s 5m cargo test --test standard_input file_io::wat 2>&1 | tee target/linux-wat-files.log
         env:
           CERUNE_TEST_NODE: node
-      - name: Compare Native program arguments
+      - name: Compare WAT real OS file host
+        if: ${{ matrix.suite == 'wat' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path experiments/wat_host/Cargo.toml --check
+          cargo clippy --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host --all-targets -- -D warnings
+          timeout --kill-after=10s 5m cargo test --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host 2>&1 | tee target/linux-wat-os-files.log
+      - name: Compare Native arguments, file semantics, and OS connections
         if: ${{ matrix.suite == 'native' }}
         shell: bash
         run: |
           set -o pipefail
           timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::native 2>&1 | tee target/linux-native-arguments.log
+          timeout --kill-after=10s 5m cargo test --lib native_files 2>&1 | tee target/linux-native-files.log
+          timeout --kill-after=10s 5m cargo test --test standard_input file_io::generated::native 2>&1 | tee target/linux-native-files-os.log
         env:
           CERUNE_TEST_ASM_CLANG: clang
       - name: Preserve Linux route diagnostics
@@ -181,8 +194,14 @@ jobs:
           path: |
             target/linux-${{ matrix.suite }}.log
             target/linux-native-arguments.log
+            target/linux-native-files.log
+            target/linux-native-files-os.log
             target/linux-qbe-arguments.log
+            target/linux-qbe-files.log
+            target/linux-qbe-file-connections.log
             target/linux-wat-arguments.log
+            target/linux-wat-files.log
+            target/linux-wat-os-files.log
             target/stdin-*
           if-no-files-found: ignore
 
@@ -245,7 +264,7 @@ jobs:
           - suite: wat
             timeout: 15
             tests: >-
-              --test wat_output
+              --test wat_output --test wat_files_protocol
           - suite: cross-io
             timeout: 25
             tests: >-
@@ -342,27 +361,47 @@ jobs:
           CERUNE_TEST_OBJDUMP: llvm-objdump
           CERUNE_TEST_OBJCOPY: llvm-objcopy
           CERUNE_TEST_NODE: node
-      - name: Compare QBE program arguments
+      - name: Compare QBE arguments and files
         if: ${{ matrix.suite == 'qbe' }}
         shell: pwsh
         run: |
           cargo test --test standard_input program_arguments::qbe 2>&1 | Tee-Object target/windows-qbe-arguments.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --lib codegen::qbe::files::tests 2>&1 | Tee-Object target/windows-qbe-files.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --test standard_input file_io::generated::qbe_tests 2>&1 | Tee-Object target/windows-qbe-file-connections.log
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_CC: clang
-      - name: Compare WAT program arguments
+      - name: Compare WAT arguments and files
         if: ${{ matrix.suite == 'wat' }}
         shell: pwsh
         run: |
           cargo test --test standard_input program_arguments::wat 2>&1 | Tee-Object target/windows-wat-arguments.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --test standard_input file_io::wat 2>&1 | Tee-Object target/windows-wat-files.log
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_NODE: node
-      - name: Compare Native program arguments
+      - name: Compare WAT real OS file host
+        if: ${{ matrix.suite == 'wat' }}
+        shell: pwsh
+        run: |
+          cargo fmt --manifest-path experiments/wat_host/Cargo.toml --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host --all-targets -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host 2>&1 | Tee-Object target/windows-wat-os-files.log
+          exit $LASTEXITCODE
+      - name: Compare Native arguments, file semantics, and OS connections
         if: ${{ matrix.suite == 'native' }}
         shell: pwsh
         run: |
           cargo test --test standard_input program_arguments::native 2>&1 | Tee-Object target/windows-native-arguments.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --lib native_files 2>&1 | Tee-Object target/windows-native-files.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --test standard_input file_io::generated::native 2>&1 | Tee-Object target/windows-native-files-os.log
           exit $LASTEXITCODE
         env:
           CERUNE_TEST_ASM_CLANG: clang
@@ -374,8 +413,14 @@ jobs:
           path: |
             target/windows-${{ matrix.suite }}.log
             target/windows-native-arguments.log
+            target/windows-native-files.log
+            target/windows-native-files-os.log
             target/windows-qbe-arguments.log
+            target/windows-qbe-files.log
+            target/windows-qbe-file-connections.log
             target/windows-wat-arguments.log
+            target/windows-wat-files.log
+            target/windows-wat-os-files.log
             target/qbe-windows-observations
             target/stdin-*
           if-no-files-found: ignore
@@ -449,8 +494,9 @@ jobs:
                 cargo test --test c_strings --test c_output
                 ;;
               wat)
-                cargo test --test wat_output
+                cargo test --test wat_output --test wat_files_protocol
                 cargo test --test standard_input program_arguments::wat
+                cargo test --test standard_input file_io::wat
                 ;;
               *) echo "Unsupported macOS test suite"; exit 1 ;;
             esac

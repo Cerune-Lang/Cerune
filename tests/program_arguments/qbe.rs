@@ -25,7 +25,7 @@ fn target() -> Target {
 fn artifact(p: &ir::Program, limits: Limits) -> String {
     qbe::emit_qbe_with_argument_limits(p, Some(target()), limits).unwrap()
 }
-fn build(text: &str, object: Option<Target>) -> Option<(PathBuf, PathBuf)> {
+pub(crate) fn build(text: &str, object: Option<Target>) -> Option<(PathBuf, PathBuf)> {
     if object.is_none() && !cfg!(any(windows, target_os = "linux")) {
         eprintln!("QBE arguments execution requires Linux/Windows");
         return None;

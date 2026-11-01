@@ -10,7 +10,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
     time::Duration,
 };
-fn build(text: &str) -> Option<(PathBuf, Command)> {
+pub(crate) fn build(text: &str) -> Option<(PathBuf, Command)> {
     let configured = std::env::var_os("CERUNE_TEST_NODE");
     let node = configured.clone().unwrap_or_else(|| "node".into());
     let wabt_config = std::env::var_os("CERUNE_TEST_WAT2WASM_JS");

@@ -80,6 +80,35 @@ impl Reporter {
         output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
     }
 
+    pub fn file(&mut self, write: bool, output: &mut NativeProgram) {
+        let Origin::Source { node_id, span } = self.origin else {
+            panic!("files need source origin")
+        };
+        let label = format!(".Lcerune_file_origin_{}", self.count);
+        self.count += 1;
+        self.data.push((
+            label.clone(),
+            format!(
+                " node={}{} bytes={}..{}\n",
+                node_id.0,
+                span.source_id().record_field(),
+                span.start(),
+                span.end()
+            ),
+            output.provenance(),
+        ));
+        let symbol = output.symbol(&label, Linkage::Local);
+        output.emit(Opcode::Lea64, [Operand::RipRelative(symbol), r64(11)]);
+        let symbol = output.symbol(
+            if write {
+                "cerune_file_write_new"
+            } else {
+                "cerune_file_read_text"
+            },
+            Linkage::Local,
+        );
+        output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
+    }
     pub fn input(&mut self, output: &mut NativeProgram) {
         let Origin::Source { node_id, span } = self.origin else {
             panic!("input needs source origin")

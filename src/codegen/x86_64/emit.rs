@@ -16,6 +16,15 @@ pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
         .expect("compiler-generated Native Program")
 }
 pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
+    build_with_file_connection(module, annotate, true)
+}
+pub(super) fn build_with_file_connection(
+    module: &Module,
+    annotate: bool,
+    file_connection: bool,
+) -> NativeProgram {
+    let files = super::files::used(module) && file_connection;
+    let arguments = super::arguments::used(module) || files;
     let mut reporter = Reporter::new(module.target);
     let mut output = NativeProgram::new(module.target);
     if annotate {
@@ -40,14 +49,20 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
     if let Some(limit) = module.array_heap_limit {
         super::array::append(&mut output.program, limit);
     }
-    if super::input::used(module) || super::arguments::used(module) {
+    if super::input::used(module) || super::arguments::used(module) || super::files::used(module) {
         super::utf8::append(&mut output.program);
     }
-    if super::arguments::used(module) {
+    if arguments {
         super::arguments::append(&mut output, module);
     }
     if super::input::used(module) {
         super::input::append(&mut output);
+    }
+    if files {
+        super::files::connection::append(&mut output);
+    }
+    if super::files::used(module) {
+        super::files::append(&mut output);
     }
     for function in &module.functions {
         emit_function(function, module, annotate, &mut reporter, &mut output);
@@ -57,11 +72,7 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
     if annotate {
         output.comment("cerune-origin: synthetic");
     }
-    let entry = if super::arguments::used(module) {
-        "cerune_program"
-    } else {
-        "main"
-    };
+    let entry = if arguments { "cerune_program" } else { "main" };
 
     output.push(EntryKind::Align(4));
 
@@ -136,8 +147,8 @@ pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
     }
     emit_epilogue(module.frame_size, true, &mut output);
 
-    if super::arguments::used(module) {
-        super::arguments::append_entry(&mut output);
+    if arguments {
+        super::arguments::append_entry_with_files(&mut output, files);
     }
     if !reporter.data.is_empty() {
         output.push(EntryKind::Section(Section::ReadOnlyData));
@@ -306,6 +317,27 @@ fn emit_instruction(
         Instruction::ArgumentCount => reporter.argument(false, output),
         Instruction::ArgumentGet => reporter.argument(true, output),
         Instruction::ReadLine => reporter.input(output),
+        Instruction::FileReadText { name_offset } => {
+            output.emit(
+                Opcode::Mov64,
+                [address(5, None, *name_offset as i128), r64(10)],
+            );
+            reporter.file(false, output);
+        }
+        Instruction::FileWriteNew {
+            name_offset,
+            text_offset,
+        } => {
+            output.emit(
+                Opcode::Mov64,
+                [address(5, None, *name_offset as i128), r64(10)],
+            );
+            output.emit(
+                Opcode::Mov64,
+                [address(5, None, *text_offset as i128), r64(9)],
+            );
+            reporter.file(true, output);
+        }
         Instruction::Flush => reporter.flush(output),
         Instruction::ArrayAllocate { .. }
         | Instruction::ArrayRangeCheck { .. }

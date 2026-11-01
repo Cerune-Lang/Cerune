@@ -19,6 +19,7 @@ pub fn emit(module: &Module) -> String {
     super::output::emit(module, &mut output);
     super::input::emit(module, &mut output);
     super::arguments::emit_support(module, &mut output);
+    super::files::emit(module, &mut output);
     let i64_operations = i64_operations(module);
     super::failure::emit(module, &mut output);
     if module.uses_strings {
@@ -452,6 +453,38 @@ fn emit_instruction(
                 temp(*dest),
                 operand(index, slots),
                 super::arguments::origin_name(*origin)
+            )
+            .unwrap();
+        }
+        Instruction::FileReadText {
+            dest,
+            name,
+            max_bytes,
+            origin,
+        } => {
+            writeln!(
+                output,
+                "  {} =l call $cerune_files_read_text(l {}, l {}, l ${})",
+                temp(*dest),
+                operand(name, slots),
+                operand(max_bytes, slots),
+                super::files::origin_name(*origin)
+            )
+            .unwrap();
+        }
+        Instruction::FileWriteNew {
+            name,
+            text,
+            max_bytes,
+            origin,
+        } => {
+            writeln!(
+                output,
+                "  call $cerune_files_write_new(l {}, l {}, l {}, l ${})",
+                operand(name, slots),
+                operand(text, slots),
+                operand(max_bytes, slots),
+                super::files::origin_name(*origin)
             )
             .unwrap();
         }
