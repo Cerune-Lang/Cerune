@@ -54,6 +54,7 @@ pub enum Code {
     Unsupported,
     StartFailed,
     TransferFailed,
+    ProgressUnknown,
     CloseFailed,
     WaitFailed,
     ZeroProgress,

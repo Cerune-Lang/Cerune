@@ -54,7 +54,7 @@ cargo test --lib runtime::process
 
 The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) verifies nine cases including argv, concurrent transfer, deadlines, and descendant reclamation. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor.
 
-Next, refine the connection contract for starting, completing, cancelling, and counting transfers in flight. The concurrent-worker prototype cannot directly implement the current single-event poll contract. Define supervisor isolation from Linux embedding hosts and resource ownership after cleanup failures before production OS integration. Public result types, the standard module, and common IR follow.
+The [in-flight transfer/cancellation contract](subprocess-transfers.en.md) and `Transfers` state component now test counts, partial results, buffer ownership, and reuse conditions. Integration with existing `Processes::run` remains pending; next connect launch, deadlines, exit monitoring, and cleanup. The concurrent-worker prototype cannot directly implement the current single-event poll contract. Define supervisor isolation from Linux embedding hosts and resource ownership after cleanup failures before production OS integration. Public result types, the standard module, and common IR follow.
 
 ## Calls and connections
 
