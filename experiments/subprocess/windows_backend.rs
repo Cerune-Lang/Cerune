@@ -3,11 +3,11 @@
 #[path = "fixture.rs"]
 mod fixture;
 #[cfg(windows)]
-#[path = "reservation.rs"]
-mod reservation;
-#[cfg(windows)]
 #[path = "observation.rs"]
 mod observation;
+#[cfg(windows)]
+#[path = "reservation.rs"]
+mod reservation;
 #[cfg(windows)]
 mod check {
     use cerune_lang::{

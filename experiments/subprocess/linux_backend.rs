@@ -6,11 +6,11 @@ mod faults;
 #[path = "fixture.rs"]
 mod fixture;
 #[cfg(target_os = "linux")]
-#[path = "reservation.rs"]
-mod reservation;
-#[cfg(target_os = "linux")]
 #[path = "observation.rs"]
 mod observation;
+#[cfg(target_os = "linux")]
+#[path = "reservation.rs"]
+mod reservation;
 #[cfg(target_os = "linux")]
 mod check {
     use cerune_lang::{
