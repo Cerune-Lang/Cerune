@@ -11,10 +11,10 @@
 | [`Transfers`](../../src/runtime/process/transfers.rs) | 実装済みのRust状態管理部品。転送の識別、buffer所有、取消し、確認済み受理数、部分出力、再利用条件を検査 |
 | [状態遷移テスト](../../src/runtime/process/transfers/tests.rs) | OSを起動せず、応答順序・競合・不正応答を注入して検証 |
 | `Processes::run` / `Backend` | 接続済み。所有権付き転送、期限、終了監視、取消し、有限の後始末を共通runtimeで制御 |
-| 実OS接続 | [Windows Backend](subprocess-windows.ja.md)を接続済み。Linuxは専用監督の接続が後続 |
+| 実OS接続 | [Windows](subprocess-windows.ja.md)・[Linux](subprocess-linux.ja.md)とも共通runtimeへ接続済み。言語API・生成経路は後続 |
 | 言語API・IR・各経路 | 未実装。新しい実行経路や独自の言語意味論は追加しない |
 
-`Transfers`単体は起動・時計・OS資源回収を実行せず、接続済みの`Processes`が`Backend`へそれらを要求します。Rust APIはWindows実OS接続で利用しますが、言語の公開APIではありません。
+`Transfers`単体は起動・時計・OS資源回収を実行せず、接続済みの`Processes`が`Backend`へそれらを要求します。Rust APIはWindows/Linux実OS接続で利用しますが、言語の公開APIではありません。
 
 ## 転送の単位と所有
 
@@ -108,7 +108,7 @@ bufferの複製・拡張APIはありません。所有権の移動で内部ア�
 
 ## 次の接続作業
 
-1. [実OS接続設計](subprocess-os.ja.md)に沿ってLinux Backendへ接続する。Windowsは[本体Backend](subprocess-windows.ja.md)へ接続済み。[起動・管理範囲と転送の試作](../../experiments/subprocess/transport/README.md)では、継承制限、監督切断、Job終了と未完了I/Oの回収まで実測済み。Linuxの共通期限・操作番号・終端・後始末報告を対応づけ、終端未確認資源の最終所有と登録設定・容量制限を確定する。
+1. [Windows](subprocess-windows.ja.md)・[Linux](subprocess-linux.ja.md)の実OS接続は実装済みです。登録・容量・回収と観測を維持し、言語の公開型・標準モジュール・共通IRへ進みます。
 2. その後、公開型・標準モジュール・IRと各経路へ接続する。
 
 全経路への機能追加は未完了です。未実装APIの`.ceru`は実行example一覧に置きません。

@@ -1,8 +1,10 @@
 //! 回復可能な子プロセス操作と、その読取り専用記録です。
-//! Windows実OS Backendを接続済みです。Linux・言語命令・返却後の配列所有は後続です。
+//! Windows/Linux実OS Backendを接続済みです。言語命令・返却後の配列所有は後続です。
 pub use super::output::Origin;
 use std::{num::NonZeroU64, time::Duration};
 mod backend;
+#[cfg(target_os = "linux")]
+pub mod linux;
 mod records;
 pub mod transfers;
 #[cfg(windows)]

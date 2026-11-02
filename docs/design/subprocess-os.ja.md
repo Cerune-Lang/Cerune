@@ -2,7 +2,7 @@
 
 [English](subprocess-os.en.md)
 
-[共通runtime](subprocesses.ja.md)と[転送契約](subprocess-transfers.ja.md)を実OSへ接続する設計です。2026-11-02時点では、共通runtime・独立OS試作と[Windows Backend](subprocess-windows.ja.md)を実装済みです。**Linux Backend・言語APIは未実装**です。
+[共通runtime](subprocesses.ja.md)と[転送契約](subprocess-transfers.ja.md)を実OSへ接続する設計です。2026-11-02時点では、共通runtime・独立OS試作と[Windows Backend](subprocess-windows.ja.md)を実装済みです。[Linux Backend](subprocess-linux.ja.md)も接続済みです。**言語API・監督の配布への同梱は未実装**です。
 
 ## 現在地と採用する構成
 
@@ -13,8 +13,8 @@
 | 接続の設計 | WindowsはJobと非同期I/O、Linuxは専用監督＋呼出し元の非ブロッキングI/Oを採用方針とする |
 | 転送試作 | [Linux 9ケース・Windows 13ケース](../../experiments/subprocess/transport/README.md)を実測。制御通信・fd受渡し・SIGPIPEと非同期I/O・取消しを検証。起動・管理範囲と接続し、継承制限・切断・終了時の回収も確認 |
 | Windows接続 | 共通期限・操作番号・終端・後始末報告へ接続済み。未回収資源の保持・明示回収も実装 |
-| 次の接続 | Linuxの専用監督・登録・制御通信を同じBackend契約へ接続 |
-| 後続 | Linux Backend、言語向け登録設定、標準モジュール・IR、各経路・成果物、言語example |
+| Linux接続 | 専用監督・版付き通信・登録・非ブロッキング転送・明示回収を共通runtimeへ接続済み |
+| 後続 | 監督の配布、言語向け登録設定、標準モジュール・IR、各経路・成果物、言語example |
 
 共通runtimeを、意味の判定を担当する唯一の場所にします。Linux監督へCerune IR・VMや別のタイムアウト意味論を持ち込みません。監督はOSの親子関係と資源回収だけを担当します。
 
@@ -50,7 +50,7 @@ subreaperの指定は呼出しプロセス全体へ作用し、孤児化した�
 
 `WNOWAIT`で終了状態の確認とreapを分けます。数値PIDの再利用後に誤って終了要求を送らないためです。[waitpid/waitid](https://man7.org/linux/man-pages/man2/waitpid.2.html)
 
-制御用socketpairとSCM_RIGHTSによるfd受渡しを候補にします。これにより本文の転送を監督の制御通信へ重ねず、OSの受理数を共通runtimeへ直接返せます。[Unix domain sockets](https://man7.org/linux/man-pages/man7/unix.7.html) [通信試作](../../experiments/subprocess/transport/README.md)では24バイト固定フレームと上限付き補助情報で別プロセス間の受渡しを検証しました。製品の要求・登録表を含むプロトコルは未確定です。
+制御用socketpairとSCM_RIGHTSによるfd受渡しを候補にします。これにより本文の転送を監督の制御通信へ重ねず、OSの受理数を共通runtimeへ直接返せます。[Unix domain sockets](https://man7.org/linux/man-pages/man7/unix.7.html) [通信試作](../../experiments/subprocess/transport/README.md)では24バイト固定フレームと上限付き補助情報で別プロセス間の受渡しを検証しました。Rust初版の要求・登録表を含むプロトコルは[Linux Backend](subprocess-linux.ja.md)で定義しました。配布形式は後続です。
 
 | 通信・fdの条件 | 検証すること |
 | --- | --- |
@@ -85,7 +85,7 @@ subreaperの指定は呼出しプロセス全体へ作用し、孤児化した�
 
 hostとの通信が閉じた場合、監督は有限の後始末へ移る設計です。ただし監督自身の強制終了、kernel内で停止した処理、管理範囲を離れた子孫まで回収できる保証はしません。監督喪失後に、身元を確認できない数値PID/PGIDへ終了要求を送りません。
 
-OSが参照中のbufferを接続のDropで解放してはいけません。WindowsではBackendが所有を保持し、明示reclaimまたは最終Drop時のprocess終了までの例外保持を実装しました。保持は成功回収ではなく、繰り返せば資源を消費します。[所有方式](subprocess-windows.ja.md)を参照してください。Linuxの最終所有方式は接続時に確定します。無期限join、成功扱いの切離し、単にhandleを閉じて完了とみなす方式は採用しません。
+OSが参照中のbufferを接続のDropで解放してはいけません。WindowsではBackendが所有を保持し、明示reclaimまたは最終Drop時のprocess終了までの例外保持を実装しました。保持は成功回収ではなく、繰り返せば資源を消費します。[所有方式](subprocess-windows.ja.md)を参照してください。Linuxも明示reclaimを備え、最終Dropで未回収の監督管理情報を保持します。[Linuxの所有方式](subprocess-linux.ja.md)を参照してください。無期限join、成功扱いの切離し、単にhandleを閉じて完了とみなす方式は採用しません。
 
 ## 配布と可観測性
 
@@ -108,4 +108,4 @@ Linux監督はCeruneが管理する補助成果物として配布する方針で
 
 起動・管理範囲と転送を接続し、Linuxでは不要fdの継承防止、明示終了・制御切断・不正版での孫と監督の回収を確認しました。Windowsでは子の同期標準I/O、Job終了時の未完了read/writeと孫の回収、Jobの最終所有者のDrop後の直接の子終了とI/O終端を確認しました。
 
-Windowsは本体Backendへ接続し、共通期限・操作番号・取消しと終端・後始末報告を対応づけました。Rustの登録設定・容量制限、未回収資源の所有も明示しています。次はLinuxの専用監督・登録・通信を同じ契約へ接続します。起動途中の切断、監督の強制終了、回収不能を正常回収の実測で代用せず、共通runtimeの観測項目で比較します。
+Windowsは本体Backendへ接続し、共通期限・操作番号・取消しと終端・後始末報告を対応づけました。Rustの登録設定・容量制限、未回収資源の所有も明示しています。[Linux Backend](subprocess-linux.ja.md)も接続し、版違い・起動中切断・監督喪失・回収期限超過を検証しました。次は言語の公開型・標準モジュール・共通IRです。起動途中の切断、監督の強制終了、回収不能を正常回収の実測で代用せず、共通runtimeの観測項目で比較します。

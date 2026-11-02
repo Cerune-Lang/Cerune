@@ -43,6 +43,16 @@ cargo test --lib
 
 Please also run tests relevant to your changes. Some integration tests require external tools; if you cannot run them locally, mention that in your PR. CI covers a broader set of environments and execution routes.
 
+Tests using LLVM require Clang with opaque-pointer (`ptr`) support. Clang 18.1.8 has been verified. On Linux/WSL, explicitly select the executable and check it before running tests:
+
+```sh
+export CERUNE_TEST_LLVM_CLANG=/usr/bin/clang-18
+bash scripts/check-llvm-toolchain.sh
+cargo test --lib
+```
+
+The [preflight check](scripts/check-llvm-toolchain.sh) prints the version and compiles a small LLVM IR module. `bash scripts/test.sh` also runs it when Clang is available or explicitly configured. An incompatible compiler is not treated as a passing test or silently skipped. The environment variable applies to the current shell; set it again in a new shell.
+
 For documentation changes, update both Japanese and English where appropriate. With Node.js installed, use `node scripts/check-docs.cjs` to check links and translation pairs.
 
 ## Pull Requests

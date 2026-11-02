@@ -71,7 +71,7 @@ unsafe extern "system" {
         buffer: *const c_void,
         size: u32,
         written: *mut u32,
-        overlapped: *mut Overlapped,
+        overlapped: *mut c_void,
     ) -> i32;
     fn GetOverlappedResult(
         handle: Handle,
@@ -252,7 +252,7 @@ impl Operation {
                     r.buffer.as_ptr().cast(),
                     size as u32,
                     ptr::null_mut(),
-                    &mut r.overlapped,
+                    (&mut r.overlapped as *mut Overlapped).cast(),
                 )
             }
         } else {
