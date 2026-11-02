@@ -1,0 +1,77 @@
+// 結果型を扱う例です。子プロセスは起動せず、明示的に構築した値を使います。
+import "std:process" as process;
+
+fn report(failure: process::Failure, exit: process::Exit, complete: bool) -> process::Report {
+    mut cleanup: process::Cleanup = process::Cleanup::Complete { termination_requested: false };
+    mut reported: process::Cleanup = cleanup;
+    if !complete {
+        cleanup = process::Cleanup::Incomplete {
+            child_reaped: true, handles_closed: false, scope_finished: false,
+            error: process::CleanupError::Timeout {},
+        };
+        reported = process::Cleanup::Absent {};
+    }
+    return process::Report {
+        origin: process::Origin { node_id: 7, source_id: 0, start: 10, end: 20 },
+        started: process::Started::Yes {},
+        stdin_requested: 4,
+        stdin_accepted: 4,
+        stdout_limit: 32,
+        stderr_limit: 8,
+        timeout_ms: 1000,
+        stdout_read: 4,
+        stderr_read: 0,
+        stdout_retained: 4,
+        stderr_retained: 0,
+        progress_known: complete,
+        exit: exit,
+        failure: failure,
+        cleanup: cleanup,
+        cleanup_reported: reported,
+    };
+}
+
+fn label(value: process::Failure) -> string {
+    return match value {
+        process::Failure::None {} => "completed",
+        process::Failure::Reason { code: reason, phase: stage } => "failed",
+    };
+}
+
+nonzero: process::Outcome = process::Outcome {
+    report: report(process::Failure::None {}, process::Exit::Code { value: 4294967295 }, true),
+    stdout: array_copy([u8(255), u8(0), u8(13), u8(10)]),
+    stderr: array_repeat::<u8>(u8(0), 0),
+};
+print(label(nonzero.report.failure));
+print(match nonzero.report.exit {
+    process::Exit::Absent {} => u32(0),
+    process::Exit::Code { value: code } => code,
+    process::Exit::Signal { value: signal } => signal,
+});
+print(nonzero.stdout);
+
+failed: process::Outcome = process::Outcome {
+    report: report(process::Failure::Reason {
+        code: process::FailureCode::Timeout {},
+        phase: process::Phase::Transfer { channel: process::Channel::Stdout {} },
+    }, process::Exit::Absent {}, false),
+    stdout: nonzero.stdout,
+    stderr: nonzero.stderr,
+};
+print(label(failed.report.failure));
+print(match failed.report.cleanup {
+    process::Cleanup::Absent {} => "no cleanup report",
+    process::Cleanup::Complete { termination_requested: requested } => "collected",
+    process::Cleanup::Incomplete {
+        child_reaped: child, handles_closed: handles, scope_finished: scope, error: reason
+    } => "cleanup incomplete",
+});
+print(failed.stdout);
+mut edited: [u8] = failed.stdout;
+edited[0] = u8(65);
+print(nonzero.stdout[0]);
+print(edited[0]);
+print(nonzero.report.progress_known);
+print(failed.report.progress_known);
+print("continued");

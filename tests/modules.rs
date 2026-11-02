@@ -957,3 +957,6 @@ fn nonmodular_declarations_keep_existing_anonymous_ir_and_private_visibility() {
 
 #[path = "formatting/cli.rs"]
 mod formatting;
+
+#[path = "process_types/mod.rs"]
+mod process_types;

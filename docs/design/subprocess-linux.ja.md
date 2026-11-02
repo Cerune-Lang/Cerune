@@ -74,6 +74,6 @@ Linuxで次を実行します。出力先は未作成ディレクトリを指定
 
 23ケースで通常実行・引数と環境・NUL/CR/LF・同時転送・非0終了・容量超過・時間切れ・孫の回収・失敗後の継続・観測・取消しと明示回収を確認します。さらに、検証用の不正監督で版違い・起動中切断・READY後喪失・回収期限超過を検査します。不正監督は実対象を起動しません。hostのsubreaper・group・SIGCHLD・無関係な子の回収権・fdと、既定SIGPIPE・既存pending signalの維持も確認します。OSの通知順・操作番号は固定しません。
 
-次は言語の公開型・標準モジュール・共通IRを設計し、実装済みの共通runtimeへ接続します。監督の本番binary、manifest、build/releaseへの同梱は配布作業で扱います。
+[公開データ型](subprocess-values.ja.md)は追加済みです。次は結果領域の確保と共通IRへの操作接続です。監督の本番binary、manifest、build/releaseへの同梱は配布作業で扱います。
 
 OS契約は[wait/waitid](https://man7.org/linux/man-pages/man2/waitpid.2.html)、[Unix socketとSCM_RIGHTS](https://man7.org/linux/man-pages/man7/unix.7.html)、[Linux closeの再試行禁止](https://man7.org/linux/man-pages/man2/close.2.html)を参照します。

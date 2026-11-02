@@ -56,7 +56,7 @@ Cleanup waits at most three seconds in the polling loop. Join only finished work
 1. **A contract for transfers in flight.** Three workers transfer concurrently and report when they finish. Directly copying these workers into the original synchronous poll would lose unreported transfers. The runtime now uses an [ownership-based contract and state component](../../docs/design/subprocess-transfers.en.md), integrated with launch, deadlines, exit monitoring, and cleanup. This experiment's workers are not yet connected to that contract.
 2. **Supervisor placement.** The [OS connection design](../../docs/design/subprocess-os.en.md) selects one dedicated supervisor per call. Following isolation, [transport/cancellation combined with launch/scope management](transport/README.en.md) is measured. Cleanup after control disconnection is verified; ownership after forced supervisor termination and distribution integration remain future work. Do not add process-wide subreaper effects to embedding hosts.
 3. **Cleanup failures and later calls.** Real-OS fixtures here can be reclaimed normally. Classify failed termination, unreapable children, handle-close failures, and supervisor failure in real connections, then map these to disabled connections and partial results in the common runtime.
-4. **Public integration.** Registration format, fixed numeric limits, `std:process` types, IR instructions, route ABIs, and language examples remain future work. General connection performance and semantic equivalence with observation enabled/disabled are also unverified.
+4. **Public integration.** [std:process data types](../../docs/design/subprocess-values.en.md) and a value-handling example are available. Registration format, fixed numeric limits, IR instructions, route ABIs, and language examples that launch processes remain future work. General connection performance and semantic equivalence with observation enabled/disabled are also unverified.
 
 Descendants escaping the managed scope and sandboxing untrusted code are out of scope. The experiment does not guarantee completion within a requested duration under external forced termination or OS resource exhaustion.
 
@@ -76,3 +76,9 @@ The [Linux Backend](../../docs/design/subprocess-linux.en.md) has 23 cases. Spec
 
     cargo build --example subprocess_linux_supervisor
     cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend
+
+## Comparing observation enabled and disabled
+
+Separate OS executions can differ in whether cleanup requests termination, depending on when the Job/group becomes empty. Require complete cleanup and agreement with each raw cleanup report; exclude only this termination-request flag from comparison copies. Continue comparing output, exit status, counts, origins, failures, and progress certainty. Original Reports remain unchanged, and JSONL retains cleanup information from both runs. Mismatch diagnostics include both Reports and output-equality checks.
+
+This does not prove that separate OS executions received identical notifications. Common-runtime unit tests still use identical scripted responses to verify that observation changes neither actions nor results. Comparison regression tests accept differing termination requests while rejecting incomplete cleanup, inconsistent raw reports, and output or exit-status differences.

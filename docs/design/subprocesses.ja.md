@@ -2,7 +2,7 @@
 
 [English](subprocesses.en.md)
 
-2026-11-01時点の設計案です。**子プロセスを言語から実行する機能は未実装です。** 関連Issueは[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#173](https://github.com/Cerune-Lang/Cerune/issues/173)、副作用を重複させない比較は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)で扱います。
+2026-11-02時点の設計案です。**子プロセスを言語から実行する機能は未実装です。** 関連Issueは[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#173](https://github.com/Cerune-Lang/Cerune/issues/173)、副作用を重複させない比較は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)で扱います。
 
 ## 方針と現在地
 
@@ -15,14 +15,14 @@
 | 既存の実装 | [限定ファイルI/O](file-io.ja.md)の読取り・新規保存、4実行器と既存生成経路の接続 |
 | 既存の別用途 | `src/native_build/link.rs`のリンカ起動、`tests/support/process.rs`のテスト用実行 |
 | 今回の設計案 | 登録した対象、明示argv、容量・時間上限、回復可能な操作結果、読取り専用の観測 |
-| 実装前に確定すること | 公開型・引数、上限の数値、登録設定の形式、OS後始末の実測、各生成経路のABI |
+| 実装前に確定すること | runのシグネチャ・結果領域の確保、上限の数値、登録設定の形式、各生成経路のABI |
 | 初版に含めないこと | shell構文、対話端末、バックグラウンド実行、パイプライン構文、汎用ジョブ管理、未信頼コードのsandbox |
 
 リンカ・テスト用の既存処理は、一時ファイルへの出力回収と時間上限を持ちます。しかし、言語側の出力容量契約、回復可能な結果型、完全な後始末の記録を満たす共通runtimeではありません。低水準処理を共有する場合も、ビルド・テストの用途とソースプログラムの実行意味を分けます。
 
 ## 共通runtimeの部分実装
 
-`runtime::process::Processes<B>`へ[進行中転送の状態管理](subprocess-transfers.ja.md)を接続しました。[試験用接続](../../src/runtime/process/tests.rs)で要求・起動・転送・期限・終了監視・後始末を検証しています。[Windows実OS Backend](subprocess-windows.ja.md)を接続しました。[Linux Backend](subprocess-linux.ja.md)も接続済みです。**`std:process`、IR命令、各実行器・生成経路は未実装です。** 言語から子プロセスを起動できる状態ではありません。
+`runtime::process::Processes<B>`へ[進行中転送の状態管理](subprocess-transfers.ja.md)を接続しました。[試験用接続](../../src/runtime/process/tests.rs)で要求・起動・転送・期限・終了監視・後始末を検証しています。[Windows実OS Backend](subprocess-windows.ja.md)を接続しました。[Linux Backend](subprocess-linux.ja.md)も接続済みです。[std:processの公開データ型](subprocess-values.ja.md)を追加しました。**`run`、子プロセス用IR命令、各実行器・生成経路への操作接続は未実装です。** 言語から子プロセスを起動できる状態ではありません。
 
 | 部品 | 現在の扱い |
 | --- | --- |
@@ -56,13 +56,13 @@ cargo test --lib runtime::process
 
 試験では同時通知の全6配列順、期限後の部分転送、取消し応答の遅着・欠落、EOF・上限、後始末、次の呼出し、観測の有無を比較します。正常終了・出力・時間切れ・容量超過は旧同期モデルとも結果を比較します。
 
-[Windows/LinuxのOS試作](../../experiments/subprocess/README.md)では、argv・同時転送・期限・子孫回収など9ケースを検証済みです。Windowsは実行開始前のJob所属と活動数0、Linuxは専用監督プロセスでの子孫回収を確認しました。[実OS接続設計](subprocess-os.ja.md)を追加し、Linuxの専用監督が呼出し元の設定や別の子を妨げないことも実測しました。[制御通信・fd受渡しとWindowsの非同期I/O・取消し](../../experiments/subprocess/transport/README.md)を起動・管理範囲へ接続し、継承制限、切断・終了時の孫とI/O回収まで確認しました。Windowsは本体Backendと共通期限・終端・後始末報告を接続済みです。`CallContext`で起動にも呼出し番号・出自を渡します。[Linux Backend](subprocess-linux.ja.md)も接続済みです。次は公開結果型・標準モジュール・共通IRへ進みます。
+[Windows/LinuxのOS試作](../../experiments/subprocess/README.md)では、argv・同時転送・期限・子孫回収など9ケースを検証済みです。Windowsは実行開始前のJob所属と活動数0、Linuxは専用監督プロセスでの子孫回収を確認しました。[実OS接続設計](subprocess-os.ja.md)を追加し、Linuxの専用監督が呼出し元の設定や別の子を妨げないことも実測しました。[制御通信・fd受渡しとWindowsの非同期I/O・取消し](../../experiments/subprocess/transport/README.md)を起動・管理範囲へ接続し、継承制限、切断・終了時の孫とI/O回収まで確認しました。Windowsは本体Backendと共通期限・終端・後始末報告を接続済みです。`CallContext`で起動にも呼出し番号・出自を渡します。[Linux Backend](subprocess-linux.ja.md)も接続済みです。公開データ型を追加しました。次は結果領域の確保と共通IRへの操作接続です。
 
 ## 呼出しと接続
 
-公開名は仮想標準モジュール `std:process`、操作は `run` を候補とします。[既存の標準モジュール](standard-modules.ja.md)と同じ予約名・仮想ソース・SourceIdを使い、相対importや暗黙のファイル探索を変更しません。
+仮想標準モジュール `std:process`のデータ型は実装済みで、操作は `run` を予定します。[既存の標準モジュール](standard-modules.ja.md)と同じ予約名・仮想ソース・SourceIdを使い、相対importや暗黙のファイル探索を変更しません。
 
-要求は次の情報を持つ案です。具体的な関数シグネチャは、以下を既存の構造体・enumで表せることを確認してから確定します。
+要求は以下を[Request型](subprocess-values.ja.md)で表現します。runのシグネチャと実行時の受理範囲は接続時に確定します。
 
 | 要求 | 案 |
 | --- | --- |
@@ -70,11 +70,11 @@ cargo test --lib runtime::process
 | 引数 | `[string]`。左から評価し、空引数・空白・引用符・日本語を保持。NULは起動前の要求エラー |
 | 標準入力 | `[u8]`。空なら直ちにEOF。改行追加、文字コード変換、Unicode正規化なし |
 | 出力上限 | stdout/stderr別の最大バイト数。0も許容し、出力があれば超過 |
-| 時間上限 | 有限の実時間上限。単調時計を使用。具体的な単位・指定範囲は実測後に固定 |
+| 時間上限 | 有限の実時間上限。単調時計を使用。公開値は整数ミリ秒。指定可能範囲は接続時に固定 |
 
 接続には引数件数・引数合計バイト数・stdin容量・出力容量・時間の上限も設定し、要求がそれを超えれば起動前に失敗値を返します。数値と検査順は共通runtimeの実装時に固定します。同期操作は1回ずつ扱い、並列起動APIは今回追加しません。
 
-入力と出力はバイト列を基本案とします。不正UTF-8も子プログラムの出力として保存できます。文字列への明示変換は別の純粋な処理として検討し、勝手な置換文字への変換や出力の破棄はしません。生バイトAPIと文字列変換の公開範囲は、実装前の確認事項です。
+公開型の入力と出力はバイト列です。不正UTF-8も子プログラムの出力として保存できます。文字列への明示変換は別の純粋な処理として検討し、勝手な置換文字への変換や出力の破棄はしません。実際の転送APIと文字列変換の公開範囲は、後続の確認事項です。
 
 登録がない場合は未接続の失敗値を返します。PATH探索、呼出し元の現在ディレクトリ、親の環境変数全体を暗黙に使いません。登録時に必要な環境を明示し、環境変数名の大小文字等のOS差も検査します。実行対象の登録は許可・設定であり、実行ファイルの内容不変性や子プロセスのファイルアクセス制限を保証しません。`std:fs`の作業範囲を子プロセスのsandboxと見なさないでください。
 
@@ -92,7 +92,7 @@ Windowsの通常のargv復元規則を使う実行ファイルを先行対象と
 
 「完了」はCerune側の転送・回収が完了した意味です。終了状態は、通常の終了コード、Linuxのsignalによる終了、未取得を区別します。Windowsの32ビット終了値は保持し、符号付きへの切詰めやPOSIX signalへの推測変換はしません。
 
-操作失敗は次のように分類します。公開名は未確定です。
+操作失敗は次のように分類します。公開名は[FailureCode](subprocess-values.ja.md)と同梱ソースで定義しています。
 
 | 原因 | 区別する内容 |
 | --- | --- |

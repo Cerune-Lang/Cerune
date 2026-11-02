@@ -6,16 +6,16 @@
 
 ## 解決と同一性
 
-- `std:`で始まるimportを標準モジュールとして分類し、現在は完全一致の`std:io`・`std:env`・`std:num`・`std:fs`を認識します。未知の識別子は診断し、ファイル読取りへフォールバックしません。
+- `std:`で始まるimportを標準モジュールとして分類し、現在は完全一致の`std:io`・`std:env`・`std:num`・`std:fs`・`std:process`を認識します。未知の識別子は診断し、ファイル読取りへフォールバックしません。
 - 相対`.ceru`パスの解決規則は維持します。標準モジュールのための環境変数・検索パス・ネットワーク取得・一般的なパッケージ管理は追加しません。
-- 1コンパイルにつき各標準モジュールを一度だけ登録し、別名や別ファイルからのimportでも同じ型定義へ解決します。公開型は通常のenumであり、backendごとの専用型を作りません。
+- 1コンパイルにつき各標準モジュールを一度だけ登録し、別名や別ファイルからのimportでも同じ型定義へ解決します。公開型は通常の構造体・enumであり、backendごとの専用型を作りません。
 - `modules::from_source`はメモリ中のソースと同梱標準モジュールだけを解決します。相対ファイルimportは明示的に拒否します。compile(&str)・compile_to_ir(&str)はこの処理を使い、暗黙のファイルI/Oを導入しません。単独のSourceFileを受けるcompile_source系は従来どおりimportを解決せず、標準ソースを含むSourceMapが必要な場合はmodules::from_sourceを使います。
 
 ## SourceIdと観測
 
 SourceIdはコンパイル内での登録順の識別子です。入口を先に登録し、依存を宣言順に辿ります。std:io専用の固定数値IDは予約せず、別コンパイルの数値一致を前提にしません。
 
-SourceMapには利用者ソースと標準ソースの種別を保持します。標準ソースの識別子は`std:io`・`std:env`・`std:num`・`std:fs`で、いずれも契約版は1です。emit-sourcesに本文・SourceId・標準種別・識別子・版を出し、ファイルパスらしい偽の名前を使いません。標準モジュールを使わない既存の単一ソースの匿名Spanとmanifestは維持します。
+SourceMapには利用者ソースと標準ソースの種別を保持します。標準ソースの識別子は`std:io`・`std:env`・`std:num`・`std:fs`・`std:process`で、いずれも契約版は1です。emit-sourcesに本文・SourceId・標準種別・識別子・版を出し、ファイルパスらしい偽の名前を使いません。標準モジュールを使わない既存の単一ソースの匿名Spanとmanifestは維持します。
 
 入力命令のSpanは同梱関数内の操作を指します。呼出し側のHIR Callは利用者のSpanを保持し、生成過程から呼出し先と入力操作を辿れます。仮想ソースの診断を利用者ファイルの同じバイト位置へ誤って表示しません。
 
@@ -50,3 +50,7 @@ arg_count／arg／Argumentの宣言を同梱し、同じSourceMap・名前解決
 ## ファイル操作 std:fs
 
 `read_text`／`write_new`の宣言も同梱仮想ソースです。共通IRを通じ、HIR・MIR・SSA・VMに明示したファイル接続を使います。Windows/LinuxのCLIは`--file-root`で実接続を指定します。生成C・LLVM・QBEは専用マーカー付き起動で接続を指定します。WATは版付きhost経由で対応し、Windows/Linuxの[実OS参照host](../../experiments/wat_host/README.md)も提供します。NativeのWindows/Linux実接続も実装済みです。[契約とRust API](file-io.ja.md)・[保存・読戻しのexample](../../examples/files/README.md)を参照してください。
+
+## 子プロセスのデータ型 std:process
+
+要求・結果を通常の構造体・enumで表す同梱仮想ソースです。現在はデータ型だけで、runや子プロセス用の内部操作は未実装です。[型と残りの接続作業](subprocess-values.ja.md)・[値を扱うexample](../../examples/process_results/README.md)を参照してください。

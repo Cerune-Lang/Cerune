@@ -2,7 +2,7 @@
 
 [English](subprocess-windows.en.md)
 
-[共通runtime](subprocesses.ja.md)へWindowsの実OS接続を追加しました。Rustの`Processes<Windows>`から利用できます。**言語の`std:process`、IR命令、CLI、生成経路への接続は未実装**です。登録形式・数値上限はこのRust初版のもので、言語の公開契約ではありません。
+[共通runtime](subprocesses.ja.md)へWindowsの実OS接続を追加しました。Rustの`Processes<Windows>`から利用できます。**言語の`std:process::run`、IR命令、CLI、生成経路への操作接続は未実装**です。登録形式・数値上限はこのRust初版のもので、言語の公開契約ではありません。
 
 ## 実装と責務
 
@@ -66,6 +66,6 @@ pipe名は128bit乱数を含み、first-instance・owner/system向けACL・remot
 
 単体試験ではOS問合せ失敗を注入し、未完了bufferと最終所有者の保持も検査します。この試験は意図的に約4 KiBとevent等を試験process終了まで保持します。
 
-[Linux Backend](subprocess-linux.ja.md)も接続済みです。次は言語の公開型・標準モジュール・共通IRへ進みます。
+[Linux Backend](subprocess-linux.ja.md)も接続済みです。[公開データ型](subprocess-values.ja.md)は追加済みです。次は結果領域の確保と共通IRへの操作接続です。
 
 参照するOS契約は[CancelIoEx](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex)、[GetOverlappedResult](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-getoverlappedresult)、[ReadFileのpipe規則](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-readfile)、[CompareStringOrdinal](https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-comparestringordinal)です。

@@ -2,7 +2,7 @@
 
 [日本語](subprocesses.ja.md)
 
-This is a design proposal as of 2026-11-01. **Language-level subprocess execution is not implemented.** Related issues are [#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#173](https://github.com/Cerune-Lang/Cerune/issues/173), and [#104](https://github.com/Cerune-Lang/Cerune/issues/104) for comparisons without duplicating external effects.
+This is a design proposal as of 2026-11-02. **Language-level subprocess execution is not implemented.** Related issues are [#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#173](https://github.com/Cerune-Lang/Cerune/issues/173), and [#104](https://github.com/Cerune-Lang/Cerune/issues/104) for comparisons without duplicating external effects.
 
 ## Direction and current status
 
@@ -15,14 +15,14 @@ The user confirmed that **subprocess failures must be observable and the caller 
 | Existing implementation | [Limited file I/O](file-io.en.md): reading and creation, with connections in four executors and existing generated routes |
 | Existing separate uses | Linker invocation in `src/native_build/link.rs`; test execution in `tests/support/process.rs` |
 | This proposal | Registered targets, explicit argv, capacity/time limits, recoverable operation results, read-only observation |
-| Decisions before implementation | Public types/parameters, numeric limits, registration format, measured OS cleanup behavior, generated-route ABIs |
+| Decisions before implementation | run signature/result storage, numeric limits, registration format, generated-route ABIs |
 | Outside the initial scope | Shell syntax, interactive terminals, background execution, pipeline syntax, general job management, sandboxing untrusted code |
 
 The existing linker and test helpers collect output into temporary files and enforce timeouts. They are not a common language runtime satisfying output-capacity contracts, recoverable result types, and complete cleanup records. Even if low-level code is shared, build/test operations remain separate from source-program semantics.
 
 ## Partial common-runtime implementation
 
-`runtime::process::Processes<B>` now integrates [in-flight transfer state](subprocess-transfers.en.md). A [scripted connection](../../src/runtime/process/tests.rs) verifies requests, launch, transfers, deadlines, exit monitoring, and cleanup. The [Windows OS Backend](subprocess-windows.en.md) is now integrated. The [Linux Backend](subprocess-linux.en.md) is also integrated. ** `std:process`, IR instructions, executors, and generated routes remain unimplemented.** Cerune programs cannot yet launch subprocesses.
+`runtime::process::Processes<B>` now integrates [in-flight transfer state](subprocess-transfers.en.md). A [scripted connection](../../src/runtime/process/tests.rs) verifies requests, launch, transfers, deadlines, exit monitoring, and cleanup. The [Windows OS Backend](subprocess-windows.en.md) is now integrated. The [Linux Backend](subprocess-linux.en.md) is also integrated. [Public std:process data types](subprocess-values.en.md) are now available. **`run`, subprocess IR instructions, and operation integration with executors/generated routes remain unimplemented.** Cerune programs cannot yet launch subprocesses.
 
 | Component | Current behavior |
 | --- | --- |
@@ -56,13 +56,13 @@ cargo test --lib runtime::process
 
 Tests compare all six notification-array orders, late partial transfers, delayed/missing cancellation replies, EOF/limits, cleanup, later calls, and observation enabled/disabled. Normal exit, output, timeout, and capacity failure also compare results against the old synchronous model.
 
-The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) already verifies nine cases including argv, concurrent transfer, deadlines, and descendants. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor. The [OS connection design](subprocess-os.en.md) now includes measured Linux supervisor isolation from caller configuration and unrelated children. [Control transport/descriptor transfer and Windows asynchronous I/O/cancellation](../../experiments/subprocess/transport/README.en.md) now connect with launch/scope management, verifying inheritance restrictions and descendant/I/O reclamation during disconnection/termination. Windows now integrates common deadlines, termination, and cleanup reports. `CallContext` carries call identity/origin even for launch. Next add public result types, standard modules, and common IR.
+The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) already verifies nine cases including argv, concurrent transfer, deadlines, and descendants. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor. The [OS connection design](subprocess-os.en.md) now includes measured Linux supervisor isolation from caller configuration and unrelated children. [Control transport/descriptor transfer and Windows asynchronous I/O/cancellation](../../experiments/subprocess/transport/README.en.md) now connect with launch/scope management, verifying inheritance restrictions and descendant/I/O reclamation during disconnection/termination. Windows now integrates common deadlines, termination, and cleanup reports. `CallContext` carries call identity/origin even for launch. Public data types are now available. Next reserve result storage and connect the operation through common IR.
 
 ## Calls and connections
 
-Candidate names are the virtual standard module `std:process` and operation `run`. Use the reserved names, virtual sources, and SourceIds of [existing standard modules](standard-modules.en.md), without changing relative imports or introducing implicit file search.
+The virtual standard module `std:process` provides data types; the planned operation is `run`. Use the reserved names, virtual sources, and SourceIds of [existing standard modules](standard-modules.en.md), without changing relative imports or introducing implicit file search.
 
-The proposed request contains the following information. Finalize its function signature after checking representation with existing structs and enums.
+The [Request type](subprocess-values.en.md) represents the following information. Finalize the run signature and accepted runtime ranges during integration.
 
 | Request | Proposal |
 | --- | --- |
@@ -70,11 +70,11 @@ The proposed request contains the following information. Finalize its function s
 | Arguments | `[string]`, evaluated left to right; preserve empty arguments, spaces, quotes, and Japanese text. Reject NUL before launch |
 | Stdin | `[u8]`; empty means immediate EOF. No appended newline, encoding conversion, or Unicode normalization |
 | Output limits | Separate maximum byte counts for stdout/stderr; zero is valid and any output then exceeds the limit |
-| Timeout | A finite elapsed-time limit using a monotonic clock. Fix units and supported range after measurements |
+| Timeout | A finite elapsed-time limit using a monotonic clock. Public values use whole milliseconds; fix the accepted range during integration |
 
 Connections also set maximum argument count, aggregate argument bytes, stdin size, output size, and time; requests exceeding these return a failure value before launch. Fix numeric values and validation order when implementing the common runtime. Operations are synchronous and sequential; a parallel-launch API is outside this change.
 
-Raw bytes are the proposed input/output representation. Invalid UTF-8 can therefore be retained as child output. Consider explicit string conversion as a separate pure operation; do not silently insert replacement characters or discard output. The public scope of raw-byte APIs and string conversion remains a pre-implementation decision.
+Public input/output types use raw bytes. Invalid UTF-8 can therefore be retained as child output. Consider explicit string conversion as a separate pure operation; do not silently insert replacement characters or discard output. The public scope of transfer APIs and string conversion remains a subsequent decision.
 
 Missing registration returns an unconnected failure value. Do not implicitly search PATH, use the caller's current directory, or inherit the entire parent environment. Register required environment entries explicitly and validate OS differences such as environment-name case rules. Registration provides permission/configuration, not executable-content immutability or restrictions on the child's file access. The `std:fs` working area is not a subprocess sandbox.
 
@@ -92,7 +92,7 @@ A generic Result type is not a prerequisite. Represent the following using exist
 
 “Completed” means Cerune finished transfer and collection. Distinguish normal exit codes, Linux signal termination, and unavailable status. Preserve Windows 32-bit exit values without signed truncation or guessing POSIX signals.
 
-Proposed operation-failure categories follow. Public names remain undecided.
+Proposed operation-failure categories follow. Public names are defined by [FailureCode](subprocess-values.en.md) and the bundled source.
 
 | Cause | Distinctions |
 | --- | --- |

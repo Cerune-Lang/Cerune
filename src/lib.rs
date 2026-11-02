@@ -407,8 +407,8 @@ mod tests {
 
         assert!(c.contains("typedef struct cerune_type_Point_0"));
         assert!(c.contains("cerune_type_Point_0 cerune_binding_0_point"));
-        assert!(c.contains(".y = 2.0, .x = 0.0"));
-        assert!(c.contains("(cerune_binding_0_point).x"));
+        assert!(c.contains(".cerune_field_y = 2.0, .cerune_field_x = 0.0"));
+        assert!(c.contains("(cerune_binding_0_point).cerune_field_x"));
     }
 
     #[test]

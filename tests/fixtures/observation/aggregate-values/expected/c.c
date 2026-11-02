@@ -249,8 +249,8 @@ static int64_t cerune_array_get_i64_2(cerune_array_i64_2 value, int64_t index, c
 }
 
 typedef struct cerune_type_Item_0 {
-    int64_t _dtag;
-    int64_t _dValue_dn;
+    int64_t cerune_internal_field__dtag;
+    int64_t cerune_internal_field__dValue_dn;
 } cerune_type_Item_0;
 
 bool cerune_fn__equal0_0(cerune_array_i64_2 cerune_binding_5__left, cerune_array_i64_2 cerune_binding_6__right);
@@ -273,17 +273,17 @@ bool cerune_fn__equal0_0(cerune_array_i64_2 cerune_binding_5__left, cerune_array
 }
 
 bool cerune_fn__match_bind1_1(cerune_type_Item_0 cerune_binding_8__capture1) {
-    int64_t cerune_binding_2_n = (cerune_binding_8__capture1)._dValue_dn;
+    int64_t cerune_binding_2_n = (cerune_binding_8__capture1).cerune_internal_field__dValue_dn;
     return (cerune_binding_2_n > 0);
 }
 
 int64_t cerune_fn__match_bind2_2(cerune_type_Item_0 cerune_binding_9__capture1) {
-    int64_t cerune_binding_3_n = (cerune_binding_9__capture1)._dValue_dn;
+    int64_t cerune_binding_3_n = (cerune_binding_9__capture1).cerune_internal_field__dValue_dn;
     return cerune_binding_3_n;
 }
 
 int64_t cerune_fn__match_select3_3(cerune_type_Item_0 cerune_binding_10__capture1) {
-    if ((cerune_binding_10__capture1)._dtag == 0) {
+    if ((cerune_binding_10__capture1).cerune_internal_field__dtag == 0) {
         return 0;
     } else {
         return cerune_i64_neg(1, " node=41 bytes=254..256\n");
@@ -291,7 +291,7 @@ int64_t cerune_fn__match_select3_3(cerune_type_Item_0 cerune_binding_10__capture
 }
 
 int64_t cerune_fn__match_select4_4(cerune_type_Item_0 cerune_binding_11__capture1) {
-    if ((((cerune_binding_11__capture1)._dtag == 0) && cerune_fn__match_bind1_1(cerune_binding_11__capture1))) {
+    if ((((cerune_binding_11__capture1).cerune_internal_field__dtag == 0) && cerune_fn__match_bind1_1(cerune_binding_11__capture1))) {
         return cerune_fn__match_bind2_2(cerune_binding_11__capture1);
     } else {
         return cerune_fn__match_select3_3(cerune_binding_11__capture1);
@@ -299,19 +299,19 @@ int64_t cerune_fn__match_select4_4(cerune_type_Item_0 cerune_binding_11__capture
 }
 
 int64_t cerune_fn__match_bind5_5(void) {
-    cerune_type_Item_0 cerune_binding_1__match0 = (cerune_type_Item_0){ ._dtag = 0, ._dValue_dn = 7 };
+    cerune_type_Item_0 cerune_binding_1__match0 = (cerune_type_Item_0){ .cerune_internal_field__dtag = 0, .cerune_internal_field__dValue_dn = 7 };
     return cerune_fn__match_select4_4(cerune_binding_1__match0);
 }
 
 void cerune_fn__display6_6(cerune_type_Item_0 cerune_binding_12__value) {
-    if ((cerune_binding_12__value)._dtag == 0) {
+    if ((cerune_binding_12__value).cerune_internal_field__dtag == 0) {
         cerune_output_string((cerune_string){ (const unsigned char *)"\126\141\154\165\145", 5 }, 0, " node=95 bytes=87..115\n");
         cerune_output_string((cerune_string){ (const unsigned char *)"\173", 1 }, 0, " node=97 bytes=87..115\n");
         cerune_output_string((cerune_string){ (const unsigned char *)"\156\072\040", 3 }, 0, " node=99 bytes=87..115\n");
-        cerune_output_i64((cerune_binding_12__value)._dValue_dn, 0, " node=102 bytes=87..115\n");
+        cerune_output_i64((cerune_binding_12__value).cerune_internal_field__dValue_dn, 0, " node=102 bytes=87..115\n");
         cerune_output_string((cerune_string){ (const unsigned char *)"\175", 1 }, 0, " node=104 bytes=87..115\n");
     }
-    if ((cerune_binding_12__value)._dtag == 1) {
+    if ((cerune_binding_12__value).cerune_internal_field__dtag == 1) {
         cerune_output_string((cerune_string){ (const unsigned char *)"\105\155\160\164\171", 5 }, 0, " node=111 bytes=87..115\n");
         cerune_output_string((cerune_string){ (const unsigned char *)"\173", 1 }, 0, " node=113 bytes=87..115\n");
         cerune_output_string((cerune_string){ (const unsigned char *)"\175", 1 }, 0, " node=115 bytes=87..115\n");
@@ -329,7 +329,7 @@ int main(void) {
 #endif
     cerune_array_i64_2 cerune_binding_0_left = (cerune_array_i64_2){ .items = { 1, 2 } };
     cerune_output_bool(cerune_fn__equal0_0(cerune_binding_0_left, (cerune_array_i64_2){ .items = { 1, 3 } }), 1, " node=4 bytes=64..86\n");
-    cerune_fn__display6_6((cerune_type_Item_0){ ._dtag = 0, ._dValue_dn = 7 });
+    cerune_fn__display6_6((cerune_type_Item_0){ .cerune_internal_field__dtag = 0, .cerune_internal_field__dValue_dn = 7 });
     int64_t cerune_binding_4_result = cerune_fn__match_bind5_5();
     cerune_output_i64(cerune_binding_4_result, 1, " node=43 bytes=261..275\n");
     cerune_call_finish();
