@@ -46,6 +46,10 @@ path = "experiments/call_depth/emit.rs"
 name = "subprocess_probe"
 path = "experiments/subprocess/main.rs"
 
+[[example]]
+name = "subprocess_transport_probe"
+path = "experiments/subprocess/transport.rs"
+
 [dependencies]
 serde_json = "1.0"
 sha2 = "0.11"

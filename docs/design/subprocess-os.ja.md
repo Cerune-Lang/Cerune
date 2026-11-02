@@ -11,7 +11,8 @@
 | 共通runtime | 起動、3streamの転送、期限、取消し、終了監視、後始末を試験用接続で検証済み |
 | 独立OS試作 | 両OSの9ケースに加え、Linuxの監督分離を実測済み |
 | 接続の設計 | WindowsはJobと非同期I/O、Linuxは専用監督＋呼出し元の非ブロッキングI/Oを採用方針とする |
-| 次の検証 | Linuxの制御通信・fd受渡し・SIGPIPE処理、WindowsのOVERLAPPED寿命・取消し・継承handle |
+| 転送試作 | [Linux 6ケース・Windows 9ケース](../../experiments/subprocess/transport/README.md)を実測。制御通信・fd受渡し・SIGPIPEと非同期I/O・取消しを検証 |
+| 次の検証 | 起動・管理範囲と転送の接続、継承制限、監督切断、Job終了と未完了I/O、最終所有者の破棄 |
 | 後続 | 実OS Backend、登録設定、標準モジュール・IR、各経路・成果物、言語example |
 
 共通runtimeを、意味の判定を担当する唯一の場所にします。Linux監督へCerune IR・VMや別のタイムアウト意味論を持ち込みません。監督はOSの親子関係と資源回収だけを担当します。
@@ -48,7 +49,7 @@ subreaperの指定は呼出しプロセス全体へ作用し、孤児化した�
 
 `WNOWAIT`で終了状態の確認とreapを分けます。数値PIDの再利用後に誤って終了要求を送らないためです。[waitpid/waitid](https://man7.org/linux/man-pages/man2/waitpid.2.html)
 
-制御用socketpairとSCM_RIGHTSによるfd受渡しを候補にします。これにより本文の転送を監督の制御通信へ重ねず、OSの受理数を共通runtimeへ直接返せます。[Unix domain sockets](https://man7.org/linux/man-pages/man7/unix.7.html) 具体的なフレーム形式と実装は次の検証で確定します。
+制御用socketpairとSCM_RIGHTSによるfd受渡しを候補にします。これにより本文の転送を監督の制御通信へ重ねず、OSの受理数を共通runtimeへ直接返せます。[Unix domain sockets](https://man7.org/linux/man-pages/man7/unix.7.html) [通信試作](../../experiments/subprocess/transport/README.md)では24バイト固定フレームと上限付き補助情報で別プロセス間の受渡しを検証しました。製品の要求・登録表を含むプロトコルは未確定です。
 
 | 通信・fdの条件 | 検証すること |
 | --- | --- |
@@ -68,7 +69,7 @@ subreaperの指定は呼出しプロセス全体へ作用し、孤児化した�
 
 `CancelIoEx`は取消し要求であり、転送完了を待ちません。取消し要求後にも正常完了や別のエラーが届くため、要求の応答と終端結果を別々に対応づけます。[CancelIoEx](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex)
 
-次の試作では、pipeの生成とアクセス制限、OVERLAPPEDの固定アドレス、短い転送、取消し競合、完了通知の二重計上防止、Job終了後の残るI/O、handle閉鎖を検証します。対象へ渡す標準I/Oは通常の読書きに使える接続にします。
+[非同期I/O試作](../../experiments/subprocess/transport/README.md)でpipe生成・アクセス制限の設定、OVERLAPPEDの固定アドレス、短い転送、取消し競合、終端の一度だけの取得、通常のDrop回収を確認しました。エラー時の転送量は不明のまま保持します。Job終了後の残るI/O、別ユーザーからのアクセス検査、未完了資源の最終所有は後続です。対象へ渡す標準I/Oは通常の読書きに使える接続にします。
 
 ## 失敗と残る資源
 
@@ -102,4 +103,6 @@ Linux監督はCeruneが管理する補助成果物として配布する方針で
 
 これは**監督配置の成立条件**の検証です。fd受渡し、版付き制御通信、監督切断時の回収、本体Backendへの接続、OS異常系全般を検証したものではありません。試作のworker選択引数は製品のCLI契約ではありません。
 
-次の区切りは、Linuxの制御通信とfd所有の試作、およびWindowsのoverlapped I/O試作です。両方の成立条件を確認してから本体Backendへ接続し、共通runtimeの試験と同じ観測項目で比較します。
+別の[通信・取消し試作](../../experiments/subprocess/transport/README.md)では、Linuxの制御通信・fd受渡し・SIGPIPE（6ケース）と、Windowsの非同期I/O・取消し（9ケース）を検証しました。不正フレームの受信済みfdを閉じ、未知の転送量を0にしません。切詰めフラグを返さないWSLでの観測にも、固定容量内の実受信長検査で対応しました。
+
+次の区切りは、起動・管理範囲と今回の転送を合わせた検証です。Linuxの継承fd制限と監督切断時の回収、WindowsのJob終了と未完了I/O・最終所有を確認し、本体Backendへ接続します。共通runtimeの試験と同じ観測項目で比較し、未回収資源を成功扱いしません。
