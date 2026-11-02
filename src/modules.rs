@@ -243,7 +243,7 @@ fn visit(
         if import.path.starts_with("std:") {
             if !matches!(
                 import.path.as_str(),
-                "std:io" | "std:env" | "std:num" | "std:fs"
+                "std:io" | "std:env" | "std:num" | "std:fs" | "std:process"
             ) {
                 return Err(Diagnostic::new(
                     format!("unknown standard module `{}`", import.path),
@@ -259,6 +259,7 @@ fn visit(
                 target
             } else {
                 let (identifier, text) = match import.path.as_str() {
+                    "std:process" => ("std:process", include_str!("standard/process.ceru")),
                     "std:fs" => ("std:fs", include_str!("standard/fs.ceru")),
                     "std:io" => ("std:io", include_str!("standard/io.ceru")),
                     "std:env" => ("std:env", include_str!("standard/env.ceru")),

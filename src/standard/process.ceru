@@ -1,0 +1,88 @@
+// std:process contract version 1: data types only; run is not provided yet.
+pub type Request {
+    target: string,
+    arguments: [string],
+    stdin: [u8],
+    stdout_limit: u64,
+    stderr_limit: u64,
+    timeout_ms: u64,
+}
+
+pub enum Started { No, Yes, Unknown }
+pub enum Exit { Absent, Code { value: u32 }, Signal { value: u32 } }
+pub enum Channel { Stdin, Stdout, Stderr }
+pub enum Phase {
+    Validate,
+    Reserve,
+    Start,
+    Transfer { channel: Channel },
+    CloseStdin,
+    Wait,
+    Cleanup,
+}
+
+pub enum FailureCode {
+    InvalidRequest,
+    RequestLimit,
+    Unconfigured,
+    Unregistered,
+    ConnectionDisabled,
+    OutputBudget,
+    AllocationFailed,
+    NotFound,
+    Denied,
+    Resources,
+    Unsupported,
+    StartFailed,
+    TransferFailed,
+    CloseFailed,
+    WaitFailed,
+    ZeroProgress,
+    InvalidResponse,
+    OutputLimit,
+    Timeout,
+    CleanupFailed,
+    ProgressUnknown,
+}
+pub enum Failure { None, Reason { code: FailureCode, phase: Phase } }
+pub enum CleanupError { Timeout, Terminate, Reap, Close, InvalidResponse }
+pub enum Cleanup {
+    Absent,
+    Complete { termination_requested: bool },
+    Incomplete {
+        child_reaped: bool,
+        handles_closed: bool,
+        scope_finished: bool,
+        error: CleanupError,
+    },
+}
+
+pub type Origin {
+    node_id: u64,
+    source_id: u64,
+    start: u64,
+    end: u64,
+}
+pub type Report {
+    origin: Origin,
+    started: Started,
+    stdin_requested: u64,
+    stdin_accepted: u64,
+    stdout_limit: u64,
+    stderr_limit: u64,
+    timeout_ms: u64,
+    stdout_read: u64,
+    stderr_read: u64,
+    stdout_retained: u64,
+    stderr_retained: u64,
+    progress_known: bool,
+    exit: Exit,
+    failure: Failure,
+    cleanup: Cleanup,
+    cleanup_reported: Cleanup,
+}
+pub type Outcome {
+    report: Report,
+    stdout: [u8],
+    stderr: [u8],
+}

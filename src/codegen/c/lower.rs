@@ -347,12 +347,16 @@ fn binding_name(id: cerune_ir::BindingId, name: &str) -> String {
     format!("binding_{}_{}", id.0, name.replace('$', "_"))
 }
 
-// enum内部名の区切りとソースのアンダースコアを、衝突しない形で区別します。
+// ソースのフィールドをCの予約語・ヘッダーマクロから分離します。
+// enum内部名の区切りとソースのアンダースコアも衝突させません。
 fn storage_field_name(name: &str) -> String {
     if name.starts_with('$') {
-        name.replace('_', "_u").replace('$', "_d")
+        format!(
+            "cerune_internal_field_{}",
+            name.replace('_', "_u").replace('$', "_d")
+        )
     } else {
-        name.into()
+        format!("cerune_field_{name}")
     }
 }
 

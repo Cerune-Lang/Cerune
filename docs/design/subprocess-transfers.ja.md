@@ -108,7 +108,7 @@ bufferの複製・拡張APIはありません。所有権の移動で内部ア�
 
 ## 次の接続作業
 
-1. [Windows](subprocess-windows.ja.md)・[Linux](subprocess-linux.ja.md)の実OS接続は実装済みです。登録・容量・回収と観測を維持し、言語の公開型・標準モジュール・共通IRへ進みます。
-2. その後、公開型・標準モジュール・IRと各経路へ接続する。
+1. [Windows](subprocess-windows.ja.md)・[Linux](subprocess-linux.ja.md)の実OS接続は実装済みです。[公開データ型](subprocess-values.ja.md)も追加済みです。
+2. 次は結果領域の確保を設計し、登録・容量・回収と観測を維持して共通IRと各経路へ操作を接続します。
 
 全経路への機能追加は未完了です。未実装APIの`.ceru`は実行example一覧に置きません。
