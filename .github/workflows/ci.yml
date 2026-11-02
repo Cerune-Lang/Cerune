@@ -571,7 +571,7 @@ jobs:
         run: cargo run --example subprocess_probe -- target/subprocess-os-probe
       - name: Check transport ABI
         run: cargo test --example subprocess_transport_probe
-      - name: Probe control transport and asynchronous cancellation
+      - name: Probe control transport, cancellation, and managed cleanup
         run: cargo run --example subprocess_transport_probe -- target/subprocess-transport-probe
       - name: Preserve bounded observations
         if: always()

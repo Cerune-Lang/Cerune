@@ -253,6 +253,34 @@ impl Scope {
         cwd: &Path,
         env: &[(String, String)],
     ) -> io::Result<(Self, Pipes)> {
+        let (input_child, input_parent) = pipe(false)?;
+        let (output_parent, output_child) = pipe(true)?;
+        let (error_parent, error_child) = pipe(true)?;
+        let scope = Self::spawn_with_stdio(
+            exe,
+            args,
+            cwd,
+            env,
+            [input_child, output_child, error_child],
+        )?;
+        Ok((
+            scope,
+            Pipes {
+                input: File::from(input_parent),
+                output: File::from(output_parent),
+                error: File::from(error_parent),
+            },
+        ))
+    }
+    /// 起動・Job管理を維持し、標準I/Oの生成方法だけを呼出し側へ分離します。
+    pub fn spawn_with_stdio(
+        exe: &Path,
+        args: &[String],
+        cwd: &Path,
+        env: &[(String, String)],
+        stdio: [OwnedHandle; 3],
+    ) -> io::Result<Self> {
+        let [input_child, output_child, error_child] = stdio;
         let job = owned(unsafe { CreateJobObjectW(ptr::null_mut(), ptr::null()) })?;
         let mut limits: ExtendedLimits = unsafe { zeroed() };
         limits.basic.flags = 0x2000; // JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
@@ -264,9 +292,6 @@ impl Scope {
                 size_of::<ExtendedLimits>() as u32,
             )
         })?;
-        let (input_child, input_parent) = pipe(false)?;
-        let (output_parent, output_child) = pipe(true)?;
-        let (error_parent, error_child) = pipe(true)?;
         let mut handles = [
             input_child.as_raw_handle(),
             output_child.as_raw_handle(),
@@ -330,14 +355,11 @@ impl Scope {
         drop(input_child);
         drop(output_child);
         drop(error_child);
-        Ok((
-            scope,
-            Pipes {
-                input: Box::new(File::from(input_parent)),
-                output: Box::new(File::from(output_parent)),
-                error: Box::new(File::from(error_parent)),
-            },
-        ))
+        Ok(scope)
+    }
+    #[allow(dead_code)]
+    pub fn duplicate_process_handle(&self) -> io::Result<OwnedHandle> {
+        self.process.try_clone()
     }
     pub fn peek(&mut self) -> io::Result<Option<Exit>> {
         match unsafe { WaitForSingleObject(self.process.as_raw_handle(), 0) } {

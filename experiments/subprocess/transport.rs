@@ -1,5 +1,9 @@
 //! OS接続の通信・buffer寿命を検証します。製品のBackendではありません。
 use std::io;
+#[cfg(any(windows, target_os = "linux"))]
+#[path = "fixture.rs"]
+mod fixture;
+
 #[cfg(target_os = "linux")]
 #[path = "transport/linux.rs"]
 mod platform;
@@ -42,6 +46,12 @@ fn main() -> io::Result<()> {
     #[cfg(any(windows, target_os = "linux"))]
     {
         let args: Vec<_> = std::env::args().skip(1).collect();
+        if args.first().map(String::as_str) == Some("--fixture") {
+            if args.len() < 2 {
+                return Err(io::Error::other("missing fixture"));
+            }
+            return fixture::run(&args[1..]);
+        }
         if let Some(result) = platform::helper(&args) {
             return result;
         }

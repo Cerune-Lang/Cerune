@@ -7,6 +7,18 @@ use std::{
 pub const BLOCK: usize = 128 * 1024;
 pub fn run(args: &[String]) -> io::Result<()> {
     match args[0].as_str() {
+        "transport-echo" => {
+            let mut bytes = Vec::new();
+            io::stdin().take(4097).read_to_end(&mut bytes)?;
+            if bytes.len() > 4096 {
+                return Err(io::Error::other("fixture input bound"));
+            }
+            io::stdout().write_all(&bytes)?;
+            io::stdout().flush()?;
+            io::stderr().write_all(b"err\0\r\n")?;
+            io::stderr().flush()?;
+            std::process::exit(7)
+        }
         "context" => {
             println!(
                 "{}",

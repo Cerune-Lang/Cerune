@@ -20,26 +20,9 @@ mod platform;
 #[path = "isolation.rs"]
 mod isolation;
 
-struct Pipes {
-    input: Box<dyn Write + Send>,
-    output: Box<dyn Read + Send>,
-    error: Box<dyn Read + Send>,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Exit {
-    Code(u32),
-    #[cfg(target_os = "linux")]
-    Signal(i32),
-}
-impl Exit {
-    fn value(self) -> Value {
-        match self {
-            Self::Code(code) => json!({"kind":"code","value":code}),
-            #[cfg(target_os = "linux")]
-            Self::Signal(signal) => json!({"kind":"signal","value":signal}),
-        }
-    }
-}
+#[path = "os_types.rs"]
+mod os_types;
+use os_types::{Exit, Pipes};
 #[derive(Default)]
 struct Transfer {
     data: Vec<u8>,
@@ -47,7 +30,7 @@ struct Transfer {
     eof: bool,
     error: Option<&'static str>,
 }
-fn receive(mut reader: Box<dyn Read + Send>, limit: usize) -> Transfer {
+fn receive(mut reader: impl Read, limit: usize) -> Transfer {
     let mut result = Transfer::default();
     let mut buffer = [0; 4096];
     loop {
@@ -74,7 +57,7 @@ fn receive(mut reader: Box<dyn Read + Send>, limit: usize) -> Transfer {
         }
     }
 }
-fn send(mut writer: Box<dyn Write + Send>, bytes: Vec<u8>) -> Transfer {
+fn send(mut writer: impl Write, bytes: Vec<u8>) -> Transfer {
     let mut result = Transfer::default();
     while result.count < bytes.len() {
         match writer.write(&bytes[result.count..]) {
