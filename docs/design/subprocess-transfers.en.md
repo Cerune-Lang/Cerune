@@ -109,6 +109,6 @@ Keep the old synchronous model only under `cfg(test)` to compare shared cases. T
 ## Next integration steps
 
 1. Both [Windows](subprocess-windows.en.md) and [Linux](subprocess-linux.en.md) OS connections are implemented. [Public data types](subprocess-values.en.md) are also available.
-2. Next design result storage and connect the operation through common IR and execution routes, preserving registration, capacity, cleanup, and observation.
+2. [Prelaunch result reservation](subprocess-storage.en.md) is added. Next prepare the public result's fixed shape and connect the operation through common IR and execution routes, preserving registration, capacity, cleanup, and observation.
 
 Cross-route language support remains incomplete. Do not add unimplemented `.ceru` APIs to the executable example catalog.

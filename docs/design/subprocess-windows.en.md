@@ -62,10 +62,10 @@ This exceptional retention avoids use-after-free; it is not automatic recovery o
 
 ## Verification and next work
 
-Run `cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend` with a new output directory to save JSONL. Eighteen cases verify argv/environment/origins, NUL/CR/LF, concurrent 128 KiB transfers, nonzero exits, exact-limit EOF, overflow, timeout, descendant reclamation, early close, continued execution after unregistered/missing targets, bounded observation, submission deadlines, and explicit reclamation. Separate OS runs can produce different notification order/operation identities; observation comparisons check results, output, and failure reasons.
+Run `cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend` with a new output directory to save JSONL. Nineteen cases verify argv/environment/origins, NUL/CR/LF, concurrent 128 KiB transfers, nonzero exits, exact-limit EOF, overflow, timeout, descendant reclamation, early close, continued execution after unregistered/missing targets, bounded observation, submission deadlines, and explicit reclamation. Separate OS runs can produce different notification order/operation identities; observation comparisons check results, output, and failure reasons.
 
 A unit test injects completion-query failure and verifies pending-buffer/final-owner retention. It intentionally retains about 4 KiB plus an event and related resources until the test process exits.
 
-The [Linux Backend](subprocess-linux.en.md) is integrated too. [Public data types](subprocess-values.en.md) are available. Next reserve result storage and connect the operation through common IR.
+The [Linux Backend](subprocess-linux.en.md) is integrated too. [Public data types](subprocess-values.en.md) are available. [Prelaunch result reservation](subprocess-storage.en.md) is also implemented. Next prepare the public result's fixed shape and connect the operation through common IR.
 
 OS references: [CancelIoEx](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex), [GetOverlappedResult](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-getoverlappedresult), [ReadFile pipe behavior](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-readfile), and [CompareStringOrdinal](https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-comparestringordinal).

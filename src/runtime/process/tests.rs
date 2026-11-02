@@ -118,6 +118,7 @@ struct Script {
     cancellations: Vec<Ticket>,
     cleaning: bool,
     now: Duration,
+    clock_reads: std::rc::Rc<std::cell::Cell<usize>>,
     actions: Vec<Action>,
     contexts: Vec<CallContext>,
     sent: Vec<u8>,
@@ -133,6 +134,7 @@ impl Script {
 }
 impl Backend for Script {
     fn now(&mut self) -> Duration {
+        self.clock_reads.set(self.clock_reads.get() + 1);
         self.now
     }
     fn start(&mut self, request: &Request<'_>, context: CallContext, _: Duration) -> Launch {
@@ -916,3 +918,5 @@ fn cleanup_report_is_preserved_separately_from_deadline_verdict() {
         })
     );
 }
+
+mod result_storage;

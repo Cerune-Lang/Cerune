@@ -12,6 +12,15 @@ pub struct Request<'a> {
     pub timeout: Duration,
 }
 
+/// 起動前に行う返却領域予約の失敗です。OS操作の失敗ではありません。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReservationError {
+    /// 返却領域の上限または表現可能な大きさを超えています。
+    Capacity,
+    /// 予約に必要な実メモリを確保できませんでした。
+    Allocation,
+}
+
 /// OS接続の実測前なので既定値は設けません。転送量と期限を明示します。
 #[derive(Debug, Clone, Copy)]
 pub struct Limits {

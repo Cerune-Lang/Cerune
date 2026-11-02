@@ -62,7 +62,7 @@ Descendants escaping the managed scope and sandboxing untrusted code are out of 
 
 ## Common-runtime integration checks
 
-Windows now has 18 cases using the [production-code Backend](../../docs/design/subprocess-windows.en.md). These exercise common requests, results, deadlines, and observation separately from the independent probes.
+Windows now has 19 cases using the [production-code Backend](../../docs/design/subprocess-windows.en.md). These exercise common requests, results, deadlines, and observation separately from the independent probes.
 
 ```text
 cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
@@ -72,7 +72,7 @@ This requires Windows and a new output directory. CI retains its JSONL too. Ceru
 
 ## Linux common-runtime verification
 
-The [Linux Backend](../../docs/design/subprocess-linux.en.md) has 23 cases. Specify an absolute supervisor path and a new output directory. CI runs the cases and retains JSONL. The supervisor is a verification Cargo example; production distribution follows.
+The [Linux Backend](../../docs/design/subprocess-linux.en.md) has 24 cases. Specify an absolute supervisor path and a new output directory. CI runs the cases and retains JSONL. The supervisor is a verification Cargo example; production distribution follows.
 
     cargo build --example subprocess_linux_supervisor
     cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend

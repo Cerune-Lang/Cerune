@@ -6,6 +6,9 @@ mod fixture;
 #[path = "observation.rs"]
 mod observation;
 #[cfg(windows)]
+#[path = "reservation.rs"]
+mod reservation;
+#[cfg(windows)]
 mod check {
     use cerune_lang::{
         ir::NodeId,
@@ -92,6 +95,10 @@ mod check {
             )
         };
         let before = retained_connections();
+        record(
+            "result-reservation-before-launch",
+            super::reservation::check(backend(64), limits(), origin())?,
+        )?;
         let mut p = Processes::with_trace_limit(backend(1024), limits(), 4096);
         let args = [
             "--fixture",
