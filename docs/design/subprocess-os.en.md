@@ -2,7 +2,7 @@
 
 [日本語](subprocess-os.ja.md)
 
-This designs OS connections for the [common runtime](subprocesses.en.md) and [transfer contract](subprocess-transfers.en.md). As of 2026-11-02, the common runtime and independent OS probes exist; **production OS Backends and the language API remain unimplemented**.
+This designs OS connections for the [common runtime](subprocesses.en.md) and [transfer contract](subprocess-transfers.en.md). As of 2026-11-02, the common runtime, independent OS probes, and [Windows Backend](subprocess-windows.en.md) are implemented; **Linux Backend and language APIs remain unimplemented**.
 
 ## Status and selected architecture
 
@@ -12,8 +12,9 @@ This designs OS connections for the [common runtime](subprocesses.en.md) and [tr
 | Independent OS probes | Nine cases on both OSes plus measured Linux supervisor isolation |
 | Connection design | Use Jobs and asynchronous I/O on Windows; a dedicated supervisor and caller-side nonblocking I/O on Linux |
 | Transport probe | [Nine Linux and thirteen Windows cases](../../experiments/subprocess/transport/README.en.md): control messages, descriptor transfer, SIGPIPE, asynchronous I/O, and cancellation; combined launch/scope checks cover inheritance, disconnection, and termination cleanup |
-| Next integration | Correlate the production Backend with common deadlines, operation identities, termination, and cleanup reports; settle final ownership without terminal confirmation |
-| Later | Production Backends, registration, standard module/IR, routes/artifacts, language examples |
+| Windows connection | Integrated with common deadlines, operation identities, termination, and cleanup reports; retained ownership and explicit reclamation implemented |
+| Next integration | Connect Linux supervisor registration/control transport to the same Backend contract |
+| Later work | Linux Backend, language-facing registration, standard modules/IR, routes/artifacts, language examples |
 
 Keep the common runtime as the sole owner of semantic decisions. Do not put Cerune IR/VM execution or a second timeout semantics in the Linux supervisor. Its responsibilities are OS parentage and resource reclamation.
 
@@ -31,7 +32,7 @@ Before launch, provide a registration table mapping target names to absolute exe
 
 Before launch, validate NUL in arguments/environment, empty/invalid environment names, duplicate names, lengths after OS encoding, and arithmetic overflow. Connections handle Windows environment-name comparison and UTF-16 conversion, or Linux bytes and descriptors. Bound registry, OS metadata, and IPC storage separately from common-runtime transfer buffers.
 
-Explicitly configure the Linux supervisor path and protocol version. A missing or incompatible supervisor must not launch user code. Match artifact/connection targets and capabilities rather than silently choosing a generation target from the executing OS. Public configuration type names, CLI syntax, and numeric limits remain undecided.
+Explicitly configure the Linux supervisor path and protocol version. A missing or incompatible supervisor must not launch user code. Match artifact/connection targets and capabilities rather than silently choosing a generation target from the executing OS. Language-facing configuration, CLI syntax, and numeric bounds remain undecided. The initial Windows Rust interface specifies [registration and capacity](subprocess-windows.en.md).
 
 ## Linux: a dedicated supervisor
 
@@ -84,7 +85,7 @@ The [asynchronous I/O probe](../../experiments/subprocess/transport/README.en.md
 
 On control-channel closure, the supervisor should enter bounded cleanup. This does not guarantee reclamation after forced supervisor termination, kernel-stalled operations, or descendants escaping the managed scope. After supervisor loss, do not signal numeric PIDs/PGIDs whose identities cannot be established.
 
-Connection Drop must not free OS-referenced buffers. Before publishing a production Backend, prototype explicit return of unreclaimed ownership and retention when its final owner is dropped. Do not use unbounded join, detach-as-success, or handle closure alone as proof of completion.
+Connection Drop must not free OS-referenced buffers. Windows now retains Backend ownership with explicit reclaim or exceptional process-lifetime retention at final Drop. Retention is not successful reclamation and consumes resources if repeated; see [ownership](subprocess-windows.en.md). Linux final ownership will be settled during integration. Do not use unbounded join, detach-as-success, or handle closure alone as proof of completion.
 
 ## Distribution and observation
 
@@ -107,4 +108,4 @@ The separate [transport/cancellation probe](../../experiments/subprocess/transpo
 
 Combined launch/scope/transfer checks now verify Linux descriptor exclusion and grandchild/supervisor reclamation after explicit termination, disconnection, and invalid versions. Windows checks cover synchronous child stdio, pending reads/writes and descendants at Job termination, and direct-child/I/O termination after dropping the final Job owner.
 
-Next integrate the production Backend with common deadlines, operation identities, cancellation/termination, and cleanup reports. Final ownership without terminal confirmation, registration, and capacity bounds also remain. Do not substitute normal-reclamation measurements for disconnection during launch, forced supervisor termination, or unreclaimable resources; compare using common-runtime observations.
+Windows now integrates common deadlines, operation identities, cancellation/termination, and cleanup reports, with explicit Rust registration/capacity bounds and unreclaimed-resource ownership. Next connect Linux supervisor registration/control transport to the same contract. Do not substitute normal-reclamation measurements for disconnection during launch, forced supervisor termination, or unreclaimable resources; compare using common-runtime observations.

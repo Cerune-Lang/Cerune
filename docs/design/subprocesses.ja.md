@@ -22,7 +22,7 @@
 
 ## 共通runtimeの部分実装
 
-`runtime::process::Processes<B>`へ[進行中転送の状態管理](subprocess-transfers.ja.md)を接続しました。[試験用接続](../../src/runtime/process/tests.rs)で要求・起動・転送・期限・終了監視・後始末を検証しています。**実OS接続、`std:process`、IR命令、各実行器・生成経路は未実装です。** 言語から子プロセスを起動できる状態ではありません。
+`runtime::process::Processes<B>`へ[進行中転送の状態管理](subprocess-transfers.ja.md)を接続しました。[試験用接続](../../src/runtime/process/tests.rs)で要求・起動・転送・期限・終了監視・後始末を検証しています。[Windows実OS Backend](subprocess-windows.ja.md)を接続しました。**Linux接続、`std:process`、IR命令、各実行器・生成経路は未実装です。** 言語から子プロセスを起動できる状態ではありません。
 
 | 部品 | 現在の扱い |
 | --- | --- |
@@ -56,7 +56,7 @@ cargo test --lib runtime::process
 
 試験では同時通知の全6配列順、期限後の部分転送、取消し応答の遅着・欠落、EOF・上限、後始末、次の呼出し、観測の有無を比較します。正常終了・出力・時間切れ・容量超過は旧同期モデルとも結果を比較します。
 
-[Windows/LinuxのOS試作](../../experiments/subprocess/README.md)では、argv・同時転送・期限・子孫回収など9ケースを検証済みです。Windowsは実行開始前のJob所属と活動数0、Linuxは専用監督プロセスでの子孫回収を確認しました。[実OS接続設計](subprocess-os.ja.md)を追加し、Linuxの専用監督が呼出し元の設定や別の子を妨げないことも実測しました。[制御通信・fd受渡しとWindowsの非同期I/O・取消し](../../experiments/subprocess/transport/README.md)を起動・管理範囲へ接続し、継承制限、切断・終了時の孫とI/O回収まで確認しました。次は本体Backendと共通期限・終端・後始末報告を接続し、終端未確認資源の最終所有を確定して、公開結果型・標準モジュール・共通IRへ進みます。
+[Windows/LinuxのOS試作](../../experiments/subprocess/README.md)では、argv・同時転送・期限・子孫回収など9ケースを検証済みです。Windowsは実行開始前のJob所属と活動数0、Linuxは専用監督プロセスでの子孫回収を確認しました。[実OS接続設計](subprocess-os.ja.md)を追加し、Linuxの専用監督が呼出し元の設定や別の子を妨げないことも実測しました。[制御通信・fd受渡しとWindowsの非同期I/O・取消し](../../experiments/subprocess/transport/README.md)を起動・管理範囲へ接続し、継承制限、切断・終了時の孫とI/O回収まで確認しました。Windowsは本体Backendと共通期限・終端・後始末報告を接続済みです。`CallContext`で起動にも呼出し番号・出自を渡します。次はLinuxを接続し、その後に公開結果型・標準モジュール・共通IRへ進みます。
 
 ## 呼出しと接続
 

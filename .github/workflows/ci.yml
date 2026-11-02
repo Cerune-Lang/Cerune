@@ -573,6 +573,9 @@ jobs:
         run: cargo test --example subprocess_transport_probe
       - name: Probe control transport, cancellation, and managed cleanup
         run: cargo run --example subprocess_transport_probe -- target/subprocess-transport-probe
+      - name: Verify Windows common-runtime Backend
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
       - name: Preserve bounded observations
         if: always()
         uses: actions/upload-artifact@v7
@@ -581,4 +584,5 @@ jobs:
           path: |
             target/subprocess-os-probe/observations.jsonl
             target/subprocess-transport-probe/observations.jsonl
+            target/subprocess-windows-backend/observations.jsonl
           if-no-files-found: ignore

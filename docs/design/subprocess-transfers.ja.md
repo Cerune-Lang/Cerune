@@ -11,10 +11,10 @@
 | [`Transfers`](../../src/runtime/process/transfers.rs) | 実装済みのRust状態管理部品。転送の識別、buffer所有、取消し、確認済み受理数、部分出力、再利用条件を検査 |
 | [状態遷移テスト](../../src/runtime/process/transfers/tests.rs) | OSを起動せず、応答順序・競合・不正応答を注入して検証 |
 | `Processes::run` / `Backend` | 接続済み。所有権付き転送、期限、終了監視、取消し、有限の後始末を共通runtimeで制御 |
-| 実OS接続 | 未実装。OS試作のworkerをそのまま本体へ組み込んではいけない |
+| 実OS接続 | [Windows Backend](subprocess-windows.ja.md)を接続済み。Linuxは専用監督の接続が後続 |
 | 言語API・IR・各経路 | 未実装。新しい実行経路や独自の言語意味論は追加しない |
 
-`Transfers`単体は起動・時計・OS資源回収を実行せず、接続済みの`Processes`が`Backend`へそれらを要求します。Rust APIは実OS接続前の段階であり、言語の公開APIではありません。
+`Transfers`単体は起動・時計・OS資源回収を実行せず、接続済みの`Processes`が`Backend`へそれらを要求します。Rust APIはWindows実OS接続で利用しますが、言語の公開APIではありません。
 
 ## 転送の単位と所有
 
@@ -104,11 +104,11 @@ bufferの複製・拡張APIはありません。所有権の移動で内部ア�
 
 `Report.cleanup_reported`は接続の生の報告、`Report.cleanup`は期限・時計を検査した判定です。遅れた完了報告では回収済みフラグを残しつつ期限超過とし、再利用しません。転送が終端していても取消し応答が欠けていれば契約違反として再利用しません。
 
-旧同期モデルは`cfg(test)`内だけに残し、共通ケースの結果を比較します。今回の移行でRustの`Backend`契約は変更しましたが、言語CLI・生成経路・実OS接続の利用契約はまだ導入していません。
+旧同期モデルは`cfg(test)`内だけに残し、共通ケースの結果を比較します。今回の移行でRustの`Backend`契約は変更しましたが、言語CLI・生成経路の利用契約はまだ導入していません。Windows実OS接続では起動に`CallContext`を渡し、転送前の失敗も呼出し番号・出自へ結び付けます。
 
 ## 次の接続作業
 
-1. [実OS接続設計](subprocess-os.ja.md)に沿って本体Backendへ接続する。[起動・管理範囲と転送の試作](../../experiments/subprocess/transport/README.md)では、継承制限、監督切断、Job終了と未完了I/Oの回収まで実測済み。共通期限・操作番号・終端・後始末報告を対応づけ、終端未確認資源の最終所有と登録設定・容量制限を確定する。
+1. [実OS接続設計](subprocess-os.ja.md)に沿ってLinux Backendへ接続する。Windowsは[本体Backend](subprocess-windows.ja.md)へ接続済み。[起動・管理範囲と転送の試作](../../experiments/subprocess/transport/README.md)では、継承制限、監督切断、Job終了と未完了I/Oの回収まで実測済み。Linuxの共通期限・操作番号・終端・後始末報告を対応づけ、終端未確認資源の最終所有と登録設定・容量制限を確定する。
 2. その後、公開型・標準モジュール・IRと各経路へ接続する。
 
 全経路への機能追加は未完了です。未実装APIの`.ceru`は実行example一覧に置きません。

@@ -22,7 +22,7 @@ The existing linker and test helpers collect output into temporary files and enf
 
 ## Partial common-runtime implementation
 
-`runtime::process::Processes<B>` now integrates [in-flight transfer state](subprocess-transfers.en.md). A [scripted connection](../../src/runtime/process/tests.rs) verifies requests, launch, transfers, deadlines, exit monitoring, and cleanup. **Production OS connections, `std:process`, IR instructions, executors, and generated routes remain unimplemented.** Cerune programs cannot yet launch subprocesses.
+`runtime::process::Processes<B>` now integrates [in-flight transfer state](subprocess-transfers.en.md). A [scripted connection](../../src/runtime/process/tests.rs) verifies requests, launch, transfers, deadlines, exit monitoring, and cleanup. The [Windows OS Backend](subprocess-windows.en.md) is now integrated. **Linux connection, `std:process`, IR instructions, executors, and generated routes remain unimplemented.** Cerune programs cannot yet launch subprocesses.
 
 | Component | Current behavior |
 | --- | --- |
@@ -56,7 +56,7 @@ cargo test --lib runtime::process
 
 Tests compare all six notification-array orders, late partial transfers, delayed/missing cancellation replies, EOF/limits, cleanup, later calls, and observation enabled/disabled. Normal exit, output, timeout, and capacity failure also compare results against the old synchronous model.
 
-The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) already verifies nine cases including argv, concurrent transfer, deadlines, and descendants. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor. The [OS connection design](subprocess-os.en.md) now includes measured Linux supervisor isolation from caller configuration and unrelated children. [Control transport/descriptor transfer and Windows asynchronous I/O/cancellation](../../experiments/subprocess/transport/README.en.md) now connect with launch/scope management, verifying inheritance restrictions and descendant/I/O reclamation during disconnection/termination. Next connect production Backends with common deadlines, termination, and cleanup reports, settle ownership without terminal confirmation, then add public result types, standard modules, and common IR.
+The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) already verifies nine cases including argv, concurrent transfer, deadlines, and descendants. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor. The [OS connection design](subprocess-os.en.md) now includes measured Linux supervisor isolation from caller configuration and unrelated children. [Control transport/descriptor transfer and Windows asynchronous I/O/cancellation](../../experiments/subprocess/transport/README.en.md) now connect with launch/scope management, verifying inheritance restrictions and descendant/I/O reclamation during disconnection/termination. Windows now integrates common deadlines, termination, and cleanup reports. `CallContext` carries call identity/origin even for launch. Next integrate Linux, then public result types, standard modules, and common IR.
 
 ## Calls and connections
 

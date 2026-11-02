@@ -59,3 +59,13 @@ Cleanup waits at most three seconds in the polling loop. Join only finished work
 4. **Public integration.** Registration format, fixed numeric limits, `std:process` types, IR instructions, route ABIs, and language examples remain future work. General connection performance and semantic equivalence with observation enabled/disabled are also unverified.
 
 Descendants escaping the managed scope and sandboxing untrusted code are out of scope. The experiment does not guarantee completion within a requested duration under external forced termination or OS resource exhaustion.
+
+## Common-runtime integration checks
+
+Windows now has 18 cases using the [production-code Backend](../../docs/design/subprocess-windows.en.md). These exercise common requests, results, deadlines, and observation separately from the independent probes.
+
+```text
+cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
+```
+
+This requires Windows and a new output directory. CI retains its JSONL too. Linux Backend and Cerune language examples remain later work.

@@ -11,10 +11,10 @@ This specifies the transfer portion of the [subprocess contract](subprocesses.en
 | [`Transfers`](../../src/runtime/process/transfers.rs) | Implemented Rust state component: transfer identity, buffer ownership, cancellation, confirmed counts, partial output, and reuse conditions |
 | [Transition tests](../../src/runtime/process/transfers/tests.rs) | Inject ordering, races, and invalid responses without launching OS processes |
 | `Processes::run` / `Backend` | Integrated: the common runtime controls owned transfers, deadlines, exit monitoring, cancellation, and bounded cleanup |
-| Production OS connections | Not implemented. Do not directly incorporate the probe workers into the runtime |
+| Production OS connections | [Windows Backend](subprocess-windows.en.md) is integrated; Linux supervisor integration remains next |
 | Language API, IR, and execution routes | Not implemented. This adds neither an execution route nor separate language semantics |
 
-`Transfers` alone does not launch processes, read clocks, or reclaim OS resources; the integrated `Processes` requests these operations through `Backend`. The Rust API precedes production OS integration and is not the public language API.
+`Transfers` alone does not launch processes, read clocks, or reclaim OS resources; the integrated `Processes` requests these operations through `Backend`. The Rust API is used by the Windows OS connection but is not the public language API.
 
 ## Transfer units and ownership
 
@@ -104,11 +104,11 @@ After failure, submit no new transfers. Request cancellation once per remaining 
 
 `Report.cleanup_reported` retains the connection's raw report; `Report.cleanup` records the clock/deadline-aware verdict. Late complete reports retain reclaimed-resource flags but fail the deadline and prevent reuse. Missing cancellation replies also violate the contract and prevent reuse even if all transfers terminated.
 
-Keep the old synchronous model only under `cfg(test)` to compare shared cases. This migration changes the Rust `Backend` contract; language CLI, generated-route, and production OS connection contracts have not yet been introduced.
+Keep the old synchronous model only under `cfg(test)` to compare shared cases. This migration changes the Rust `Backend` contract; language CLI and generated-route contracts have not yet been introduced. Windows OS launch now receives `CallContext`, retaining call identity/origin even for failures before transfers.
 
 ## Next integration steps
 
-1. Follow the [OS connection design](subprocess-os.en.md) to integrate production Backends. The [combined launch/scope/transfer probe](../../experiments/subprocess/transport/README.en.md) verifies inheritance restrictions, supervisor disconnection, and pending-I/O reclamation at Job termination. Correlate common deadlines, operation identities, termination, and cleanup reports; settle final ownership without terminal confirmation plus registration/capacity bounds.
+1. Follow the [OS connection design](subprocess-os.en.md) to integrate Linux. The [Windows Backend](subprocess-windows.en.md) is implemented. The [combined launch/scope/transfer probe](../../experiments/subprocess/transport/README.en.md) verifies inheritance restrictions, supervisor disconnection, and pending-I/O reclamation at Job termination. For Linux, correlate common deadlines, operation identities, termination, and cleanup reports; settle final ownership without terminal confirmation plus registration/capacity bounds.
 2. Then connect public types, standard modules, IR, and execution routes.
 
 Cross-route language support remains incomplete. Do not add unimplemented `.ceru` APIs to the executable example catalog.

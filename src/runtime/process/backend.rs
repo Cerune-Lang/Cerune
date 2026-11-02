@@ -1,7 +1,13 @@
-//! 所有権付き転送を共通runtimeへ接続します。実OS接続は後続です。
+//! 所有権付き転送を共通runtimeへ接続します。Windows実OS接続を含みます。
 use super::transfers::{CancelReply, Completion, Ticket, Transfer};
-use super::{Cleanup, Exit, Request};
-use std::time::Duration;
+use super::{Cleanup, Exit, Origin, Request};
+use std::{num::NonZeroU64, time::Duration};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CallContext {
+    pub call: NonZeroU64,
+    pub origin: Origin,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StartError {
@@ -57,7 +63,7 @@ pub enum WaitError {
 /// Dropに無期限待機を持ち込まず、観測APIからこれらの操作を呼び出しません。
 pub trait Backend {
     fn now(&mut self) -> Duration;
-    fn start(&mut self, request: &Request<'_>, deadline: Duration) -> Launch;
+    fn start(&mut self, request: &Request<'_>, context: CallContext, deadline: Duration) -> Launch;
     fn submit(&mut self, transfer: Transfer, deadline: Duration);
     fn poll(&mut self, deadline: Duration) -> Batch;
     fn cancel(&mut self, ticket: Ticket, deadline: Duration);

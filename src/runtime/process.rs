@@ -1,11 +1,13 @@
 //! 回復可能な子プロセス操作と、その読取り専用記録です。
-//! 言語命令・実OS接続・返却後の配列所有はまだ接続していません。
+//! Windows実OS Backendを接続済みです。Linux・言語命令・返却後の配列所有は後続です。
 pub use super::output::Origin;
 use std::{num::NonZeroU64, time::Duration};
 mod backend;
 mod records;
 pub mod transfers;
-pub use backend::{Backend, Batch, Completed, Launch, StartError, WaitError, Wake};
+#[cfg(windows)]
+pub mod windows;
+pub use backend::{Backend, Batch, CallContext, Completed, Launch, StartError, WaitError, Wake};
 pub use records::{
     Channel, Cleanup, CleanupError, Code, Event, Exit, Failure, Limits, Offered, Outcome, Phase,
     Report, Request, Started,
@@ -138,7 +140,14 @@ impl<B: Backend> Processes<B> {
             .ok_or(failure(Code::InvalidRequest, Phase::Start))?;
         self.update(&transfers, out);
         self.record(Phase::Start, out);
-        let launch = self.backend.as_mut().unwrap().start(request, deadline);
+        let launch = self.backend.as_mut().unwrap().start(
+            request,
+            CallContext {
+                call: NonZeroU64::new(self.sequence).unwrap(),
+                origin: out.report.origin,
+            },
+            deadline,
+        );
         self.clock(deadline, &mut previous, &mut transfers, Phase::Start);
         match launch {
             Launch::NotStarted(error) => {
