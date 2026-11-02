@@ -569,10 +569,16 @@ jobs:
         run: cargo test --example subprocess_probe
       - name: Probe argv, pipes, deadlines, and descendant cleanup
         run: cargo run --example subprocess_probe -- target/subprocess-os-probe
+      - name: Check transport ABI
+        run: cargo test --example subprocess_transport_probe
+      - name: Probe control transport and asynchronous cancellation
+        run: cargo run --example subprocess_transport_probe -- target/subprocess-transport-probe
       - name: Preserve bounded observations
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: subprocess-os-${{ matrix.os }}
-          path: target/subprocess-os-probe/observations.jsonl
+          path: |
+            target/subprocess-os-probe/observations.jsonl
+            target/subprocess-transport-probe/observations.jsonl
           if-no-files-found: ignore

@@ -36,7 +36,7 @@ On 2026-11-02, all nine common cases passed locally on Windows; Linux passed ten
 
 `stdin_accepted` counts bytes successfully acknowledged by the write API, not bytes consumed by the child. Early-close counts, ordering among concurrent failures, and elapsed times vary with OS/load; comparisons do not require identical numbers.
 
-On Linux, the normal invocation splits into a caller-side checker and a dedicated worker. The worker runs nine cases; the caller checks configuration, the unrelated child, and supervisor reclamation before appending case ten. Observation reads are capped at 64 KiB and supervisor waiting at 60 seconds. Exceptional termination and a wait of at most two seconds are probe fallbacks, not guarantees of managed-scope cleanup after forced supervisor termination. Descriptor transfer and versioned control messages remain unverified.
+On Linux, the normal invocation splits into a caller-side checker and a dedicated worker. The worker runs nine cases; the caller checks configuration, the unrelated child, and supervisor reclamation before appending case ten. Observation reads are capped at 64 KiB and supervisor waiting at 60 seconds. Exceptional termination and a wait of at most two seconds are probe fallbacks, not guarantees of managed-scope cleanup after forced supervisor termination. Descriptor transfer and versioned control messages are checked separately by the [transport/cancellation probe](transport/README.en.md).
 
 ## OS mechanisms
 
@@ -54,7 +54,7 @@ Cleanup waits at most three seconds in the polling loop. Join only finished work
 ## Before integration into Cerune
 
 1. **A contract for transfers in flight.** Three workers transfer concurrently and report when they finish. Directly copying these workers into the original synchronous poll would lose unreported transfers. The runtime now uses an [ownership-based contract and state component](../../docs/design/subprocess-transfers.en.md), integrated with launch, deadlines, exit monitoring, and cleanup. This experiment's workers are not yet connected to that contract.
-2. **Supervisor placement.** The [OS connection design](../../docs/design/subprocess-os.en.md) selects one dedicated supervisor per call. Isolation is now measured; control transport, descriptor transfer, ownership after supervisor loss, and distribution integration remain future work. Do not add process-wide subreaper effects to embedding hosts.
+2. **Supervisor placement.** The [OS connection design](../../docs/design/subprocess-os.en.md) selects one dedicated supervisor per call. Isolation and [transport/cancellation](transport/README.en.md) are measured separately; combining launch/scope management with transfers, ownership after supervisor loss, and distribution integration remain future work. Do not add process-wide subreaper effects to embedding hosts.
 3. **Cleanup failures and later calls.** Real-OS fixtures here can be reclaimed normally. Classify failed termination, unreapable children, handle-close failures, and supervisor failure in real connections, then map these to disabled connections and partial results in the common runtime.
 4. **Public integration.** Registration format, fixed numeric limits, `std:process` types, IR instructions, route ABIs, and language examples remain future work. General connection performance and semantic equivalence with observation enabled/disabled are also unverified.
 

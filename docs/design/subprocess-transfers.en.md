@@ -108,7 +108,7 @@ Keep the old synchronous model only under `cfg(test)` to compare shared cases. T
 
 ## Next integration steps
 
-1. Follow the [OS connection design](subprocess-os.en.md) to verify Linux control transport/descriptor transfer and Windows overlapped I/O. Supervisor isolation is measured. Verify termination, cancellation, and buffer lifetime before production Backend integration.
+1. Follow the [OS connection design](subprocess-os.en.md) to combine launch/scope management with transfers. Supervisor isolation and [Linux control transport / Windows asynchronous I/O](../../experiments/subprocess/transport/README.en.md) are measured separately. Verify inheritance restrictions, supervisor disconnection, and Job termination with pending I/O/final ownership before production Backend integration.
 2. Then connect public types, standard modules, IR, and execution routes.
 
 Cross-route language support remains incomplete. Do not add unimplemented `.ceru` APIs to the executable example catalog.
