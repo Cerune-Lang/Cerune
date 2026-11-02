@@ -56,7 +56,7 @@ cargo test --lib runtime::process
 
 試験では同時通知の全6配列順、期限後の部分転送、取消し応答の遅着・欠落、EOF・上限、後始末、次の呼出し、観測の有無を比較します。正常終了・出力・時間切れ・容量超過は旧同期モデルとも結果を比較します。
 
-[Windows/LinuxのOS試作](../../experiments/subprocess/README.md)では、argv・同時転送・期限・子孫回収など9ケースを検証済みです。Windowsは実行開始前のJob所属と活動数0、Linuxは専用監督プロセスでの子孫回収を確認しました。[実OS接続設計](subprocess-os.ja.md)を追加し、Linuxの専用監督が呼出し元の設定や別の子を妨げないことも実測しました。[制御通信・fd受渡しとWindowsの非同期I/O・取消し](../../experiments/subprocess/transport/README.md)も個別に検証しました。次は起動・管理範囲と転送を合わせ、切断・終了時の資源所有を確認して本体Backend、公開結果型・標準モジュール・共通IRへ進みます。
+[Windows/LinuxのOS試作](../../experiments/subprocess/README.md)では、argv・同時転送・期限・子孫回収など9ケースを検証済みです。Windowsは実行開始前のJob所属と活動数0、Linuxは専用監督プロセスでの子孫回収を確認しました。[実OS接続設計](subprocess-os.ja.md)を追加し、Linuxの専用監督が呼出し元の設定や別の子を妨げないことも実測しました。[制御通信・fd受渡しとWindowsの非同期I/O・取消し](../../experiments/subprocess/transport/README.md)を起動・管理範囲へ接続し、継承制限、切断・終了時の孫とI/O回収まで確認しました。次は本体Backendと共通期限・終端・後始末報告を接続し、終端未確認資源の最終所有を確定して、公開結果型・標準モジュール・共通IRへ進みます。
 
 ## 呼出しと接続
 

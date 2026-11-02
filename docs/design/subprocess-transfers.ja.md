@@ -108,7 +108,7 @@ bufferの複製・拡張APIはありません。所有権の移動で内部ア�
 
 ## 次の接続作業
 
-1. [実OS接続設計](subprocess-os.ja.md)に沿って起動・管理範囲と転送を接続する。監督隔離と[Linux制御通信・Windows非同期I/O](../../experiments/subprocess/transport/README.md)は個別に実測済み。継承制限、監督切断、Job終了と未完了I/O・最終所有を確認して本体Backendへ接続する。
+1. [実OS接続設計](subprocess-os.ja.md)に沿って本体Backendへ接続する。[起動・管理範囲と転送の試作](../../experiments/subprocess/transport/README.md)では、継承制限、監督切断、Job終了と未完了I/Oの回収まで実測済み。共通期限・操作番号・終端・後始末報告を対応づけ、終端未確認資源の最終所有と登録設定・容量制限を確定する。
 2. その後、公開型・標準モジュール・IRと各経路へ接続する。
 
 全経路への機能追加は未完了です。未実装APIの`.ceru`は実行example一覧に置きません。

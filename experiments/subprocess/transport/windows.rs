@@ -13,6 +13,8 @@ use std::{
     },
     time::{Duration, Instant},
 };
+#[path = "windows_scope.rs"]
+mod managed;
 type Handle = *mut c_void;
 const INVALID: Handle = -1isize as Handle;
 const PENDING: i32 = 997;
@@ -81,6 +83,7 @@ unsafe extern "system" {
     fn WaitForSingleObject(handle: Handle, timeout: u32) -> u32;
     fn GetHandleInformation(handle: Handle, flags: *mut u32) -> i32;
     fn LocalFree(memory: Handle) -> Handle;
+    fn SetHandleInformation(handle: Handle, mask: u32, flags: u32) -> i32;
 }
 #[link(name = "advapi32")]
 unsafe extern "system" {
@@ -119,6 +122,9 @@ struct Pair {
     name: Vec<u16>,
 }
 fn pair() -> io::Result<Pair> {
+    pair_with_client(true)
+}
+fn pair_with_client(asynchronous_client: bool) -> io::Result<Pair> {
     let mut random = [0u8; 16];
     require(
         unsafe { BCryptGenRandom(ptr::null_mut(), random.as_mut_ptr(), 16, 2) } >= 0,
@@ -169,7 +175,7 @@ fn pair() -> io::Result<Pair> {
             0,
             ptr::null_mut(),
             3,
-            0x40000000,
+            if asynchronous_client { 0x40000000 } else { 0 },
             ptr::null_mut(),
         )
     })?);
@@ -519,6 +525,7 @@ pub fn run(log: &mut File) -> io::Result<()> {
         )?;
         Ok(json!({"terminal_settled_before_release":true}))
     })?;
+    managed::run(log)?;
     case(log, "buffer-ownership-settled", || {
         require(
             QUARANTINED.load(Ordering::SeqCst) == 0,
@@ -526,7 +533,7 @@ pub fn run(log: &mut File) -> io::Result<()> {
         )?;
         Ok(json!({"quarantined_operations":0}))
     })?;
-    println!("subprocess transport: 9 Windows cases passed");
+    println!("subprocess transport: 13 Windows cases passed");
     Ok(())
 }
 #[cfg(test)]

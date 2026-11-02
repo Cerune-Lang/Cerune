@@ -11,6 +11,8 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+#[path = "linux_scope.rs"]
+mod managed;
 #[path = "linux_signal.rs"]
 mod signal;
 #[path = "linux_wire.rs"]
@@ -80,6 +82,9 @@ fn worker(fd: RawFd) -> io::Result<()> {
     wire::send(socket.as_raw_fd(), &wire::header(wire::EXIT, 1, 7), &[])
 }
 pub fn helper(args: &[String]) -> Option<io::Result<()>> {
+    if let Some(result) = managed::helper(args) {
+        return Some(result);
+    }
     match args.first().map(String::as_str) {
         Some("--transport-worker") => Some((|| {
             require(args.len() == 2, "worker arguments")?;
@@ -281,6 +286,7 @@ pub fn run(log: &mut File) -> io::Result<()> {
             },
         )?;
     }
-    println!("subprocess transport: 6 Linux cases passed");
+    managed::run(log)?;
+    println!("subprocess transport: 9 Linux cases passed");
     Ok(())
 }

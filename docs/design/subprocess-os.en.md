@@ -11,8 +11,8 @@ This designs OS connections for the [common runtime](subprocesses.en.md) and [tr
 | Common runtime | Scripted tests cover launch, three-stream transfers, deadlines, cancellation, exit monitoring, and cleanup |
 | Independent OS probes | Nine cases on both OSes plus measured Linux supervisor isolation |
 | Connection design | Use Jobs and asynchronous I/O on Windows; a dedicated supervisor and caller-side nonblocking I/O on Linux |
-| Transport probe | [Six Linux and nine Windows cases](../../experiments/subprocess/transport/README.en.md): control messages, descriptor transfer, SIGPIPE, asynchronous I/O, and cancellation |
-| Next verification | Combine launch/scope with transfers; inheritance restrictions, supervisor disconnection, Job termination with pending I/O, and final-owner destruction |
+| Transport probe | [Nine Linux and thirteen Windows cases](../../experiments/subprocess/transport/README.en.md): control messages, descriptor transfer, SIGPIPE, asynchronous I/O, and cancellation; combined launch/scope checks cover inheritance, disconnection, and termination cleanup |
+| Next integration | Correlate the production Backend with common deadlines, operation identities, termination, and cleanup reports; settle final ownership without terminal confirmation |
 | Later | Production Backends, registration, standard module/IR, routes/artifacts, language examples |
 
 Keep the common runtime as the sole owner of semantic decisions. Do not put Cerune IR/VM execution or a second timeout semantics in the Linux supervisor. Its responsibilities are OS parentage and resource reclamation.
@@ -69,7 +69,7 @@ Move connection-side pipes to overlapped I/O rather than copying the blocking wo
 
 `CancelIoEx` requests cancellation without waiting for transfer completion. Normal completion or another error may still follow, so correlate cancellation replies separately from terminal results. [CancelIoEx](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex)
 
-The [asynchronous I/O probe](../../experiments/subprocess/transport/README.en.md) verifies pipe creation with access restrictions configured, fixed OVERLAPPED addresses, short transfers, cancellation races, single terminal delivery, and ordinary Drop reclamation. Error counts remain unknown. Outstanding I/O after Job termination, cross-user access checks, and final ownership of unsettled resources remain future work. Target-facing standard I/O must support ordinary reads/writes.
+The [asynchronous I/O probe](../../experiments/subprocess/transport/README.en.md) verifies pipe creation with access restrictions configured, fixed OVERLAPPED addresses, short transfers, cancellation races, single terminal delivery, and ordinary Drop reclamation. Error counts remain unknown. Synchronous target stdio, outstanding I/O after Job termination, exclusion of unlisted inheritable handles, and child/I/O termination after dropping the Job owner are also verified. Cross-user access checks and final ownership without terminal confirmation remain future work. Target-facing standard I/O must support ordinary reads/writes.
 
 ## Failure and outstanding resources
 
@@ -103,6 +103,8 @@ On 2026-11-02, the [Linux isolation probe](../../experiments/subprocess/isolatio
 
 This verifies **supervisor placement** only. It does not verify descriptor transfer, versioned control messages, cleanup on supervisor disconnection, production Backend integration, or all OS failures. The probe's worker-selection argument is not a product CLI contract.
 
-The separate [transport/cancellation probe](../../experiments/subprocess/transport/README.en.md) verifies Linux control messages, descriptor transfer, and SIGPIPE (six cases), plus Windows asynchronous I/O and cancellation (nine cases). Rejected frames close received descriptors, and unknown progress is not changed to zero. Fixed-capacity length checks also handle the observed WSL behavior that omits the truncation flag.
+The separate [transport/cancellation probe](../../experiments/subprocess/transport/README.en.md) verifies Linux control messages, descriptor transfer, and SIGPIPE (nine cases), plus Windows asynchronous I/O and cancellation (thirteen cases). Rejected frames close received descriptors, and unknown progress is not changed to zero. Fixed-capacity length checks also handle the observed WSL behavior that omits the truncation flag.
 
-Next combine launch/scope management with these transfers. Verify Linux descriptor-inheritance restrictions and cleanup on supervisor disconnection, plus Windows Job termination with pending I/O and final ownership, then integrate the production Backend. Compare the same observations used by common-runtime tests without treating unreclaimed resources as success.
+Combined launch/scope/transfer checks now verify Linux descriptor exclusion and grandchild/supervisor reclamation after explicit termination, disconnection, and invalid versions. Windows checks cover synchronous child stdio, pending reads/writes and descendants at Job termination, and direct-child/I/O termination after dropping the final Job owner.
+
+Next integrate the production Backend with common deadlines, operation identities, cancellation/termination, and cleanup reports. Final ownership without terminal confirmation, registration, and capacity bounds also remain. Do not substitute normal-reclamation measurements for disconnection during launch, forced supervisor termination, or unreclaimable resources; compare using common-runtime observations.

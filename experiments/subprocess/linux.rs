@@ -46,9 +46,9 @@ impl Scope {
             .process_group(0)
             .spawn()?;
         let pipes = Pipes {
-            input: Box::new(child.stdin.take().unwrap()),
-            output: Box::new(child.stdout.take().unwrap()),
-            error: Box::new(child.stderr.take().unwrap()),
+            input: std::fs::File::from(std::os::fd::OwnedFd::from(child.stdin.take().unwrap())),
+            output: std::fs::File::from(std::os::fd::OwnedFd::from(child.stdout.take().unwrap())),
+            error: std::fs::File::from(std::os::fd::OwnedFd::from(child.stderr.take().unwrap())),
         };
         Ok((
             Self {
