@@ -573,6 +573,8 @@ jobs:
         run: cargo test --example subprocess_transport_probe
       - name: Probe control transport, cancellation, and managed cleanup
         run: cargo run --example subprocess_transport_probe -- target/subprocess-transport-probe
+      - name: Check OS observation comparison rules
+        run: cargo test --example subprocess_windows_backend --example subprocess_linux_backend
       - name: Build Linux supervisor
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: cargo build --example subprocess_linux_supervisor

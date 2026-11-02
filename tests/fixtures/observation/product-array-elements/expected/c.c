@@ -163,8 +163,8 @@ static void cerune_output_bool(int value, int newline, const char *origin) {
     cerune_output_text((const unsigned char *)text, (value ? 4 : 5) + (size_t)newline, origin);
 }
 typedef struct cerune_type_Point_0 {
-    int64_t x;
-    int64_t y;
+    int64_t cerune_field_x;
+    int64_t cerune_field_y;
 } cerune_type_Point_0;
 
 typedef struct cerune_array_type_Point_0_2 {
@@ -185,11 +185,11 @@ int main(void) {
         return 1;
     }
 #endif
-    cerune_array_type_Point_0_2 cerune_binding_0_points = (cerune_array_type_Point_0_2){ .items = { (cerune_type_Point_0){ .x = 1, .y = 2 }, (cerune_type_Point_0){ .x = 3, .y = 4 } } };
+    cerune_array_type_Point_0_2 cerune_binding_0_points = (cerune_array_type_Point_0_2){ .items = { (cerune_type_Point_0){ .cerune_field_x = 1, .cerune_field_y = 2 }, (cerune_type_Point_0){ .cerune_field_x = 3, .cerune_field_y = 4 } } };
     cerune_array_type_Point_0_2 cerune_binding_1_copy = cerune_binding_0_points;
-    cerune_binding_0_points = (cerune_array_type_Point_0_2){ .items = { (cerune_type_Point_0){ .x = 5, .y = 6 }, (cerune_type_Point_0){ .x = 7, .y = 8 } } };
-    cerune_output_i64((cerune_array_get_type_Point_0_2(cerune_binding_1_copy, 1, " node=20 bytes=204..211\n")).x, 1, " node=18 bytes=198..215\n");
-    cerune_output_i64((cerune_array_get_type_Point_0_2(cerune_binding_0_points, 0, " node=25 bytes=222..231\n")).y, 1, " node=23 bytes=216..235\n");
+    cerune_binding_0_points = (cerune_array_type_Point_0_2){ .items = { (cerune_type_Point_0){ .cerune_field_x = 5, .cerune_field_y = 6 }, (cerune_type_Point_0){ .cerune_field_x = 7, .cerune_field_y = 8 } } };
+    cerune_output_i64((cerune_array_get_type_Point_0_2(cerune_binding_1_copy, 1, " node=20 bytes=204..211\n")).cerune_field_x, 1, " node=18 bytes=198..215\n");
+    cerune_output_i64((cerune_array_get_type_Point_0_2(cerune_binding_0_points, 0, " node=25 bytes=222..231\n")).cerune_field_y, 1, " node=23 bytes=216..235\n");
     cerune_call_finish();
     return 0;
 }

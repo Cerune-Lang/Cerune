@@ -76,3 +76,9 @@ The [Linux Backend](../../docs/design/subprocess-linux.en.md) has 24 cases. Spec
 
     cargo build --example subprocess_linux_supervisor
     cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend
+
+## Comparing observation enabled and disabled
+
+Separate OS executions can differ in whether cleanup requests termination, depending on when the Job/group becomes empty. Require complete cleanup and agreement with each raw cleanup report; exclude only this termination-request flag from comparison copies. Continue comparing output, exit status, counts, origins, failures, and progress certainty. Original Reports remain unchanged, and JSONL retains cleanup information from both runs. Mismatch diagnostics include both Reports and output-equality checks.
+
+This does not prove that separate OS executions received identical notifications. Common-runtime unit tests still use identical scripted responses to verify that observation changes neither actions nor results. Comparison regression tests accept differing termination requests while rejecting incomplete cleanup, inconsistent raw reports, and output or exit-status differences.
