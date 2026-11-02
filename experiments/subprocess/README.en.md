@@ -19,7 +19,7 @@ The directory contains a fixture-executable copy, a working directory, and `obse
 
 ## Cases and results
 
-All nine cases passed locally on both OSes on 2026-11-01. A passing case includes correctly detecting an expected failure.
+On 2026-11-02, all nine common cases passed locally on Windows; Linux passed ten cases including supervisor isolation. A passing case includes correctly detecting an expected failure.
 
 | Case | Evidence |
 | --- | --- |
@@ -32,8 +32,11 @@ All nine cases passed locally on both OSes on 2026-11-01. A passing case include
 | sleep | Stop after a two-second deadline and collect prior output containing NUL/CR/LF |
 | descendant | Direct-child exit code 0 does not finish collection while a grandchild retains pipes; terminate and reclaim the grandchild after two seconds |
 | missing-executable | Do not treat a nonexistent executable as successfully launched |
+| supervisor-isolation (Linux) | Worker subreaper state changes 0→1 while caller remains 0→0; preserve caller SIGCHLD/process-group configuration and recover an unrelated child's exit 255 plus supervisor termination |
 
 `stdin_accepted` counts bytes successfully acknowledged by the write API, not bytes consumed by the child. Early-close counts, ordering among concurrent failures, and elapsed times vary with OS/load; comparisons do not require identical numbers.
+
+On Linux, the normal invocation splits into a caller-side checker and a dedicated worker. The worker runs nine cases; the caller checks configuration, the unrelated child, and supervisor reclamation before appending case ten. Observation reads are capped at 64 KiB and supervisor waiting at 60 seconds. Exceptional termination and a wait of at most two seconds are probe fallbacks, not guarantees of managed-scope cleanup after forced supervisor termination. Descriptor transfer and versioned control messages remain unverified.
 
 ## OS mechanisms
 
@@ -51,7 +54,7 @@ Cleanup waits at most three seconds in the polling loop. Join only finished work
 ## Before integration into Cerune
 
 1. **A contract for transfers in flight.** Three workers transfer concurrently and report when they finish. Directly copying these workers into the original synchronous poll would lose unreported transfers. The runtime now uses an [ownership-based contract and state component](../../docs/design/subprocess-transfers.en.md), integrated with launch, deadlines, exit monitoring, and cleanup. This experiment's workers are not yet connected to that contract.
-2. **Supervisor placement.** Consider a dedicated Linux helper for subreaper behavior. Define its launch/failure/exit, ownership of outstanding resources, and distribution. This experiment does not adopt host-wide side effects in the embedding process.
+2. **Supervisor placement.** The [OS connection design](../../docs/design/subprocess-os.en.md) selects one dedicated supervisor per call. Isolation is now measured; control transport, descriptor transfer, ownership after supervisor loss, and distribution integration remain future work. Do not add process-wide subreaper effects to embedding hosts.
 3. **Cleanup failures and later calls.** Real-OS fixtures here can be reclaimed normally. Classify failed termination, unreapable children, handle-close failures, and supervisor failure in real connections, then map these to disabled connections and partial results in the common runtime.
 4. **Public integration.** Registration format, fixed numeric limits, `std:process` types, IR instructions, route ABIs, and language examples remain future work. General connection performance and semantic equivalence with observation enabled/disabled are also unverified.
 

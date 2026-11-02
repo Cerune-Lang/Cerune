@@ -16,6 +16,10 @@ mod platform;
 #[path = "windows.rs"]
 mod platform;
 
+#[cfg(target_os = "linux")]
+#[path = "isolation.rs"]
+mod isolation;
+
 struct Pipes {
     input: Box<dyn Write + Send>,
     output: Box<dyn Read + Send>,
@@ -333,13 +337,34 @@ pub fn run() -> io::Result<()> {
         }
         return fixture::run(&args[1..]);
     }
+    #[cfg(target_os = "linux")]
+    if args.first().map(String::as_str) == Some("--scope-probe-worker-v1") {
+        if args.len() != 2 {
+            return Err(io::Error::other("missing worker output directory"));
+        }
+        return run_cases(&args[1]);
+    }
     if args.len() != 1 {
         return Err(io::Error::other(
             "usage: subprocess_probe <new-output-directory>",
         ));
     }
+    #[cfg(target_os = "linux")]
+    {
+        isolation::run(&args[0])
+    }
+    #[cfg(windows)]
+    {
+        run_cases(&args[0])
+    }
+}
+fn run_cases(directory: &str) -> io::Result<()> {
+    #[cfg(target_os = "linux")]
+    let supervisor_before = platform::subreaper()?;
     platform::init()?;
-    let root = std::path::absolute(PathBuf::from(&args[0]))?;
+    #[cfg(target_os = "linux")]
+    let supervisor_after = platform::subreaper()?;
+    let root = std::path::absolute(PathBuf::from(directory))?;
     fs::create_dir(&root)?;
     let cwd = root.join("work 空間");
     fs::create_dir(&cwd)?;
@@ -412,11 +437,14 @@ pub fn run() -> io::Result<()> {
     let missing = root.join("missing-executable");
     let result = platform::Scope::spawn(&missing, &[], &cwd, &env);
     require(result.is_err(), "missing executable unexpectedly launched")?;
-    writeln!(
-        log,
-        "{}",
-        json!({"case":"missing-executable", "passed":true})
-    )?;
+    let missing_record = json!({"case":"missing-executable", "passed":true});
+    #[cfg(target_os = "linux")]
+    let missing_record = {
+        let mut record = missing_record;
+        record["supervisor"] = json!({"before":supervisor_before, "after":supervisor_after});
+        record
+    };
+    writeln!(log, "{missing_record}")?;
     println!("subprocess OS probe: 9 cases passed");
     Ok(())
 }

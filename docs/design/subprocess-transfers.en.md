@@ -108,7 +108,7 @@ Keep the old synchronous model only under `cfg(test)` to compare shared cases. T
 
 ## Next integration steps
 
-1. Verify terminal notifications, cancellation, and buffer lifetimes in Windows/Linux connections. Design Linux supervisor placement and ownership of outstanding resources.
+1. Follow the [OS connection design](subprocess-os.en.md) to verify Linux control transport/descriptor transfer and Windows overlapped I/O. Supervisor isolation is measured. Verify termination, cancellation, and buffer lifetime before production Backend integration.
 2. Then connect public types, standard modules, IR, and execution routes.
 
 Cross-route language support remains incomplete. Do not add unimplemented `.ceru` APIs to the executable example catalog.
