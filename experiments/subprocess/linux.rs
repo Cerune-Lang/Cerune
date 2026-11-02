@@ -138,3 +138,21 @@ impl Drop for Scope {
         let _ = self.collect();
     }
 }
+
+pub fn subreaper() -> io::Result<i32> {
+    let mut value = 0i32;
+    if unsafe {
+        libc::prctl(
+            libc::PR_GET_CHILD_SUBREAPER,
+            &mut value as *mut i32,
+            0 as libc::c_ulong,
+            0 as libc::c_ulong,
+            0 as libc::c_ulong,
+        )
+    } == -1
+    {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(value)
+    }
+}
