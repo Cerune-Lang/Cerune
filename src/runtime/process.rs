@@ -12,7 +12,7 @@ pub mod windows;
 pub use backend::{Backend, Batch, CallContext, Completed, Launch, StartError, WaitError, Wake};
 pub use records::{
     Channel, Cleanup, CleanupError, Code, Event, Exit, Failure, Limits, Offered, Outcome, Phase,
-    Report, Request, Started,
+    Report, Request, ReservationError, Started,
 };
 use transfers::{Snapshot, State, Transfers};
 const CHUNK: usize = 4096;
@@ -72,6 +72,21 @@ impl<B: Backend> Processes<B> {
 
     /// available_bytesは両出力と3個の転送bufferの上限です。言語の配列領域とは別です。
     pub fn run(&mut self, request: Request<'_>, available_bytes: usize, origin: Origin) -> Outcome {
+        self.run_with_reservation(request, available_bytes, origin, || Ok(()))
+            .0
+    }
+
+    /// 要求と転送bufferの検査後、時計取得・起動より前に返却領域を予約します。
+    /// reserveは領域確保だけを行い、OS操作や観測の制御を行わない契約です。
+    /// 予約後は、起動失敗や部分結果の場合も同じ所有物を呼出し元へ返します。
+    /// 言語の固定結果形状など、失敗値にも必要な領域は呼出し元で先に確保します。
+    pub fn run_with_reservation<R>(
+        &mut self,
+        request: Request<'_>,
+        available_bytes: usize,
+        origin: Origin,
+        reserve: impl FnOnce() -> Result<R, ReservationError>,
+    ) -> (Outcome, Option<R>) {
         let mut out = Outcome {
             report: Report {
                 origin,
@@ -100,7 +115,19 @@ impl<B: Backend> Processes<B> {
             None => self.disabled = true,
         }
         self.record(Phase::Validate, &out);
-        if let Err(failure) = self.execute(&request, available_bytes, &mut out) {
+        let mut reservation = None;
+        if let Err(failure) = self.execute(&request, available_bytes, &mut out, || {
+            reservation = Some(reserve().map_err(|error| {
+                failure(
+                    match error {
+                        ReservationError::Capacity => Code::OutputBudget,
+                        ReservationError::Allocation => Code::AllocationFailed,
+                    },
+                    Phase::Reserve,
+                )
+            })?);
+            Ok(())
+        }) {
             out.report.failure.get_or_insert(failure);
         }
         self.record(
@@ -111,13 +138,14 @@ impl<B: Backend> Processes<B> {
             },
             &out,
         );
-        out
+        (out, reservation)
     }
     fn execute(
         &mut self,
         request: &Request<'_>,
         available: usize,
         out: &mut Outcome,
+        reserve: impl FnOnce() -> Result<(), Failure>,
     ) -> Result<(), Failure> {
         self.validate(request)?;
         self.record(Phase::Reserve, out);
@@ -136,6 +164,7 @@ impl<B: Backend> Processes<B> {
             available,
         )
         .map_err(|code| failure(code, Phase::Reserve))?;
+        reserve()?;
         let mut previous = self.backend.as_mut().unwrap().now();
         let deadline = previous
             .checked_add(request.timeout)

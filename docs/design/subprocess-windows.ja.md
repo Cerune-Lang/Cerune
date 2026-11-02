@@ -62,10 +62,10 @@ pipe名は128bit乱数を含み、first-instance・owner/system向けACL・remot
 
 ## 検証と次の作業
 
-`cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend`で、未作成の出力先へJSONLを保存します。18ケースでargv・環境・出自、NUL/CR/LF、128 KiB同時転送、非0終了、上限ちょうどのEOF、容量超過、時間切れ、孫の回収、早期close、未登録/対象なし後の継続、観測上限、提出期限、明示回収を検査します。別々のOS実行では通知順・操作番号が変わり得るため、観測有無の比較は結果・出力・停止理由を対象にします。
+`cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend`で、未作成の出力先へJSONLを保存します。19ケースでargv・環境・出自、NUL/CR/LF、128 KiB同時転送、非0終了、上限ちょうどのEOF、容量超過、時間切れ、孫の回収、早期close、未登録/対象なし後の継続、観測上限、提出期限、明示回収を検査します。別々のOS実行では通知順・操作番号が変わり得るため、観測有無の比較は結果・出力・停止理由を対象にします。
 
 単体試験ではOS問合せ失敗を注入し、未完了bufferと最終所有者の保持も検査します。この試験は意図的に約4 KiBとevent等を試験process終了まで保持します。
 
-[Linux Backend](subprocess-linux.ja.md)も接続済みです。[公開データ型](subprocess-values.ja.md)は追加済みです。次は結果領域の確保と共通IRへの操作接続です。
+[Linux Backend](subprocess-linux.ja.md)も接続済みです。[公開データ型](subprocess-values.ja.md)は追加済みです。[返却領域の起動前予約](subprocess-storage.ja.md)も追加しました。次は公開結果の固定形状と共通IRへの操作接続です。
 
 参照するOS契約は[CancelIoEx](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex)、[GetOverlappedResult](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-getoverlappedresult)、[ReadFileのpipe規則](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-readfile)、[CompareStringOrdinal](https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-comparestringordinal)です。

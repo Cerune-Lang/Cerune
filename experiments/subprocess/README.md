@@ -62,7 +62,7 @@ Linuxでは[WNOWAIT](https://man7.org/linux/man-pages/man2/waitpid.2.html)によ
 
 ## 共通runtimeとの接続検証
 
-Windowsでは、[本体Backend](../../docs/design/subprocess-windows.ja.md)を使う18ケースを追加しました。既存の独立試作とは別に、共通の要求・結果・期限・観測を通して確認します。
+Windowsでは、[本体Backend](../../docs/design/subprocess-windows.ja.md)を使う19ケースを追加しました。既存の独立試作とは別に、共通の要求・結果・期限・観測を通して確認します。
 
 ```text
 cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
@@ -72,7 +72,7 @@ Windows専用です。出力先には未作成ディレクトリを指定しま�
 
 ## Linux共通runtimeの接続検証
 
-[Linux Backend](../../docs/design/subprocess-linux.ja.md)の23ケースを検証します。監督の絶対パスを明示し、未作成の出力先を指定します。CIも実行し、JSONLを保存します。監督は検証用Cargo exampleで、本番配布は後続です。
+[Linux Backend](../../docs/design/subprocess-linux.ja.md)の24ケースを検証します。監督の絶対パスを明示し、未作成の出力先を指定します。CIも実行し、JSONLを保存します。監督は検証用Cargo exampleで、本番配布は後続です。
 
     cargo build --example subprocess_linux_supervisor
     cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend
