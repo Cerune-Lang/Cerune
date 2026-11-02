@@ -174,7 +174,7 @@ static int64_t cerune_array_get_i64_3(cerune_array_i64_3 value, int64_t index, c
 }
 
 typedef struct cerune_type_Row_0 {
-    cerune_array_i64_3 values;
+    cerune_array_i64_3 cerune_field_values;
 } cerune_type_Row_0;
 
 int main(void) {
@@ -184,11 +184,11 @@ int main(void) {
         return 1;
     }
 #endif
-    cerune_type_Row_0 cerune_binding_0_first = (cerune_type_Row_0){ .values = (cerune_array_i64_3){ .items = { 1, 2, 3 } } };
+    cerune_type_Row_0 cerune_binding_0_first = (cerune_type_Row_0){ .cerune_field_values = (cerune_array_i64_3){ .items = { 1, 2, 3 } } };
     cerune_type_Row_0 cerune_binding_1_second = cerune_binding_0_first;
-    cerune_binding_0_first = (cerune_type_Row_0){ .values = (cerune_array_i64_3){ .items = { 4, 5, 6 } } };
-    cerune_output_i64(cerune_array_get_i64_3((cerune_binding_1_second).values, 1, " node=15 bytes=145..161\n"), 1, " node=14 bytes=139..163\n");
-    cerune_output_i64(cerune_array_get_i64_3((cerune_binding_0_first).values, 2, " node=20 bytes=170..185\n"), 1, " node=19 bytes=164..187\n");
+    cerune_binding_0_first = (cerune_type_Row_0){ .cerune_field_values = (cerune_array_i64_3){ .items = { 4, 5, 6 } } };
+    cerune_output_i64(cerune_array_get_i64_3((cerune_binding_1_second).cerune_field_values, 1, " node=15 bytes=145..161\n"), 1, " node=14 bytes=139..163\n");
+    cerune_output_i64(cerune_array_get_i64_3((cerune_binding_0_first).cerune_field_values, 2, " node=20 bytes=170..185\n"), 1, " node=19 bytes=164..187\n");
     cerune_call_finish();
     return 0;
 }

@@ -3,6 +3,9 @@
 #[path = "fixture.rs"]
 mod fixture;
 #[cfg(windows)]
+#[path = "observation.rs"]
+mod observation;
+#[cfg(windows)]
 mod check {
     use cerune_lang::{
         ir::NodeId,
@@ -290,19 +293,12 @@ mod check {
         let out_b = b.run(request(&args, bytes, 64, 10), 1 << 20, origin());
         success(&out_a)?;
         success(&out_b)?;
-        require(
-            out_a.report == out_b.report
-                && out_a.stdout == out_b.stdout
-                && out_a.stderr == out_b.stderr
-                && b.trace_truncated(),
-            "trace changed outcome",
-        )?;
+        let mut evidence = super::observation::compare_completed(&out_a, &out_b)?;
+        require(b.trace_truncated(), "runtime trace not capped")?;
         let b = b.into_inner().unwrap();
         require(b.trace_truncated(), "OS trace not capped")?;
-        record(
-            "observation-does-not-control",
-            json!({"outcomes_equal":true,"bounded_trace":true}),
-        )?;
+        evidence["bounded_trace"] = json!(true);
+        record("observation-does-not-control", evidence)?;
         let mut p = Processes::new(backend(0), limits());
         let out = p.run(
             request(&["--fixture", "transport-zero"], &[], 64, 10),

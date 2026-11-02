@@ -163,13 +163,13 @@ static void cerune_output_bool(int value, int newline, const char *origin) {
     cerune_output_text((const unsigned char *)text, (value ? 4 : 5) + (size_t)newline, origin);
 }
 typedef struct cerune_type_Point_0 {
-    double x;
-    double y;
+    double cerune_field_x;
+    double cerune_field_y;
 } cerune_type_Point_0;
 
 typedef struct cerune_type_Segment_1 {
-    cerune_type_Point_0 start;
-    cerune_type_Point_0 end;
+    cerune_type_Point_0 cerune_field_start;
+    cerune_type_Point_0 cerune_field_end;
 } cerune_type_Segment_1;
 
 int main(void) {
@@ -179,14 +179,14 @@ int main(void) {
         return 1;
     }
 #endif
-    cerune_type_Point_0 cerune_binding_0_current = (cerune_type_Point_0){ .y = 2.0, .x = 0.0 };
+    cerune_type_Point_0 cerune_binding_0_current = (cerune_type_Point_0){ .cerune_field_y = 2.0, .cerune_field_x = 0.0 };
     cerune_type_Point_0 cerune_binding_1_saved = cerune_binding_0_current;
-    cerune_binding_0_current = (cerune_type_Point_0){ .x = 4.0, .y = 5.0 };
-    cerune_type_Segment_1 cerune_binding_2_segment = (cerune_type_Segment_1){ .start = cerune_binding_1_saved, .end = cerune_binding_0_current };
-    cerune_output_f64((cerune_binding_1_saved).x, 1, " node=15 bytes=283..298\n");
-    cerune_output_f64((cerune_binding_1_saved).y, 1, " node=18 bytes=299..314\n");
-    cerune_output_f64(((cerune_binding_2_segment).start).y, 1, " node=21 bytes=315..338\n");
-    cerune_output_f64(((cerune_binding_2_segment).end).x, 1, " node=25 bytes=339..360\n");
+    cerune_binding_0_current = (cerune_type_Point_0){ .cerune_field_x = 4.0, .cerune_field_y = 5.0 };
+    cerune_type_Segment_1 cerune_binding_2_segment = (cerune_type_Segment_1){ .cerune_field_start = cerune_binding_1_saved, .cerune_field_end = cerune_binding_0_current };
+    cerune_output_f64((cerune_binding_1_saved).cerune_field_x, 1, " node=15 bytes=283..298\n");
+    cerune_output_f64((cerune_binding_1_saved).cerune_field_y, 1, " node=18 bytes=299..314\n");
+    cerune_output_f64(((cerune_binding_2_segment).cerune_field_start).cerune_field_y, 1, " node=21 bytes=315..338\n");
+    cerune_output_f64(((cerune_binding_2_segment).cerune_field_end).cerune_field_x, 1, " node=25 bytes=339..360\n");
     cerune_call_finish();
     return 0;
 }

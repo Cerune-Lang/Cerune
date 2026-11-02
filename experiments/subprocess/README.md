@@ -76,3 +76,9 @@ Windows専用です。出力先には未作成ディレクトリを指定しま�
 
     cargo build --example subprocess_linux_supervisor
     cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend
+
+## 観測あり／なしの比較
+
+別々の実OS実行では、Job/groupが空になった時点により、後始末で終了要求を送ったかが変わり得ます。両方の回収完了と生報告の一致を必須とし、比較用の写しではこの終了要求フラグだけを除外します。出力・終了状態・転送数・出自・失敗・進行の確実性は引き続き比較します。元のReportは変更せず、両実行の後始末情報をJSONLへ保存します。不一致の診断にも両Reportと出力の一致判定を残します。
+
+これは実OSで完全に同じ通知を受けたことの証明ではありません。同じ試験用接続応答で、観測の有無が操作列・結果を変えない検証は共通runtimeの単体試験で維持します。比較規則の回帰試験では、終了要求の違いは許容し、回収未完了・不正な生報告・出力や終了状態の違いは拒否します。
