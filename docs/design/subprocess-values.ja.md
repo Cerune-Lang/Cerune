@@ -55,7 +55,7 @@
 
 C出力ではフィールドを`cerune_field_`、enum内部フィールドを別の`cerune_internal_field_`名へ変換し、`stdin`等のヘッダーマクロやC予約語と分離します。ソースのフィールド名とNodeId/Spanは共通IRに保持します。
 
-[比較テスト](../../tests/process_types/mod.rs)は4実行器と生成C・LLVMの出力、型同一性、失敗分類、コピーの独立性、未実装`run`の拒否を確認します。QBE・WAT・ASM・Objectは生成を検証し、この例の実行比較とは区別します。OSを起動した結果の言語変換を検証したことにはしません。
+[比較テスト](../../tests/process_types/mod.rs)は4実行器と生成C・LLVMの出力、型同一性、失敗分類、コピーの独立性、未実装`run`の拒否を確認します。QBE・WAT・ASM・Objectは生成を検証し、この例の実行比較とは区別します。LLVMの実行比較はWindows/Linuxのx86-64に限定し、生成時とリンク時に同じtargetを明示します。他のhostでも4実行器・Cの比較と生成確認は維持します。OSを起動した結果の言語変換を検証したことにはしません。
 
 ```sh
 cargo test --test modules process_types

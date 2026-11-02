@@ -55,7 +55,7 @@ The standard source registers as `std:process`, contract version 1. Aliases and 
 
 C output prefixes source fields with `cerune_field_` and enum internals with a separate `cerune_internal_field_` name, avoiding header macros such as `stdin` and C keywords. Common IR retains source field names and NodeId/Span.
 
-[Differential tests](../../tests/process_types/mod.rs) check four executors and generated C/LLVM output, nominal identity, failure categories, independent copies, and rejection of unimplemented `run`. QBE/WAT/ASM/Object generation is checked separately from execution comparisons for this example. This does not validate conversion of actual OS results into language values.
+[Differential tests](../../tests/process_types/mod.rs) check four executors and generated C/LLVM output, nominal identity, failure categories, independent copies, and rejection of unimplemented `run`. QBE/WAT/ASM/Object generation is checked separately from execution comparisons for this example. LLVM execution comparisons run only on Windows/Linux x86-64, specifying the same target during emission and linking. Other hosts retain four-executor/C comparisons and generation checks. This does not validate conversion of actual OS results into language values.
 
 ```sh
 cargo test --test modules process_types

@@ -206,15 +206,22 @@ fn result_values_keep_visible_lowering_and_execute_in_c_and_llvm() {
     execute_generated(&w, &entry, EXPECTED);
 }
 fn execute_generated(w: &Workspace, entry: &std::path::Path, expected: &str) {
-    let target = if cfg!(windows) {
-        "x86_64-pc-windows-msvc"
+    let llvm_target = if cfg!(all(windows, target_arch = "x86_64")) {
+        Some("x86_64-pc-windows-msvc")
+    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        Some("x86_64-unknown-linux-gnu")
     } else {
-        "x86_64-unknown-linux-gnu"
+        None
     };
     for (emitter, extension, variable) in [
         ("emit-c", "c", "CERUNE_TEST_CC"),
         ("emit-llvm", "ll", "CERUNE_TEST_LLVM_CLANG"),
     ] {
+        // Cはhostの処理系で実行できます。LLVMの実OS接続は対応targetだけで実行します。
+        if emitter == "emit-llvm" && llvm_target.is_none() {
+            eprintln!("skipped LLVM execution: unsupported host OS/architecture");
+            continue;
+        }
         let configured = std::env::var_os(variable);
         let compiler = configured.clone().unwrap_or_else(|| "clang".into());
         if !Command::new(&compiler)
@@ -232,7 +239,7 @@ fn execute_generated(w: &Workspace, entry: &std::path::Path, expected: &str) {
         let artifact = w.0.join(format!("program.{extension}"));
         let mut args = vec!["-o", artifact.to_str().unwrap()];
         if emitter == "emit-llvm" {
-            args.extend(["--target", target]);
+            args.extend(["--target", llvm_target.unwrap()]);
         }
         let out = w.cli(emitter, entry, &args);
         assert!(
@@ -247,6 +254,9 @@ fn execute_generated(w: &Workspace, entry: &std::path::Path, expected: &str) {
         });
         let mut cmd = Command::new(&compiler);
         cmd.arg(&artifact).arg("-o").arg(&exe);
+        if emitter == "emit-llvm" {
+            cmd.arg("-target").arg(llvm_target.unwrap());
+        }
         let built =
             process::bounded_output(&mut cmd, &w.0, "build", Duration::from_secs(30)).unwrap();
         assert!(
