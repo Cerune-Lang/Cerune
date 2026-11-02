@@ -119,6 +119,7 @@ struct Script {
     cleaning: bool,
     now: Duration,
     actions: Vec<Action>,
+    contexts: Vec<CallContext>,
     sent: Vec<u8>,
     args: Vec<String>,
 }
@@ -134,9 +135,10 @@ impl Backend for Script {
     fn now(&mut self) -> Duration {
         self.now
     }
-    fn start(&mut self, request: &Request<'_>, _: Duration) -> Launch {
+    fn start(&mut self, request: &Request<'_>, context: CallContext, _: Duration) -> Launch {
         assert!(self.active.is_none());
         assert!(self.pending.iter().all(Option::is_none));
+        self.contexts.push(context);
         self.actions.push(Action::Start);
         self.args = request.arguments.iter().map(|s| s.to_string()).collect();
         let next = self.plans.pop_front().expect("unexpected launch");
@@ -261,6 +263,19 @@ fn nonzero_exit_and_explicit_next_call_have_distinct_ids() {
     assert_eq!(first.report.origin, origin());
     let backend = p.into_inner().unwrap();
     assert_eq!(backend.args, req.arguments);
+    assert_eq!(
+        backend.contexts,
+        vec![
+            CallContext {
+                call: first.transfers.unwrap().call,
+                origin: origin()
+            },
+            CallContext {
+                call: second.transfers.unwrap().call,
+                origin: origin()
+            }
+        ]
+    );
     assert_eq!(
         backend
             .actions

@@ -7,6 +7,36 @@ use std::{
 pub const BLOCK: usize = 128 * 1024;
 pub fn run(args: &[String]) -> io::Result<()> {
     match args[0].as_str() {
+        #[cfg(windows)]
+        "transport-zero" => {
+            use std::ffi::c_void;
+            #[link(name = "kernel32")]
+            unsafe extern "system" {
+                fn GetStdHandle(kind: u32) -> *mut c_void;
+                fn WriteFile(
+                    handle: *mut c_void,
+                    bytes: *const c_void,
+                    size: u32,
+                    count: *mut u32,
+                    ov: *mut c_void,
+                ) -> i32;
+            }
+            let mut n = 0;
+            if unsafe {
+                WriteFile(
+                    GetStdHandle(-11i32 as u32),
+                    b"".as_ptr().cast(),
+                    0,
+                    &mut n,
+                    std::ptr::null_mut(),
+                )
+            } == 0
+            {
+                return Err(io::Error::last_os_error());
+            }
+            io::stdout().write_all(b"tail")?;
+            io::stdout().flush()
+        }
         "transport-echo" => {
             let mut bytes = Vec::new();
             io::stdin().take(4097).read_to_end(&mut bytes)?;

@@ -59,3 +59,13 @@ Linuxでは[WNOWAIT](https://man7.org/linux/man-pages/man2/waitpid.2.html)によ
 4. **公開機能への接続。** 登録形式、固定する数値上限、`std:process`の型、IR命令、各経路のABI、言語exampleは後続です。一般的なOS接続としての性能や、観測の有無による意味の一致も未検証です。
 
 管理範囲を離れる子孫や未信頼コードのsandboxは対象外です。外部からの強制終了やOS資源枯渇を含めて、指定時間内の完了を保証する実験ではありません。
+
+## 共通runtimeとの接続検証
+
+Windowsでは、[本体Backend](../../docs/design/subprocess-windows.ja.md)を使う18ケースを追加しました。既存の独立試作とは別に、共通の要求・結果・期限・観測を通して確認します。
+
+```text
+cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
+```
+
+Windows専用です。出力先には未作成ディレクトリを指定します。CIはこのJSONLも保存します。Linux BackendとCeruneの言語exampleは後続です。
