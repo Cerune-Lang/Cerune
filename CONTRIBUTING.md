@@ -43,6 +43,16 @@ cargo test --lib
 
 変更に関連するテストも実行してください。一部の統合テストには外部ツールが必要なため、手元で実行できない場合はPRにその旨を書いてください。各環境・実行経路の広い検証はCIでも行います。
 
+LLVMを使うテストには、opaque pointer（`ptr`）対応のClangが必要です。Clang 18.1.8で検証しています。Linux/WSLでは使用する実行ファイルを明示し、次の順で確認できます。
+
+```sh
+export CERUNE_TEST_LLVM_CLANG=/usr/bin/clang-18
+bash scripts/check-llvm-toolchain.sh
+cargo test --lib
+```
+
+[事前検査](scripts/check-llvm-toolchain.sh)はバージョンを表示し、小さなLLVM IRを実際にコンパイルします。`bash scripts/test.sh`も、Clangがあるか明示指定された場合にこの検査を行います。コンパイラの不適合をテスト成功や無条件スキップにはしません。環境変数は現在のshellに適用され、新しいshellでは再指定してください。
+
 ドキュメントを変更する場合は、必要に応じて日本語・英語の両方を更新し、Node.jsがあれば`node scripts/check-docs.cjs`でリンクと翻訳ペアを確認できます。
 
 ## Pull Request
