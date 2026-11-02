@@ -11,10 +11,10 @@ This specifies the transfer portion of the [subprocess contract](subprocesses.en
 | [`Transfers`](../../src/runtime/process/transfers.rs) | Implemented Rust state component: transfer identity, buffer ownership, cancellation, confirmed counts, partial output, and reuse conditions |
 | [Transition tests](../../src/runtime/process/transfers/tests.rs) | Inject ordering, races, and invalid responses without launching OS processes |
 | `Processes::run` / `Backend` | Integrated: the common runtime controls owned transfers, deadlines, exit monitoring, cancellation, and bounded cleanup |
-| Production OS connections | [Windows Backend](subprocess-windows.en.md) is integrated; Linux supervisor integration remains next |
+| Production OS connections | Both [Windows](subprocess-windows.en.md) and [Linux](subprocess-linux.en.md) integrate the common runtime; language APIs and generated routes follow |
 | Language API, IR, and execution routes | Not implemented. This adds neither an execution route nor separate language semantics |
 
-`Transfers` alone does not launch processes, read clocks, or reclaim OS resources; the integrated `Processes` requests these operations through `Backend`. The Rust API is used by the Windows OS connection but is not the public language API.
+`Transfers` alone does not launch processes, read clocks, or reclaim OS resources; the integrated `Processes` requests these operations through `Backend`. The Rust API is used by the Windows/Linux OS connections but is not the public language API.
 
 ## Transfer units and ownership
 
@@ -108,7 +108,7 @@ Keep the old synchronous model only under `cfg(test)` to compare shared cases. T
 
 ## Next integration steps
 
-1. Follow the [OS connection design](subprocess-os.en.md) to integrate Linux. The [Windows Backend](subprocess-windows.en.md) is implemented. The [combined launch/scope/transfer probe](../../experiments/subprocess/transport/README.en.md) verifies inheritance restrictions, supervisor disconnection, and pending-I/O reclamation at Job termination. For Linux, correlate common deadlines, operation identities, termination, and cleanup reports; settle final ownership without terminal confirmation plus registration/capacity bounds.
+1. Both [Windows](subprocess-windows.en.md) and [Linux](subprocess-linux.en.md) OS connections are implemented. Preserve registration, capacity, cleanup, and observation when adding public language types, standard modules, and common IR.
 2. Then connect public types, standard modules, IR, and execution routes.
 
 Cross-route language support remains incomplete. Do not add unimplemented `.ceru` APIs to the executable example catalog.

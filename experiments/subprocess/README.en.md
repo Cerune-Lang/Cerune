@@ -68,4 +68,11 @@ Windows now has 18 cases using the [production-code Backend](../../docs/design/s
 cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
 ```
 
-This requires Windows and a new output directory. CI retains its JSONL too. Linux Backend and Cerune language examples remain later work.
+This requires Windows and a new output directory. CI retains its JSONL too. Cerune language examples remain later work.
+
+## Linux common-runtime verification
+
+The [Linux Backend](../../docs/design/subprocess-linux.en.md) has 23 cases. Specify an absolute supervisor path and a new output directory. CI runs the cases and retains JSONL. The supervisor is a verification Cargo example; production distribution follows.
+
+    cargo build --example subprocess_linux_supervisor
+    cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend

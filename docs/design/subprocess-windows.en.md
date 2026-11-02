@@ -2,7 +2,7 @@
 
 [日本語](subprocess-windows.ja.md)
 
-The Windows OS connection now integrates with the [common runtime](subprocesses.en.md) through Rust `Processes<Windows>`. **Linux Backend, language `std:process`, IR instructions, CLI, and generated-route integration remain unimplemented.** Registration and numeric limits below belong to this initial Rust interface, not a public language contract.
+The Windows OS connection now integrates with the [common runtime](subprocesses.en.md) through Rust `Processes<Windows>`. **Language `std:process`, IR instructions, CLI, and generated-route integration remain unimplemented.** Registration and numeric limits below belong to this initial Rust interface, not a public language contract.
 
 ## Implementation and responsibilities
 
@@ -66,6 +66,6 @@ Run `cargo run --example subprocess_windows_backend -- target/subprocess-windows
 
 A unit test injects completion-query failure and verifies pending-buffer/final-owner retention. It intentionally retains about 4 KiB plus an event and related resources until the test process exits.
 
-Next connect Linux supervisor registration/control transport to the same Backend contract, then add public language types, standard modules, and common IR.
+The [Linux Backend](subprocess-linux.en.md) is integrated too. Next add public language types, standard modules, and common IR.
 
 OS references: [CancelIoEx](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex), [GetOverlappedResult](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-getoverlappedresult), [ReadFile pipe behavior](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-readfile), and [CompareStringOrdinal](https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-comparestringordinal).

@@ -68,4 +68,11 @@ Windowsでは、[本体Backend](../../docs/design/subprocess-windows.ja.md)を�
 cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
 ```
 
-Windows専用です。出力先には未作成ディレクトリを指定します。CIはこのJSONLも保存します。Linux BackendとCeruneの言語exampleは後続です。
+Windows専用です。出力先には未作成ディレクトリを指定します。CIはこのJSONLも保存します。Ceruneの言語exampleは後続です。
+
+## Linux共通runtimeの接続検証
+
+[Linux Backend](../../docs/design/subprocess-linux.ja.md)の23ケースを検証します。監督の絶対パスを明示し、未作成の出力先を指定します。CIも実行し、JSONLを保存します。監督は検証用Cargo exampleで、本番配布は後続です。
+
+    cargo build --example subprocess_linux_supervisor
+    cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend

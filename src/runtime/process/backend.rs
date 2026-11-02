@@ -1,4 +1,4 @@
-//! 所有権付き転送を共通runtimeへ接続します。Windows実OS接続を含みます。
+//! 所有権付き転送を共通runtimeへ接続します。Windows/Linux実OS接続を含みます。
 use super::transfers::{CancelReply, Completion, Ticket, Transfer};
 use super::{Cleanup, Exit, Origin, Request};
 use std::{num::NonZeroU64, time::Duration};
