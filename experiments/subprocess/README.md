@@ -68,7 +68,7 @@ Windowsでは、[本体Backend](../../docs/design/subprocess-windows.ja.md)を�
 cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
 ```
 
-Windows専用です。出力先には未作成ディレクトリを指定します。CIはこのJSONLも保存します。Ceruneの言語exampleは後続です。
+Windows専用です。出力先には未作成ディレクトリを指定します。CIはこのJSONLも保存します。言語とCLIの例は[process_execution](../../examples/process_execution/README.md)にあります。
 
 ## Linux共通runtimeの接続検証
 
@@ -85,4 +85,8 @@ Windows専用です。出力先には未作成ディレクトリを指定しま�
 
 ## 言語の4実行器との接続
 
-Windows/Linux Backendの検証に[共通の言語テスト](execution.rs)を追加しました。同じCeruneソースをHIR・MIR・SSA・VMで実行し、登録したfixtureへの入力、非0終了、stdout/stderrの生バイト、後続printを比較します。JSONLにはlanguage-four-executorsを記録します。CLI登録は未実装です。
+Windows/Linux Backendの検証に[共通の言語テスト](execution.rs)を追加しました。同じCeruneソースをHIR・MIR・SSA・VMで実行し、登録したfixtureへの入力、非0終了、stdout/stderrの生バイト、後続printを比較します。JSONLにはlanguage-four-executorsを記録します。[CLI登録](../../docs/design/subprocess-cli.ja.md)も実装済みです。
+
+## 準備・実行の分離と固定Report
+
+共通の言語テストでは、4実行器との比較に加えて、同じ専用fixtureをRustのprepare/execute APIで別途実行します。非0終了・stdout/stderrの生バイト・受理数・出自を確認し、32個のu64によるReport v1をlittle-endianへ変換して復元します。JSONLのlanguage-four-executorsにはstaged=trueとreport_words=32も記録します。これはRust runtimeの検証であり、生成経路のC ABI試作ではありません。
