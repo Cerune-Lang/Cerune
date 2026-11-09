@@ -2,7 +2,7 @@
 
 [English](subprocesses.en.md)
 
-2026-11-02時点の設計案です。[共通IRと4実行器](subprocess-execution.ja.md)を実装しました。CLI登録と生成経路は後続です。 関連Issueは[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#173](https://github.com/Cerune-Lang/Cerune/issues/173)、副作用を重複させない比較は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)で扱います。
+2026-11-02時点の設計案です。[共通IRと4実行器](subprocess-execution.ja.md)を実装しました。[CLI登録](subprocess-cli.ja.md)も接続済みです。生成経路は後続です。 関連Issueは[#89](https://github.com/Cerune-Lang/Cerune/issues/89)、[#173](https://github.com/Cerune-Lang/Cerune/issues/173)、副作用を重複させない比較は[#104](https://github.com/Cerune-Lang/Cerune/issues/104)で扱います。
 
 ## 方針と現在地
 
@@ -22,7 +22,7 @@
 
 ## 共通runtimeの部分実装
 
-`runtime::process::Processes<B>`へ[進行中転送の状態管理](subprocess-transfers.ja.md)を接続しました。[試験用接続](../../src/runtime/process/tests.rs)で要求・起動・転送・期限・終了監視・後始末を検証しています。[Windows実OS Backend](subprocess-windows.ja.md)を接続しました。[Linux Backend](subprocess-linux.ja.md)も接続済みです。[std:processの公開データ型](subprocess-values.ja.md)を追加しました。[共通IRと4実行器](subprocess-execution.ja.md)を実装し、Rust APIから明示した接続を利用できます。CLI登録と生成経路は後続です。
+`runtime::process::Processes<B>`へ[進行中転送の状態管理](subprocess-transfers.ja.md)を接続しました。[試験用接続](../../src/runtime/process/tests.rs)で要求・起動・転送・期限・終了監視・後始末を検証しています。[Windows実OS Backend](subprocess-windows.ja.md)を接続しました。[Linux Backend](subprocess-linux.ja.md)も接続済みです。[std:processの公開データ型](subprocess-values.ja.md)を追加しました。[共通IRと4実行器](subprocess-execution.ja.md)を実装し、Rust APIから明示した接続を利用できます。[CLI登録](subprocess-cli.ja.md)も接続済みです。生成経路は後続です。
 
 | 部品 | 現在の扱い |
 | --- | --- |
@@ -40,7 +40,7 @@ Rustの接続契約を変更しました。旧`Poll`/`PollEvent`と借用buffer�
 
 検査の優先順は、接続停止、不正要求、要求容量、未接続、buffer使用量、確保、期限の加算可能性、起動です。要求容量には引数件数、対象名と引数の合計UTF-8バイト数、stdin長、stdout/stderr上限の合計、時間上限を含みます。空の対象名、NULを含む対象名/引数、0の実行時間/後始末時間は起動前に失敗します。呼出し番号の枯渇も、新規起動せず接続を停止します。
 
-起動前に両出力の保持領域と3個の4096バイト転送bufferを予約します。`available_bytes`はその合計上限であり、言語の配列使用量ではありません。[返却領域の起動前予約と配列の確定・取消し](subprocess-storage.ja.md)を追加しました。公開結果の固定形状とIR命令への接続は後続です。短い結果でも予約capacityを縮小しません。
+起動前に両出力の保持領域と3個の4096バイト転送bufferを予約します。`available_bytes`はその合計上限であり、言語の配列使用量ではありません。[返却領域の起動前予約と配列の確定・取消し](subprocess-storage.ja.md)を追加しました。公開結果の固定形状とIR命令への接続も実装済みです。短い結果でも予約capacityを縮小しません。
 
 通知処理は時計の逆行・期限を先に検査し、stdin、stdout、stderr、取消し応答、終了状態、後始末報告の順です。期限に達していても受理数と部分本文は回収し、元の失敗を上書きしません。提示量を超える数、古い操作、重複終了、空の通常通知等は契約違反です。直接の子の終了だけで完了せず、正常経路にはstdin closeと両出力EOFも必要です。待機中断は再待機しますが、起動やcloseを暗黙に再試行しません。
 
@@ -56,13 +56,13 @@ cargo test --lib runtime::process
 
 試験では同時通知の全6配列順、期限後の部分転送、取消し応答の遅着・欠落、EOF・上限、後始末、次の呼出し、観測の有無を比較します。正常終了・出力・時間切れ・容量超過は旧同期モデルとも結果を比較します。
 
-[Windows/LinuxのOS試作](../../experiments/subprocess/README.md)では、argv・同時転送・期限・子孫回収など9ケースを検証済みです。Windowsは実行開始前のJob所属と活動数0、Linuxは専用監督プロセスでの子孫回収を確認しました。[実OS接続設計](subprocess-os.ja.md)を追加し、Linuxの専用監督が呼出し元の設定や別の子を妨げないことも実測しました。[制御通信・fd受渡しとWindowsの非同期I/O・取消し](../../experiments/subprocess/transport/README.md)を起動・管理範囲へ接続し、継承制限、切断・終了時の孫とI/O回収まで確認しました。Windowsは本体Backendと共通期限・終端・後始末報告を接続済みです。`CallContext`で起動にも呼出し番号・出自を渡します。[Linux Backend](subprocess-linux.ja.md)も接続済みです。公開データ型を追加しました。公開結果の固定形状・共通IRは接続済みで、次はCLI接続設定です。
+[Windows/LinuxのOS試作](../../experiments/subprocess/README.md)では、argv・同時転送・期限・子孫回収など9ケースを検証済みです。Windowsは実行開始前のJob所属と活動数0、Linuxは専用監督プロセスでの子孫回収を確認しました。[実OS接続設計](subprocess-os.ja.md)を追加し、Linuxの専用監督が呼出し元の設定や別の子を妨げないことも実測しました。[制御通信・fd受渡しとWindowsの非同期I/O・取消し](../../experiments/subprocess/transport/README.md)を起動・管理範囲へ接続し、継承制限、切断・終了時の孫とI/O回収まで確認しました。Windowsは本体Backendと共通期限・終端・後始末報告を接続済みです。`CallContext`で起動にも呼出し番号・出自を渡します。[Linux Backend](subprocess-linux.ja.md)も接続済みです。公開データ型を追加しました。公開結果の固定形状・共通IRは接続済みで、[CLI接続設定](subprocess-cli.ja.md)も実装済みです。
 
 ## 呼出しと接続
 
 仮想標準モジュール `std:process`のデータ型は実装済みで、実行操作は別の`std:process/run`の`run`から利用します。[既存の標準モジュール](standard-modules.ja.md)と同じ予約名・仮想ソース・SourceIdを使い、相対importや暗黙のファイル探索を変更しません。
 
-要求は以下を[Request型](subprocess-values.ja.md)で表現します。runはRequestを受けOutcomeを返します。Rustの接続ではLimitsで受理範囲を明示し、CLIの範囲・既定値は後続です。
+要求は以下を[Request型](subprocess-values.ja.md)で表現します。runはRequestを受けOutcomeを返します。Rustの接続ではLimitsで受理範囲を明示し、[CLI](subprocess-cli.ja.md)でも全上限を明示し、数値の既定値は設けません。
 
 | 要求 | 案 |
 | --- | --- |

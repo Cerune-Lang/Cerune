@@ -64,6 +64,7 @@ path = "experiments/subprocess/linux_backend.rs"
 
 [dependencies]
 serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.11"
 goblin = { version = "0.10.7", default-features = false, features = ["std", "elf32", "elf64", "pe64", "endian_fd"] }
 sashimi-assembler = { git = "https://github.com/Cerune-Lang/SASHIMI.git", rev = "06b9737451d9492e59d498f5b1d290461dc12e43" }

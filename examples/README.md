@@ -19,7 +19,7 @@
 | [stdin](stdin/README.md) | 実stdinの行・空行・EOF、promptのflush、UTF-8バイト数。全経路で比較 |
 | [io_protocol](io_protocol/README.md) | 出力と評価順、明示flush、入力値での操作分岐。EOF・空行・失敗を区別（標準入力は未使用） |
 | [ir_stages](ir_stages/README.md) | 短絡・loop・関数呼出しを実行し、HIR→MIR→LIR→Nativeの変換とtarget別ABIを観測 |
-| [process_execution](process_execution/README.md) | 実行操作を呼び、未接続の失敗を値として受け取って継続 |
+| [process_execution](process_execution/README.md) | 明示登録した子を呼び、出力・終了・失敗を値として受け取って継続 |
 | [process_results](process_results/README.md) | 子プロセスの結果型を構築し、非0終了・部分出力・後始末・コピーを処理。実際の起動はしない |
 | [modules](modules/README.md) | import、単一ファイル版との比較、意図した停止 |
 | [runtime_failures](runtime_failures/README.md) | 停止前の出力と失敗する式を追う5例 |

@@ -63,7 +63,7 @@ Layout mismatches are internal type-integration errors; allocation failures are 
 
 ## Connecting requests and Outcome
 
-The [internal value bridge](../../src/runtime/process/language_values.rs) calls the common runtime with a prepared request and returns Outcome using existing language values. **The common-IR operation from `std:process/run` uses it. CLI configuration follows.**
+The [internal value bridge](../../src/runtime/process/language_values.rs) calls the common runtime with a prepared request and returns Outcome using existing language values. **The common-IR operation from `std:process/run` uses it. [CLI configuration](subprocess-cli.en.md) is also implemented.**
 
 | Order | Behavior and failure handling |
 | --- | --- |
@@ -94,4 +94,4 @@ Report tests cover every field and alternative in both representations, reordere
 
 Request/Outcome bridge tests cover continuation after failure, partial results and nonzero exits in both value representations, observation enabled/disabled, independent copies, and release after allocation/finalization failure. These use a scripted Backend, not subprocess execution from `.ceru`.
 
-Next connect requests, return values, and origins through one common IR operation and use this bridge from four executors. Failure to construct even a failure value remains Cerune resource exhaustion, never a disguised child exit code. Keep each executor's control flow independent and reject unsupported generated routes rather than simulating success.
+Requests, return values, and origins are connected through one common IR operation, and four executors use this bridge. Failure to construct even a failure value remains Cerune resource exhaustion, never a disguised child exit code. Keep each executor's control flow independent and reject unsupported generated routes rather than simulating success.

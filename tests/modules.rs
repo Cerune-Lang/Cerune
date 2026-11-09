@@ -960,3 +960,6 @@ mod formatting;
 
 #[path = "process_types/mod.rs"]
 mod process_types;
+
+#[path = "process_cli/mod.rs"]
+mod process_cli;

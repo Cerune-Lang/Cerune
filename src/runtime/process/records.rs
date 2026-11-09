@@ -21,7 +21,7 @@ pub enum ReservationError {
     Allocation,
 }
 
-/// OS接続の実測前なので既定値は設けません。転送量と期限を明示します。
+/// 接続の転送量と期限を明示します。暗黙の既定値は設けません。
 #[derive(Debug, Clone, Copy)]
 pub struct Limits {
     pub arguments: usize,

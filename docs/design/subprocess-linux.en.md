@@ -2,7 +2,7 @@
 
 [日本語](subprocess-linux.ja.md)
 
-The Linux OS connection now implements the common runtime as Rust's `Processes<Linux>`. **Language standard modules, common IR, CLI, generated routes, and supervisor distribution are not connected yet.** A separate Cargo example provides the verification supervisor.
+The Linux OS connection implements the common runtime as Rust `Processes<Linux>`. [Standard modules, common IR, four executors](subprocess-execution.en.md), and [CLI registration](subprocess-cli.en.md) are also connected. **Generated-route operations and Linux supervisor distribution remain future work.** This connection validates registration and OS limits. A separate Cargo example builds the verification supervisor.
 
 ## Responsibilities and launch
 

@@ -29,6 +29,10 @@ Normal execution, generated routes, and Native build accept `--call-depth-limit 
 
 [Recursion and call storage](../design/recursion.en.md) documents APIs, compatibility changes, and physical resource limits.
 
+## Subprocess connections
+
+Run commands accept `--process-config <JSON file>` to explicitly register Windows/Linux targets, environments, working directories, and limits. Omission leaves the connection unconfigured. Invalid configuration fails before execution; child failures and nonzero exits return values. Tokens after `--` remain program arguments. See the [contract and configuration example](../design/subprocess-cli.en.md).
+
 ## Commands
 
 The current CLI provides the following commands:
@@ -50,10 +54,10 @@ cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
-cerune run <file> [--diagnostic-format runtime-v1]
-cerune run-ir <file> [--diagnostic-format runtime-v1]
-cerune run-mir <file> [--diagnostic-format runtime-v1]
-cerune run-vm <file> [--diagnostic-format runtime-v1]
+cerune run <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-ir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-mir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-vm <file> [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune --version
 ```
 
@@ -280,7 +284,7 @@ Generate Windows x64 direct assembly with `cerune emit-asm examples/string_looku
 ## VM execution
 
 ```text
-cerune run-vm <file>
+cerune run-vm <file> [--process-config <json>]
 ```
 
 `cerune run-vm` lowers the program to Cerune bytecode and executes the resulting `BytecodeProgram` in the Cerune VM.

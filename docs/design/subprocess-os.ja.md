@@ -2,7 +2,7 @@
 
 [English](subprocess-os.en.md)
 
-[共通runtime](subprocesses.ja.md)と[転送契約](subprocess-transfers.ja.md)を実OSへ接続する設計です。2026-11-02時点では、共通runtime・独立OS試作と[Windows Backend](subprocess-windows.ja.md)を実装済みです。[Linux Backend](subprocess-linux.ja.md)も接続済みです。**言語API・監督の配布への同梱は未実装**です。
+[共通runtime](subprocesses.ja.md)と[転送契約](subprocess-transfers.ja.md)を実OSへ接続する設計です。Windows/Linux Backendを接続済みです。[標準モジュール・共通IR・4実行器](subprocess-execution.ja.md)と[CLI登録](subprocess-cli.ja.md)も接続しました。**生成経路への操作接続・Linux監督の配布同梱は後続です。** 登録・OS上限はこの接続で検査します。
 
 ## 現在地と採用する構成
 
@@ -14,7 +14,8 @@
 | 転送試作 | [Linux 9ケース・Windows 13ケース](../../experiments/subprocess/transport/README.md)を実測。制御通信・fd受渡し・SIGPIPEと非同期I/O・取消しを検証。起動・管理範囲と接続し、継承制限・切断・終了時の回収も確認 |
 | Windows接続 | 共通期限・操作番号・終端・後始末報告へ接続済み。未回収資源の保持・明示回収も実装 |
 | Linux接続 | 専用監督・版付き通信・登録・非ブロッキング転送・明示回収を共通runtimeへ接続済み |
-| 後続 | 監督の配布、言語向け登録設定、標準モジュール・IR、各経路・成果物、言語example |
+| 言語とCLI | 標準モジュール・IR・4実行器、明示登録・上限・監督パス、言語exampleを接続済み |
+| 後続 | 監督の配布、生成経路の実行ABI・成果物 |
 
 共通runtimeを、意味の判定を担当する唯一の場所にします。Linux監督へCerune IR・VMや別のタイムアウト意味論を持ち込みません。監督はOSの親子関係と資源回収だけを担当します。
 

@@ -584,6 +584,12 @@ jobs:
       - name: Verify Windows common-runtime Backend
         if: ${{ matrix.os == 'windows-latest' }}
         run: cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
+      - name: Verify subprocess CLI on Linux
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: CERUNE_TEST_PROCESS_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_supervisor" cargo test --test modules process_cli -- --include-ignored
+      - name: Verify subprocess CLI on Windows
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: cargo test --test modules process_cli
       - name: Preserve bounded observations
         if: always()
         uses: actions/upload-artifact@v7

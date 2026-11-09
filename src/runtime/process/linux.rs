@@ -1,4 +1,4 @@
-//! Linuxの専用監督と共通runtimeを接続します。言語API・配布への接続は後続です。
+//! Linuxの専用監督と共通runtimeを接続します。監督の配布同梱は後続です。
 use super::transfers::{CancelReply, Completion, Kind, Ticket, Transfer};
 use super::{
     Backend, Batch, CallContext, Cleanup, CleanupError, Completed, Exit, Launch, Request,

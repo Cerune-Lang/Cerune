@@ -29,6 +29,10 @@
 
 [再帰と呼出し領域の設計](../design/recursion.ja.md)にAPI・互換性・物理資源の制約を記載しています。
 
+## 子プロセスの接続
+
+`run`系列は`--process-config <JSONファイル>`でWindows/Linuxの登録先・環境・作業場所・上限を明示します。指定なしは未接続です。設定異常は実行前のCLIエラー、実行中の子の失敗や非0終了は返却値です。`--`以降はプログラム引数として維持します。[契約と設定例](../design/subprocess-cli.ja.md)を参照してください。
+
 ## コマンド
 
 現在のCLIは次のコマンドを提供します。
@@ -50,10 +54,10 @@ cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
-cerune run <file> [--diagnostic-format runtime-v1]
-cerune run-ir <file> [--diagnostic-format runtime-v1]
-cerune run-mir <file> [--diagnostic-format runtime-v1]
-cerune run-vm <file> [--diagnostic-format runtime-v1]
+cerune run <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-ir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-mir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-vm <file> [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune --version
 ```
 
@@ -280,7 +284,7 @@ Windows x64の直接アセンブリは`cerune emit-asm examples/string_lookup.ce
 ## VM実行
 
 ```text
-cerune run-vm <file>
+cerune run-vm <file> [--process-config <json>]
 ```
 
 `cerune run-vm`はCerune bytecodeへloweringし、生成された`BytecodeProgram`をCerune VMで実行します。
