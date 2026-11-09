@@ -2,7 +2,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 // 共通IR命令への接続に先立ち、実行時の予約契約を検証しています。
 #[allow(dead_code)]
-mod byte_outputs;
+pub(crate) mod byte_outputs;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ArrayError {
     AllocationSizeOverflow,
@@ -28,6 +28,14 @@ pub(crate) struct ArrayValue<T> {
 impl<T: Clone> ArrayValue<T> {
     pub(crate) fn len(&self) -> usize {
         self.storage.borrow().length
+    }
+    /// 値の変換用に、初期化済み領域だけを追加コピーせず読み取ります。
+    pub(crate) fn borrow_values(&self) -> Result<std::cell::Ref<'_, [T]>> {
+        let storage = self.storage.borrow();
+        if !storage.alive || storage.owners == 0 || storage.values.len() != storage.length {
+            return Err(ArrayError::InvalidOwnership);
+        }
+        Ok(std::cell::Ref::map(storage, |s| s.values.as_slice()))
     }
     pub(crate) fn get(&self, index: usize) -> Result<T> {
         let s = self.storage.borrow();

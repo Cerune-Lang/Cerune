@@ -37,6 +37,18 @@ impl<T: Clone> ArrayHeap<T> {
 }
 
 impl<T: Clone> ReservedByteOutputs<'_, T> {
+    /// 失敗返却用の空配列を保持したまま、検査後に上限分へ置き換えます。
+    /// 2個目の失敗でも元の予約を残し、追加分だけを取り消します。
+    pub(crate) fn reserve_limits(&mut self, stdout: u64, stderr: u64) -> Result<()> {
+        let mut replacement = self.heap.reserve_byte_outputs(stdout, stderr)?;
+        let arrays = replacement.arrays.take().unwrap();
+        drop(replacement);
+        for old in self.arrays.replace(arrays).unwrap() {
+            self.heap.discard_unpublished(&old);
+        }
+        Ok(())
+    }
+
     /// from_byteは既存実行器の即値構築に使い、追加の領域確保を行わない契約です。
     /// 配列の有効長だけを確定し、予約capacity分の使用量は解放まで保持します。
     pub(crate) fn finish(
@@ -222,6 +234,42 @@ mod tests {
                 })
         }));
         assert!(result.is_err());
+        heap.assert_empty();
+    }
+}
+
+#[cfg(test)]
+mod replacement_tests {
+    use super::*;
+    #[test]
+    fn replacement_failure_keeps_previous_reservation_and_partial_storage_unreadable() {
+        let mut heap = ArrayHeap::<u64>::new(32);
+        let mut reservation = heap.reserve_byte_outputs(0, 0).unwrap();
+        assert!(matches!(
+            reservation.reserve_limits(2, 3),
+            Err(ArrayError::AllocationLimitExceeded)
+        ));
+        let [a, b] = reservation.finish([&[], &[]], u64::from).unwrap();
+        assert_eq!((a.len(), b.len()), (0, 0));
+        heap.assert_empty();
+        let array = heap.allocate(2, 8).unwrap();
+        heap.initialize(&array, 255).unwrap();
+        assert_eq!(
+            array.borrow_values().unwrap_err(),
+            ArrayError::InvalidOwnership
+        );
+        heap.initialize(&array, 0).unwrap();
+        assert_eq!(&*array.borrow_values().unwrap(), &[255, 0]);
+        assert!(heap.release_owner(&array).unwrap());
+        assert_eq!(
+            array.borrow_values().unwrap_err(),
+            ArrayError::InvalidOwnership
+        );
+        heap.free(&array).unwrap();
+        assert_eq!(
+            array.borrow_values().unwrap_err(),
+            ArrayError::InvalidOwnership
+        );
         heap.assert_empty();
     }
 }

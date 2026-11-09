@@ -9,6 +9,9 @@ mod records;
 // 共通IR接続に先立つ返却値変換。実行命令からの利用は後続です。
 #[allow(dead_code)]
 pub(crate) mod report_value;
+// 共通IR命令への接続前に要求・結果の所有契約を検証します。
+#[allow(dead_code)]
+pub(crate) mod language_values;
 pub mod transfers;
 #[cfg(windows)]
 pub mod windows;
