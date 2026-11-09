@@ -565,6 +565,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.98.0
+      - name: Check staged process API compile-fail contracts
+        run: cargo test --doc runtime::process::preparation
       - name: Check ABI and quoting helpers
         run: cargo test --example subprocess_probe
       - name: Probe argv, pipes, deadlines, and descendant cleanup

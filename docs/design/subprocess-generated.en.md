@@ -2,7 +2,7 @@
 
 [日本語](subprocess-generated.ja.md)
 
-**Status: design proposal dated 2026-11-09. The ABI, runtime library, and staged API below are unimplemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) are implemented. C/LLVM/QBE/WAT/Native reject IR containing the execution operation. Names and numeric layouts below will be tested and frozen before initial publication.
+**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI, static library, and WAT host connection remain designs; C/LLVM/QBE/WAT/Native still reject IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
 
 ## Findings and direction
 
@@ -51,7 +51,26 @@ release result storage and continue the caller
 6. After launch, constructing Report, public enums, outer Outcome, and finalized arrays requires no new allocation. Copy packed bytes into reserved elements and finalize retained lengths.
 7. Discarding pending preparation releases unpublished storage only. After execution, existing runtime ownership preserves unreclaimed resources and disabled-state/cleanup reports.
 
-`prepare` and `execute` control execution; they are not observation APIs. Existing Rust `run` / `run_with_reservation` remain compatible wrappers over consecutive stages. First compare old and staged entry points using scripted Backends: results, OS operation sequences, and observations must agree.
+`prepare` and `execute` control execution; they are not observation APIs. Existing Rust `run` / `run_with_reservation` remain compatible wrappers over consecutive stages. Scripted Backends verify agreement between existing and staged entry points in results, OS operation sequences, and observations.
+
+## Implemented Rust API
+
+The [staged API](../../src/runtime/process/preparation.rs) has these responsibilities.
+
+| API | Behavior |
+| --- | --- |
+| `Processes::prepare` | Validate and allocate transfer buffers; return a completed result or pending reservation |
+| `Prepared::report` | Read the current record without clock reads, OS actions, or state changes |
+| `Prepared::execute` | Accept language-side reservation status and launch only on success; consume preparation and return the result and reserved storage |
+| `run` / `run_with_reservation` | Existing entry points calling the same consecutive stages |
+
+The Rust API borrows the request immutably and the connection exclusively, while owning transfer buffers. Existing language bridges copy requests before the call. No additional owned copy or Box allocation is introduced. Future C/WAT adapters must separately own request copies and contexts across foreign calls and check protocol states. Borrowing Rust structures are not exported as an ABI.
+
+Dropping an unexecuted pending state releases only unsubmitted buffers. It advances no clock, launch, or cleanup; observations retain Validate/Reserve. The consumed call identity is not rolled back, and the next call receives the next identity. Compile-fail tests reject duplicate execution and connection reuse while preparation remains live.
+
+[ReportV1](../../src/runtime/process/report_codec.rs) converts the 32 words below and their little-endian bytes. It rejects unknown versions, invalid tags, reserved fields, width overflow, reversed spans, and sub-millisecond rounding without changing partial counts or uncertain progress. Restoring a SourceId number does not validate membership in a source table: consumers must associate it with the original compilation's SourceMap. This is record conversion, not exported C functions or a native memory-layout contract.
+
+[Staged tests](../../src/runtime/process/tests/preparation.rs) compare results, actions, observations, reservation failures, and reuse after dropping preparation. [Codec tests](../../src/runtime/process/report_codec/tests.rs) check independent expected values, all failure codes, distinct cleanup records, u64 precision, and malformed representations. In addition to the four executors, the [real-OS probe](../../experiments/subprocess/execution.rs) launches a fixture through the staged API and checks raw bytes, nonzero exit, origins, and Report round trips.
 
 ## Generated stages and observation
 
@@ -80,7 +99,7 @@ Distinguish semantic invalid requests from broken ABI representations. Empty tar
 
 Do not unwind across C callers. A caught internal failure disables reuse and preserves remaining resource ownership. Allocator abort or OS termination is not guaranteed to recover as an Outcome.
 
-## Proposed fixed Report representation
+## Fixed Report v1 representation (codec implemented)
 
 Use the same field table for C ABI, WAT hosts, and comparisons. No array bodies, diagnostic strings, or pointers appear in the record. The initial proposal has **32 u64 words (256 bytes)**. Native uses a target-ABI u64 array; byte serialization uses little-endian; WAT i64 carries the same 64 bits.
 
@@ -147,7 +166,7 @@ Never automatically embed local registered absolute paths, environment values, o
 
 | Order | Change | Completion criterion |
 | --- | --- | --- |
-| 1 | Split shared prepare/execute and implement fixed Report codec | Existing/staged APIs agree on results, OS calls, and observations; failed reservation never launches; test duplicate execution and discarded preparation |
+| 1 (implemented) | Split shared prepare/execute and implement fixed Report codec | Existing/staged APIs agree on results, OS calls, and observations; failed reservation never launches; test duplicate execution and discarded preparation |
 | 2 | Native C ABI adapter and static linking probe | Windows/Linux widths, layout, lifetime, invalid version, failure, and reclamation; independent C expectations |
 | 3 | Generated C lowering and startup | Compare [registered.ceru](../../examples/process_execution/registered.ceru) with four executors: unconfigured, partial output, nonzero exit, continuation, ownership, origins |
 | 4 | LLVM/QBE/Native and Native build/release | Same ABI; baseline/SSA, explicit target/linking/dependency records |

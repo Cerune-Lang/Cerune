@@ -2,7 +2,7 @@
 
 [English](subprocess-generated.en.md)
 
-**状態：2026-11-09の設計案。以下のABI、runtimeライブラリ、段階APIは未実装です。** 現在は[4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)まで実装済みです。C・LLVM・QBE・WAT・Nativeは実行操作を含むIRを拒否します。以下の名前・数値配置は初版実装で検証し、公開前に固定します。
+**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABI・静的ライブラリ・WAT host接続は設計段階で、C・LLVM・QBE・WAT・Nativeは引き続き実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
 
 ## 調査結果と方針
 
@@ -51,7 +51,26 @@ Reportと保持済み生バイトを、予約済みの言語値へ変換
 6. 起動後のReport・公開enum・外側のOutcome・配列確定に、新しい領域確保を要求しません。runtimeの生バイトを予約済み要素へコピーし、出力の保持長だけを確定します。
 7. 予約待ちの破棄は未公開の領域だけを解放します。実行後に未回収資源がある場合は、既存runtimeが所有を保持し、接続停止と後始末結果を隠しません。
 
-`prepare`と`execute`は実行制御です。観測APIではありません。既存Rust APIの`run` / `run_with_reservation`は、この段階処理を連続して呼ぶ入口として互換性を保ちます。まず試験用Backendで、従来APIと段階APIの結果・OS操作列・観測記録を比較します。
+`prepare`と`execute`は実行制御です。観測APIではありません。既存Rust APIの`run` / `run_with_reservation`は、この段階処理を連続して呼ぶ入口として互換性を保ちます。試験用Backendで、従来APIと段階APIの結果・OS操作列・観測記録の一致を検証済みです。
+
+## 実装済みのRust API
+
+[段階API](../../src/runtime/process/preparation.rs)は次の責務を持ちます。
+
+| API | 動作 |
+| --- | --- |
+| `Processes::prepare` | 検査と転送領域確保を行い、結果確定済みの`Complete`か予約待ちの`Pending`を返す |
+| `Prepared::report` | 現時点の記録を読み取る。時計・OS操作・状態変更を行わない |
+| `Prepared::execute` | 言語側の予約結果を受け、成功時だけ起動する。準備状態を消費し、結果と予約した所有物を返す |
+| `run` / `run_with_reservation` | 同じ段階処理を続けて呼ぶ既存の入口 |
+
+Rust版は要求を不変借用し、接続を排他的に借用して転送bufferを保持します。既存の言語側は呼出し前に要求をコピーします。追加の所有コピーやBox確保は導入しません。将来のC/WATアダプタでは、外部呼出し間の要求コピー・contextの所有と状態検査を別途実装します。借用を含むRust構造をそのままABIへ公開しません。
+
+未実行の`Pending`を破棄すると未提出bufferだけを解放します。時計・起動・後始末は進めず、記録にはValidate/Reserveまでが残ります。消費した呼出し番号は戻さず、次の呼出しは次の番号を使います。二重executeと準備中の接続再利用はコンパイル失敗テストで検査します。
+
+[ReportV1](../../src/runtime/process/report_codec.rs)は下表の32 wordとlittle-endianバイト列を変換します。未知版・不正タグ・予約領域・幅超過・逆転Span・ミリ秒未満の丸めを拒否し、部分転送数や不確かな進行を変更しません。SourceIdの数値を復元してもソース表への存在確認にはならず、利用側が元のコンパイルのSourceMapと対応させます。これは固定記録の変換であり、C関数やNativeメモリ配置の公開ではありません。
+
+[段階API試験](../../src/runtime/process/tests/preparation.rs)では結果・操作列・観測・予約失敗・破棄後の再呼出しを比較します。[codec試験](../../src/runtime/process/report_codec/tests.rs)では独立した期待値、全失敗分類、cleanupの区別、u64精度、不正表現を確認します。[実OS試験](../../experiments/subprocess/execution.rs)でも4実行器に加え、段階APIでfixtureを起動して生バイト・非0終了・出自・Reportの往復変換を確認します。
 
 ## 生成過程と観測
 
@@ -80,9 +99,9 @@ Native系の初版対象は`x86_64-pc-windows-msvc`と`x86_64-unknown-linux-gnu`
 
 panic・unwindをC呼出し元へ越境させません。捕捉可能な内部失敗では接続を再利用せず、残る資源の所有を保持します。allocator abortやOSによる終了まで正常なOutcomeで回復できるとは保証しません。
 
-## 固定Reportの表現案
+## 固定Report v1の表現（codec実装済み）
 
-C ABI・WAT host・比較試験で同じフィールド表を使います。配列本体・診断文字列・ポインタは含めません。初版案は**32個のu64（256バイト）**です。Nativeでは対象ABIのu64配列、バイト列へ保存する場合はlittle-endian、WATのi64は同じ64ビット列として扱います。
+C ABI・WAT host・比較試験で同じフィールド表を使います。配列本体・診断文字列・ポインタは含めません。codecの初版は**32個のu64（256バイト）**です。Nativeでは対象ABIのu64配列、バイト列へ保存する場合はlittle-endian、WATのi64は同じ64ビット列として扱います。
 
 | word | 内容 |
 | --- | --- |
@@ -147,7 +166,7 @@ program --cerune-runtime-v1 --process-config process.json --file-root directory 
 
 | 順序 | 変更単位 | 完了条件 |
 | --- | --- | --- |
-| 1 | 共通runtimeのprepare/execute分離と固定Report codec | 従来APIと段階APIの結果・OS操作列・観測が一致。予約失敗後に起動せず、二重実行・予約待ち破棄を検証 |
+| 1（実装済み） | 共通runtimeのprepare/execute分離と固定Report codec | 従来APIと段階APIの結果・OS操作列・観測が一致。予約失敗後に起動せず、二重実行・予約待ち破棄を検証 |
 | 2 | Native系C ABIのアダプタと静的リンク試作 | Windows/Linuxで型幅・配置・寿命・不正版・失敗・回収を検証。Rustと独立したC側の期待値と比較 |
 | 3 | 生成Cのloweringと起動設定 | [registered.ceru](../../examples/process_execution/registered.ceru)を4実行器と比較。未接続・部分出力・非0終了・継続・所有・失敗位置が一致 |
 | 4 | LLVM・QBE・Native、Native build/release | 同じABIを使用。非最適化/SSA、明示target・リンク・依存記録を比較 |

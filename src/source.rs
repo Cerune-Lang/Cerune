@@ -103,6 +103,10 @@ pub struct SourceId(usize);
 
 impl SourceId {
     pub const ANONYMOUS: Self = Self(0);
+    /// 内部の版付き記録から復元します。SourceMapとの対応は利用側が検証します。
+    pub(crate) const fn from_index(index: usize) -> Self {
+        Self(index)
+    }
 
     pub const fn index(self) -> usize {
         self.0

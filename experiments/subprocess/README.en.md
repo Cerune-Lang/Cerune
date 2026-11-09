@@ -68,7 +68,7 @@ Windows now has 19 cases using the [production-code Backend](../../docs/design/s
 cargo run --example subprocess_windows_backend -- target/subprocess-windows-backend
 ```
 
-This requires Windows and a new output directory. CI retains its JSONL too. Cerune language examples remain later work.
+This requires Windows and a new output directory. CI retains its JSONL too. Language and CLI examples are in [process_execution](../../examples/process_execution/README.en.md).
 
 ## Linux common-runtime verification
 
@@ -85,4 +85,8 @@ This does not prove that separate OS executions received identical notifications
 
 ## Language execution through four executors
 
-Windows/Linux Backend probes include a [shared language check](execution.rs). They execute the same Cerune source through HIR/MIR/SSA/VM, comparing registered-fixture input, nonzero exit, raw stdout/stderr, and subsequent print. JSONL records language-four-executors. CLI registration remains unimplemented.
+Windows/Linux Backend probes include a [shared language check](execution.rs). They execute the same Cerune source through HIR/MIR/SSA/VM, comparing registered-fixture input, nonzero exit, raw stdout/stderr, and subsequent print. JSONL records language-four-executors. [CLI registration](../../docs/design/subprocess-cli.en.md) is also implemented.
+
+## Separate preparation/execution and fixed Report
+
+In addition to the four-executor comparison, the shared language check separately executes the same dedicated fixture through the Rust prepare/execute API. It checks nonzero exit, raw stdout/stderr, accepted counts, and origins, then round-trips the 32-u64 Report v1 through little-endian bytes. The language-four-executors JSONL record also includes staged=true and report_words=32. This verifies the Rust runtime; it is not a generated-route C ABI probe.

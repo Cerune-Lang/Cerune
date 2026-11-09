@@ -6,7 +6,10 @@ pub(crate) mod access;
 mod backend;
 #[cfg(target_os = "linux")]
 pub mod linux;
+mod preparation;
 mod records;
+pub use preparation::{Preparation, Prepared};
+pub mod report_codec;
 // 共通IR操作へ固定Reportの返却値を渡します。
 #[allow(dead_code)]
 pub(crate) mod report_value;
@@ -94,6 +97,18 @@ impl<B: Backend> Processes<B> {
         origin: Origin,
         reserve: impl FnOnce() -> Result<R, ReservationError>,
     ) -> (Outcome, Option<R>) {
+        match self.prepare(request, available_bytes, origin) {
+            Preparation::Complete(outcome) => (outcome, None),
+            Preparation::Pending(prepared) => prepared.execute(reserve()),
+        }
+    }
+    /// 要求検査と転送領域の確保だけを行います。時計取得・起動はexecuteまで行いません。
+    pub fn prepare<'p, 'r>(
+        &'p mut self,
+        request: Request<'r>,
+        available_bytes: usize,
+        origin: Origin,
+    ) -> Preparation<'p, 'r, B> {
         let mut out = Outcome {
             report: Report {
                 origin,
@@ -122,45 +137,44 @@ impl<B: Backend> Processes<B> {
             None => self.disabled = true,
         }
         self.record(Phase::Validate, &out);
-        let mut reservation = None;
-        if let Err(failure) = self.execute(&request, available_bytes, &mut out, || {
-            reservation = Some(reserve().map_err(|error| {
-                failure(
-                    match error {
-                        ReservationError::Capacity => Code::OutputBudget,
-                        ReservationError::Allocation => Code::AllocationFailed,
-                    },
-                    Phase::Reserve,
-                )
-            })?);
-            Ok(())
-        }) {
-            out.report.failure.get_or_insert(failure);
+        let transfers = self.prepare_transfers(&request, available_bytes, &out);
+        match transfers {
+            Ok(transfers) => Preparation::Pending(Prepared {
+                processes: self,
+                request,
+                outcome: out,
+                transfers,
+            }),
+            Err(error) => {
+                out.report.failure = Some(error);
+                self.record_finished(&out);
+                Preparation::Complete(out)
+            }
         }
+    }
+    fn record_finished(&mut self, out: &Outcome) {
         self.record(
             if out.report.cleanup.is_some() {
                 Phase::Cleanup
             } else {
                 out.report.failure.map_or(Phase::Wait, |f| f.phase)
             },
-            &out,
+            out,
         );
-        (out, reservation)
     }
-    fn execute(
+    fn prepare_transfers(
         &mut self,
         request: &Request<'_>,
         available: usize,
-        out: &mut Outcome,
-        reserve: impl FnOnce() -> Result<(), Failure>,
-    ) -> Result<(), Failure> {
+        out: &Outcome,
+    ) -> Result<Transfers, Failure> {
         self.validate(request)?;
         self.record(Phase::Reserve, out);
         #[cfg(test)]
         if std::mem::take(&mut self.fail_allocation) {
             return Err(failure(Code::AllocationFailed, Phase::Reserve));
         }
-        let mut transfers = Transfers::new(
+        Transfers::new(
             NonZeroU64::new(self.sequence).unwrap(),
             out.report.origin,
             [
@@ -170,8 +184,14 @@ impl<B: Backend> Processes<B> {
             ],
             available,
         )
-        .map_err(|code| failure(code, Phase::Reserve))?;
-        reserve()?;
+        .map_err(|code| failure(code, Phase::Reserve))
+    }
+    fn execute_prepared(
+        &mut self,
+        request: &Request<'_>,
+        mut transfers: Transfers,
+        out: &mut Outcome,
+    ) -> Result<(), Failure> {
         let mut previous = self.backend.as_mut().unwrap().now();
         let deadline = previous
             .checked_add(request.timeout)
