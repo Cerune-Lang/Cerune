@@ -2,7 +2,7 @@
 
 [English](subprocess-os.en.md)
 
-[共通runtime](subprocesses.ja.md)と[転送契約](subprocess-transfers.ja.md)を実OSへ接続する設計です。Windows/Linux Backendを接続済みです。[標準モジュール・共通IR・4実行器](subprocess-execution.ja.md)と[CLI登録](subprocess-cli.ja.md)も接続しました。**生成経路への操作接続・Linux監督の配布同梱は後続です。** 登録・OS上限はこの接続で検査します。
+[共通runtime](subprocesses.ja.md)と[転送契約](subprocess-transfers.ja.md)を実OSへ接続する設計です。Windows/Linux Backendを接続済みです。[標準モジュール・共通IR・4実行器](subprocess-execution.ja.md)と[CLI登録](subprocess-cli.ja.md)も接続しました。[生成Cの操作接続](subprocess-c.ja.md)も実装済みです。残る生成経路とLinux監督の配布同梱は後続です。 登録・OS上限はこの接続で検査します。
 
 ## 現在地と採用する構成
 

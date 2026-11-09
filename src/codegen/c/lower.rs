@@ -13,12 +13,17 @@ pub(super) fn lower_with_call_limit(
     call_limit: Option<std::num::NonZeroU32>,
 ) -> Module {
     let mut module = Module {
+        process_target: None,
         call_limit,
         array_heap_limit: program
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
-        string_heap_limit: crate::codegen::support::string_heap_limit(program)
-            .or_else(|| program.first_file_span().map(|_| program.string_heap_limit)),
+        string_heap_limit: crate::codegen::support::string_heap_limit(program).or_else(|| {
+            program
+                .first_file_span()
+                .or(program.first_process_span())
+                .map(|_| program.string_heap_limit)
+        }),
         uses_write: crate::codegen::display::uses_write(program),
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
         temporaries: Vec::new(),
@@ -146,6 +151,7 @@ fn lower_type_definitions(program: &cerune_ir::Program) -> Vec<TypeDefinition> {
             }
         }
         definitions.push(TypeDefinition {
+            variants: definition.variants.clone(),
             id,
             name: definition.name.clone(),
             fields: definition
@@ -349,7 +355,7 @@ fn binding_name(id: cerune_ir::BindingId, name: &str) -> String {
 
 // ソースのフィールドをCの予約語・ヘッダーマクロから分離します。
 // enum内部名の区切りとソースのアンダースコアも衝突させません。
-fn storage_field_name(name: &str) -> String {
+pub(super) fn storage_field_name(name: &str) -> String {
     if name.starts_with('$') {
         format!(
             "cerune_internal_field_{}",
@@ -435,9 +441,9 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
             left: Box::new(lower_expr(left)),
             right: Box::new(lower_expr(right)),
         },
-        cerune_ir::ExprKind::ProcessRun { .. } => {
-            unreachable!("process operation rejected before lowering")
-        }
+        cerune_ir::ExprKind::ProcessRun { request } => ExprKind::ProcessRun {
+            request: Box::new(lower_expr(request)),
+        },
         cerune_ir::ExprKind::FileReadText { name, max_bytes } => ExprKind::FileReadText {
             name: Box::new(lower_expr(name)),
             max_bytes: Box::new(lower_expr(max_bytes)),

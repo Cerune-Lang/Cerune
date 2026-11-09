@@ -43,4 +43,10 @@ cargo build --example subprocess_linux_supervisor
 CERUNE_TEST_PROCESS_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_supervisor" cargo test --test modules process_cli -- --include-ignored
 ```
 
-生成C・LLVM・QBE・WAT・Nativeでの子プロセス実行は後続です。[実行設計](../../docs/design/subprocess-execution.ja.md)に対応状況と出自の保持をまとめています。
+生成CもWindows/Linuxで実行できます。targetを指定して生成し、同じtargetのruntime archiveを明示してリンクします。
+
+~~~sh
+cerune emit-c examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.c
+~~~
+
+[構築・起動手順](../../docs/design/subprocess-c.ja.md)と[4実行器との比較試験](../../experiments/subprocess/c_abi/generated.cjs)を用意しています。LLVM・QBE・WAT・Nativeは後続です。[実行設計](../../docs/design/subprocess-execution.ja.md)に対応状況と出自の保持をまとめています。

@@ -369,8 +369,18 @@ fn explicit_run_module_preserves_type_identity_and_virtual_origins() {
 fn execution_module_rejects_unsupported_emitters_without_affecting_data_module() {
     use cerune_lang::codegen::{c, llvm, qbe, wat, x86_64};
     let p = cerune_lang::compile_to_ir(EXECUTION).unwrap();
+    let error = c::emit_c(&p).unwrap_err();
+    assert!(error.message().contains("explicit --target"));
+    assert_eq!(error.primary_span(), p.first_process_span());
+    for target in [
+        c::Target::X86_64PcWindowsMsvc,
+        c::Target::X86_64UnknownLinuxGnu,
+    ] {
+        let source = c::emit_c_with_target(&p, target, None).unwrap();
+        assert!(source.contains("cerune_process_v1_prepare"));
+        assert!(source.contains("cerune_process_finalize"));
+    }
     let errors = [
-        c::emit_c(&p).unwrap_err(),
         llvm::emit_llvm(&p).unwrap_err(),
         qbe::emit_qbe(&p).unwrap_err(),
         wat::emit_wat(&p).unwrap_err(),

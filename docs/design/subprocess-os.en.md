@@ -2,7 +2,7 @@
 
 [日本語](subprocess-os.ja.md)
 
-Windows/Linux implement the [common runtime](subprocesses.en.md) and [transfer contract](subprocess-transfers.en.md). [Standard modules, common IR, four executors](subprocess-execution.en.md), and [CLI registration](subprocess-cli.en.md) are also connected. **Generated-route operations and Linux supervisor distribution remain future work.** This connection validates registration and OS limits.
+Windows/Linux implement the [common runtime](subprocesses.en.md) and [transfer contract](subprocess-transfers.en.md). [Standard modules, common IR, four executors](subprocess-execution.en.md), and [CLI registration](subprocess-cli.en.md) are also connected. [Generated C operations](subprocess-c.en.md) are also implemented. Remaining generated routes and Linux supervisor distribution follow later. This connection validates registration and OS limits.
 
 ## Status and selected architecture
 

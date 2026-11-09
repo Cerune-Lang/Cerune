@@ -23,7 +23,7 @@ const archive=path.join(dir,'build',target,'debug',windows?'cerune_lang.lib':'li
 const probe=path.join(dir,windows?'probe.exe':'probe');
 const libs=windows?['-lkernel32','-lntdll','-luserenv','-lws2_32','-ldbghelp','-ladvapi32','-lbcrypt']:
     ['-lgcc_s','-lutil','-lrt','-lpthread','-lm','-ldl','-lc'];
-run(clang,['--target='+target,'-std=c11','-Wall','-Wextra','-Werror','-O0',
+run(clang,['--target='+target,'-I'+path.join(root,'src/runtime/process/abi'),'-std=c11','-Wall','-Wextra','-Werror','-O0',
     path.join(__dirname,'probe.c'),archive,...libs,'-o',probe]);
 const config={
     schema:'cerune-process-v1',platform:windows?'windows':'linux',

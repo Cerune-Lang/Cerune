@@ -5,6 +5,8 @@ pub fn emit(module: &Module) -> String {
     let mut output = String::new();
     let support = required_support(module);
     let files = support.files;
+    let processes = !support.processes.is_empty();
+    let process_types = support.processes.clone();
     if files {
         output.push_str("#ifndef _GNU_SOURCE\n#define _GNU_SOURCE\n#endif\n#include <limits.h>\n");
     }
@@ -34,7 +36,7 @@ pub fn emit(module: &Module) -> String {
         output.push_str("#include <stdlib.h>\n#include <signal.h>\n");
     }
     let reads = support.input;
-    let arguments = support.arguments || files;
+    let arguments = support.arguments || files || processes;
     let writes = super::output::used(module);
     let strings = module.uses_strings || support.strings || super::string::uses_type(module);
     if !support.conversions.is_empty() || support.nonfinite {
@@ -163,6 +165,9 @@ pub fn emit(module: &Module) -> String {
             emit_dynamic_array_access(element, module, &mut output);
         }
     }
+    if processes {
+        output.push_str(&super::process::support(module, &process_types));
+    }
     for function in &module.functions {
         emit_function_signature(function, module, &mut output);
         output.push_str(";\n");
@@ -219,7 +224,9 @@ pub fn emit(module: &Module) -> String {
     output.push_str("    return 0;\n");
     output.push_str("}\n");
 
-    if files {
+    if processes {
+        output.push_str(&super::process::entry(files));
+    } else if files {
         output.push_str(&super::files::entry());
     } else if arguments {
         output.push_str(super::arguments::ENTRY);
@@ -587,7 +594,7 @@ fn emit_for_clause(statement: &Statement, module: &Module, output: &mut String) 
     }
 }
 
-fn c_type(ty: &Type, module: &Module) -> String {
+pub(super) fn c_type(ty: &Type, module: &Module) -> String {
     match ty {
         Type::DynamicArray { .. } => "cerune_dynamic_array".into(),
         Type::Bool => "bool".into(),
@@ -677,6 +684,24 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
             emit_expr(name, module, output);
             output.push_str(", ");
             emit_expr(max_bytes, module, output);
+            super::failure::argument(expr.origin, output);
+            output.push(')');
+        }
+        ExprKind::ProcessRun { request } => {
+            let (Type::Named(a), Type::Named(b)) = (&request.ty, &expr.ty) else {
+                unreachable!()
+            };
+            write!(output, "cerune_process_run_{a}_{b}(").unwrap();
+            emit_expr(request, module, output);
+            write!(
+                output,
+                ", UINT64_C({}), UINT64_C({}), UINT64_C({}), UINT64_C({})",
+                expr.origin.node_id.0,
+                expr.origin.span.source_id().index(),
+                expr.origin.span.start(),
+                expr.origin.span.end()
+            )
+            .unwrap();
             super::failure::argument(expr.origin, output);
             output.push(')');
         }
@@ -977,6 +1002,7 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
 
 #[derive(Clone, Default)]
 struct RuntimeSupport {
+    processes: Vec<(usize, usize)>,
     files: bool,
     arguments: bool,
     input: bool,
@@ -1015,6 +1041,15 @@ impl RuntimeSupport {
                 self.string_byte_at = true;
                 self.include_expr(value);
                 self.include_expr(index);
+            }
+            ExprKind::ProcessRun { request } => {
+                let (Type::Named(a), Type::Named(b)) = (&request.ty, &expr.ty) else {
+                    unreachable!()
+                };
+                if !self.processes.contains(&(*a, *b)) {
+                    self.processes.push((*a, *b));
+                }
+                self.include_expr(request);
             }
             ExprKind::ArgumentCount => self.arguments = true,
             ExprKind::ArgumentGet { index } => {

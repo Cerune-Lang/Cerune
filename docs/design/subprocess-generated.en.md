@@ -2,7 +2,7 @@
 
 [日本語](subprocess-generated.ja.md)
 
-**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). Generated-code and WAT host integration remain unimplemented; C/LLVM/QBE/WAT/Native still reject IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
+**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C integration](subprocess-c.en.md) is also implemented. LLVM/QBE/WAT/Native still reject IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
 
 ## Findings and direction
 
@@ -82,7 +82,7 @@ Positioned result reads and read-only observation must not advance deadlines, tr
 
 ## ABI values and ownership
 
-Initial native targets are `x86_64-pc-windows-msvc` and `x86_64-unknown-linux-gnu`. Runtime and generated artifacts use the same target/calling convention. Plan explicit target selection for C subprocess emission while preserving existing C invocation forms without subprocess operations.
+Initial native targets are `x86_64-pc-windows-msvc` and `x86_64-unknown-linux-gnu`. Runtime and generated artifacts use the same target/calling convention. Require explicit target selection for C subprocess emission while preserving existing C invocation forms without subprocess operations.
 
 | Value | Proposed representation and lifetime |
 | --- | --- |
@@ -142,7 +142,7 @@ Do not expose internal memory. Preserve existing output, `flush_stdout_v1`, inpu
 
 ## Startup, linking, and distribution impact
 
-Extend the existing leading runtime marker for generated executables. This proposed invocation is not implemented.
+Generated C extends the existing leading runtime marker as shown below. Other generated routes follow later.
 
 ```text
 program --cerune-runtime-v1 --process-config process.json --file-root directory -- program-arguments
@@ -168,11 +168,11 @@ Never automatically embed local registered absolute paths, environment values, o
 | --- | --- | --- |
 | 1 (implemented) | Split shared prepare/execute and implement fixed Report codec | Existing/staged APIs agree on results, OS calls, and observations; failed reservation never launches; test duplicate execution and discarded preparation |
 | 2 (prototype implemented) | Native C ABI adapter and static linking probe | Windows/Linux widths, layout, lifetime, invalid version, failure, and reclamation; independent C expectations |
-| 3 | Generated C lowering and startup | Compare [registered.ceru](../../examples/process_execution/registered.ceru) with four executors: unconfigured, partial output, nonzero exit, continuation, ownership, origins |
+| 3 (implemented) | [Generated C lowering and startup](subprocess-c.en.md) | Compare [registered.ceru](../../examples/process_execution/registered.ceru) with four executors: unconfigured, partial output, nonzero exit, continuation, ownership, origins |
 | 4 | LLVM/QBE/Native and Native build/release | Same ABI; baseline/SSA, explicit target/linking/dependency records |
 | 5 | Versioned WAT host and supervisor distribution completion | Private memory, old-host rejection, matching requests/results/cleanup, relocated distribution execution |
 
-Until C support lands, never replace unsupported emission with successful stubs. Do not add unimplemented future-API `.ceru` files to executable examples; update existing example instructions as each route becomes executable.
+Never replace remaining unsupported emission with successful stubs. Do not add unimplemented future-API `.ceru` files to executable examples; update existing example instructions as each route becomes executable.
 
 At every stage compare all failure categories, zero/exact/exceeded limits, u64 precision, NodeId/SourceId/Span, and independent copies. Use scripted responses for short transfers, interruption, protocol errors, and unreclaimed cleanup; use dedicated fixtures for real OS tests. Observation must not change control flow, and separate real-time executions near deadlines are not guaranteed to agree.
 

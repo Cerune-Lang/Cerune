@@ -13,6 +13,7 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    pub process_target: Option<super::Target>,
     pub call_limit: Option<std::num::NonZeroU32>,
     pub array_heap_limit: Option<u64>,
     pub string_heap_limit: Option<u64>,
@@ -46,6 +47,7 @@ pub struct Parameter {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeDefinition {
+    pub variants: Option<Vec<String>>,
     pub id: usize,
     pub name: String,
     pub fields: Vec<FieldDefinition>,
@@ -181,6 +183,9 @@ impl From<&crate::ir::Expr> for Origin {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExprKind {
+    ProcessRun {
+        request: Box<Expr>,
+    },
     FileReadText {
         name: Box<Expr>,
         max_bytes: Box<Expr>,

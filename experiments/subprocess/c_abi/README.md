@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-**Rust共通runtimeを独立したCプログラムへ静的リンクする試作です。** Ceruneの生成C・LLVM・QBE・Native・WATへの接続、Native build/releaseへの同梱は未実装です。言語exampleは[process_execution](../../../examples/process_execution/README.md)に分けています。
+**Rust共通runtimeを独立したCプログラムへ静的リンクする試作です。** [生成C](../../../docs/design/subprocess-c.ja.md)は接続済みです。LLVM・QBE・Native・WATへの接続、Native build/releaseへの同梱は未実装です。言語exampleは[process_execution](../../../examples/process_execution/README.md)に分けています。
 
 ## 構築と実行
 
@@ -20,7 +20,7 @@ node experiments/subprocess/c_abi/check.cjs x86_64-unknown-linux-gnu clang targe
 
 ## 呼出し契約
 
-[ヘッダ](cerune_process_v1.h)の関数と[実装](../../../src/runtime/process/abi.rs)を対応させます。v1は現時点では試作契約です。
+[ヘッダ](../../../src/runtime/process/abi/cerune_process_v1.h)の関数と[実装](../../../src/runtime/process/abi.rs)を対応させます。v1は現時点では試作契約です。
 
 | 操作 | 状態・責務 |
 | --- | --- |
@@ -59,4 +59,4 @@ C側の独立したサイズ・offset・Report期待値で、要求コピー、�
 
 観測APIの読取りで実行を変えない検証は、共通runtimeの試験も継続します。全失敗分類の番号は既存codec試験で網羅し、OSで確実に起こせない障害をC試験で再現できたとは扱いません。無効な非NULLポインタやデータ競合を起こす試験は行いません。
 
-次は生成Cの要求変換・配列予約・Report変換・起動設定です。公開配布向けのarchive名・ABI互換性保証・manifest・Linux監督の配置は後続で確定します。
+生成Cの要求変換・配列予約・Report変換・起動設定は実装済みです。[比較試験](generated.cjs)は同じarchiveを使用します。公開配布向けのarchive名・ABI互換性保証・manifest・Linux監督の配置は後続で確定します。
