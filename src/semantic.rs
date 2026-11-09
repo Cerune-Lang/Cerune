@@ -1798,6 +1798,38 @@ fn check_call(
         }
         return Ok(ReturnType::Value(Type::String));
     }
+    if name == "$process_run" {
+        // The private intrinsic occurs only inside the compiler-supplied wrapper.
+        // Use its resolved signature, including the original module's nominal types.
+        let wrapper = model
+            .function_definitions
+            .iter()
+            .find(|d| d.span.source_id() == name_span.source_id() && d.name.ends_with("_run"))
+            .ok_or_else(|| Diagnostic::new("missing standard process wrapper", name_span))?;
+        let [parameter] = wrapper.parameters.as_slice() else {
+            return Err(Diagnostic::new(
+                "invalid standard process signature",
+                name_span,
+            ));
+        };
+        let request = parameter.ty.clone();
+        let ReturnType::Value(outcome) = &wrapper.return_type else {
+            return Err(Diagnostic::new(
+                "invalid standard process result",
+                name_span,
+            ));
+        };
+        if arguments.len() != 1
+            || model.type_of_expr_expected(&arguments[0], bindings, Some(request.clone()))?
+                != request
+        {
+            return Err(Diagnostic::new(
+                "process run expects one std:process Request",
+                name_span,
+            ));
+        }
+        return Ok(ReturnType::Value(outcome.clone()));
+    }
     if matches!(name, "$file_read_text" | "$file_write_new") {
         let write = name == "$file_write_new";
         let types = if write {

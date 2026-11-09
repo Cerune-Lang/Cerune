@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-[outcome.ceru](outcome.ceru) uses `std:process` types to process **explicitly constructed result values**. It launches no subprocess. `process::run` is not implemented yet.
+[outcome.ceru](outcome.ceru) uses `std:process` types to process **explicitly constructed result values**. It launches no subprocess. Execution is covered by a separate [example](../process_execution/README.en.md).
 
 | Check | Representation |
 | --- | --- |

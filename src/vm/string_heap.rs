@@ -60,6 +60,7 @@ mod lifetime_tests {
                     fail_frame_after: None,
                     stdin: &mut crate::runtime::input::unconfigured(),
                     files: &mut crate::runtime::files::unconfigured(),
+                    processes: None,
                     arguments: &crate::runtime::arguments::Arguments::unconfigured(),
                 },
             )

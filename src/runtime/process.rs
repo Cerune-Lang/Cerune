@@ -2,6 +2,7 @@
 //! Windows/Linux実OS Backendを接続済みです。言語命令・返却後の配列所有は後続です。
 pub use super::output::Origin;
 use std::{num::NonZeroU64, time::Duration};
+pub(crate) mod access;
 mod backend;
 #[cfg(target_os = "linux")]
 pub mod linux;

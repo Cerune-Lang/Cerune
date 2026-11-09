@@ -328,3 +328,79 @@ fn ordinary_result_types_lower_to_remaining_generated_routes() {
         }
     }
 }
+
+const EXECUTION: &str = include_str!("../../examples/process_execution/unconfigured.ceru");
+#[test]
+fn explicit_run_module_preserves_type_identity_and_virtual_origins() {
+    let source = format!("import \"std:process/run\" as again; {EXECUTION}");
+    let c = modules::from_source(&source).unwrap();
+    let p = c.to_ir().unwrap();
+    let operation = p.first_process_span().unwrap();
+    let module = c.sources.get(operation.source_id()).unwrap();
+    assert!(matches!(
+        module.kind(),
+        SourceKind::Standard {
+            identifier: "std:process/run",
+            version: 1
+        }
+    ));
+    assert_eq!(
+        module.text(),
+        include_str!("../../src/standard/process_run.ceru")
+    );
+    assert_eq!(c.sources.files().count(), 3);
+    assert!(module.text()[operation.start()..operation.end()].contains("__cerune_process_run"));
+    assert_eq!(p.type_definitions.len(), 12);
+    compare(
+        EXECUTION,
+        include_str!("../../examples/process_execution/unconfigured.stdout"),
+    );
+    let m = mir::lower(&p).unwrap();
+    let s = mir::ssa::construct(&m).unwrap();
+    assert!(cerune_lang::ir::text::emit(&p).contains("process.run"));
+    assert!(mir::text::emit(&m).contains("process.run"));
+    assert!(mir::ssa::text::emit(&s).unwrap().contains("process.run"));
+    let bytecode = bytecode::format_program(&bytecode::lower(&p).unwrap());
+    assert!(bytecode.contains("process.run"));
+    assert!(bytecode.contains(".variants "));
+    assert!(bytecode.contains("\"Unconfigured\""));
+}
+#[test]
+fn execution_module_rejects_unsupported_emitters_without_affecting_data_module() {
+    use cerune_lang::codegen::{c, llvm, qbe, wat, x86_64};
+    let p = cerune_lang::compile_to_ir(EXECUTION).unwrap();
+    let errors = [
+        c::emit_c(&p).unwrap_err(),
+        llvm::emit_llvm(&p).unwrap_err(),
+        qbe::emit_qbe(&p).unwrap_err(),
+        wat::emit_wat(&p).unwrap_err(),
+        x86_64::emit_x86_64_win_asm(&p).unwrap_err(),
+    ];
+    for error in errors {
+        assert!(
+            error
+                .message()
+                .contains("subprocess execution is not supported yet"),
+            "{error:?}"
+        );
+        assert_eq!(error.primary_span(), p.first_process_span());
+    }
+}
+#[test]
+fn run_intrinsic_remains_private_and_arguments_are_checked() {
+    for source in [
+        r#"import "std:process/run" as p; p::__cerune_process_run();"#,
+        r#"import "std:process/run" as p; __cerune_process_run();"#,
+    ] {
+        assert!(
+            cerune_lang::compile_to_ir(source)
+                .unwrap_err()
+                .message()
+                .contains("unknown function")
+        );
+    }
+    for call in ["p::run()", "p::run(3)"] {
+        let source = format!("import \"std:process/run\" as p; {call};");
+        assert!(cerune_lang::compile_to_ir(&source).is_err());
+    }
+}

@@ -14,6 +14,7 @@ pub(super) fn lower(program: &mut Program) {
                     ExprKind::StringConcat { .. }
                         | ExprKind::ArgumentGet { .. }
                         | ExprKind::ReadLine { .. }
+                        | ExprKind::ProcessRun { .. }
                         | ExprKind::FileReadText { .. }
                 );
             },
@@ -28,6 +29,7 @@ pub(super) fn lower(program: &mut Program) {
                 ExprKind::StringConcat { .. }
                     | ExprKind::ArgumentGet { .. }
                     | ExprKind::ReadLine { .. }
+                    | ExprKind::ProcessRun { .. }
                     | ExprKind::FileReadText { .. }
             );
         },
@@ -650,6 +652,7 @@ impl Lowerer {
                 | ExprKind::StringConcat { .. }
                 | ExprKind::ArgumentGet { .. }
                 | ExprKind::ReadLine { .. }
+                | ExprKind::ProcessRun { .. }
                 | ExprKind::FileReadText { .. }
                 | ExprKind::Array(_)
                 | ExprKind::Construct { base: None, .. }
@@ -677,6 +680,7 @@ impl Lowerer {
         };
         match &mut value.kind {
             ExprKind::ArrayLength { value }
+            | ExprKind::ProcessRun { request: value }
             | ExprKind::ArgumentGet { index: value }
             | ExprKind::ReadLine { max_bytes: value }
             | ExprKind::StringByteLength { value }

@@ -295,6 +295,9 @@ pub enum ExprKind {
     ArgumentGet {
         index: Box<Expr>,
     },
+    ProcessRun {
+        request: Box<Expr>,
+    },
     FileReadText {
         name: Box<Expr>,
         max_bytes: Box<Expr>,
@@ -528,5 +531,21 @@ impl Program {
     }
     pub(crate) fn first_input_span(&self) -> Option<Span> {
         input::first_span(self)
+    }
+}
+
+impl Program {
+    pub fn first_process_span(&self) -> Option<Span> {
+        let mut span = None;
+        input::visit_program(
+            self,
+            &mut |e| {
+                if span.is_none() && matches!(e.kind, ExprKind::ProcessRun { .. }) {
+                    span = Some(e.span);
+                }
+            },
+            &mut |_| {},
+        );
+        span
     }
 }

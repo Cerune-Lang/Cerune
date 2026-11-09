@@ -243,22 +243,32 @@ fn visit(
         if import.path.starts_with("std:") {
             if !matches!(
                 import.path.as_str(),
-                "std:io" | "std:env" | "std:num" | "std:fs" | "std:process"
+                "std:io" | "std:env" | "std:num" | "std:fs" | "std:process" | "std:process/run"
             ) {
                 return Err(Diagnostic::new(
                     format!("unknown standard module `{}`", import.path),
                     import.span,
                 ));
             }
+            let mut descend = None;
             let target = if let Some(target) = units.iter().position(|u| {
                 matches!(
                     sources.get(u.id).unwrap().kind(),
                     SourceKind::Standard { identifier, .. } if *identifier == import.path
                 )
             }) {
+                if !units[target].complete {
+                    return Err(Diagnostic::new(
+                        format!("cyclic import of `{}`", import.path),
+                        import.span,
+                    ));
+                }
                 target
             } else {
                 let (identifier, text) = match import.path.as_str() {
+                    "std:process/run" => {
+                        ("std:process/run", include_str!("standard/process_run.ceru"))
+                    }
                     "std:process" => ("std:process", include_str!("standard/process.ceru")),
                     "std:fs" => ("std:fs", include_str!("standard/fs.ceru")),
                     "std:io" => ("std:io", include_str!("standard/io.ceru")),
@@ -271,6 +281,7 @@ fn visit(
                 for token in &mut tokens {
                     if let lexer::TokenKind::Identifier(name) = &mut token.kind {
                         let internal = match (identifier, name.as_str()) {
+                            ("std:process/run", "__cerune_process_run") => Some("$process_run"),
                             ("std:fs", "__cerune_file_read_text") => Some("$file_read_text"),
                             ("std:fs", "__cerune_file_write_new") => Some("$file_write_new"),
                             ("std:io", "__cerune_read_line_utf8") => Some("$read_line"),
@@ -291,14 +302,23 @@ fn visit(
                     path: PathBuf::new(),
                     module,
                     imports: HashMap::new(),
-                    complete: true,
+                    complete: false,
                 });
+                descend = Some(target);
                 target
             };
             units[index].imports.insert(import.alias, target);
+            if let Some(target) = descend {
+                pending.push((target, 0, depth + 1));
+            }
             continue;
         }
-        if !allow_files {
+        if !allow_files
+            || matches!(
+                sources.get(units[index].id).unwrap().kind(),
+                SourceKind::Standard { .. }
+            )
+        {
             return Err(Diagnostic::new(
                 "relative imports require modules::load with an entry file",
                 import.span,

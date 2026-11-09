@@ -142,6 +142,7 @@ fn string_expr(expr: &Expr) -> Option<Span> {
         }
         ExprKind::Constant { value, .. } => string_expr(value),
         ExprKind::ArrayLength { value }
+        | ExprKind::ProcessRun { request: value }
         | ExprKind::ArgumentGet { index: value }
         | ExprKind::ReadLine { max_bytes: value }
         | ExprKind::StringByteLength { value }

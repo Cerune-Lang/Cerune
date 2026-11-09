@@ -1,5 +1,8 @@
 //! 共通runtimeとWindows実OS Backendの接続検証です。言語exampleではありません。
 #[cfg(windows)]
+#[path = "execution.rs"]
+mod execution;
+#[cfg(windows)]
 #[path = "fixture.rs"]
 mod fixture;
 #[cfg(windows)]
@@ -95,6 +98,10 @@ mod check {
             )
         };
         let before = retained_connections();
+        record(
+            "language-four-executors",
+            super::execution::check(|| backend(64), limits())?,
+        )?;
         record(
             "result-reservation-before-launch",
             super::reservation::check(backend(64), limits(), origin())?,

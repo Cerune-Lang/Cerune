@@ -3,6 +3,7 @@ use crate::runtime::call;
 use crate::runtime::files;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
+use crate::runtime::process::{self, access as process_access};
 use crate::runtime::{
     array_heap::{ArrayError, ArrayHeap, ArrayValue},
     float_output,
@@ -34,6 +35,7 @@ pub enum VmErrorKind {
     Arguments(Box<arguments::Failure>),
     Files(Box<files::Failure>),
     Input(Box<input::Failure>),
+    InvalidProcessOperation,
     FileOriginMissing,
     InputOriginMissing,
     ArgumentOriginMissing,
@@ -378,6 +380,7 @@ struct ExecutionInput<'a> {
     fail_frame_after: Option<usize>,
     stdin: &'a mut dyn Source,
     files: &'a mut dyn files::Access,
+    processes: Option<process_access::Connection<'a, Value>>,
     arguments: &'a Arguments,
 }
 fn run_connections(
@@ -412,6 +415,17 @@ fn run_resources(
     files: &mut dyn files::Access,
     limit: Option<NonZeroU32>,
 ) -> Result<String, VmError> {
+    run_process_resources(program, output, input, arguments, files, None, limit)
+}
+fn run_process_resources<'o>(
+    program: &BytecodeProgram,
+    output: &'o mut dyn Sink,
+    input: &'o mut dyn Source,
+    arguments: &'o Arguments,
+    files: &'o mut dyn files::Access,
+    processes: Option<process_access::Connection<'o, Value>>,
+    limit: Option<NonZeroU32>,
+) -> Result<String, VmError> {
     let mut heap = StringHeap::new(program.string_heap_limit);
     let mut arrays = ArrayHeap::new(program.array_heap_limit);
     if let Err(mut error) = execute_frame(
@@ -427,6 +441,7 @@ fn run_resources(
             fail_frame_after: None,
             stdin: input,
             files,
+            processes,
             arguments,
         },
     ) {
@@ -468,6 +483,7 @@ pub(crate) fn execute_function(
             fail_frame_after: None,
             stdin: &mut crate::runtime::input::unconfigured(),
             files: &mut crate::runtime::files::unconfigured(),
+            processes: None,
             arguments: &crate::runtime::arguments::Arguments::unconfigured(),
         },
     ) {
@@ -844,6 +860,43 @@ fn execute_until_event(
                     value.map_err(|f| VmErrorKind::Arguments(Box::new(f))),
                     pc,
                 )?);
+            }
+            InstructionKind::ProcessRun {
+                request_type,
+                outcome_type,
+            } => {
+                let request = at_instruction(stack.pop().ok_or(VmErrorKind::StackUnderflow), pc)?;
+                let crate::bytecode::InstructionOrigin::Source { node_id, span } =
+                    instruction.origin
+                else {
+                    return Err(VmError::new(VmErrorKind::InvalidProcessOperation, pc));
+                };
+                let definitions = process_access::bytecode_types(&program.type_definitions);
+                let value = process_access::execute(
+                    &mut input.processes,
+                    process_access::Call {
+                        definitions: &definitions,
+                        request_type: crate::ir::TypeId(*request_type),
+                        outcome_type: crate::ir::TypeId(*outcome_type),
+                        request: &request,
+                        heap: arrays,
+                        available: 0,
+                        origin: process::Origin { node_id, span },
+                    },
+                )
+                .map_err(|e| match process_access::resource_error(e) {
+                    Some(crate::runtime::FailureCode::AllocationFailed) => {
+                        VmErrorKind::AllocationFailed
+                    }
+                    Some(crate::runtime::FailureCode::AllocationSizeOverflow) => {
+                        VmErrorKind::AllocationSizeOverflow
+                    }
+                    Some(crate::runtime::FailureCode::AllocationLimitExceeded) => {
+                        VmErrorKind::AllocationLimitExceeded
+                    }
+                    _ => VmErrorKind::InvalidProcessOperation,
+                });
+                stack.push(at_instruction(value, pc)?);
             }
             InstructionKind::FileReadText | InstructionKind::FileWriteNew => {
                 let limit = at_instruction(pop_integer(stack, IntegerType::I64), pc)? as i64;
@@ -1990,6 +2043,26 @@ fn format_value(value: Value, expected: Type) -> VmResult<String> {
     }
 }
 
+/// 起動対象を登録した接続と転送領域上限を明示して実行します。暗黙のOS接続は行いません。
+pub fn run_with_processes<B: process::Backend>(
+    program: &BytecodeProgram,
+    processes: &mut process::Processes<B>,
+    transfer_bytes: usize,
+) -> std::result::Result<String, VmError> {
+    run_process_resources(
+        program,
+        &mut Capture::default(),
+        &mut input::unconfigured(),
+        &Arguments::unconfigured(),
+        &mut files::unconfigured(),
+        Some(process_access::Connection {
+            access: processes,
+            available: transfer_bytes,
+        }),
+        None,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Value, execute_function};
@@ -2369,6 +2442,7 @@ mod tests {
                 fail_frame_after: Some(after),
                 stdin: &mut stdin,
                 files: &mut crate::runtime::files::unconfigured(),
+                processes: None,
                 arguments: &arguments,
             };
             let mut strings = super::StringHeap::new(p.string_heap_limit);
@@ -2432,6 +2506,7 @@ mod tests {
                 fail_frame_after: None,
                 stdin: &mut crate::runtime::input::unconfigured(),
                 files: &mut crate::runtime::files::unconfigured(),
+                processes: None,
                 arguments: &crate::runtime::arguments::Arguments::unconfigured(),
             },
         )

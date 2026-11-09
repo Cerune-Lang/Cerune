@@ -3,6 +3,7 @@
 use crate::runtime::arguments::{self, Arguments};
 use crate::runtime::call;
 use crate::runtime::files;
+use crate::runtime::process::{self, access as process_access};
 use crate::{
     ir,
     mir::{self, TerminatorKind as T},
@@ -337,10 +338,22 @@ fn run_resources<'o>(
     files: Option<&'o mut dyn files::Access>,
     limit: Option<NonZeroU32>,
 ) -> std::result::Result<String, ExecutionError> {
+    run_process_resources(program, output, input, arguments, files, None, limit)
+}
+fn run_process_resources<'o>(
+    program: &mir::Program,
+    output: &'o mut dyn Sink,
+    input: Option<&'o mut dyn input::Source>,
+    arguments: Option<&'o Arguments>,
+    files: Option<&'o mut dyn files::Access>,
+    processes: Option<process_access::Connection<'o, Value>>,
+    limit: Option<NonZeroU32>,
+) -> std::result::Result<String, ExecutionError> {
     mir::validate(program).map_err(validation_error)?;
     let mut executor = Executor::new(program, output);
     executor.state.input = input;
     executor.state.files = files;
+    executor.state.processes = processes;
     executor.state.arguments = arguments;
     executor.state.calls = limit.map(call::Stack::new);
     let result = executor.entry();
@@ -545,6 +558,26 @@ impl<'o> Context<'o> for Executor<'_, 'o> {
         &self.program.types
     }
 }
+/// 起動対象を登録した接続と転送領域上限を明示して実行します。暗黙のOS接続は行いません。
+pub fn run_with_processes<B: process::Backend>(
+    program: &mir::Program,
+    processes: &mut process::Processes<B>,
+    transfer_bytes: usize,
+) -> std::result::Result<String, ExecutionError> {
+    run_process_resources(
+        program,
+        &mut Capture::default(),
+        None,
+        None,
+        None,
+        Some(process_access::Connection {
+            access: processes,
+            available: transfer_bytes,
+        }),
+        None,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

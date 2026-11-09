@@ -23,6 +23,7 @@ use lower::lower;
 use crate::{diagnostic::Diagnostic, ir as cerune_ir};
 
 pub fn emit_c(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
+    super::support::reject_process(program, "C")?;
     let module = lower(program);
 
     Ok(emit(&module))
@@ -34,6 +35,7 @@ pub fn emit_c_with_call_limit(
     program: &cerune_ir::Program,
     limit: std::num::NonZeroU32,
 ) -> Result<String, Diagnostic> {
+    super::support::reject_process(program, "C")?;
     Ok(emit(&lower::lower_with_call_limit(program, Some(limit))))
 }
 

@@ -24,6 +24,7 @@ pub(crate) struct State<'a> {
     pub fail_frame_after: Option<usize>,
     pub output: &'a mut dyn Sink,
     pub input: Option<&'a mut dyn Source>,
+    pub processes: Option<crate::runtime::process::access::Connection<'a, Value>>,
     pub files: Option<&'a mut dyn files::Access>,
     pub arguments: Option<&'a Arguments>,
     pub strings: StringHeap,
@@ -38,6 +39,7 @@ impl<'a> State<'a> {
             output,
             input: None,
             files: None,
+            processes: None,
             arguments: None,
             strings: StringHeap::new(string_limit),
             arrays: ArrayHeap::new(array_limit),
@@ -242,6 +244,39 @@ fn operation<'a, R: Copy>(
                 kind: super::ErrorKind::Arguments(Box::new(f)),
                 origin: Some(origin),
                 location: None,
+            })?
+        }
+        O::ProcessRun {
+            request,
+            request_type,
+            outcome_type,
+        } => {
+            let request = frame.get(*request)?;
+            let o = origin
+                .source()
+                .ok_or_else(|| Fault::invalid("process operation lacks source origin"))?;
+            let definitions = crate::runtime::process::access::mir_types(executor.types());
+            let state = executor.state();
+            crate::runtime::process::access::execute(
+                &mut state.processes,
+                crate::runtime::process::access::Call {
+                    definitions: &definitions,
+                    request_type: *request_type,
+                    outcome_type: *outcome_type,
+                    request: &request,
+                    heap: &mut state.arrays,
+                    available: 0,
+                    origin: crate::runtime::process::Origin {
+                        node_id: o.node_id,
+                        span: o.span,
+                    },
+                },
+            )
+            .map_err(|e| {
+                crate::runtime::process::access::resource_error(e).map_or_else(
+                    || Fault::invalid("invalid process operation"),
+                    Fault::failure,
+                )
             })?
         }
         O::FileReadText { name, max_bytes } => {

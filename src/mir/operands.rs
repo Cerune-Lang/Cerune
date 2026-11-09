@@ -66,6 +66,15 @@ impl<R: Copy> O<R> {
             O::ArrayLength(v) => O::ArrayLength(f(*v)),
             O::ArgumentCount => O::ArgumentCount,
             O::ArgumentGet(v) => O::ArgumentGet(f(*v)),
+            O::ProcessRun {
+                request,
+                request_type,
+                outcome_type,
+            } => O::ProcessRun {
+                request: f(*request),
+                request_type: *request_type,
+                outcome_type: *outcome_type,
+            },
             O::FileReadText { name, max_bytes } => O::FileReadText {
                 name: f(*name),
                 max_bytes: f(*max_bytes),

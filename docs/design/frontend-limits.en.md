@@ -67,6 +67,8 @@ A zero-byte budget accepts empty files. A zero-file budget rejects the entry. Th
 
 File traversal also uses an explicit stack. Parsing a leaf in a 128-level import chain does not retain a Rust call frame for every ancestor. Registration order remains depth-first.
 
+IR construction keeps subprocess, file, and aggregate temporaries in separate helpers rather than every recursive expression frame. Existing Windows CLI tests continue to accept the expression-depth boundary and diagnose excess. This controls compilation stack use without changing the language execution call-depth limit.
+
 ## Validation and follow-up
 
 `tests/frontend_limits/mod.rs`, included by `tests/modules.rs`, runs child processes with ten-second limits. It checks boundaries and excess for parentheses, types, blocks, arrays, unary/binary/logical operators, and fields/indexes. Wide arrays, symbols inside strings/comments, recursion without nested delimiters, and combined block/expression depth are included.

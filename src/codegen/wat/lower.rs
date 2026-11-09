@@ -866,6 +866,9 @@ impl LoweringContext<'_> {
                 instructions.push(Instruction::StringConcat.at(expr));
                 Value::Scalar(Type::String)
             }
+            cerune_ir::ExprKind::ProcessRun { .. } => {
+                unreachable!("process operation rejected before lowering")
+            }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 self.lower_expr(name, instructions);
                 self.lower_expr(max_bytes, instructions);

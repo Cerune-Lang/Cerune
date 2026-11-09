@@ -493,6 +493,11 @@ fn emit_expr(expr: &Expr, program: &Program, output: &mut String) {
             emit_expr(index, program, output);
             output.push(')');
         }
+        ExprKind::ProcessRun { request } => {
+            output.push_str("process.run(");
+            emit_expr(request, program, output);
+            output.push(')');
+        }
         ExprKind::FileReadText { name, max_bytes } => {
             output.push_str("file.read_text.utf8(");
             emit_expr(name, program, output);

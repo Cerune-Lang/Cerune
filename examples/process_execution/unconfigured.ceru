@@ -1,0 +1,16 @@
+import "std:process" as types;
+import "std:process/run" as process;
+
+request: types::Request = types::Request {
+    target: "tool",
+    arguments: array_copy(["hello"]),
+    stdin: array_repeat::<u8>(u8(0), 0),
+    stdout_limit: 1024,
+    stderr_limit: 256,
+    timeout_ms: 1000,
+};
+result: types::Outcome = process::run(request);
+print(result.report.failure);
+print(result.stdout);
+print(result.stderr);
+print("continued");

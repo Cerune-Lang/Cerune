@@ -2,7 +2,7 @@
 
 [日本語](subprocess-values.ja.md)
 
-`import "std:process" as process;` provides request and result types. **Only data types are implemented. `process::run`, subprocess IR instructions, and CLI registration are not implemented.** Conversion from the [Rust common runtime and Windows/Linux connections](subprocesses.en.md) into language values is also subsequent work.
+`import "std:process" as process;` provides request/result types. Execution uses separate `std:process/run` imports, connected to [common IR and four executors](subprocess-execution.en.md). CLI registration and generated execution follow.
 
 ## Types and retained information
 
@@ -25,7 +25,7 @@ Programs can construct these ordinary values. Their existence does not prove tha
 
 ## Correspondence with the common runtime
 
-Future integration must preserve the following mapping. Conversion and execution instructions remain unimplemented.
+Common runtime and language values use the following mapping.
 
 | Rust representation | Public meaning |
 | --- | --- |
@@ -39,14 +39,14 @@ Future integration must preserve the following mapping. Conversion and execution
 | `Origin` | NodeId and Span's SourceId / UTF-8 byte range `[start, end)`; IDs are compilation-local, SourceId 0 denotes existing anonymous source; no absolute paths or content |
 | `Outcome.transfers` and events | Individual transfer state remains Rust-side read-only observation; public Outcome carries no operation handles or control API |
 
-Public enum order is not a Rust discriminant mapping or external ABI. Future conversion checks names and contents explicitly. Tests check all `FailureCode` categories against Rust.
+Public enum order is not a Rust discriminant mapping or external ABI. Conversion checks names and contents explicitly. Tests check all `FailureCode` categories against Rust.
 
 ## Requests, arrays, and allocation
 
 - Public time values use whole milliseconds. Language requests convert exactly to `Duration`; no conversion silently rounds arbitrary submillisecond Rust durations into public values.
-- Being representable as `u64` is distinct from being accepted for execution. Validate target names, NUL, capacity, time, and host integer width before launch. Currently only constructing values is supported, so even invalid requests are constructible. Accepted ranges, defaults, and connection configuration follow separately.
+- Being representable as `u64` is distinct from being accepted for execution. Validate target names, NUL, capacity, time, and host integer width before launch. Invalid requests remain constructible. Rust connection Limits define accepted execution ranges; CLI configuration follows.
 - Contents are byte arrays: retain invalid UTF-8, NUL, and CR/LF without adding newlines, normalizing, or implicitly converting to strings. Copies, argument passing, and updates reuse existing value semantics and ownership lowering.
-- **[Prelaunch reservation and array finalization/cancellation](subprocess-storage.en.md) are implemented. Language-instruction integration follows.** Current `u8` arrays use 64-bit element storage in the common representation; payload bytes alone cannot account for language array usage. Distinguish ownership and accounting for retained output buffers, transfer buffers, language arrays, and conversion temporaries, reserving required storage before launch.
+- **[Prelaunch reservation and array finalization/cancellation](subprocess-storage.en.md) are implemented. Four executors use this through language instructions.** Current `u8` arrays use 64-bit element storage in the common representation; payload bytes alone cannot account for language array usage. Distinguish ownership and accounting for retained output buffers, transfer buffers, language arrays, and conversion temporaries, reserving required storage before launch.
 - Runtime resource exhaustion that prevents constructing a value is not a child exit code or successful operation. Do not repeat execution after such a failure.
 
 ## Observation and verification
@@ -55,10 +55,10 @@ The standard source registers as `std:process`, contract version 1. Aliases and 
 
 C output prefixes source fields with `cerune_field_` and enum internals with a separate `cerune_internal_field_` name, avoiding header macros such as `stdin` and C keywords. Common IR retains source field names and NodeId/Span.
 
-[Differential tests](../../tests/process_types/mod.rs) check four executors and generated C/LLVM output, nominal identity, failure categories, independent copies, and rejection of unimplemented `run`. QBE/WAT/ASM/Object generation is checked separately from execution comparisons for this example. LLVM execution comparisons run only on Windows/Linux x86-64, specifying the same target during emission and linking. Other hosts retain four-executor/C comparisons and generation checks. This does not validate conversion of actual OS results into language values.
+[Differential tests](../../tests/process_types/mod.rs) check four executors and generated C/LLVM output, nominal identity, failure categories, independent copies, and rejection of `run` on the type-only module. QBE/WAT/ASM/Object generation is checked separately from execution comparisons for this example. LLVM execution comparisons run only on Windows/Linux x86-64, specifying the same target during emission and linking. Other hosts retain four-executor/C comparisons and generation checks. This does not validate conversion of actual OS results into language values.
 
 ```sh
 cargo test --test modules process_types
 ```
 
-Fixed Report storage and the internal request/complete-Outcome bridge are implemented. Next, connect `run` to four executors through one common IR operation. Generated routes, host contracts, CLI registration, and distribution follow. Observation APIs must not control execution; unsupported operations must not become successful no-ops.
+Fixed Report storage, Outcome, and request conversion are connected to [common IR and four executors](subprocess-execution.en.md). Next connect CLI registration, limits, and supervisor paths, then generated-route host contracts and distribution. Observation must not control execution; unsupported operations never become successful no-ops.

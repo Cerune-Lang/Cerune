@@ -19,6 +19,7 @@ Normal examples are the `.ceru` files in this directory.
 | [stdin](stdin/README.en.md) | Actual stdin lines/blank lines/EOF, prompt flush, UTF-8 byte counts; compared across routes |
 | [io_protocol](io_protocol/README.en.md) | Output/evaluation order, explicit flush, and scripted input; distinguish EOF, empty lines, and failure (no stdin) |
 | [ir_stages](ir_stages/README.en.md) | Execute short circuits, loops, and calls; observe HIR→MIR→LIR→Native lowering and target-specific ABI |
+| [process_execution](process_execution/README.en.md) | Call execution, receive missing configuration as a value, and continue |
 | [process_results](process_results/README.en.md) | Construct subprocess result values; handle nonzero exit, partial output, cleanup, and copies. Does not launch a process |
 | [modules](modules/README.en.md) | Imports, single-file comparison, and expected failures |
 | [runtime_failures](runtime_failures/README.en.md) | Five expected stops: prior output and failing expressions |

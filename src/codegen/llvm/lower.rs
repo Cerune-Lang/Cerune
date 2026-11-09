@@ -713,6 +713,9 @@ impl Lowerer<'_> {
                     operand: Operand::Temp(dest),
                 }
             }
+            cerune_ir::ExprKind::ProcessRun { .. } => {
+                unreachable!("process operation rejected before lowering")
+            }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 let name = self.lower_expr(name).operand;
                 let max_bytes = self.lower_expr(max_bytes).operand;

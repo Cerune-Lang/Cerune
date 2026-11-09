@@ -2,7 +2,7 @@
 
 [English](subprocess-storage.en.md)
 
-子を起動した後で結果領域の不足が分かると、外部への副作用を取り消せません。[共通runtime](subprocesses.ja.md)へ起動前の返却領域予約を追加し、内部の配列領域へ予約・確定・取消しを実装しました。**言語の`std:process::run`と共通IR命令はまだ未実装です。**
+子を起動した後で結果領域の不足が分かると、外部への副作用を取り消せません。[共通runtime](subprocesses.ja.md)へ起動前の返却領域予約を追加し、内部の配列領域へ予約・確定・取消しを実装しました。[共通IRと4実行器](subprocess-execution.ja.md)にも接続済みです。
 
 ## 現在の実装
 
@@ -47,7 +47,7 @@ Rustの既存`Processes::run`は領域追加のない予約関数を使うため
 
 ## Reportの固定領域
 
-[内部のReport変換](../../src/runtime/process/report_value.rs)を追加しました。現在は単体試験と共通runtimeの接続試験から使用し、言語命令からの呼出しは未実装です。
+[内部のReport変換](../../src/runtime/process/report_value.rs)を追加しました。単体・接続試験と4実行器の言語命令から使用します。
 
 | 段階 | 処理 |
 | --- | --- |
@@ -63,7 +63,7 @@ HIR/MIR/SSAの共通値とVM値の2表現に対応します。型IDやRust enum�
 
 ## 要求とOutcomeの接続
 
-[内部の値接続](../../src/runtime/process/language_values.rs)は、準備済み要求から共通runtimeを呼び、既存の言語値でOutcomeを返します。**現在はRustの接続試験から使用し、共通IR命令・`std:process::run`・CLIはまだ未実装です。**
+[内部の値接続](../../src/runtime/process/language_values.rs)は、準備済み要求から共通runtimeを呼び、既存の言語値でOutcomeを返します。**`std:process/run`の共通IR命令から使用します。CLI接続設定は後続です。**
 
 | 順番 | 処理と失敗時の扱い |
 | --- | --- |
@@ -75,7 +75,7 @@ HIR/MIR/SSAの共通値とVM値の2表現に対応します。型IDやRust enum�
 
 準備中に元の言語値を変更せず、コピー後の要求は元配列の変更・解放から独立します。要求変換は実行を開始せず、失敗時に自動で再変換・再実行しません。要求本文を含むDebug表示も提供しません。
 
-要求検査失敗や未接続では、空配列を含むOutcomeを返せます。出力予約失敗は既存どおり`Reserve`段階の`OutputBudget`/`AllocationFailed`です。固定形状・要求コピー自体の確保失敗は内部の資源エラーであり、この段階では言語診断への接続は未実装です。既存allocatorがabortする場合まで回復を保証するものではありません。
+要求検査失敗や未接続では、空配列を含むOutcomeを返せます。出力予約失敗は既存どおり`Reserve`段階の`OutputBudget`/`AllocationFailed`です。固定形状・要求コピー自体の確保失敗は内部の資源エラーであり、ソース位置付き停止へ接続しました。既存allocatorがabortする場合まで回復を保証するものではありません。
 
 返却後の配列は既存のretain・release・freeへ戻ります。確保上限分の使用量は、短い部分出力でも配列解放まで保持します。観測設定は要求・結果・OS操作列を変えません。
 

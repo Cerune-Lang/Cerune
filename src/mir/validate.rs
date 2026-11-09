@@ -288,6 +288,14 @@ fn operation(p: &Program, f: &Function, op: &Operation, dst: &T, o: Origin) -> R
             same(ty(*v)?, &T::String)?;
             same(dst, &I64)
         }
+        Operation::ProcessRun {
+            request,
+            request_type,
+            outcome_type,
+        } => {
+            same(ty(*request)?, &T::Named(*request_type))?;
+            same(dst, &T::Named(*outcome_type))
+        }
         Operation::FileReadText { name, max_bytes } => {
             same(ty(*name)?, &T::String)?;
             same(ty(*max_bytes)?, &I64)?;
@@ -456,6 +464,7 @@ pub(super) fn operation_reads(op: &Operation) -> Vec<LocalId> {
             .collect(),
         Operation::Field { base, .. } => vec![*base],
         Operation::Index { base, index } => vec![*base, *index],
+        Operation::ProcessRun { request, .. } => vec![*request],
         Operation::ArrayAllocate { length, .. } => vec![*length],
     }
 }
