@@ -2,7 +2,7 @@
 
 [English](language-roadmap.en.md)
 
-生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。次はC ABIアダプタと静的リンク試作、その後に生成C、LLVM/QBE/Native、WATを接続します。
+生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。次は生成C、その後にLLVM/QBE/Native、WATを接続します。
 
 2026-11-09時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
 

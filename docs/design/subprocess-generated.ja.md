@@ -2,7 +2,7 @@
 
 [English](subprocess-generated.en.md)
 
-**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABI・静的ライブラリ・WAT host接続は設計段階で、C・LLVM・QBE・WAT・Nativeは引き続き実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
+**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。生成コードとWAT hostへの接続は未実装で、C・LLVM・QBE・WAT・Nativeは引き続き実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
 
 ## 調査結果と方針
 
@@ -64,7 +64,7 @@ Reportと保持済み生バイトを、予約済みの言語値へ変換
 | `Prepared::execute` | 言語側の予約結果を受け、成功時だけ起動する。準備状態を消費し、結果と予約した所有物を返す |
 | `run` / `run_with_reservation` | 同じ段階処理を続けて呼ぶ既存の入口 |
 
-Rust版は要求を不変借用し、接続を排他的に借用して転送bufferを保持します。既存の言語側は呼出し前に要求をコピーします。追加の所有コピーやBox確保は導入しません。将来のC/WATアダプタでは、外部呼出し間の要求コピー・contextの所有と状態検査を別途実装します。借用を含むRust構造をそのままABIへ公開しません。
+Rust版は要求を不変借用し、接続を排他的に借用して転送bufferを保持します。既存の言語側は呼出し前に要求をコピーします。追加の所有コピーやBox確保は導入しません。C ABI試作では、外部呼出し間の要求コピー・contextの所有と状態検査を実装しました。WAT接続は後続です。借用を含むRust構造をそのままABIへ公開しません。
 
 未実行の`Pending`を破棄すると未提出bufferだけを解放します。時計・起動・後始末は進めず、記録にはValidate/Reserveまでが残ります。消費した呼出し番号は戻さず、次の呼出しは次の番号を使います。二重executeと準備中の接続再利用はコンパイル失敗テストで検査します。
 
@@ -167,10 +167,12 @@ program --cerune-runtime-v1 --process-config process.json --file-root directory 
 | 順序 | 変更単位 | 完了条件 |
 | --- | --- | --- |
 | 1（実装済み） | 共通runtimeのprepare/execute分離と固定Report codec | 従来APIと段階APIの結果・OS操作列・観測が一致。予約失敗後に起動せず、二重実行・予約待ち破棄を検証 |
-| 2 | Native系C ABIのアダプタと静的リンク試作 | Windows/Linuxで型幅・配置・寿命・不正版・失敗・回収を検証。Rustと独立したC側の期待値と比較 |
+| 2（試作実装済み） | Native系C ABIのアダプタと静的リンク試作 | Windows/Linuxで型幅・配置・寿命・不正版・失敗・回収を検証。Rustと独立したC側の期待値と比較 |
 | 3 | 生成Cのloweringと起動設定 | [registered.ceru](../../examples/process_execution/registered.ceru)を4実行器と比較。未接続・部分出力・非0終了・継続・所有・失敗位置が一致 |
 | 4 | LLVM・QBE・Native、Native build/release | 同じABIを使用。非最適化/SSA、明示target・リンク・依存記録を比較 |
 | 5 | WATの版付きhost、Linux監督の配布仕上げ | private memory、旧hostの拒否、同じ要求・結果・回収、配置変更後の配布実行を検証 |
+
+C ABI試作の具体的なシグネチャ・状態・検証手順は[専用文書](../../experiments/subprocess/c_abi/README.md)にまとめています。設定JSONの解析をCLIと共有し、releaseが接続停止を解除しないことも検証します。
 
 生成C対応までは、未対応の生成経路を成功する空実装へ変えません。将来APIの未実装`.ceru`を実行example一覧へ追加せず、既存の例を各経路で実行できるようになった段階で説明を更新します。
 

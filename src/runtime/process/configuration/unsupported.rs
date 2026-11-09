@@ -1,5 +1,5 @@
 //! 未対応OSでは接続を構築せず、型だけを共有します。
-use cerune_lang::runtime::process::{
+use crate::runtime::process::{
     Backend, Batch, CallContext, Launch, Request,
     transfers::{Ticket, Transfer},
 };

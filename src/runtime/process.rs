@@ -2,8 +2,11 @@
 //! Windows/Linux実OS Backend、共通IR、4実行器、CLIを接続済みです。
 pub use super::output::Origin;
 use std::{num::NonZeroU64, time::Duration};
+#[cfg(feature = "process-c-abi")]
+pub mod abi;
 pub(crate) mod access;
 mod backend;
+pub mod configuration;
 #[cfg(target_os = "linux")]
 pub mod linux;
 mod preparation;

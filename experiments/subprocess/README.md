@@ -90,3 +90,7 @@ Windows/Linux Backendの検証に[共通の言語テスト](execution.rs)を追�
 ## 準備・実行の分離と固定Report
 
 共通の言語テストでは、4実行器との比較に加えて、同じ専用fixtureをRustのprepare/execute APIで別途実行します。非0終了・stdout/stderrの生バイト・受理数・出自を確認し、32個のu64によるReport v1をlittle-endianへ変換して復元します。JSONLのlanguage-four-executorsにはstaged=trueとreport_words=32も記録します。これはRust runtimeの検証であり、生成経路のC ABI試作ではありません。
+
+## C ABIと静的リンク
+
+[専用試作](c_abi/README.md)で、共通runtimeを独立したCプログラムへ静的リンクし、要求の所有・状態検査・固定Report・結果の位置指定読取りをWindows/Linuxで検証します。生成CのloweringとNative配布への接続は後続です。

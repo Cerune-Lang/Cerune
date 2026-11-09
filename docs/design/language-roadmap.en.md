@@ -2,7 +2,7 @@
 
 [日本語](language-roadmap.ja.md)
 
-Generated subprocess support follows the [contract](subprocess-generated.en.md). Shared prepare/execute stages and the fixed Report v1 codec are implemented. Next are the C ABI adapter and static-link probe, followed by generated C, LLVM/QBE/Native, and WAT integration.
+Generated subprocess support follows the [contract](subprocess-generated.en.md). Shared prepare/execute stages and the fixed Report v1 codec are implemented. The C ABI adapter and static linking are verified in the [Windows/Linux probe](../../experiments/subprocess/c_abi/README.en.md). Next is generated C, followed by LLVM/QBE/Native and WAT integration.
 
 This inventory records capabilities, execution routes, and next steps as of 2026-11-09. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 

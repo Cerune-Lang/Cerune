@@ -246,7 +246,7 @@ fn does_not_create_phis_for_dead_locals_or_delete_their_computations() {
             .blocks
             .iter()
             .map(|b| b.instructions.len())
-            .sum()
+            .sum::<usize>()
     );
     correspondence(&p).unwrap();
 }

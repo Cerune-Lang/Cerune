@@ -2,7 +2,7 @@
 
 [日本語](subprocess-generated.ja.md)
 
-**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI, static library, and WAT host connection remain designs; C/LLVM/QBE/WAT/Native still reject IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
+**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). Generated-code and WAT host integration remain unimplemented; C/LLVM/QBE/WAT/Native still reject IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
 
 ## Findings and direction
 
@@ -64,7 +64,7 @@ The [staged API](../../src/runtime/process/preparation.rs) has these responsibil
 | `Prepared::execute` | Accept language-side reservation status and launch only on success; consume preparation and return the result and reserved storage |
 | `run` / `run_with_reservation` | Existing entry points calling the same consecutive stages |
 
-The Rust API borrows the request immutably and the connection exclusively, while owning transfer buffers. Existing language bridges copy requests before the call. No additional owned copy or Box allocation is introduced. Future C/WAT adapters must separately own request copies and contexts across foreign calls and check protocol states. Borrowing Rust structures are not exported as an ABI.
+The Rust API borrows the request immutably and the connection exclusively, while owning transfer buffers. Existing language bridges copy requests before the call. No additional owned copy or Box allocation is introduced. The C ABI prototype now owns request copies and contexts across foreign calls and checks protocol states. WAT integration follows later. Borrowing Rust structures are not exported as an ABI.
 
 Dropping an unexecuted pending state releases only unsubmitted buffers. It advances no clock, launch, or cleanup; observations retain Validate/Reserve. The consumed call identity is not rolled back, and the next call receives the next identity. Compile-fail tests reject duplicate execution and connection reuse while preparation remains live.
 
@@ -167,7 +167,7 @@ Never automatically embed local registered absolute paths, environment values, o
 | Order | Change | Completion criterion |
 | --- | --- | --- |
 | 1 (implemented) | Split shared prepare/execute and implement fixed Report codec | Existing/staged APIs agree on results, OS calls, and observations; failed reservation never launches; test duplicate execution and discarded preparation |
-| 2 | Native C ABI adapter and static linking probe | Windows/Linux widths, layout, lifetime, invalid version, failure, and reclamation; independent C expectations |
+| 2 (prototype implemented) | Native C ABI adapter and static linking probe | Windows/Linux widths, layout, lifetime, invalid version, failure, and reclamation; independent C expectations |
 | 3 | Generated C lowering and startup | Compare [registered.ceru](../../examples/process_execution/registered.ceru) with four executors: unconfigured, partial output, nonzero exit, continuation, ownership, origins |
 | 4 | LLVM/QBE/Native and Native build/release | Same ABI; baseline/SSA, explicit target/linking/dependency records |
 | 5 | Versioned WAT host and supervisor distribution completion | Private memory, old-host rejection, matching requests/results/cleanup, relocated distribution execution |
@@ -175,3 +175,5 @@ Never automatically embed local registered absolute paths, environment values, o
 Until C support lands, never replace unsupported emission with successful stubs. Do not add unimplemented future-API `.ceru` files to executable examples; update existing example instructions as each route becomes executable.
 
 At every stage compare all failure categories, zero/exact/exceeded limits, u64 precision, NodeId/SourceId/Span, and independent copies. Use scripted responses for short transfers, interruption, protocol errors, and unreclaimed cleanup; use dedicated fixtures for real OS tests. Observation must not change control flow, and separate real-time executions near deadlines are not guaranteed to agree.
+
+The C ABI prototype has [dedicated documentation](../../experiments/subprocess/c_abi/README.en.md) for signatures, states, and verification. Its JSON parser is shared with the CLI; tests also verify that releasing results never re-enables a disabled connection.
