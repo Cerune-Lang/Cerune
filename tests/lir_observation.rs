@@ -12,7 +12,7 @@ fn module(source: &str, target: Target) -> Module {
 const TARGETS: [Target; 2] = [Target::X86_64PcWindowsMsvc, Target::X86_64UnknownLinuxGnu];
 
 #[test]
-fn all_examples_have_valid_deterministic_baseline_and_ssa_lir() {
+fn examples_have_deterministic_lir_or_explicit_unsupported_operation() {
     fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
         for e in std::fs::read_dir(dir).unwrap() {
             let p = e.unwrap().path();
@@ -38,6 +38,16 @@ fn all_examples_have_valid_deterministic_baseline_and_ssa_lir() {
         let lowered = mir::ssa::lower(&ssa).unwrap();
         for p in [&original, &lowered.program] {
             for target in TARGETS {
+                if let Some(span) = hir.first_process_span() {
+                    let error = x86_64::lower_mir(p, target).unwrap_err();
+                    assert!(
+                        error
+                            .message()
+                            .contains("subprocess execution is not supported yet")
+                    );
+                    assert_eq!(error.primary_span(), Some(span));
+                    continue;
+                }
                 let m = x86_64::lower_mir(p, target)
                     .unwrap_or_else(|e| panic!("{} {target:?}: {e:?}", file.display()));
                 let before = m.clone();

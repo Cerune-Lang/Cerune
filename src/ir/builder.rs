@@ -462,6 +462,17 @@ impl Builder<'_> {
         })
     }
 
+    // 子プロセス用の一時値を、全ての再帰的な式のstack frameへ積まないよう分けます。
+    fn build_process_run(
+        &self,
+        arguments: &[ast::Expr],
+        bindings: &semantic::Bindings,
+    ) -> Result<ExprKind, Diagnostic> {
+        Ok(ExprKind::ProcessRun {
+            request: Box::new(self.build_expr(&arguments[0], None, bindings)?),
+        })
+    }
+
     // ファイル用の一時値を、全ての再帰的な式のstack frameへ積まないよう分けます。
     fn build_file_read_text(
         &self,
@@ -479,6 +490,82 @@ impl Builder<'_> {
                 Some(semantic::Type::Integer(IntegerType::I64)),
                 bindings,
             )?),
+        })
+    }
+
+    // 集約値用の一時領域を、全ての再帰的な式のstack frameへ積まないよう分けます。
+    fn build_construct(
+        &self,
+        expr: &ast::Expr,
+        bindings: &Bindings,
+    ) -> Result<ExprKind, Diagnostic> {
+        let ast::ExprKind::Construct {
+            type_name,
+            type_name_span,
+            base,
+            fields,
+        } = &expr.kind
+        else {
+            unreachable!("aggregate expression");
+        };
+        let type_id = self.model.resolve_type_name(type_name, *type_name_span)?;
+        let definition = self.model.type_definition(type_id);
+        let mut supplied = vec![false; definition.fields.len()];
+        let mut values = Vec::with_capacity(definition.fields.len());
+        let base = base
+            .as_ref()
+            .map(|base| self.build_expr(base, None, bindings).map(Box::new))
+            .transpose()?;
+
+        // 明示値は、ソースに書かれた順番のまま評価順として保存します。
+        for field_value in fields {
+            let field = definition
+                .fields
+                .iter()
+                .find(|field| field.name == field_value.name)
+                .expect("semantic analysis must resolve aggregate fields");
+            supplied[field.id.0] = true;
+            values.push(FieldValue {
+                id: FieldId(field.id.0),
+                name: field.name.clone(),
+                value: self.build_expr(&field_value.value, Some(field.ty.clone()), bindings)?,
+                origin: if field_value.generated {
+                    FieldValueOrigin::Generated {
+                        span: field_value.span,
+                    }
+                } else {
+                    FieldValueOrigin::Explicit {
+                        span: field_value.span,
+                    }
+                },
+            });
+        }
+
+        // 省略された既定値は、その後に型定義順で評価します。
+        let default_bindings = HashMap::new();
+        for field in &definition.fields {
+            if base.is_some() || supplied[field.id.0] {
+                continue;
+            }
+            let default = field
+                .default
+                .as_ref()
+                .expect("semantic analysis requires every omitted field to have a default");
+            values.push(FieldValue {
+                id: FieldId(field.id.0),
+                name: field.name.clone(),
+                value: self.build_expr(default, Some(field.ty.clone()), &default_bindings)?,
+                origin: FieldValueOrigin::Default {
+                    definition_span: field.span,
+                },
+            });
+        }
+
+        Ok(ExprKind::Construct {
+            type_id: TypeId(type_id.0),
+            type_name: type_name.clone(),
+            base,
+            fields: values,
         })
     }
 
@@ -521,6 +608,9 @@ impl Builder<'_> {
                     bindings,
                 )?),
             },
+            ast::ExprKind::Call {
+                name, arguments, ..
+            } if name == "$process_run" => self.build_process_run(arguments, bindings)?,
             ast::ExprKind::Call {
                 name, arguments, ..
             } if name == "$file_read_text" => self.build_file_read_text(arguments, bindings)?,
@@ -696,80 +786,7 @@ impl Builder<'_> {
                     name: name.clone(),
                 }
             }
-            ast::ExprKind::Construct {
-                type_name,
-                type_name_span,
-                base,
-                fields,
-            } => {
-                let type_id = self.model.resolve_type_name(type_name, *type_name_span)?;
-                let definition = self.model.type_definition(type_id);
-                let mut supplied = vec![false; definition.fields.len()];
-                let mut values = Vec::with_capacity(definition.fields.len());
-                let base = base
-                    .as_ref()
-                    .map(|base| self.build_expr(base, None, bindings).map(Box::new))
-                    .transpose()?;
-
-                // 明示値は、ソースに書かれた順番のまま評価順として保存します。
-                for field_value in fields {
-                    let field = definition
-                        .fields
-                        .iter()
-                        .find(|field| field.name == field_value.name)
-                        .expect("semantic analysis must resolve aggregate fields");
-                    supplied[field.id.0] = true;
-                    values.push(FieldValue {
-                        id: FieldId(field.id.0),
-                        name: field.name.clone(),
-                        value: self.build_expr(
-                            &field_value.value,
-                            Some(field.ty.clone()),
-                            bindings,
-                        )?,
-                        origin: if field_value.generated {
-                            FieldValueOrigin::Generated {
-                                span: field_value.span,
-                            }
-                        } else {
-                            FieldValueOrigin::Explicit {
-                                span: field_value.span,
-                            }
-                        },
-                    });
-                }
-
-                // 省略された既定値は、その後に型定義順で評価します。
-                let default_bindings = HashMap::new();
-                for field in &definition.fields {
-                    if base.is_some() || supplied[field.id.0] {
-                        continue;
-                    }
-                    let default = field
-                        .default
-                        .as_ref()
-                        .expect("semantic analysis requires every omitted field to have a default");
-                    values.push(FieldValue {
-                        id: FieldId(field.id.0),
-                        name: field.name.clone(),
-                        value: self.build_expr(
-                            default,
-                            Some(field.ty.clone()),
-                            &default_bindings,
-                        )?,
-                        origin: FieldValueOrigin::Default {
-                            definition_span: field.span,
-                        },
-                    });
-                }
-
-                ExprKind::Construct {
-                    type_id: TypeId(type_id.0),
-                    type_name: type_name.clone(),
-                    base,
-                    fields: values,
-                }
-            }
+            ast::ExprKind::Construct { .. } => self.build_construct(expr, bindings)?,
             ast::ExprKind::FieldAccess {
                 base, field_name, ..
             } => {

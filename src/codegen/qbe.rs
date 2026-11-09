@@ -103,6 +103,7 @@ fn emit_configured(
     limits: crate::runtime::arguments::Limits,
     call_limit: Option<std::num::NonZeroU32>,
 ) -> Result<String, Diagnostic> {
+    super::support::reject_process(program, "QBE")?;
     if target.is_none()
         && let Some(span) = program.first_file_span()
     {

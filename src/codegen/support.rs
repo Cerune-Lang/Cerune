@@ -60,3 +60,16 @@ pub(super) fn reject_files(
     }
     Ok(())
 }
+
+pub(super) fn reject_process(
+    program: &crate::ir::Program,
+    backend: &str,
+) -> Result<(), crate::diagnostic::Diagnostic> {
+    if let Some(span) = program.first_process_span() {
+        return Err(crate::diagnostic::Diagnostic::new(
+            format!("{backend} subprocess execution is not supported yet"),
+            span,
+        ));
+    }
+    Ok(())
+}

@@ -217,6 +217,11 @@ pub enum Operation<R = LocalId> {
     ArrayLength(R),
     ArgumentCount,
     ArgumentGet(R),
+    ProcessRun {
+        request: R,
+        request_type: ir::TypeId,
+        outcome_type: ir::TypeId,
+    },
     FileReadText {
         name: R,
         max_bytes: R,

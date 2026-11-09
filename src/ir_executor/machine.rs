@@ -565,7 +565,8 @@ fn statement_operand(s: &Statement, index: usize) -> Option<&Expr> {
 fn expression_operand(e: &Expr, index: usize) -> Option<&Expr> {
     match &e.kind {
         E::ArrayAllocate { length, .. } => (index == 0).then_some(length),
-        E::ArgumentGet { index: value }
+        E::ProcessRun { request: value }
+        | E::ArgumentGet { index: value }
         | E::ReadLine { max_bytes: value }
         | E::ArrayReleaseOwner { value }
         | E::Constant { value, .. }
@@ -644,6 +645,7 @@ mod tests {
                 output: &mut output,
                 input: &mut input,
                 files: &mut files::unconfigured(),
+                processes: None,
                 program_arguments: &arguments,
                 heap: StringHeap::new(program.string_heap_limit),
                 arrays: ArrayHeap::new(program.array_heap_limit),

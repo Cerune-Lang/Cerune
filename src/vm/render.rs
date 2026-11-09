@@ -55,6 +55,9 @@ fn render_message(error: &VmError) -> String {
         VmErrorKind::CallDepth(failure) => failure.to_string(),
         VmErrorKind::Arguments(failure) => failure.to_string(),
         VmErrorKind::Files(failure) => failure.to_string(),
+        VmErrorKind::InvalidProcessOperation => {
+            "invalid process operation or missing source origin".into()
+        }
         VmErrorKind::FileOriginMissing => "file operation lacks source origin".into(),
         VmErrorKind::Input(failure) => failure.to_string(),
         VmErrorKind::ArgumentOriginMissing => "argument operation lacks source origin".into(),

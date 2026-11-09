@@ -45,3 +45,4 @@ experiments/wat_host/** -linguist-detectable
 experiments/subprocess/** -linguist-detectable
 
 examples/process_results/*.stdout text eol=lf
+examples/process_execution/*.stdout text eol=lf

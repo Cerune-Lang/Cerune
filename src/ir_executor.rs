@@ -5,6 +5,7 @@ use crate::runtime::call;
 use crate::runtime::files;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
+use crate::runtime::process::{self, access as process_access};
 use crate::runtime::value::{self, write_quoted};
 use crate::{
     ir::{self, Expr, ExprKind as E, Statement, StatementKind as S},
@@ -156,6 +157,7 @@ struct Executor<'a, 'o> {
     output: &'o mut dyn Sink,
     input: &'o mut dyn Source,
     files: &'o mut dyn files::Access,
+    processes: Option<process_access::Connection<'o, Value>>,
     program_arguments: &'o Arguments,
     heap: StringHeap,
     arrays: ArrayHeap<Value>,
@@ -299,6 +301,25 @@ fn run_resources(
     files: &mut dyn files::Access,
     limit: Option<NonZeroU32>,
 ) -> std::result::Result<String, ExecutionError> {
+    run_process_resources(
+        program,
+        output,
+        input,
+        program_arguments,
+        files,
+        None,
+        limit,
+    )
+}
+fn run_process_resources<'o>(
+    program: &ir::Program,
+    output: &'o mut dyn Sink,
+    input: &'o mut dyn Source,
+    program_arguments: &'o Arguments,
+    files: &'o mut dyn files::Access,
+    processes: Option<process_access::Connection<'o, Value>>,
+    limit: Option<NonZeroU32>,
+) -> std::result::Result<String, ExecutionError> {
     let mut executor = Executor {
         calls: limit.map(call::Stack::new),
         program,
@@ -306,6 +327,7 @@ fn run_resources(
         input,
         program_arguments,
         files,
+        processes,
         heap: StringHeap::new(program.string_heap_limit),
         arrays: ArrayHeap::new(program.array_heap_limit),
     };
@@ -553,6 +575,36 @@ impl Executor<'_, '_> {
                         })?,
                 )
             }
+            E::ProcessRun { request } => {
+                let ir::Type::Named(request_type) = request.ty else {
+                    return Err(Fault::invalid("process request type"));
+                };
+                let ir::Type::Named(outcome_type) = e.ty else {
+                    return Err(Fault::invalid("process outcome type"));
+                };
+                let request = operand(values)?;
+                process_access::execute(
+                    &mut self.processes,
+                    process_access::Call {
+                        definitions: &self.program.type_definitions,
+                        request_type,
+                        outcome_type,
+                        request: &request,
+                        heap: &mut self.arrays,
+                        available: 0,
+                        origin: process::Origin {
+                            node_id: e.id,
+                            span: e.span,
+                        },
+                    },
+                )
+                .map_err(|e| {
+                    process_access::resource_error(e).map_or_else(
+                        || Fault::invalid("invalid process operation"),
+                        Fault::failure,
+                    )
+                })?
+            }
             E::FileReadText { .. } => {
                 let name = operand(values)?.string()?;
                 let limit = operand(values)?.integer(IntegerType::I64)? as i64;
@@ -797,6 +849,26 @@ fn set_path(current: &mut Value, path: &[usize], replacement: Value) -> Result<(
     }
 }
 
+/// 起動対象を登録した接続と転送領域上限を明示して実行します。暗黙のOS接続は行いません。
+pub fn run_with_processes<B: process::Backend>(
+    program: &ir::Program,
+    processes: &mut process::Processes<B>,
+    transfer_bytes: usize,
+) -> std::result::Result<String, ExecutionError> {
+    run_process_resources(
+        program,
+        &mut Capture::default(),
+        &mut input::unconfigured(),
+        &Arguments::unconfigured(),
+        &mut files::unconfigured(),
+        Some(process_access::Connection {
+            access: processes,
+            available: transfer_bytes,
+        }),
+        None,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -823,6 +895,7 @@ mod tests {
             output: &mut captured,
             input: &mut crate::runtime::input::unconfigured(),
             files: &mut crate::runtime::files::unconfigured(),
+            processes: None,
             program_arguments: &Arguments::unconfigured(),
             heap: StringHeap::new(program.string_heap_limit),
             arrays: ArrayHeap::new(program.array_heap_limit),
@@ -870,6 +943,7 @@ mod tests {
             output: &mut captured,
             input: &mut crate::runtime::input::unconfigured(),
             files: &mut crate::runtime::files::unconfigured(),
+            processes: None,
             program_arguments: &Arguments::unconfigured(),
             heap: StringHeap::new(p.string_heap_limit),
             arrays: ArrayHeap::new(p.array_heap_limit),

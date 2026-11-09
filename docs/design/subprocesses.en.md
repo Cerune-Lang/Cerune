@@ -2,7 +2,7 @@
 
 [日本語](subprocesses.ja.md)
 
-This is a design proposal as of 2026-11-02. **Language-level subprocess execution is not implemented.** Related issues are [#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#173](https://github.com/Cerune-Lang/Cerune/issues/173), and [#104](https://github.com/Cerune-Lang/Cerune/issues/104) for comparisons without duplicating external effects.
+This is a design proposal as of 2026-11-02. [common IR and four executors](subprocess-execution.en.md) are implemented; CLI registration and generated routes follow. Related issues are [#89](https://github.com/Cerune-Lang/Cerune/issues/89), [#173](https://github.com/Cerune-Lang/Cerune/issues/173), and [#104](https://github.com/Cerune-Lang/Cerune/issues/104) for comparisons without duplicating external effects.
 
 ## Direction and current status
 
@@ -22,7 +22,7 @@ The existing linker and test helpers collect output into temporary files and enf
 
 ## Partial common-runtime implementation
 
-`runtime::process::Processes<B>` now integrates [in-flight transfer state](subprocess-transfers.en.md). A [scripted connection](../../src/runtime/process/tests.rs) verifies requests, launch, transfers, deadlines, exit monitoring, and cleanup. The [Windows OS Backend](subprocess-windows.en.md) is now integrated. The [Linux Backend](subprocess-linux.en.md) is also integrated. [Public std:process data types](subprocess-values.en.md) are now available. **`run`, subprocess IR instructions, and operation integration with executors/generated routes remain unimplemented.** Cerune programs cannot yet launch subprocesses.
+`runtime::process::Processes<B>` now integrates [in-flight transfer state](subprocess-transfers.en.md). A [scripted connection](../../src/runtime/process/tests.rs) verifies requests, launch, transfers, deadlines, exit monitoring, and cleanup. The [Windows OS Backend](subprocess-windows.en.md) is now integrated. The [Linux Backend](subprocess-linux.en.md) is also integrated. [Public std:process data types](subprocess-values.en.md) are now available. [common IR and four executors](subprocess-execution.en.md) now accept explicit Rust API connections; CLI registration and generated routes follow.
 
 | Component | Current behavior |
 | --- | --- |
@@ -56,13 +56,13 @@ cargo test --lib runtime::process
 
 Tests compare all six notification-array orders, late partial transfers, delayed/missing cancellation replies, EOF/limits, cleanup, later calls, and observation enabled/disabled. Normal exit, output, timeout, and capacity failure also compare results against the old synchronous model.
 
-The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) already verifies nine cases including argv, concurrent transfer, deadlines, and descendants. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor. The [OS connection design](subprocess-os.en.md) now includes measured Linux supervisor isolation from caller configuration and unrelated children. [Control transport/descriptor transfer and Windows asynchronous I/O/cancellation](../../experiments/subprocess/transport/README.en.md) now connect with launch/scope management, verifying inheritance restrictions and descendant/I/O reclamation during disconnection/termination. Windows now integrates common deadlines, termination, and cleanup reports. `CallContext` carries call identity/origin even for launch. Public data types are now available. Next prepare the public result's fixed shape and connect the operation through common IR.
+The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) already verifies nine cases including argv, concurrent transfer, deadlines, and descendants. Windows confirms Job membership before execution and zero active processes; Linux confirms descendant reaping in a dedicated supervisor. The [OS connection design](subprocess-os.en.md) now includes measured Linux supervisor isolation from caller configuration and unrelated children. [Control transport/descriptor transfer and Windows asynchronous I/O/cancellation](../../experiments/subprocess/transport/README.en.md) now connect with launch/scope management, verifying inheritance restrictions and descendant/I/O reclamation during disconnection/termination. Windows now integrates common deadlines, termination, and cleanup reports. `CallContext` carries call identity/origin even for launch. Public data types are now available. Fixed result shape and common IR are connected; CLI configuration is next.
 
 ## Calls and connections
 
-The virtual standard module `std:process` provides data types; the planned operation is `run`. Use the reserved names, virtual sources, and SourceIds of [existing standard modules](standard-modules.en.md), without changing relative imports or introducing implicit file search.
+The virtual standard module `std:process` provides data types; the execution operation is `run` in the separate `std:process/run` module. Use the reserved names, virtual sources, and SourceIds of [existing standard modules](standard-modules.en.md), without changing relative imports or introducing implicit file search.
 
-The [Request type](subprocess-values.en.md) represents the following information. Finalize the run signature and accepted runtime ranges during integration.
+The [Request type](subprocess-values.en.md) represents the following information. run takes Request and returns Outcome. Rust connection Limits specify accepted ranges; CLI ranges and defaults follow.
 
 | Request | Proposal |
 | --- | --- |

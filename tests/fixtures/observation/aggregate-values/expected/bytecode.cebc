@@ -1,6 +1,7 @@
 ; Cerune bytecode v0.1
 
 .type 0 Item
+.variants 0 ["Value", "Empty"]
 .field 0.0 $tag i64
 .field 0.1 $Value$n i64
 

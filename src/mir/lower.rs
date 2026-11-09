@@ -574,6 +574,19 @@ impl<'a> Builder<'a> {
             E::ArrayLength { value } => Operation::ArrayLength(self.expr(value)?),
             E::ArgumentCount => Operation::ArgumentCount,
             E::ArgumentGet { index } => Operation::ArgumentGet(self.expr(index)?),
+            E::ProcessRun { request } => {
+                let ir::Type::Named(request_type) = request.ty else {
+                    unreachable!()
+                };
+                let ir::Type::Named(outcome_type) = e.ty else {
+                    unreachable!()
+                };
+                Operation::ProcessRun {
+                    request: self.expr(request)?,
+                    request_type,
+                    outcome_type,
+                }
+            }
             E::FileReadText { name, max_bytes } => Operation::FileReadText {
                 name: self.expr(name)?,
                 max_bytes: self.expr(max_bytes)?,

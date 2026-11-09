@@ -61,6 +61,7 @@ pub enum ReturnType {
 
 #[derive(Debug, Clone)]
 pub struct TypeDefinition {
+    pub variants: Option<Vec<String>>,
     pub name: String,
     pub fields: Vec<FieldDefinition>,
 }
@@ -141,6 +142,10 @@ pub enum InstructionKind {
     },
     ArgumentCount,
     ArgumentGet,
+    ProcessRun {
+        request_type: usize,
+        outcome_type: usize,
+    },
     FileReadText,
     FileWriteNew,
     ReadLine,
@@ -260,6 +265,7 @@ pub fn lower(program: &Program) -> Result<BytecodeProgram, Diagnostic> {
         .type_definitions
         .iter()
         .map(|definition| TypeDefinition {
+            variants: definition.variants.clone(),
             name: definition.name.clone(),
             fields: definition
                 .fields
@@ -363,7 +369,12 @@ pub fn format_program(program: &BytecodeProgram) -> String {
         .instructions
         .iter()
         .chain(program.functions.iter().flat_map(|f| &f.instructions))
-        .any(|i| matches!(i.kind, InstructionKind::ArrayAllocate { .. }))
+        .any(|i| {
+            matches!(
+                i.kind,
+                InstructionKind::ArrayAllocate { .. } | InstructionKind::ProcessRun { .. }
+            )
+        })
     {
         writeln!(
             output,
@@ -396,6 +407,9 @@ pub fn format_program(program: &BytecodeProgram) -> String {
 
     for (type_id, definition) in program.type_definitions.iter().enumerate() {
         writeln!(output, "\n.type {type_id} {}", definition.name).unwrap();
+        if let Some(variants) = &definition.variants {
+            writeln!(output, ".variants {type_id} {variants:?}").unwrap();
+        }
         for (field_id, field) in definition.fields.iter().enumerate() {
             writeln!(
                 output,
@@ -870,6 +884,23 @@ impl Compiler {
             ExprKind::ArgumentGet { index } => {
                 self.emit_expr(index);
                 self.emit_source(InstructionKind::ArgumentGet, expr.id, expr.span);
+            }
+            ExprKind::ProcessRun { request } => {
+                self.emit_expr(request);
+                let ir::Type::Named(request_type) = request.ty else {
+                    unreachable!()
+                };
+                let ir::Type::Named(outcome_type) = expr.ty else {
+                    unreachable!()
+                };
+                self.emit_source(
+                    InstructionKind::ProcessRun {
+                        request_type: request_type.0,
+                        outcome_type: outcome_type.0,
+                    },
+                    expr.id,
+                    expr.span,
+                );
             }
             ExprKind::FileReadText { name, max_bytes } => {
                 self.emit_expr(name);
@@ -1356,6 +1387,16 @@ fn format_instruction(
         }
         InstructionKind::ArgumentGet => {
             writeln!(output, "arguments.get").unwrap();
+        }
+        InstructionKind::ProcessRun {
+            request_type,
+            outcome_type,
+        } => {
+            writeln!(
+                output,
+                "process.run type@{request_type} -> type@{outcome_type}"
+            )
+            .unwrap();
         }
         InstructionKind::FileReadText => {
             writeln!(output, "file.read_text.utf8").unwrap();

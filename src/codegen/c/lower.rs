@@ -435,6 +435,9 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
             left: Box::new(lower_expr(left)),
             right: Box::new(lower_expr(right)),
         },
+        cerune_ir::ExprKind::ProcessRun { .. } => {
+            unreachable!("process operation rejected before lowering")
+        }
         cerune_ir::ExprKind::FileReadText { name, max_bytes } => ExprKind::FileReadText {
             name: Box::new(lower_expr(name)),
             max_bytes: Box::new(lower_expr(max_bytes)),
@@ -640,6 +643,7 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
             cerune_ir::ExprKind::Constant { value, .. } => visit_expr(value, types),
             cerune_ir::ExprKind::ArrayLength { value }
             | cerune_ir::ExprKind::ArgumentGet { index: value }
+            | cerune_ir::ExprKind::ProcessRun { request: value }
             | cerune_ir::ExprKind::ReadLine { max_bytes: value }
             | cerune_ir::ExprKind::StringByteLength { value } => visit_expr(value, types),
             cerune_ir::ExprKind::String(_) => {}

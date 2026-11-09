@@ -1,5 +1,8 @@
 //! 共通runtimeとLinux実OS Backendの接続検証です。言語exampleではありません。
 #[cfg(target_os = "linux")]
+#[path = "execution.rs"]
+mod execution;
+#[cfg(target_os = "linux")]
 #[path = "linux_backend_faults.rs"]
 mod faults;
 #[cfg(target_os = "linux")]
@@ -105,6 +108,10 @@ mod check {
             )
         };
         let before = retained_connections();
+        record(
+            "language-four-executors",
+            super::execution::check(|| backend(64), limits())?,
+        )?;
         record(
             "result-reservation-before-launch",
             super::reservation::check(backend(64), limits(), origin())?,

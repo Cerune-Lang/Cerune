@@ -2,7 +2,7 @@
 
 [日本語](subprocess-storage.ja.md)
 
-Discovering insufficient result storage after launch cannot undo external effects. The [common runtime](subprocesses.en.md) now supports prelaunch return-storage reservation, and the internal array heap supports reservation, finalization, and cancellation. **Language `std:process::run` and common IR instructions remain unimplemented.**
+Discovering insufficient result storage after launch cannot undo external effects. The [common runtime](subprocesses.en.md) now supports prelaunch return-storage reservation, and the internal array heap supports reservation, finalization, and cancellation. [common IR and four executors](subprocess-execution.en.md) integration is also implemented.
 
 ## Current implementation
 
@@ -47,7 +47,7 @@ Reservation exclusively borrows the array heap and never exposes uninitialized s
 
 ## Fixed Report storage
 
-The [internal Report conversion](../../src/runtime/process/report_value.rs) is implemented and used by unit and common-runtime integration tests. Language instructions do not call it yet.
+The [internal Report conversion](../../src/runtime/process/report_value.rs) is implemented and used by unit and common-runtime integration tests. Language instructions in four executors also call it.
 
 | Stage | Behavior |
 | --- | --- |
@@ -63,7 +63,7 @@ Layout mismatches are internal type-integration errors; allocation failures are 
 
 ## Connecting requests and Outcome
 
-The [internal value bridge](../../src/runtime/process/language_values.rs) calls the common runtime with a prepared request and returns Outcome using existing language values. **It is currently exercised by Rust integration tests; the common-IR instruction, `std:process::run`, and CLI remain unimplemented.**
+The [internal value bridge](../../src/runtime/process/language_values.rs) calls the common runtime with a prepared request and returns Outcome using existing language values. **The common-IR operation from `std:process/run` uses it. CLI configuration follows.**
 
 | Order | Behavior and failure handling |
 | --- | --- |
@@ -75,7 +75,7 @@ The [internal value bridge](../../src/runtime/process/language_values.rs) calls 
 
 Preparation never changes the original language values. Copied requests remain independent of later source-array mutation/release. Conversion does not launch anything or retry conversion/execution implicitly. Prepared requests do not expose a Debug representation containing their bodies.
 
-Rejected or unconfigured requests can return Outcome with empty arrays. Output-reservation failures retain existing `Reserve`-phase `OutputBudget`/`AllocationFailed` behavior. Failure to allocate the fixed shape or request copies is an internal resource error; language-diagnostic integration is still pending. Recovery from allocator abort is not guaranteed.
+Rejected or unconfigured requests can return Outcome with empty arrays. Output-reservation failures retain existing `Reserve`-phase `OutputBudget`/`AllocationFailed` behavior. Failure to allocate the fixed shape or request copies is an internal resource error; it now produces a source-located stop. Recovery from allocator abort is not guaranteed.
 
 Returned arrays use existing retain/release/free rules. Reserved-limit accounting persists until release even for short partial results. Observation settings do not change requests, results, or OS action sequences.
 

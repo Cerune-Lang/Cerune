@@ -6,7 +6,7 @@ The public line-input API uses `import "std:io" as io;` and `io::read_line(4096)
 
 ## Resolution and identity
 
-- Classify `std:` imports as standard modules. The exact identifiers `std:io`, `std:env`, `std:num`, `std:fs`, and `std:process` are recognized; unknown identifiers fail without filesystem fallback.
+- Classify `std:` imports as standard modules. The exact identifiers `std:io`, `std:env`, `std:num`, `std:fs`, `std:process`, and `std:process/run` are recognized; unknown identifiers fail without filesystem fallback.
 - Preserve existing relative `.ceru` resolution. Add no environment variables, search paths, network downloads, or general package manager.
 - Register each standard module once per compilation. Aliases and imports from multiple user files share ordinary struct/enum definitions across all backends.
 - `modules::from_source` resolves in-memory source and bundled modules only, rejecting relative file imports. compile(&str) and compile_to_ir(&str) use this path without implicit file I/O. APIs taking a single SourceFile preserve their existing behavior without resolving imports; use modules::from_source when the full SourceMap including standard sources is needed.
@@ -15,7 +15,7 @@ The public line-input API uses `import "std:io" as io;` and `io::read_line(4096)
 
 SourceIds are compilation-local registration-order identifiers: register the entry first, then traverse dependencies in declaration order. Do not reserve a fixed numerical ID for std:io or assume IDs match across compilations.
 
-SourceMap distinguishes user and standard sources. Standard sources use identifiers std:io, std:env, std:num, std:fs, or std:process, all with contract version 1. emit-sources includes its text, SourceId, kind, identifier, and version, without inventing a filesystem path. Preserve anonymous spans and manifests for existing single-source inputs without standard modules.
+SourceMap distinguishes user and standard sources. Standard sources use identifiers std:io, std:env, std:num, std:fs, std:process, or std:process/run, all with contract version 1. emit-sources includes its text, SourceId, kind, identifier, and version, without inventing a filesystem path. Preserve anonymous spans and manifests for existing single-source inputs without standard modules.
 
 The input operation's Span refers to its location in the bundled function. The caller's HIR Call retains the user's Span, allowing observation of the relationship between caller, function, and input operation. Never render a virtual-source diagnostic against the same offsets in a user file.
 
@@ -53,4 +53,4 @@ The bundled virtual source declares `read_text` and `write_new`. Common IR conne
 
 ## Subprocess data types in std:process
 
-The bundled virtual source represents requests/results with ordinary structs and enums. Only data types are implemented; run and internal subprocess operations are not. See [types and remaining integration](subprocess-values.en.md) and the [value-handling example](../../examples/process_results/README.en.md).
+The bundled virtual source represents requests/results with ordinary structs and enums. Execution in `std:process/run` is connected to [common IR and four executors](subprocess-execution.en.md). See [types and remaining integration](subprocess-values.en.md) and the [value-handling example](../../examples/process_results/README.en.md).

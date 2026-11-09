@@ -65,6 +65,19 @@ pub fn lower_with_argument_limits(
         }
         for b in &f.blocks {
             for i in &b.instructions {
+                if matches!(
+                    &i.kind,
+                    Kind::Assign {
+                        value: Op::ProcessRun { .. },
+                        ..
+                    }
+                ) {
+                    let message = "Native subprocess execution is not supported yet";
+                    return Err(match i.origin.source() {
+                        Some(o) => crate::diagnostic::Diagnostic::new(message, o.span),
+                        None => crate::diagnostic::Diagnostic::without_span(message),
+                    });
+                }
                 match &i.kind {
                     Kind::Assign {
                         value: Op::ArgumentCount | Op::ArgumentGet(_),
@@ -713,6 +726,7 @@ impl Lowerer<'_> {
                     self.push(Instruction::ArrayLength);
                 }
             },
+            Op::ProcessRun { .. } => unreachable!("process operation rejected before lowering"),
             Op::FileReadText { name, max_bytes } => {
                 self.load(*max_bytes);
                 self.push(Instruction::FileReadText {

@@ -194,6 +194,16 @@ fn operation<R: Copy + std::fmt::Display>(op: &Operation<R>) -> String {
         Operation::ArrayLength(v) => format!("array.length {}", value(*v)),
         Operation::ArgumentCount => "arguments.count".into(),
         Operation::ArgumentGet(v) => format!("arguments.get {}", value(*v)),
+        Operation::ProcessRun {
+            request,
+            request_type,
+            outcome_type,
+        } => format!(
+            "process.run {} type@{} -> type@{}",
+            value(*request),
+            request_type.0,
+            outcome_type.0
+        ),
         Operation::FileReadText { name, max_bytes } => {
             format!("file.read_text.utf8 {} {}", value(*name), value(*max_bytes))
         }

@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-[outcome.ceru](outcome.ceru)は`std:process`の型を使い、**自分で構築した結果値**を処理します。子プロセスは起動しません。`process::run`はまだ未実装です。
+[outcome.ceru](outcome.ceru)は`std:process`の型を使い、**自分で構築した結果値**を処理します。子プロセスは起動しません。実行操作は別の[example](../process_execution/README.md)で扱います。
 
 | 確認すること | 表現 |
 | --- | --- |
