@@ -76,3 +76,6 @@ lto = "thin"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"
+
+[features]
+process-c-abi = []

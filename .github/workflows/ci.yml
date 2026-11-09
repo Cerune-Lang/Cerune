@@ -580,6 +580,16 @@ jobs:
       - name: Build Linux supervisor
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: cargo build --example subprocess_linux_supervisor
+      - name: Check subprocess C ABI runtime
+        run: cargo test --lib runtime::process --features process-c-abi
+      - name: Check subprocess C ABI types
+        run: cargo clippy --lib --features process-c-abi -- -D warnings
+      - name: Link and execute subprocess C ABI on Linux
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: node experiments/subprocess/c_abi/check.cjs x86_64-unknown-linux-gnu clang target/subprocess-c-abi "$PWD/target/debug/examples/subprocess_linux_supervisor"
+      - name: Link and execute subprocess C ABI on Windows
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: node experiments/subprocess/c_abi/check.cjs x86_64-pc-windows-msvc clang target/subprocess-c-abi
       - name: Verify Linux common-runtime Backend
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend
@@ -602,4 +612,5 @@ jobs:
             target/subprocess-transport-probe/observations.jsonl
             target/subprocess-windows-backend/observations.jsonl
             target/subprocess-linux-backend/observations.jsonl
+            target/subprocess-c-abi/commands.json
           if-no-files-found: ignore

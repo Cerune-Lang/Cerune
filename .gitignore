@@ -24,3 +24,6 @@
 !tests/support/native_runtime_reference/*.s
 
 /experiments/wat_host/target
+
+# Independent subprocess C ABI verification
+!experiments/subprocess/c_abi/probe.c

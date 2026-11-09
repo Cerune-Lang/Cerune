@@ -90,3 +90,7 @@ Windows/Linux Backend probes include a [shared language check](execution.rs). Th
 ## Separate preparation/execution and fixed Report
 
 In addition to the four-executor comparison, the shared language check separately executes the same dedicated fixture through the Rust prepare/execute API. It checks nonzero exit, raw stdout/stderr, accepted counts, and origins, then round-trips the 32-u64 Report v1 through little-endian bytes. The language-four-executors JSONL record also includes staged=true and report_words=32. This verifies the Rust runtime; it is not a generated-route C ABI probe.
+
+## C ABI and static linking
+
+The [dedicated probe](c_abi/README.en.md) statically links the shared runtime into an independent C program and verifies request ownership, call states, fixed Reports, and positioned result reads on Windows/Linux. Generated C lowering and Native distribution integration follow later.
