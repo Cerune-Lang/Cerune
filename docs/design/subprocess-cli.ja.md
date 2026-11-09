@@ -75,3 +75,5 @@ cerune run-vm app.ceru --process-config process.json
 Linuxの実OSテストは`CERUNE_TEST_PROCESS_SUPERVISOR`で明示した検証用監督を必要とします。通常のテストではignoreされ、OS専用CIで`--include-ignored`を付けて必ず実行します。これはテスト設定であり、Cerune CLIはこの環境変数を読みません。
 
 Linux監督は現在Cargo exampleとして構築します。**監督の配布同梱、生成C・LLVM・QBE・WAT・Nativeの実行ABI、Native build/releaseの設定記録は後続です。** emit/build/releaseへ今回のCLIオプションを適用しません。生成経路では未対応操作をソース位置付きで拒否します。
+
+次の具体的な順序と互換性への影響は[生成経路の契約案](subprocess-generated.ja.md)にまとめています。

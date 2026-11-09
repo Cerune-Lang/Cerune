@@ -44,4 +44,4 @@ Observation remains read-only. Identical backend responses with zero/nonzero tra
 - [OS connections](../../experiments/subprocess/execution.rs): four executors send input to a registered fixture on Windows/Linux, comparing nonzero exit, bytes, and continuation. This dedicated comparison fixture runs four times; arbitrary user programs are not automatically replayed.
 - [Runnable example](../../examples/process_execution/README.en.md): receive missing configuration as a value and continue.
 
-[CLI registration, limits, and Linux supervisor paths](subprocess-cli.en.md) are connected. Generated-route ABIs and distribution follow.
+[CLI registration, limits, and Linux supervisor paths](subprocess-cli.en.md) are connected. Next implement staged runtime APIs and fixed Report representation from the [generated-route proposal](subprocess-generated.en.md), then ABIs, lowering, and distribution.

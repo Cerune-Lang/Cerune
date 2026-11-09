@@ -44,4 +44,4 @@ MIR/SSAとVMは各経路に保持された型情報からReportの形状を検�
 - [実OS接続](../../experiments/subprocess/execution.rs)：Windows/Linuxで4実行器から明示登録したfixtureへ入力し、非0終了・生バイト・継続を比較。比較用fixtureを4回実行し、任意の利用者プログラムを自動で再実行しません。
 - [実行example](../../examples/process_execution/README.md)：未接続を値として受け取り継続。
 
-[CLI登録・上限・Linux監督パス](subprocess-cli.ja.md)を接続しました。次は生成経路のABIと配布を揃えます。
+[CLI登録・上限・Linux監督パス](subprocess-cli.ja.md)を接続しました。次は[生成経路の契約案](subprocess-generated.ja.md)に沿って共通runtimeの段階APIと固定Report表現を実装し、その後にABI・各lowering・配布を揃えます。
