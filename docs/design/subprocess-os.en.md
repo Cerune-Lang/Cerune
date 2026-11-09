@@ -2,7 +2,7 @@
 
 [日本語](subprocess-os.ja.md)
 
-This designs OS connections for the [common runtime](subprocesses.en.md) and [transfer contract](subprocess-transfers.en.md). As of 2026-11-02, the common runtime, independent OS probes, and [Windows Backend](subprocess-windows.en.md) are implemented; the [Linux Backend](subprocess-linux.en.md) is now integrated too. **Language APIs and supervisor distribution remain unimplemented**.
+Windows/Linux implement the [common runtime](subprocesses.en.md) and [transfer contract](subprocess-transfers.en.md). [Standard modules, common IR, four executors](subprocess-execution.en.md), and [CLI registration](subprocess-cli.en.md) are also connected. **Generated-route operations and Linux supervisor distribution remain future work.** This connection validates registration and OS limits.
 
 ## Status and selected architecture
 
@@ -14,7 +14,8 @@ This designs OS connections for the [common runtime](subprocesses.en.md) and [tr
 | Transport probe | [Nine Linux and thirteen Windows cases](../../experiments/subprocess/transport/README.en.md): control messages, descriptor transfer, SIGPIPE, asynchronous I/O, and cancellation; combined launch/scope checks cover inheritance, disconnection, and termination cleanup |
 | Windows connection | Integrated with common deadlines, operation identities, termination, and cleanup reports; retained ownership and explicit reclamation implemented |
 | Linux connection | Dedicated supervisor, versioned control, registration, nonblocking transfers, and explicit reclaim integrated with the common runtime |
-| Later work | Supervisor distribution, language-facing registration, standard modules/IR, routes/artifacts, language examples |
+| Language and CLI | Standard modules/IR, four executors, explicit registration/limits/supervisor paths, and language examples connected |
+| Later work | Supervisor distribution, generated execution ABIs and artifacts |
 
 Keep the common runtime as the sole owner of semantic decisions. Do not put Cerune IR/VM execution or a second timeout semantics in the Linux supervisor. Its responsibilities are OS parentage and resource reclamation.
 

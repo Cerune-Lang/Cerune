@@ -345,6 +345,35 @@ pub fn run_with_io_files_arguments_and_call_limit<
     run_resources(program, output, input, arguments, files, Some(limit)).map(|_| ())
 }
 
+/// 子プロセス接続も含め、既存の入出力と同じ実行へ渡します。
+pub fn run_with_io_files_processes_arguments_and_call_limit<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: files::Backend,
+    P: crate::runtime::process::Backend,
+>(
+    program: &BytecodeProgram,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    files: &mut files::Files<B>,
+    arguments: &Arguments,
+    limit: NonZeroU32,
+    processes: Option<(&mut crate::runtime::process::Processes<P>, usize)>,
+) -> std::result::Result<(), VmError> {
+    let processes =
+        processes.map(|(access, available)| process_access::Connection { access, available });
+    run_process_resources(
+        program,
+        output,
+        input,
+        arguments,
+        files,
+        processes,
+        Some(limit),
+    )
+    .map(|_| ())
+}
+
 pub fn run_with_arguments(
     program: &BytecodeProgram,
     arguments: &Arguments,

@@ -1,5 +1,5 @@
 //! 回復可能な子プロセス操作と、その読取り専用記録です。
-//! Windows/Linux実OS Backendを接続済みです。言語命令・返却後の配列所有は後続です。
+//! Windows/Linux実OS Backend、共通IR、4実行器、CLIを接続済みです。
 pub use super::output::Origin;
 use std::{num::NonZeroU64, time::Duration};
 pub(crate) mod access;
@@ -7,10 +7,10 @@ mod backend;
 #[cfg(target_os = "linux")]
 pub mod linux;
 mod records;
-// 共通IR接続に先立つ返却値変換。実行命令からの利用は後続です。
+// 共通IR操作へ固定Reportの返却値を渡します。
 #[allow(dead_code)]
 pub(crate) mod report_value;
-// 共通IR命令への接続前に要求・結果の所有契約を検証します。
+// 共通IR操作の要求・結果に既存の所有契約を適用します。
 #[allow(dead_code)]
 pub(crate) mod language_values;
 pub mod transfers;

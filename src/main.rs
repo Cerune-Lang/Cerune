@@ -4,6 +4,7 @@ mod format_cli;
 mod native_build;
 mod native_release;
 mod observation_bundle;
+mod process_cli;
 mod program_arguments;
 
 use cerune_lang::{diagnostic::Diagnostic, modules::Compilation};
@@ -356,13 +357,14 @@ fn run() -> Result<(), String> {
             } else {
                 (rest, false)
             };
+            let (rest, process_config) = process_cli::parse(rest)?;
             let (rest, file_root) = file_cli::parse(rest)?;
             let runtime_format = match rest.as_slice() {
                 [] => false,
                 [flag, format] if flag == "--diagnostic-format" && format == "runtime-v1" => true,
                 _ => {
                     return Err(format!(
-                        "usage: cerune {command} <file> [--file-root <directory>] [--diagnostic-format runtime-v1]"
+                        "usage: cerune {command} <file> [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1]"
                     ));
                 }
             };
@@ -371,6 +373,7 @@ fn run() -> Result<(), String> {
 
             let ir = ir_for(&source, string_heap_limit, array_heap_limit)?;
             let mut files = file_cli::connect(file_root)?;
+            let mut processes = process_cli::connect(process_config)?;
             let stdout = std::io::stdout();
             let mut output = cerune_lang::runtime::output::Output::new(stdout.lock());
             let mut stdin = cerune_lang::runtime::input::stdin();
@@ -381,13 +384,14 @@ fn run() -> Result<(), String> {
                 )?;
                 if ssa {
                     let ssa = ssa_for(&mir, &source)?;
-                    cerune_lang::ssa_executor::run_with_io_files_arguments_and_call_limit(
+                    cerune_lang::ssa_executor::run_with_io_files_processes_arguments_and_call_limit(
                         &ssa,
                         &mut stdin,
                         &mut output,
                         &mut files,
                         &program_arguments,
                         call_depth_limit,
+                        processes.as_mut().map(|(p, n)| (p, *n)),
                     )
                     .map_err(|error| {
                         if runtime_format
@@ -405,13 +409,14 @@ fn run() -> Result<(), String> {
                         source.render(&error.diagnostic())
                     })
                 } else {
-                    cerune_lang::mir_executor::run_with_io_files_arguments_and_call_limit(
+                    cerune_lang::mir_executor::run_with_io_files_processes_arguments_and_call_limit(
                         &mir,
                         &mut stdin,
                         &mut output,
                         &mut files,
                         &program_arguments,
                         call_depth_limit,
+                        processes.as_mut().map(|(p, n)| (p, *n)),
                     )
                     .map_err(|error| {
                         if runtime_format
@@ -430,13 +435,14 @@ fn run() -> Result<(), String> {
                     })
                 }
             } else if command != "run-vm" {
-                cerune_lang::ir_executor::run_with_io_files_arguments_and_call_limit(
+                cerune_lang::ir_executor::run_with_io_files_processes_arguments_and_call_limit(
                     &ir,
                     &mut stdin,
                     &mut output,
                     &mut files,
                     &program_arguments,
                     call_depth_limit,
+                    processes.as_mut().map(|(p, n)| (p, *n)),
                 )
                 .map_err(|error| {
                     if runtime_format
@@ -456,13 +462,14 @@ fn run() -> Result<(), String> {
             } else {
                 let bytecode =
                     render_compilation_result(cerune_lang::bytecode::lower(&ir), &source)?;
-                cerune_lang::run_bytecode_with_io_files_arguments_and_call_limit(
+                cerune_lang::run_bytecode_with_io_files_processes_arguments_and_call_limit(
                     &bytecode,
                     &mut stdin,
                     &mut output,
                     &mut files,
                     &program_arguments,
                     call_depth_limit,
+                    processes.as_mut().map(|(p, n)| (p, *n)),
                 )
                 .map_err(|error| {
                     if runtime_format
@@ -759,10 +766,10 @@ fn print_help() {
            cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>\n\
            cerune emit-mir <file> [--ssa] [-o <output.txt>]\n\
            cerune emit-bytecode <file> [-o <output.cebc>]\n\
-           cerune run <file> [--file-root <directory>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
-           cerune run-ir <file> [--file-root <directory>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
-           cerune run-mir <file> [--ssa] [--file-root <directory>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
-           cerune run-vm <file> [--file-root <directory>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
+           cerune run <file> [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
+           cerune run-ir <file> [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
+           cerune run-mir <file> [--ssa] [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
+           cerune run-vm <file> [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
            cerune --version\n\n\
          run / run-ir: direct Cerune IR execution; run-mir: HIR -> MIR execution; run-vm: Bytecode -> VM.\n\
          run / run-ir / run-mir / run-vm / observe / emit-* (except emit-sources): --string-heap-limit <bytes> / --array-heap-limit <bytes>\n\

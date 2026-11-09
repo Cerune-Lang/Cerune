@@ -2,7 +2,7 @@
 
 [English](subprocess-linux.en.md)
 
-共通runtimeへLinuxの実OS接続を追加しました。Rustの`Processes<Linux>`から利用できます。**言語の標準モジュール・共通IR・CLI・生成経路への接続、監督の配布への同梱は未実装**です。検証用監督はCargo exampleとして別プロセスに構築します。
+共通runtimeへLinuxの実OS接続を追加しました。Rustの`Processes<Linux>`から利用できます。[標準モジュール・共通IR・4実行器](subprocess-execution.ja.md)と[CLI登録](subprocess-cli.ja.md)も接続しました。**生成経路への操作接続・Linux監督の配布同梱は後続です。** 登録・OS上限はこの接続で検査します。検証用監督はCargo exampleとして別プロセスに構築します。
 
 ## 責務と起動
 

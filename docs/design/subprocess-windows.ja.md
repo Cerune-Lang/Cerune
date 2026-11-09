@@ -2,7 +2,7 @@
 
 [English](subprocess-windows.en.md)
 
-[共通runtime](subprocesses.ja.md)へWindowsの実OS接続を追加しました。Rustの`Processes<Windows>`から利用できます。**言語の`std:process::run`、IR命令、CLI、生成経路への操作接続は未実装**です。登録形式・数値上限はこのRust初版のもので、言語の公開契約ではありません。
+[共通runtime](subprocesses.ja.md)へWindowsの実OS接続を追加しました。Rustの`Processes<Windows>`から利用できます。[標準モジュール・共通IR・4実行器](subprocess-execution.ja.md)と[CLI登録](subprocess-cli.ja.md)も接続しました。**生成経路への操作接続・Linux監督の配布同梱は後続です。** 登録・OS上限はこの接続で検査します。
 
 ## 実装と責務
 

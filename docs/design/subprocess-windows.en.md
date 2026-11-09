@@ -2,7 +2,7 @@
 
 [日本語](subprocess-windows.ja.md)
 
-The Windows OS connection now integrates with the [common runtime](subprocesses.en.md) through Rust `Processes<Windows>`. **Language `std:process::run`, IR instructions, CLI, and generated-route operation integration remain unimplemented.** Registration and numeric limits below belong to this initial Rust interface, not a public language contract.
+The Windows OS connection implements the [common runtime](subprocesses.en.md) as Rust `Processes<Windows>`. [Standard modules, common IR, four executors](subprocess-execution.en.md), and [CLI registration](subprocess-cli.en.md) are also connected. **Generated-route operations and Linux supervisor distribution remain future work.** This connection validates registration and OS limits.
 
 ## Implementation and responsibilities
 

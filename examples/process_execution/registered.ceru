@@ -1,0 +1,12 @@
+import "std:process" as types;
+import "std:process/run" as process;
+
+request: types::Request = types::Request { target: "tool", arguments: array_copy(["echo", "", "日本語", "a\"b", "tail\\", "--"]), stdin: array_copy([u8(255), u8(0), u8(13), u8(10)]), stdout_limit: 32, stderr_limit: 32, timeout_ms: 10000, };
+print("before");
+result: types::Outcome = process::run(request);
+print(result.report.failure);
+print(result.report.exit);
+print(result.stdout);
+print(result.stderr);
+print(result.report.stdin_accepted);
+print("continued");

@@ -2,7 +2,7 @@
 
 [日本語](subprocess-values.ja.md)
 
-`import "std:process" as process;` provides request/result types. Execution uses separate `std:process/run` imports, connected to [common IR and four executors](subprocess-execution.en.md). CLI registration and generated execution follow.
+`import "std:process" as process;` provides request/result types. Execution uses separate `std:process/run` imports, connected to [common IR and four executors](subprocess-execution.en.md). [CLI registration](subprocess-cli.en.md) is also connected; generated execution follows.
 
 ## Types and retained information
 
@@ -44,7 +44,7 @@ Public enum order is not a Rust discriminant mapping or external ABI. Conversion
 ## Requests, arrays, and allocation
 
 - Public time values use whole milliseconds. Language requests convert exactly to `Duration`; no conversion silently rounds arbitrary submillisecond Rust durations into public values.
-- Being representable as `u64` is distinct from being accepted for execution. Validate target names, NUL, capacity, time, and host integer width before launch. Invalid requests remain constructible. Rust connection Limits define accepted execution ranges; CLI configuration follows.
+- Being representable as `u64` is distinct from being accepted for execution. Validate target names, NUL, capacity, time, and host integer width before launch. Invalid requests remain constructible. Rust connection Limits define accepted execution ranges; [CLI configuration](subprocess-cli.en.md) also specifies every limit.
 - Contents are byte arrays: retain invalid UTF-8, NUL, and CR/LF without adding newlines, normalizing, or implicitly converting to strings. Copies, argument passing, and updates reuse existing value semantics and ownership lowering.
 - **[Prelaunch reservation and array finalization/cancellation](subprocess-storage.en.md) are implemented. Four executors use this through language instructions.** Current `u8` arrays use 64-bit element storage in the common representation; payload bytes alone cannot account for language array usage. Distinguish ownership and accounting for retained output buffers, transfer buffers, language arrays, and conversion temporaries, reserving required storage before launch.
 - Runtime resource exhaustion that prevents constructing a value is not a child exit code or successful operation. Do not repeat execution after such a failure.
@@ -61,4 +61,4 @@ C output prefixes source fields with `cerune_field_` and enum internals with a s
 cargo test --test modules process_types
 ```
 
-Fixed Report storage, Outcome, and request conversion are connected to [common IR and four executors](subprocess-execution.en.md). Next connect CLI registration, limits, and supervisor paths, then generated-route host contracts and distribution. Observation must not control execution; unsupported operations never become successful no-ops.
+Fixed Report storage, Outcome, and request conversion are connected to [common IR and four executors](subprocess-execution.en.md). [CLI registration, limits, and supervisor paths](subprocess-cli.en.md) are also connected. Generated-route host contracts and distribution follow. Observation must not control execution; unsupported operations never become successful no-ops.

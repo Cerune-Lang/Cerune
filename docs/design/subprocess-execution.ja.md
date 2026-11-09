@@ -11,14 +11,16 @@
 | 対象 | 現在の動作 |
 | --- | --- |
 | HIR・MIR・SSA・VM | 共通の`process.run`操作を実行 |
-| 通常のCLI run系列 | 未接続。妥当な要求へ`Unconfigured`を返し、呼出し元は継続可能 |
+| 通常のCLI run系列 | [明示した設定](subprocess-cli.ja.md)でWindows/Linuxへ接続。指定なしでは`Unconfigured`を返す |
 | Rustの各実行器 | `run_with_processes(program, &mut Processes<B>, transfer_bytes)`で接続・上限を明示 |
 | C・LLVM・QBE・WAT・Native | 実行モジュールを含むIRをソース位置付きで拒否。型だけの既存ソースは引き続き生成可能 |
-| CLI登録・生成経路の実行・Linux監督の配布同梱 | 後続作業 |
+| 生成経路の実行・Linux監督の配布同梱 | 後続作業 |
 
 現在は未使用関数も保持・生成します。既存の型だけを使うソースを未対応扱いにせず、暗黙の未使用削除も追加しないため、型と実行のimportを分けました。実行モジュールをimportして呼ばない場合も、生成経路は未対応操作を検出します。
 
 両モジュールは予約済みの仮想標準ソース・契約版1です。実行モジュールから型モジュールへのimportも通常の名前解決を使い、型を複製しません。別名・import順に依存せず同じ型定義へ解決します。標準モジュールの依存解決はファイル探索をせず、利用者の相対import規則も変えません。
+
+Rust APIでは`run_with_io_files_processes_arguments_and_call_limit`で子プロセス接続・転送領域上限を、既存の入出力・ファイル・引数・呼出し深さと一緒に渡せます。従来のAPIも維持します。
 
 ## 実行と失敗
 
@@ -42,4 +44,4 @@ MIR/SSAとVMは各経路に保持された型情報からReportの形状を検�
 - [実OS接続](../../experiments/subprocess/execution.rs)：Windows/Linuxで4実行器から明示登録したfixtureへ入力し、非0終了・生バイト・継続を比較。比較用fixtureを4回実行し、任意の利用者プログラムを自動で再実行しません。
 - [実行example](../../examples/process_execution/README.md)：未接続を値として受け取り継続。
 
-次はCLIの明示登録・上限・Linux監督パスの接続を整理し、その後に生成経路のABIと配布を揃えます。
+[CLI登録・上限・Linux監督パス](subprocess-cli.ja.md)を接続しました。次は生成経路のABIと配布を揃えます。

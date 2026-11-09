@@ -292,6 +292,26 @@ pub fn run_bytecode_with_io_files_arguments_and_call_limit<
     vm::run_with_io_files_arguments_and_call_limit(bytecode, input, output, files, arguments, limit)
         .map_err(|vm_error| ExecutionError::from_vm_error(bytecode, vm_error))
 }
+/// 子プロセス接続を他の実行資源と同時に渡します。
+pub fn run_bytecode_with_io_files_processes_arguments_and_call_limit<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: runtime::files::Backend,
+    P: runtime::process::Backend,
+>(
+    bytecode: &bytecode::BytecodeProgram,
+    input: &mut runtime::input::Input<R>,
+    output: &mut runtime::output::Output<W>,
+    files: &mut runtime::files::Files<B>,
+    arguments: &runtime::arguments::Arguments,
+    limit: std::num::NonZeroU32,
+    processes: Option<(&mut runtime::process::Processes<P>, usize)>,
+) -> Result<(), ExecutionError> {
+    vm::run_with_io_files_processes_arguments_and_call_limit(
+        bytecode, input, output, files, arguments, limit, processes,
+    )
+    .map_err(|vm_error| ExecutionError::from_vm_error(bytecode, vm_error))
+}
 pub fn run_bytecode_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
     bytecode: &bytecode::BytecodeProgram,
     input: &mut runtime::input::Input<R>,
