@@ -38,7 +38,8 @@ The deadline starts from the clock read after reservation. As before, validation
 | Finalized short results | Visible length is retained bytes; reserved-capacity accounting persists until array release. Even zero-length output retains a nonzero reservation until release |
 | During conversion | Raw output and destination arrays coexist; do not hide one by claiming it has already been consumed |
 | Report structs/enums needed even for failure values | `PreparedReport` allocates all storage before the common runtime call, using Vec storage in the existing value representations, separate from ArrayHeap byte-array accounting |
-| Outer Outcome and request conversion | **Next integration step**: prepare storage holding Report and both arrays, plus request string/array conversion into Rust, before launch |
+| Outer Outcome | `PreparedOutcome` reserves three fields and empty arrays for failures, replacing them with limit-sized arrays after validation |
+| Request conversion | `PreparedRequest` copies target, arguments, and stdin into independent Rust storage; allocate argument references before the runtime call too. These temporaries are separate from ArrayHeap and transfer-buffer accounting |
 
 Finalization first checks that both output lengths fit. On overflow, publish neither array and release both. The immediate-value conversion function must not allocate; it is intended for existing executor integer representations. Preserve NUL, CR/LF, and invalid UTF-8 as bytes without changing the original failure, cleanup, or origin.
 
@@ -60,6 +61,24 @@ Conversion preserves all 21 failure codes, transfer directions, exit codes/signa
 
 Layout mismatches are internal type-integration errors; allocation failures are Cerune resource failures. Inability to build a failure value must not become a subprocess failure value or exit code. Prepare Report before calling `run_with_reservation`, since request-validation failures also need a result. Reserve output arrays in the existing callback after request validation.
 
+## Connecting requests and Outcome
+
+The [internal value bridge](../../src/runtime/process/language_values.rs) calls the common runtime with a prepared request and returns Outcome using existing language values. **It is currently exercised by Rust integration tests; the common-IR instruction, `std:process::run`, and CLI remain unimplemented.**
+
+| Order | Behavior and failure handling |
+| --- | --- |
+| 1 | Validate request IR layout, actual values, and host integer width; copy target, arguments, and stdin, preserving empty arguments, order, and raw bytes without normalization |
+| 2 | Prepare the outer Outcome, Report, and two empty arrays; do not disguise prelaunch internal/resource failures as child exit codes |
+| 3 | Prepare argument references and call the common runtime, which still controls NUL, request-limit, and connection validation order |
+| 4 | In the runtime reservation callback, replace empty arrays with request-limit storage. On second-allocation failure, cancel only new storage and keep the empty failure arrays |
+| 5 | Finalize Report and both arrays, then move them into the reserved outer storage; release unpublished reservations on retained-length mismatch, overflow, or Report conversion failure |
+
+Preparation never changes the original language values. Copied requests remain independent of later source-array mutation/release. Conversion does not launch anything or retry conversion/execution implicitly. Prepared requests do not expose a Debug representation containing their bodies.
+
+Rejected or unconfigured requests can return Outcome with empty arrays. Output-reservation failures retain existing `Reserve`-phase `OutputBudget`/`AllocationFailed` behavior. Failure to allocate the fixed shape or request copies is an internal resource error; language-diagnostic integration is still pending. Recovery from allocator abort is not guaranteed.
+
+Returned arrays use existing retain/release/free rules. Reserved-limit accounting persists until release even for short partial results. Observation settings do not change requests, results, or OS action sequences.
+
 ## Verification and remaining integration
 
 [Array reservation tests](../../src/runtime/array_heap/byte_outputs.rs) cover zero/exact/short results, capacity/allocation/size failures, cancellation after second-allocation failure, and unwinding during conversion. [Common-runtime tests](../../src/runtime/process/tests/result_storage.rs) cover no launch, validation precedence, subsequent calls, partial results, single ownership release, and observation enabled/disabled.
@@ -73,4 +92,6 @@ cargo test --lib runtime::array_heap
 
 Report tests cover every field and alternative in both representations, reordered tags, failure and release at every allocation point, stable storage addresses, exact durations, and virtual-source origins. Common-runtime integration tests cover request rejection, reservation failure, the next explicit call, and identical results with observation enabled/disabled.
 
-Next connect the outer Outcome with both arrays, then connect requests, return values, and origins through one common IR operation. Request string/array conversion into Rust also needs storage before launch. Failure to construct even a failure value remains Cerune resource exhaustion, never a disguised child exit code. Keep each executor's control flow independent and reject unsupported generated routes rather than simulating success.
+Request/Outcome bridge tests cover continuation after failure, partial results and nonzero exits in both value representations, observation enabled/disabled, independent copies, and release after allocation/finalization failure. These use a scripted Backend, not subprocess execution from `.ceru`.
+
+Next connect requests, return values, and origins through one common IR operation and use this bridge from four executors. Failure to construct even a failure value remains Cerune resource exhaustion, never a disguised child exit code. Keep each executor's control flow independent and reject unsupported generated routes rather than simulating success.
