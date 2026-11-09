@@ -37,11 +37,28 @@ The deadline starts from the clock read after reservation. As before, validation
 | Language arrays | Charge the existing ArrayHeap for 8 bytes per common u8 storage element times both limits; separately check and allocate actual Rust element storage |
 | Finalized short results | Visible length is retained bytes; reserved-capacity accounting persists until array release. Even zero-length output retains a nonzero reservation until release |
 | During conversion | Raw output and destination arrays coexist; do not hide one by claiming it has already been consumed |
-| Struct/enum storage needed even for failure values | **Next integration step**: reserve the fixed return shape before calling the common runtime |
+| Report structs/enums needed even for failure values | `PreparedReport` allocates all storage before the common runtime call, using Vec storage in the existing value representations, separate from ArrayHeap byte-array accounting |
+| Outer Outcome and request conversion | **Next integration step**: prepare storage holding Report and both arrays, plus request string/array conversion into Rust, before launch |
 
 Finalization first checks that both output lengths fit. On overflow, publish neither array and release both. The immediate-value conversion function must not allocate; it is intended for existing executor integer representations. Preserve NUL, CR/LF, and invalid UTF-8 as bytes without changing the original failure, cleanup, or origin.
 
 Reservation exclusively borrows the array heap and never exposes uninitialized storage as a user array. Finalized arrays return to existing retain/release/free and ownership lowering. Observation settings/capacity do not change reservation invocation count, outcomes, or OS action sequences.
+
+## Fixed Report storage
+
+The [internal Report conversion](../../src/runtime/process/report_value.rs) is implemented and used by unit and common-runtime integration tests. Language instructions do not call it yet.
+
+| Stage | Behavior |
+| --- | --- |
+| Preparation | From the standard-module Report type ID supplied by the caller, validate common-IR field names/order/types and enum alternatives |
+| Allocation | Use `try_reserve_exact` for every nested aggregate, including inactive enum payloads; release prepared storage on failure or abandonment |
+| Finalization | Write the runtime Report into existing storage without allocation, string formatting, or OS operations; resolve tags by alternative names in common IR |
+
+Both existing value representations are supported: the shared HIR/MIR/SSA value and the VM value. No fixed type IDs or Rust enum ordinals are assumed. Inactive payloads start with type-correct zero values.
+
+Conversion preserves all 21 failure codes, transfer directions, exit codes/signals, confirmed byte counts, unknown progress, cleanup verdicts and raw reports, and NodeId/SourceId/Span. The public time unit is milliseconds: a Rust Duration outside exact u64 milliseconds produces a conversion error instead of rounding. Language integration must convert request `timeout_ms` exactly.
+
+Layout mismatches are internal type-integration errors; allocation failures are Cerune resource failures. Inability to build a failure value must not become a subprocess failure value or exit code. Prepare Report before calling `run_with_reservation`, since request-validation failures also need a result. Reserve output arrays in the existing callback after request validation.
 
 ## Verification and remaining integration
 
@@ -54,4 +71,6 @@ cargo test --lib runtime::process
 cargo test --lib runtime::array_heap
 ```
 
-Next prepare the public Outcome's fixed shape and connect requests, return values, and origins through one common IR operation. Request string/array conversion into Rust also needs storage before launch. Failure to construct even a failure value remains Cerune resource exhaustion, never a disguised child exit code. Keep each executor's control flow independent and reject unsupported generated routes rather than simulating success.
+Report tests cover every field and alternative in both representations, reordered tags, failure and release at every allocation point, stable storage addresses, exact durations, and virtual-source origins. Common-runtime integration tests cover request rejection, reservation failure, the next explicit call, and identical results with observation enabled/disabled.
+
+Next connect the outer Outcome with both arrays, then connect requests, return values, and origins through one common IR operation. Request string/array conversion into Rust also needs storage before launch. Failure to construct even a failure value remains Cerune resource exhaustion, never a disguised child exit code. Keep each executor's control flow independent and reject unsupported generated routes rather than simulating success.

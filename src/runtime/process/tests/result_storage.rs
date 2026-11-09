@@ -223,3 +223,69 @@ fn reservation_is_owned_once_and_trace_configuration_does_not_change_results() {
         }
     }
 }
+
+#[test]
+fn fixed_reports_cover_prelaunch_failures_and_next_call_without_observation_changes() {
+    use crate::runtime::process::report_value::{PreparedReport, Value};
+    fn execute<V: Value + std::fmt::Debug>(trace: usize) -> (Vec<(Outcome, String)>, Vec<Action>) {
+        let program = crate::compile_to_ir(
+            r#"import "std:process" as p; value:p::Started=p::Started::No{};"#,
+        )
+        .unwrap();
+        let report_id = program
+            .type_definitions
+            .iter()
+            .find(|d| d.name.ends_with("_Report"))
+            .unwrap()
+            .id;
+        let script = Script::new(vec![finished(7)]);
+        let clocks = script.clock_reads.clone();
+        let mut p = Processes::with_trace_limit(script, limits(), trace);
+        let mut results = Vec::new();
+        for stage in 0..3 {
+            // 検査失敗の返却値も必要なので、runより先に固定領域を準備します。
+            let prepared = PreparedReport::<V>::new(&program.type_definitions, report_id).unwrap();
+            let mut req = request();
+            if stage == 0 {
+                req.timeout = Duration::ZERO;
+            }
+            let (out, reserved) = p.run_with_reservation(req, 32768, origin(), || {
+                assert_ne!(stage, 0, "invalid request must skip output reservation");
+                if stage == 1 {
+                    Err(ReservationError::Capacity)
+                } else {
+                    Ok(())
+                }
+            });
+            assert_eq!(
+                code(&out),
+                match stage {
+                    0 => Some(Code::InvalidRequest),
+                    1 => Some(Code::OutputBudget),
+                    _ => None,
+                }
+            );
+            if stage < 2 {
+                assert!(reserved.is_none());
+                assert_eq!(clocks.get(), 0);
+            } else {
+                assert_eq!(reserved, Some(()));
+                assert_eq!(out.report.exit, Some(Exit::Code(7)));
+            }
+            let value = prepared.finish(&out.report).unwrap();
+            results.push((out, format!("{value:?}")));
+        }
+        if trace > 0 {
+            assert!(p.trace_truncated());
+        }
+        (results, p.into_inner().unwrap().actions)
+    }
+    assert_eq!(
+        execute::<crate::runtime::value::Value>(0),
+        execute::<crate::runtime::value::Value>(1),
+    );
+    assert_eq!(
+        execute::<crate::vm::Value>(0),
+        execute::<crate::vm::Value>(1),
+    );
+}

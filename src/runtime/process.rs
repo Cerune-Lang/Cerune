@@ -6,6 +6,9 @@ mod backend;
 #[cfg(target_os = "linux")]
 pub mod linux;
 mod records;
+// 共通IR接続に先立つ返却値変換。実行命令からの利用は後続です。
+#[allow(dead_code)]
+pub(crate) mod report_value;
 pub mod transfers;
 #[cfg(windows)]
 pub mod windows;

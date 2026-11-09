@@ -61,4 +61,4 @@ C output prefixes source fields with `cerune_field_` and enum internals with a s
 cargo test --test modules process_types
 ```
 
-Next, prepare the public result's fixed shape and connect `run` to four executors through one common IR operation. Generated routes, host contracts, CLI registration, and distribution follow. Observation APIs must not control execution; unsupported operations must not become successful no-ops.
+Fixed Report storage and conversion to existing values are implemented. Next, connect the outer Outcome, both arrays, and request conversion, then connect `run` to four executors through one common IR operation. Generated routes, host contracts, CLI registration, and distribution follow. Observation APIs must not control execution; unsupported operations must not become successful no-ops.
