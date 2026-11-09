@@ -31,6 +31,7 @@
 - [限定的なファイル入出力](design/file-io.ja.md)
 - [子プロセス実行（共通runtime・4実行器）](design/subprocesses.ja.md)
 - [子プロセスのCLI設定](design/subprocess-cli.ja.md)
+- [生成経路の子プロセス接続（設計案）](design/subprocess-generated.ja.md)
 - [WATの版付き入力host](design/wat-input-host.ja.md)
 - [WATの版付きファイルhost](design/wat-file-host.ja.md)
 - [Native build](design/native-build.ja.md)

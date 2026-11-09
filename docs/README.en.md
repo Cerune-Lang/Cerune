@@ -31,6 +31,7 @@ Each document links to its Japanese counterpart.
 - [Limited file I/O](design/file-io.en.md)
 - [Subprocess execution (common runtime and four executors)](design/subprocesses.en.md)
 - [Subprocess CLI configuration](design/subprocess-cli.en.md)
+- [Generated-route subprocess connections (proposal)](design/subprocess-generated.en.md)
 - [Versioned WAT input hosts](design/wat-input-host.en.md)
 - [Versioned WAT file hosts](design/wat-file-host.en.md)
 - [Native build: executable and generation/link records](design/native-build.en.md)

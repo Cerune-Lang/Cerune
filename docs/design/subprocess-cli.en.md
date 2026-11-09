@@ -75,3 +75,5 @@ The [registered-target example](../../examples/process_execution/README.en.md) r
 The Linux OS test requires an explicitly supplied verification supervisor through `CERUNE_TEST_PROCESS_SUPERVISOR`. It is ignored in ordinary tests and explicitly executed with `--include-ignored` in OS CI. This is a test setting: the Cerune CLI never reads that environment variable.
 
 The Linux supervisor is currently built as a Cargo example. **Supervisor distribution, generated C/LLVM/QBE/WAT/Native execution ABIs, and Native build/release configuration records remain future work.** This option does not apply to emit/build/release. Generated routes reject unsupported operations with source diagnostics.
+
+The [generated-route proposal](subprocess-generated.en.md) details the next steps and compatibility impact.
