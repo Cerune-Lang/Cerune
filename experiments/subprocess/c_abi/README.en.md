@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-**This probe statically links the shared Rust runtime into an independent C program.** Generated C/LLVM/QBE/Native/WAT integration and Native build/release packaging remain unimplemented. Language examples stay in [process_execution](../../../examples/process_execution/README.en.md).
+**This probe statically links the shared Rust runtime into an independent C program.** [Generated C](../../../docs/design/subprocess-c.en.md) is integrated. LLVM/QBE/Native/WAT integration and Native build/release packaging remain unimplemented. Language examples stay in [process_execution](../../../examples/process_execution/README.en.md).
 
 ## Build and run
 
@@ -20,7 +20,7 @@ commands.json records commands, target, link inputs, and exit statuses. config.j
 
 ## Call contract
 
-The [header](cerune_process_v1.h) corresponds to the [implementation](../../../src/runtime/process/abi.rs). Version 1 is currently a prototype contract.
+The [header](../../../src/runtime/process/abi/cerune_process_v1.h) corresponds to the [implementation](../../../src/runtime/process/abi.rs). Version 1 is currently a prototype contract.
 
 | Operation | State and responsibility |
 | --- | --- |
@@ -59,4 +59,4 @@ Independent C expectations check sizes/offsets/Report fields, copied requests, o
 
 Shared-runtime tests continue verifying that observation does not change execution. Existing codec tests cover all failure numbers; the C probe does not claim to reproduce every OS fault. It does not exercise invalid non-null pointers or data races.
 
-Next are generated C request conversion, array reservation, Report conversion, and startup configuration. Distribution archive names, ABI compatibility guarantees, manifests, and Linux supervisor placement remain later work.
+Generated C request conversion, array reservation, Report conversion, and startup configuration are implemented. The [comparison probe](generated.cjs) uses the same archive. Distribution archive names, ABI compatibility guarantees, manifests, and Linux supervisor placement remain later work.

@@ -2,7 +2,7 @@
 
 [English](subprocess-generated.en.md)
 
-**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。生成コードとWAT hostへの接続は未実装で、C・LLVM・QBE・WAT・Nativeは引き続き実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
+**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。[生成Cの接続](subprocess-c.ja.md)も実装済みです。LLVM・QBE・WAT・Nativeは引き続き実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
 
 ## 調査結果と方針
 
@@ -82,7 +82,7 @@ ReportのNodeId/Spanは既存の標準ラッパー内操作を指し、利用者
 
 ## ABIへ渡す値と所有
 
-Native系の初版対象は`x86_64-pc-windows-msvc`と`x86_64-unknown-linux-gnu`です。runtimeと生成物は同じtarget・呼出し規約を使います。生成Cの子プロセス利用にもtargetの明示を追加する方針です。子プロセスを使わない既存C出力の指定方法は維持します。
+Native系の初版対象は`x86_64-pc-windows-msvc`と`x86_64-unknown-linux-gnu`です。runtimeと生成物は同じtarget・呼出し規約を使います。生成Cの子プロセス利用にはtargetの明示が必要です。子プロセスを使わない既存C出力の指定方法は維持します。
 
 | 値 | 表現案・寿命 |
 | --- | --- |
@@ -142,7 +142,7 @@ Rust enumの宣言順やホスト整数幅に依存するcastは禁止です。�
 
 ## 起動設定・リンク・配布への影響
 
-生成実行ファイルでは、既存の先頭マーカーの内側へ設定を追加する案です。これは未実装の起動形式です。
+生成Cでは、既存の先頭マーカーの内側へ設定を追加しました。以下は生成Cで利用可能な形式で、他の生成経路への接続は後続です。
 
 ```text
 program --cerune-runtime-v1 --process-config process.json --file-root directory -- program-arguments
@@ -168,12 +168,12 @@ program --cerune-runtime-v1 --process-config process.json --file-root directory 
 | --- | --- | --- |
 | 1（実装済み） | 共通runtimeのprepare/execute分離と固定Report codec | 従来APIと段階APIの結果・OS操作列・観測が一致。予約失敗後に起動せず、二重実行・予約待ち破棄を検証 |
 | 2（試作実装済み） | Native系C ABIのアダプタと静的リンク試作 | Windows/Linuxで型幅・配置・寿命・不正版・失敗・回収を検証。Rustと独立したC側の期待値と比較 |
-| 3 | 生成Cのloweringと起動設定 | [registered.ceru](../../examples/process_execution/registered.ceru)を4実行器と比較。未接続・部分出力・非0終了・継続・所有・失敗位置が一致 |
+| 3（実装済み） | [生成Cのloweringと起動設定](subprocess-c.ja.md) | [registered.ceru](../../examples/process_execution/registered.ceru)を4実行器と比較。未接続・部分出力・非0終了・継続・所有・失敗位置が一致 |
 | 4 | LLVM・QBE・Native、Native build/release | 同じABIを使用。非最適化/SSA、明示target・リンク・依存記録を比較 |
 | 5 | WATの版付きhost、Linux監督の配布仕上げ | private memory、旧hostの拒否、同じ要求・結果・回収、配置変更後の配布実行を検証 |
 
 C ABI試作の具体的なシグネチャ・状態・検証手順は[専用文書](../../experiments/subprocess/c_abi/README.md)にまとめています。設定JSONの解析をCLIと共有し、releaseが接続停止を解除しないことも検証します。
 
-生成C対応までは、未対応の生成経路を成功する空実装へ変えません。将来APIの未実装`.ceru`を実行example一覧へ追加せず、既存の例を各経路で実行できるようになった段階で説明を更新します。
+残る未対応の生成経路を成功する空実装へ変えません。将来APIの未実装`.ceru`を実行example一覧へ追加せず、既存の例を各経路で実行できるようになった段階で説明を更新します。
 
 各段階で、全失敗分類・上限0/ちょうど/超過・u64精度・NodeId/SourceId/Span・コピー後の独立性を比較します。短い転送・中断・契約違反・後始末不能は試験用応答で揃え、実OSでは専用fixtureを使います。観測の有無で制御を変えず、期限付近の実時間結果が別実行で必ず同じになるとは主張しません。

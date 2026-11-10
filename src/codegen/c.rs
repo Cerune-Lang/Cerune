@@ -11,6 +11,8 @@ mod integer;
 pub mod ir;
 mod lower;
 mod output;
+mod process;
+pub use super::x86_64::Target;
 mod rounding;
 mod sequence;
 mod string;
@@ -23,7 +25,12 @@ use lower::lower;
 use crate::{diagnostic::Diagnostic, ir as cerune_ir};
 
 pub fn emit_c(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
-    super::support::reject_process(program, "C")?;
+    if let Some(span) = program.first_process_span() {
+        return Err(Diagnostic::new(
+            "C subprocess execution requires an explicit --target and runtime archive".to_owned(),
+            span,
+        ));
+    }
     let module = lower(program);
 
     Ok(emit(&module))
@@ -35,8 +42,24 @@ pub fn emit_c_with_call_limit(
     program: &cerune_ir::Program,
     limit: std::num::NonZeroU32,
 ) -> Result<String, Diagnostic> {
-    super::support::reject_process(program, "C")?;
+    if let Some(span) = program.first_process_span() {
+        return Err(Diagnostic::new(
+            "C subprocess execution requires an explicit --target and runtime archive".to_owned(),
+            span,
+        ));
+    }
     Ok(emit(&lower::lower_with_call_limit(program, Some(limit))))
+}
+
+/// 子プロセスABIのtargetを明示してCを生成します。リンクは呼出し側が行います。
+pub fn emit_c_with_target(
+    program: &cerune_ir::Program,
+    target: Target,
+    limit: Option<std::num::NonZeroU32>,
+) -> Result<String, Diagnostic> {
+    let mut module = lower::lower_with_call_limit(program, limit);
+    module.process_target = Some(target);
+    Ok(emit(&module))
 }
 
 #[cfg(test)]

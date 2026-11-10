@@ -46,3 +46,7 @@ experiments/subprocess/** -linguist-detectable
 
 examples/process_results/*.stdout text eol=lf
 examples/process_execution/*.stdout text eol=lf
+
+# Explicit runtime ABI and emitted C templates keep platform-independent bytes.
+src/runtime/process/abi/*.h text eol=lf -linguist-detectable
+src/codegen/c/process/*.c.inc text eol=lf -linguist-detectable

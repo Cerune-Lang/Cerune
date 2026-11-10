@@ -2,7 +2,7 @@
 
 [日本語](subprocess-windows.ja.md)
 
-The Windows OS connection implements the [common runtime](subprocesses.en.md) as Rust `Processes<Windows>`. [Standard modules, common IR, four executors](subprocess-execution.en.md), and [CLI registration](subprocess-cli.en.md) are also connected. **Generated-route operations and Linux supervisor distribution remain future work.** This connection validates registration and OS limits.
+The Windows OS connection implements the [common runtime](subprocesses.en.md) as Rust `Processes<Windows>`. [Standard modules, common IR, four executors](subprocess-execution.en.md), and [CLI registration](subprocess-cli.en.md) are also connected. [Generated C operations](subprocess-c.en.md) are also implemented. Remaining generated routes and Linux supervisor distribution follow later. This connection validates registration and OS limits.
 
 ## Implementation and responsibilities
 

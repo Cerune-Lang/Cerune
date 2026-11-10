@@ -43,4 +43,10 @@ cargo build --example subprocess_linux_supervisor
 CERUNE_TEST_PROCESS_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_supervisor" cargo test --test modules process_cli -- --include-ignored
 ```
 
-Generated C/LLVM/QBE/WAT/Native subprocess execution remains future work. See the [execution design](../../docs/design/subprocess-execution.en.md) for support and preserved origins.
+Generated C also runs on Windows/Linux. Specify a target and explicitly link its matching runtime archive.
+
+~~~sh
+cerune emit-c examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.c
+~~~
+
+See [build/startup instructions](../../docs/design/subprocess-c.en.md) and the [four-executor comparison](../../experiments/subprocess/c_abi/generated.cjs). LLVM/QBE/WAT/Native follow later. See the [execution design](../../docs/design/subprocess-execution.en.md) for support and preserved origins.

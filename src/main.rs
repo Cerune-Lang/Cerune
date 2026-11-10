@@ -136,15 +136,29 @@ fn run() -> Result<(), String> {
 
             let rest: Vec<String> = args.collect();
 
-            let output = parse_output_option(&rest, "cerune emit-c <file> [-o <output.c>]")?;
+            let (output, target, _) = parse_native_options(&rest, "emit-c", "c")?;
+            let target = target
+                .map(|t| {
+                    cerune_lang::codegen::c::Target::parse(&t)
+                        .ok_or("unsupported C subprocess target")
+                })
+                .transpose()?;
 
             let source = read_source(&input)?;
 
             let c = render_compilation_result(
-                cerune_lang::codegen::c::emit_c_with_call_limit(
-                    &ir_for(&source, string_heap_limit, array_heap_limit)?,
-                    call_depth_limit,
-                ),
+                {
+                    let program = ir_for(&source, string_heap_limit, array_heap_limit)?;
+                    if let Some(target) = target {
+                        cerune_lang::codegen::c::emit_c_with_target(
+                            &program,
+                            target,
+                            Some(call_depth_limit),
+                        )
+                    } else {
+                        cerune_lang::codegen::c::emit_c_with_call_limit(&program, call_depth_limit)
+                    }
+                },
                 &source,
             )?;
 
@@ -756,7 +770,7 @@ fn print_help() {
            cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]\n\
            cerune emit-sources <file> [-o <sources.json>]\n\
            cerune emit-ir <file> [-o <output.ceir>]\n\
-           cerune emit-c <file> [-o <output.c>]\n\
+           cerune emit-c <file> [--target <triple>] [-o <output.c>]\n\
            cerune emit-llvm <file> --target <triple> [--annotate-origins] [-o <output.ll>]\n\
            cerune emit-wat <file> [-o <output.wat>]\n\
            cerune emit-qbe <file> --target <triple> [-o <output.ssa>]\n\

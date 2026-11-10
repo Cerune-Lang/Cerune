@@ -151,6 +151,7 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>, counted: &[bool]) {
         | ExprKind::ArrayReleaseOwner { value }
         | ExprKind::ArrayLength { value, .. }
         | ExprKind::ArgumentGet { index: value }
+        | ExprKind::ProcessRun { request: value }
         | ExprKind::ReadLine { max_bytes: value }
         | ExprKind::StringByteLength { value }
         | ExprKind::ConvertNumeric { value, .. }
@@ -223,6 +224,7 @@ fn observable(expr: &Expr) -> bool {
         | ExprKind::ArgumentCount
         | ExprKind::ArgumentGet { .. }
         | ExprKind::FileReadText { .. }
+        | ExprKind::ProcessRun { .. }
         | ExprKind::ReadLine { .. }
         | ExprKind::Call { .. }
         | ExprKind::Index { .. }
