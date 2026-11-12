@@ -101,23 +101,6 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 
 テキストは標準出力へ、`-o`でファイルへ保存します。LLVM・QBEは`--target`が必須です。WATは出力・診断用のホスト関数を使います。
 
-## 外部ツール
-
-生成したコードをコンパイル・リンク・実行する場合に使うツールです。Ceruneの通常のIR・MIR・VM実行には必要ありません。
-
-| 外部ツール | 使用する経路 |
-| --- | --- |
-| Rust / Cargo | Cerune本体をソースからビルド・テストする場合 |
-| GCC / Clang | `emit-c` |
-| Clang（LLVM IR対応） | `emit-llvm` |
-| [QBE 1.3](https://c9x.me/compile/releases.html) | `emit-qbe` |
-| [WABT](https://github.com/WebAssembly/wabt)（`wat2wasm`） | `emit-wat` |
-| Wasm実行環境（必要なホスト関数を実装） | `emit-wat` の生成物の実行 |
-| Clang・対象OSのリンカと開発ライブラリ | `emit-asm` / `emit-obj` のリンク、`build native` |
-| Node.js | WasmのJavaScriptホストを使うテスト |
-
-Windows向けリンクにはMSVCツールチェーンとWindows SDK、Linux向けリンクにはCランタイムの開発ライブラリなどが必要です。`emit-obj`によるObject生成自体には外部アセンブラは不要です。
-
 ## 機能
 
 ### 型
@@ -156,6 +139,23 @@ Windows向けリンクにはMSVCツールチェーンとWindows SDK、Linux向�
 - **言語機能：** 文字列の公開添字参照・文字数取得・i64以外の数値読取り、動的配列の伸長・借用、実行時停止の捕捉、汎用`Option`/`Result`。
 - **入出力・モジュール：** ネットワークI/O、モジュールの再エクスポート、パッケージ管理。
 - **ビルド・配布：** IR/VMの`build`・`release`（Nativeの実行ファイル構築・配布ディレクトリ作成には対応）。
+
+## 外部ツール
+
+生成したコードをコンパイル・リンク・実行する場合に使うツールです。Ceruneの通常のIR・MIR・VM実行には必要ありません。
+
+| 外部ツール | 使用する経路 |
+| --- | --- |
+| Rust / Cargo | Cerune本体をソースからビルド・テストする場合 |
+| GCC / Clang | `emit-c` |
+| Clang（LLVM IR対応） | `emit-llvm` |
+| [QBE 1.3](https://c9x.me/compile/releases.html) | `emit-qbe` |
+| [WABT](https://github.com/WebAssembly/wabt)（`wat2wasm`） | `emit-wat` |
+| Wasm実行環境（必要なホスト関数を実装） | `emit-wat` の生成物の実行 |
+| Clang・対象OSのリンカと開発ライブラリ | `emit-asm` / `emit-obj` のリンク、`build native` |
+| Node.js | WasmのJavaScriptホストを使うテスト |
+
+Windows向けリンクにはMSVCツールチェーンとWindows SDK、Linux向けリンクにはCランタイムの開発ライブラリなどが必要です。`emit-obj`によるObject生成自体には外部アセンブラは不要です。
 
 ## サンプルと開発
 
