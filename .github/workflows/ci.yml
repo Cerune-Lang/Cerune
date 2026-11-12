@@ -20,7 +20,7 @@ jobs:
           components: rustfmt, clippy
       - uses: actions/setup-node@v7
         with:
-          node-version: "20.20.2"
+          node-version: "24"
       - name: Documentation links and translation pairs
         run: |
           node scripts/check-docs.cjs
@@ -96,7 +96,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.98.0
       - uses: actions/setup-node@v7
         with:
-          node-version: "20.20.2"
+          node-version: "24"
       - name: Prepare observations and require toolchain
         shell: bash
         run: |
@@ -284,7 +284,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.98.0
       - uses: actions/setup-node@v7
         with:
-          node-version: "20.20.2"
+          node-version: "24"
       - uses: msys2/setup-msys2@v2
         if: ${{ matrix.suite == 'qbe' }}
         with:
@@ -441,7 +441,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.98.0
       - uses: actions/setup-node@v7
         with:
-          node-version: "20.20.2"
+          node-version: "24"
       - name: Assert host architecture and create test directory
         shell: bash
         run: |
@@ -525,7 +525,7 @@ jobs:
           components: rustfmt, clippy
       - uses: actions/setup-node@v7
         with:
-          node-version: "20.20.2"
+          node-version: "24"
       - name: Prepare comparison tools
         run: npm install --prefix target/host-call-tools --no-audit --no-fund wabt@1.0.39 typescript@5.9.3 playwright@1.64.1
       - name: Check and build VM adapter
