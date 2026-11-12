@@ -156,17 +156,6 @@ WSL側にもRustが必要です。`.sh`のビルド先は既定で`target/unix`�
 
 [Organization一覧](https://github.com/Cerune-Lang) · [各プロジェクトの役割](docs/design/ecosystem.ja.md)
 
-| 用途 | リポジトリ | 内容 |
-| --- | --- | --- |
-| Native生成 | [Sashimi](https://github.com/Cerune-Lang/Sashimi) | 型付き命令からASM・Objectを生成し、出自とバイト位置を対応付ける |
-| 開発支援 | [Tint\*](https://github.com/Cerune-Lang/Tint-St) / [Cerune-vscode](https://github.com/Cerune-Lang/Cerune-vscode) | ソース・生成表現の観測環境 / VS Codeの構文色分け・snippet |
-| 検証・研究 | [Parallax](https://github.com/Cerune-Lang/Parallax) / [Fracta](https://github.com/Cerune-Lang/Fracta) | 実行経路の差分検証 / 安全性の研究 |
-| ライブラリ実験 | [Quantelia](https://github.com/Cerune-Lang/Quantelia) / [Nerune](https://github.com/Cerune-Lang/Nerune) | 数値計算 / 機械学習 |
-| Ceruneでの利用例 | [Stelle](https://github.com/Cerune-Lang/stelle) / [Cisa](https://github.com/Cerune-Lang/Cisa) | 小さなCLI RPG / 32bit程度の仮想CPU。ともに初期の実験 |
-| 文書・案内 | [website](https://github.com/Cerune-Lang/website) / [.github](https://github.com/Cerune-Lang/.github) | ドキュメントサイト / Organizationの案内 |
-| 用途未掲載 | [Symnexa](https://github.com/Cerune-Lang/Symnexa) | 用途・実装の公開説明は未掲載 |
-| 外部の計測環境 | [Whitebase](https://github.com/Hokutaka/Whitebase) | Rust・C++・Assembly・Ceruneの演算を測定・比較 |
-
 ## 外部ツール
 
 生成したコードをコンパイル・リンク・実行する場合に使うツールです。Ceruneの通常のIR・MIR・VM実行には必要ありません。
