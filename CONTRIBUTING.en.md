@@ -4,6 +4,8 @@
 
 Thank you for your interest in Cerune. Bug reports, tests, documentation fixes, and small improvements are welcome. Cerune is an experimental language under active development, so its specification and implementation may change.
 
+Please also read the [Code of Conduct](CODE_OF_CONDUCT.en.md) before participating.
+
 ## Getting Started
 
 - See the [README](README.en.md) for usage and the [examples](examples/README.en.md) for language features.
