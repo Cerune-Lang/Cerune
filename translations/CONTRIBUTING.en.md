@@ -1,6 +1,6 @@
 # Contributing
 
-[日本語](CONTRIBUTING.md) | English
+[日本語](../CONTRIBUTING.md) | English
 
 Thank you for your interest in Cerune. Bug reports, tests, documentation fixes, and small improvements are welcome. Cerune is an experimental language under active development, so its specification and implementation may change.
 
@@ -8,8 +8,8 @@ Please also read the [Code of Conduct](CODE_OF_CONDUCT.en.md) before participati
 
 ## Getting Started
 
-- See the [README](README.en.md) for usage and the [examples](examples/README.en.md) for language features.
-- The [language reference](docs/reference/language.en.md) and [design docs](docs/README.en.md) describe the current specification and design decisions.
+- See the [README](../README.en.md) for usage and the [examples](../examples/README.en.md) for language features.
+- The [language reference](../docs/reference/language.en.md) and [design docs](../docs/README.en.md) describe the current specification and design decisions.
 - Check [existing issues](https://github.com/Cerune-Lang/Cerune/issues) before starting. For larger features or design changes, please discuss the approach in an issue first.
 
 ## Reporting Bugs and Proposing Changes
@@ -23,11 +23,11 @@ When opening an issue, please include as much of the following as possible:
 
 Cerune has several execution routes, including `run` / `run-ir`, `run-mir`, and `run-vm`. If their results differ, describing which route produced which result helps us investigate. You do not need to test every route.
 
-For security concerns, do not open a public issue. Follow [SECURITY.md](SECURITY.md) to report them privately.
+For security concerns, do not open a public issue. Follow [SECURITY.md](../SECURITY.md) to report them privately.
 
 ## Development and Checks
 
-Development uses Rust and Cargo. The toolchain version is pinned in [rust-toolchain.toml](rust-toolchain.toml).
+Development uses Rust and Cargo. The toolchain version is pinned in [rust-toolchain.toml](../rust-toolchain.toml).
 
 ```sh
 git clone https://github.com/Cerune-Lang/Cerune.git
@@ -53,7 +53,7 @@ bash scripts/check-llvm-toolchain.sh
 cargo test --lib
 ```
 
-The [preflight check](scripts/check-llvm-toolchain.sh) prints the version and compiles a small LLVM IR module. `bash scripts/test.sh` also runs it when Clang is available or explicitly configured. An incompatible compiler is not treated as a passing test or silently skipped. The environment variable applies to the current shell; set it again in a new shell.
+The [preflight check](../scripts/check-llvm-toolchain.sh) prints the version and compiles a small LLVM IR module. `bash scripts/test.sh` also runs it when Clang is available or explicitly configured. An incompatible compiler is not treated as a passing test or silently skipped. The environment variable applies to the current shell; set it again in a new shell.
 
 For documentation changes, update both Japanese and English where appropriate. With Node.js installed, use `node scripts/check-docs.cjs` to check links and translation pairs.
 

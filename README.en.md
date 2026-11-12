@@ -171,7 +171,7 @@ WSL needs its own Rust installation. Shell scripts default to `target/unix` for 
 
 Cerune is an experimental personal project for learning about and exploring programming languages and compilers. Some images used in this repository may have been created with the assistance of generative AI.
 
-Please read the [Code of Conduct](CODE_OF_CONDUCT.en.md) when participating. Report security concerns privately as described in the [Security Policy](SECURITY.en.md).
+Please read the [Code of Conduct](translations/CODE_OF_CONDUCT.en.md) when participating. Report security concerns privately as described in the [Security Policy](translations/SECURITY.en.md).
 
 ## License
 

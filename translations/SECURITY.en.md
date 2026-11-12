@@ -1,6 +1,6 @@
 # Security Policy
 
-[日本語](SECURITY.md) | English
+[日本語](../SECURITY.md) | English
 
 Cerune is an experimental programming language developed by an individual as part of learning and research. It is under active development and is **not intended for security-critical or production use**. No security guarantees or fixed response times are provided.
 

@@ -1,6 +1,6 @@
 # 行動規範
 
-日本語 | [English](CODE_OF_CONDUCT.en.md)
+日本語 | [English](translations/CODE_OF_CONDUCT.en.md)
 
 Ceruneは、個人がプログラミング言語やコンパイラを学び、実験するために開発しているプロジェクトです。Issue、Pull Request、レビューなどに参加する方には、経験や立場に関係なく、互いを尊重したやり取りをお願いします。
 

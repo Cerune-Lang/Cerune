@@ -1,6 +1,6 @@
 # Code of Conduct
 
-[日本語](CODE_OF_CONDUCT.md) | English
+[日本語](../CODE_OF_CONDUCT.md) | English
 
 Cerune is a personal project for learning about and experimenting with programming languages and compilers. Everyone participating in issues, pull requests, and reviews is asked to treat others with respect, regardless of experience or background.
 
