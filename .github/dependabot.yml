@@ -2,7 +2,10 @@ version: 2
 
 updates:
   - package-ecosystem: "cargo"
-    directory: "/"
+    directories:
+      - "/"
+      - "/experiments/host_calls/vm"
+      - "/experiments/wat_host"
     schedule:
       interval: "weekly"
       day: "monday"
