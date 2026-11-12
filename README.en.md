@@ -173,6 +173,12 @@ These tools are used to compile, link, or execute generated code. They are not r
 
 Windows linking requires an MSVC toolchain and Windows SDK. Linux linking needs C runtime development libraries and related tools. `emit-obj` itself does not require an external assembler.
 
+## About This Project
+
+Cerune is an experimental personal project for learning about and exploring programming languages and compilers. Some images used in this repository may have been created with the assistance of generative AI.
+
+Please read the [Code of Conduct](translations/CODE_OF_CONDUCT.en.md) when participating. Report security concerns privately as described in the [Security Policy](translations/SECURITY.en.md).
+
 ## License
 
 Cerune is dual-licensed under either of:

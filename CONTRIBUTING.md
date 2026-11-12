@@ -1,8 +1,10 @@
 # コントリビューション
 
-日本語 | [English](CONTRIBUTING.en.md)
+日本語 | [English](translations/CONTRIBUTING.en.md)
 
 Ceruneへの関心と協力をありがとうございます。バグ報告、テスト、ドキュメントの修正、小さな機能改善などを歓迎します。Ceruneは開発中の実験的な言語で、仕様や実装は変更されることがあります。
+
+参加にあたっては[行動規範](CODE_OF_CONDUCT.md)もご確認ください。
 
 ## はじめに
 
