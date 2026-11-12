@@ -156,17 +156,6 @@ WSL needs its own Rust installation. Shell scripts default to `target/unix` for 
 
 [Organization](https://github.com/Cerune-Lang) · [Project responsibilities](docs/design/ecosystem.en.md)
 
-| Purpose | Repository | Role |
-| --- | --- | --- |
-| Native generation | [Sashimi](https://github.com/Cerune-Lang/Sashimi) | Generate ASM/objects from typed instructions and map origins to byte ranges |
-| Development tools | [Tint\*](https://github.com/Cerune-Lang/Tint-St) / [Cerune-vscode](https://github.com/Cerune-Lang/Cerune-vscode) | Inspect source and generated representations / VS Code syntax highlighting and snippets |
-| Testing and research | [Parallax](https://github.com/Cerune-Lang/Parallax) / [Fracta](https://github.com/Cerune-Lang/Fracta) | Differential testing across execution routes / safety research |
-| Library experiments | [Quantelia](https://github.com/Cerune-Lang/Quantelia) / [Nerune](https://github.com/Cerune-Lang/Nerune) | Numerical computing / machine learning |
-| Programs written in Cerune | [Stelle](https://github.com/Cerune-Lang/stelle) / [Cisa](https://github.com/Cerune-Lang/Cisa) | A tiny CLI RPG / a small 32-bit virtual CPU; both early experiments |
-| Documentation and navigation | [website](https://github.com/Cerune-Lang/website) / [.github](https://github.com/Cerune-Lang/.github) | Documentation site / Organization overview |
-| Purpose not documented | [Symnexa](https://github.com/Cerune-Lang/Symnexa) | No published description of purpose or implementation yet |
-| External measurement environment | [Whitebase](https://github.com/Hokutaka/Whitebase) | Measure and compare Rust, C++, Assembly, and Cerune execution |
-
 ## External Tools
 
 These tools are used to compile, link, or execute generated code. They are not required for Cerune's direct IR, MIR, or VM execution.
