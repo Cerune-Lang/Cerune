@@ -1,6 +1,6 @@
 <div align="center">
 
-# Cerune
+<h1><img src="docs/images/assets/banner.png" alt="Cerune" width="960"></h1>
 
 [日本語](README.md) | English
 
