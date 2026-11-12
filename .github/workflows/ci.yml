@@ -26,7 +26,8 @@ jobs:
           node scripts/check-docs.cjs
           node scripts/check-ci-windows-coverage.cjs
           node scripts/check-ci-linux-coverage.cjs
-          node --test scripts/check-docs.test.cjs
+          node scripts/check-ci-macos-coverage.cjs
+          node --test scripts/check-docs.test.cjs scripts/check-ci-macos-coverage.test.cjs
       - name: Call-depth probe contract and shallow smoke test
         run: |
           node --test experiments/call_depth/probe.test.cjs experiments/call_depth/probe_c.test.cjs
