@@ -101,22 +101,22 @@ During development, replace `cerune` with `cargo run --quiet --`.
 
 Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT uses host functions for output and diagnostics.
 
-## External Tools for Testing All Execution and Code-Generation Routes
+## External Tools
 
-You do **not** need all of these tools to install Cerune or run `run`, `run-mir`, or `run-vm`. They are used to compile, link, and execute generated code and to compare results across execution routes.
+These tools are used to compile, link, or execute generated code. They are not required for Cerune's direct IR, MIR, or VM execution.
 
-| Route or task | External tools | Purpose |
-| --- | --- | --- |
-| Build and test Cerune from source | Rust / Cargo (plus rustfmt and Clippy for tests); Git to clone the source | Build and test Cerune |
-| Generated C (`emit-c`) | GCC or Clang, plus the target OS's C development environment | Compile, link, and run generated C |
-| Generated LLVM IR (`emit-llvm`) | Clang that accepts LLVM IR, plus the target OS's linking environment | Compile and run `.ll` files |
-| Generated QBE IR (`emit-qbe`) | [QBE 1.3](https://c9x.me/compile/releases.html), plus an assembler/linker toolchain such as Clang | Convert `.ssa` files to assembly, then link and run |
-| Generated WAT (`emit-wat`) | `wat2wasm` from [WABT](https://github.com/WebAssembly/wabt), plus a Wasm host implementing the required host functions | Convert `.wat` to `.wasm` and execute it; JavaScript-host tests also need Node.js |
-| Native (`emit-asm` / `emit-obj` / `build native`) | Clang and the target OS's linker, runtime, and development libraries | Link generated assembly/object files and build/run native executables |
+| External tool | Used with |
+| --- | --- |
+| Rust / Cargo | Building and testing Cerune from source |
+| GCC / Clang | `emit-c` |
+| Clang (with LLVM IR support) | `emit-llvm` |
+| [QBE 1.3](https://c9x.me/compile/releases.html) | `emit-qbe` |
+| [WABT](https://github.com/WebAssembly/wabt) (`wat2wasm`) | `emit-wat` |
+| Wasm runtime (with the required host functions) | Executing the output of `emit-wat` |
+| Clang, target OS linker and development libraries | Linking `emit-asm` / `emit-obj` output; `build native` |
+| Node.js | Tests using a JavaScript Wasm host |
 
-Linking Windows x64 binaries requires an MSVC toolchain and Windows SDK. Linux x86-64 linking requires the appropriate C runtime, development libraries, and linker. Use a matching execution environment to test each target. `emit-obj` itself does not require an external assembler.
-
-CI uses QBE 1.3 and WABT 1.0.39. For LLVM IR, check that Clang can compile the `ptr` syntax in Cerune's generated IR (see the [toolchain check](scripts/check-llvm-toolchain.sh)). Additional browser-integration tests also use TypeScript and Playwright alongside Node.js.
+Windows linking requires an MSVC toolchain and Windows SDK. Linux linking needs C runtime development libraries and related tools. `emit-obj` itself does not require an external assembler.
 
 ## Capabilities
 
