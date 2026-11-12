@@ -101,23 +101,6 @@ During development, replace `cerune` with `cargo run --quiet --`.
 
 Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT uses host functions for output and diagnostics.
 
-## External Tools
-
-These tools are used to compile, link, or execute generated code. They are not required for Cerune's direct IR, MIR, or VM execution.
-
-| External tool | Used with |
-| --- | --- |
-| Rust / Cargo | Building and testing Cerune from source |
-| GCC / Clang | `emit-c` |
-| Clang (with LLVM IR support) | `emit-llvm` |
-| [QBE 1.3](https://c9x.me/compile/releases.html) | `emit-qbe` |
-| [WABT](https://github.com/WebAssembly/wabt) (`wat2wasm`) | `emit-wat` |
-| Wasm runtime (with the required host functions) | Executing the output of `emit-wat` |
-| Clang, target OS linker and development libraries | Linking `emit-asm` / `emit-obj` output; `build native` |
-| Node.js | Tests using a JavaScript Wasm host |
-
-Windows linking requires an MSVC toolchain and Windows SDK. Linux linking needs C runtime development libraries and related tools. `emit-obj` itself does not require an external assembler.
-
 ## Capabilities
 
 ### Types
@@ -156,6 +139,23 @@ Windows linking requires an MSVC toolchain and Windows SDK. Linux linking needs 
 - **Language:** Public string indexing, character counting and numeric parsing beyond i64, dynamic-array growth and borrowing, catching runtime stops, and generic `Option`/`Result`.
 - **I/O and modules:** Network I/O APIs, module re-exports, and package management.
 - **Build and distribution:** IR/VM `build` and `release` (Native executable construction and distribution directories are supported).
+
+## External Tools
+
+These tools are used to compile, link, or execute generated code. They are not required for Cerune's direct IR, MIR, or VM execution.
+
+| External tool | Used with |
+| --- | --- |
+| Rust / Cargo | Building and testing Cerune from source |
+| GCC / Clang | `emit-c` |
+| Clang (with LLVM IR support) | `emit-llvm` |
+| [QBE 1.3](https://c9x.me/compile/releases.html) | `emit-qbe` |
+| [WABT](https://github.com/WebAssembly/wabt) (`wat2wasm`) | `emit-wat` |
+| Wasm runtime (with the required host functions) | Executing the output of `emit-wat` |
+| Clang, target OS linker and development libraries | Linking `emit-asm` / `emit-obj` output; `build native` |
+| Node.js | Tests using a JavaScript Wasm host |
+
+Windows linking requires an MSVC toolchain and Windows SDK. Linux linking needs C runtime development libraries and related tools. `emit-obj` itself does not require an external assembler.
 
 ## Examples and Development
 
