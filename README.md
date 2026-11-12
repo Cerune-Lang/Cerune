@@ -75,6 +75,49 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 
 開発中は`cerune`を`cargo run --quiet --`に置き換えられます。
 
+## 実行と出力
+
+| コマンド | 結果・成果物 | 用途・対象 |
+| --- | --- | --- |
+| `build native` | 実行ファイル・生成過程・リンク記録 | Windows/Linux targetとClangパスを明示 |
+| `release native` | 配布ディレクトリ・依存条件・SHA-256 | 成功済みbuildを再生成せず梱包 |
+| `fmt` | ソース整形 | コメント保持、letの保持・表示・非表示、`--check`・明示保存 |
+| `check` | 構文・型検査 | Ceruneソース（`.ceru`）を検証 |
+| `run` / `run-ir` | IR直接実行 | Ceruneソース（`.ceru`）を共通IRから実行 |
+| `run-mir` | MIR実行 | 制御フローへ変換して比較。`--ssa`でSSAを直接実行 |
+| `run-vm` | VM実行 | Ceruneソース（`.ceru`）を実行 |
+| `emit-sources` | ソース一覧（JSON） | 読み込んだファイル名・本文を出力 |
+| `emit-ir` | Cerune IR（`.ceir`） | 型・演算を確認 |
+| `observe` | sources・HIR・MIR・注釈付きASMとmanifest | 同一コンパイルを保存（target必須）。`--ssa`でSSA経由、`--lir`でLIRも保存 |
+| `emit-mir` | MIRの観測テキスト | 一時値・分岐・所有操作・出自。`--ssa`で元MIRとSSAを表示 |
+| `emit-lir` | Native LIRの観測テキスト | target必須。命令・frame・ABI・出自。`--ssa`でSSA経由 |
+| `emit-bytecode` | bytecodeテキスト（`.cebc`） | 命令列を確認 |
+| `emit-c` | C（`.c`） | GCC / Clangなど |
+| `emit-llvm` | LLVM IR（`.ll`） | LLVM / Clang、Windows / Linux x86-64 |
+| `emit-qbe` | QBE IR（`.ssa`） | QBE 1.3、Windows x64 / Linux x86-64（明示ターゲット） |
+| `emit-wat` | WebAssembly Text（`.wat`） | WebAssembly用ツールとホスト |
+| `emit-asm` | アセンブリ（`.s`） | Windows / Linux x86-64。`--ssa`でSSA経由を選択 |
+| `emit-obj` | ELF / COFFオブジェクト（`.o` / `.obj`） | 外部リンカ。`--target`・`-o`必須、`--ssa`対応 |
+
+テキストは標準出力へ、`-o`でファイルへ保存します。LLVM・QBEは`--target`が必須です。WATは出力・診断用のホスト関数を使います。
+
+## 全経路を試すための外部ツール
+
+Ceruneのインストールや `run` / `run-mir` / `run-vm` の実行に、以下のツールすべてが必要なわけではありません。生成したコードをコンパイル・リンク・実行し、各実行方式の結果を比較する場合に使用します。
+
+| 対象 | 外部ツール | 用途 |
+| --- | --- | --- |
+| Cerune本体のソースビルド・テスト | Rust / Cargo（テスト時はrustfmt・Clippy）、ソース取得時はGit | Cerune本体のビルド・テスト |
+| 生成C（`emit-c`） | GCCまたはClang、対象OSのC開発環境 | 生成Cコードのコンパイル・リンク・実行 |
+| 生成LLVM IR（`emit-llvm`） | LLVM IRを入力できるClang、対象OSのリンク環境 | 生成した`.ll`のコンパイル・実行 |
+| 生成QBE IR（`emit-qbe`） | [QBE 1.3](https://c9x.me/compile/releases.html)、Clangなどのアセンブリ・リンク環境 | `.ssa`をアセンブリへ変換してリンク・実行 |
+| 生成WAT（`emit-wat`） | [WABT](https://github.com/WebAssembly/wabt)の`wat2wasm`、必要なホスト関数を提供するWasm実行環境 | `.wat`を`.wasm`へ変換して実行。JavaScriptホストを使うテストにはNode.jsも必要 |
+| Native（`emit-asm` / `emit-obj` / `build native`） | Clang、対象OSのリンカ・ランタイム・開発ライブラリ | 生成ASM・Objectのリンク、Native実行ファイルの生成・実行 |
+
+Windows x64のリンクにはMSVCツールチェーンとWindows SDK、Linux x86-64のリンクには対応するCランタイム・開発ライブラリ・リンカが必要です。実行確認には各対象OSの環境を用意してください。`emit-obj`によるObject生成そのものには外部アセンブラは不要です。
+
+CIではQBE 1.3とWABT 1.0.39を使用しています。LLVM IRの検証には、ClangがCeruneの生成する`ptr`を含むLLVM IRをコンパイルできることも確認してください（[検証スクリプト](scripts/check-llvm-toolchain.sh)）。ブラウザー連携の追加テストではNode.jsに加えてTypeScriptやPlaywrightも使用します。
+
 ## 機能
 
 ### 型
@@ -113,32 +156,6 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 - **言語機能：** 文字列の公開添字参照・文字数取得・i64以外の数値読取り、動的配列の伸長・借用、実行時停止の捕捉、汎用`Option`/`Result`。
 - **入出力・モジュール：** ネットワークI/O、モジュールの再エクスポート、パッケージ管理。
 - **ビルド・配布：** IR/VMの`build`・`release`（Nativeの実行ファイル構築・配布ディレクトリ作成には対応）。
-
-## 実行と出力
-
-| コマンド | 結果・成果物 | 用途・対象 |
-| --- | --- | --- |
-| `build native` | 実行ファイル・生成過程・リンク記録 | Windows/Linux targetとClangパスを明示 |
-| `release native` | 配布ディレクトリ・依存条件・SHA-256 | 成功済みbuildを再生成せず梱包 |
-| `fmt` | ソース整形 | コメント保持、letの保持・表示・非表示、`--check`・明示保存 |
-| `check` | 構文・型検査 | Ceruneソース（`.ceru`）を検証 |
-| `run` / `run-ir` | IR直接実行 | Ceruneソース（`.ceru`）を共通IRから実行 |
-| `run-mir` | MIR実行 | 制御フローへ変換して比較。`--ssa`でSSAを直接実行 |
-| `run-vm` | VM実行 | Ceruneソース（`.ceru`）を実行 |
-| `emit-sources` | ソース一覧（JSON） | 読み込んだファイル名・本文を出力 |
-| `emit-ir` | Cerune IR（`.ceir`） | 型・演算を確認 |
-| `observe` | sources・HIR・MIR・注釈付きASMとmanifest | 同一コンパイルを保存（target必須）。`--ssa`でSSA経由、`--lir`でLIRも保存 |
-| `emit-mir` | MIRの観測テキスト | 一時値・分岐・所有操作・出自。`--ssa`で元MIRとSSAを表示 |
-| `emit-lir` | Native LIRの観測テキスト | target必須。命令・frame・ABI・出自。`--ssa`でSSA経由 |
-| `emit-bytecode` | bytecodeテキスト（`.cebc`） | 命令列を確認 |
-| `emit-c` | C（`.c`） | GCC / Clangなど |
-| `emit-llvm` | LLVM IR（`.ll`） | LLVM / Clang、Windows / Linux x86-64 |
-| `emit-qbe` | QBE IR（`.ssa`） | QBE 1.3、Windows x64 / Linux x86-64（明示ターゲット） |
-| `emit-wat` | WebAssembly Text（`.wat`） | WebAssembly用ツールとホスト |
-| `emit-asm` | アセンブリ（`.s`） | Windows / Linux x86-64。`--ssa`でSSA経由を選択 |
-| `emit-obj` | ELF / COFFオブジェクト（`.o` / `.obj`） | 外部リンカ。`--target`・`-o`必須、`--ssa`対応 |
-
-テキストは標準出力へ、`-o`でファイルへ保存します。LLVM・QBEは`--target`が必須です。WATは出力・診断用のホスト関数を使います。
 
 ## サンプルと開発
 
