@@ -75,6 +75,49 @@ The program first prints `Hello, Cerune!` and the results for two floating-point
 
 During development, replace `cerune` with `cargo run --quiet --`.
 
+## Execution and Output
+
+| Command | Result / artifact | Use / target |
+| --- | --- | --- |
+| `build native` | Executable and generation/link records | Explicit Windows/Linux target and Clang path |
+| `release native` | Distribution directory, requirements and SHA-256 | Package a successful build without regeneration |
+| `fmt` | Source formatting | Keep comments; preserve/show/hide let; check or explicitly save |
+| `check` | Syntax and type checking | Validate Cerune source (`.ceru`) |
+| `run` / `run-ir` | Direct IR execution | Execute Cerune source (`.ceru`) from common IR |
+| `run-mir` | MIR execution | Compare lowered control flow; `--ssa` executes SSA directly |
+| `run-vm` | VM execution | Run Cerune source (`.ceru`) |
+| `emit-sources` | Source manifest (JSON) | Export loaded file names and contents |
+| `emit-ir` | Cerune IR (`.ceir`) | Inspect types and operations |
+| `observe` | Sources, HIR, MIR, annotated ASM, manifest | Save one compilation (explicit target required); `--ssa` includes the SSA path; `--lir` also saves LIR |
+| `emit-mir` | MIR observation text | Inspect temporaries, control, ownership, and origins; `--ssa` shows original MIR and SSA |
+| `emit-lir` | Native LIR observation text | Explicit target; instructions, frames, ABI, and origins; `--ssa` selects the SSA path |
+| `emit-bytecode` | Bytecode text (`.cebc`) | Inspect instructions |
+| `emit-c` | C (`.c`) | GCC, Clang, or another C compiler |
+| `emit-llvm` | LLVM IR (`.ll`) | LLVM / Clang; Windows / Linux x86-64 |
+| `emit-qbe` | QBE IR (`.ssa`) | QBE 1.3; Windows x64 / Linux x86-64 (explicit target) |
+| `emit-wat` | WebAssembly Text (`.wat`) | WebAssembly tools and a host |
+| `emit-asm` | Assembly (`.s`) | Windows / Linux x86-64; `--ssa` selects the SSA route |
+| `emit-obj` | ELF / COFF object (`.o` / `.obj`) | External linker; requires `--target` and `-o`, supports `--ssa` |
+
+Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT uses host functions for output and diagnostics.
+
+## External Tools for Testing All Execution and Code-Generation Routes
+
+You do **not** need all of these tools to install Cerune or run `run`, `run-mir`, or `run-vm`. They are used to compile, link, and execute generated code and to compare results across execution routes.
+
+| Route or task | External tools | Purpose |
+| --- | --- | --- |
+| Build and test Cerune from source | Rust / Cargo (plus rustfmt and Clippy for tests); Git to clone the source | Build and test Cerune |
+| Generated C (`emit-c`) | GCC or Clang, plus the target OS's C development environment | Compile, link, and run generated C |
+| Generated LLVM IR (`emit-llvm`) | Clang that accepts LLVM IR, plus the target OS's linking environment | Compile and run `.ll` files |
+| Generated QBE IR (`emit-qbe`) | [QBE 1.3](https://c9x.me/compile/releases.html), plus an assembler/linker toolchain such as Clang | Convert `.ssa` files to assembly, then link and run |
+| Generated WAT (`emit-wat`) | `wat2wasm` from [WABT](https://github.com/WebAssembly/wabt), plus a Wasm host implementing the required host functions | Convert `.wat` to `.wasm` and execute it; JavaScript-host tests also need Node.js |
+| Native (`emit-asm` / `emit-obj` / `build native`) | Clang and the target OS's linker, runtime, and development libraries | Link generated assembly/object files and build/run native executables |
+
+Linking Windows x64 binaries requires an MSVC toolchain and Windows SDK. Linux x86-64 linking requires the appropriate C runtime, development libraries, and linker. Use a matching execution environment to test each target. `emit-obj` itself does not require an external assembler.
+
+CI uses QBE 1.3 and WABT 1.0.39. For LLVM IR, check that Clang can compile the `ptr` syntax in Cerune's generated IR (see the [toolchain check](scripts/check-llvm-toolchain.sh)). Additional browser-integration tests also use TypeScript and Playwright alongside Node.js.
+
 ## Capabilities
 
 ### Types
@@ -113,32 +156,6 @@ During development, replace `cerune` with `cargo run --quiet --`.
 - **Language:** Public string indexing, character counting and numeric parsing beyond i64, dynamic-array growth and borrowing, catching runtime stops, and generic `Option`/`Result`.
 - **I/O and modules:** Network I/O APIs, module re-exports, and package management.
 - **Build and distribution:** IR/VM `build` and `release` (Native executable construction and distribution directories are supported).
-
-## Execution and Output
-
-| Command | Result / artifact | Use / target |
-| --- | --- | --- |
-| `build native` | Executable and generation/link records | Explicit Windows/Linux target and Clang path |
-| `release native` | Distribution directory, requirements and SHA-256 | Package a successful build without regeneration |
-| `fmt` | Source formatting | Keep comments; preserve/show/hide let; check or explicitly save |
-| `check` | Syntax and type checking | Validate Cerune source (`.ceru`) |
-| `run` / `run-ir` | Direct IR execution | Execute Cerune source (`.ceru`) from common IR |
-| `run-mir` | MIR execution | Compare lowered control flow; `--ssa` executes SSA directly |
-| `run-vm` | VM execution | Run Cerune source (`.ceru`) |
-| `emit-sources` | Source manifest (JSON) | Export loaded file names and contents |
-| `emit-ir` | Cerune IR (`.ceir`) | Inspect types and operations |
-| `observe` | Sources, HIR, MIR, annotated ASM, manifest | Save one compilation (explicit target required); `--ssa` includes the SSA path; `--lir` also saves LIR |
-| `emit-mir` | MIR observation text | Inspect temporaries, control, ownership, and origins; `--ssa` shows original MIR and SSA |
-| `emit-lir` | Native LIR observation text | Explicit target; instructions, frames, ABI, and origins; `--ssa` selects the SSA path |
-| `emit-bytecode` | Bytecode text (`.cebc`) | Inspect instructions |
-| `emit-c` | C (`.c`) | GCC, Clang, or another C compiler |
-| `emit-llvm` | LLVM IR (`.ll`) | LLVM / Clang; Windows / Linux x86-64 |
-| `emit-qbe` | QBE IR (`.ssa`) | QBE 1.3; Windows x64 / Linux x86-64 (explicit target) |
-| `emit-wat` | WebAssembly Text (`.wat`) | WebAssembly tools and a host |
-| `emit-asm` | Assembly (`.s`) | Windows / Linux x86-64; `--ssa` selects the SSA route |
-| `emit-obj` | ELF / COFF object (`.o` / `.obj`) | External linker; requires `--target` and `-o`, supports `--ssa` |
-
-Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT uses host functions for output and diagnostics.
 
 ## Examples and Development
 
