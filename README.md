@@ -140,23 +140,6 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 - **入出力・モジュール：** ネットワークI/O、モジュールの再エクスポート、パッケージ管理。
 - **ビルド・配布：** IR/VMの`build`・`release`（Nativeの実行ファイル構築・配布ディレクトリ作成には対応）。
 
-## 外部ツール
-
-生成したコードをコンパイル・リンク・実行する場合に使うツールです。Ceruneの通常のIR・MIR・VM実行には必要ありません。
-
-| 外部ツール | 使用する経路 |
-| --- | --- |
-| Rust / Cargo | Cerune本体をソースからビルド・テストする場合 |
-| GCC / Clang | `emit-c` |
-| Clang（LLVM IR対応） | `emit-llvm` |
-| [QBE 1.3](https://c9x.me/compile/releases.html) | `emit-qbe` |
-| [WABT](https://github.com/WebAssembly/wabt)（`wat2wasm`） | `emit-wat` |
-| Wasm実行環境（必要なホスト関数を実装） | `emit-wat` の生成物の実行 |
-| Clang・対象OSのリンカと開発ライブラリ | `emit-asm` / `emit-obj` のリンク、`build native` |
-| Node.js | WasmのJavaScriptホストを使うテスト |
-
-Windows向けリンクにはMSVCツールチェーンとWindows SDK、Linux向けリンクにはCランタイムの開発ライブラリなどが必要です。`emit-obj`によるObject生成自体には外部アセンブラは不要です。
-
 ## サンプルと開発
 
 | 操作 | コマンド |
@@ -183,6 +166,23 @@ WSL側にもRustが必要です。`.sh`のビルド先は既定で`target/unix`�
 | 文書・案内 | [website](https://github.com/Cerune-Lang/website) / [.github](https://github.com/Cerune-Lang/.github) | ドキュメントサイト / Organizationの案内 |
 | 用途未掲載 | [Symnexa](https://github.com/Cerune-Lang/Symnexa) | 用途・実装の公開説明は未掲載 |
 | 外部の計測環境 | [Whitebase](https://github.com/Hokutaka/Whitebase) | Rust・C++・Assembly・Ceruneの演算を測定・比較 |
+
+## 外部ツール
+
+生成したコードをコンパイル・リンク・実行する場合に使うツールです。Ceruneの通常のIR・MIR・VM実行には必要ありません。
+
+| 外部ツール | 使用する経路 |
+| --- | --- |
+| Rust / Cargo | Cerune本体をソースからビルド・テストする場合 |
+| GCC / Clang | `emit-c` |
+| Clang（LLVM IR対応） | `emit-llvm` |
+| [QBE 1.3](https://c9x.me/compile/releases.html) | `emit-qbe` |
+| [WABT](https://github.com/WebAssembly/wabt)（`wat2wasm`） | `emit-wat` |
+| Wasm実行環境（必要なホスト関数を実装） | `emit-wat` の生成物の実行 |
+| Clang・対象OSのリンカと開発ライブラリ | `emit-asm` / `emit-obj` のリンク、`build native` |
+| Node.js | WasmのJavaScriptホストを使うテスト |
+
+Windows向けリンクにはMSVCツールチェーンとWindows SDK、Linux向けリンクにはCランタイムの開発ライブラリなどが必要です。`emit-obj`によるObject生成自体には外部アセンブラは不要です。
 
 ## ライセンス
 
