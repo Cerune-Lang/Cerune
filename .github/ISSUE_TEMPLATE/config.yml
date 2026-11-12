@@ -1,0 +1,10 @@
+# Keep blank issues available for research notes and design investigations.
+blank_issues_enabled: true
+
+contact_links:
+  - name: "質問・設計相談 / Questions and design discussions"
+    url: "https://github.com/Cerune-Lang/Cerune/discussions"
+    about: "質問や実装前の相談はこちらへ / Ask questions or discuss ideas before filing an issue."
+  - name: "セキュリティ報告 / Security reports"
+    url: "https://github.com/Cerune-Lang/Cerune/security/advisories/new"
+    about: "脆弱性は公開Issueではなく非公開で報告してください / Report vulnerabilities privately, not in a public issue."
