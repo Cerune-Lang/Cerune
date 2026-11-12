@@ -179,10 +179,6 @@ Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT use
 
 WSL needs its own Rust installation. Shell scripts default to `target/unix` for builds.
 
-## Related Repositories
-
-[Organization](https://github.com/Cerune-Lang) · [Project responsibilities](docs/design/ecosystem.en.md)
-
 ## External Tools
 
 These tools are used to compile, link, or execute generated code. They are not required for Cerune's direct IR, MIR, or VM execution.
@@ -203,6 +199,10 @@ Windows linking requires an MSVC toolchain and Windows SDK. Linux linking needs 
 ## About This Project
 
 Cerune is an experimental personal project for learning about and exploring programming languages and compilers. Some images used in this repository may have been created with the assistance of generative AI.
+
+### Related Repositories
+
+[Organization](https://github.com/Cerune-Lang) · [Project responsibilities](docs/design/ecosystem.en.md)
 
 Please read the [Code of Conduct](translations/CODE_OF_CONDUCT.en.md) when participating. Report security concerns privately as described in the [Security Policy](translations/SECURITY.en.md).
 
