@@ -167,6 +167,12 @@ WSL側にもRustが必要です。`.sh`のビルド先は既定で`target/unix`�
 | 用途未掲載 | [Symnexa](https://github.com/Cerune-Lang/Symnexa) | 用途・実装の公開説明は未掲載 |
 | 外部の計測環境 | [Whitebase](https://github.com/Hokutaka/Whitebase) | Rust・C++・Assembly・Ceruneの演算を測定・比較 |
 
+## このプロジェクトについて
+
+Ceruneは、プログラミング言語やコンパイラの仕組みを学び、試すために個人で開発している実験的なプロジェクトです。リポジトリで使用する画像には、生成AIを利用したものが含まれる可能性があります。
+
+参加時は[行動規範](CODE_OF_CONDUCT.md)をご確認ください。セキュリティ上の問題は[セキュリティポリシー](SECURITY.md)に沿って非公開で報告してください。
+
 ## ライセンス
 
 Ceruneは、以下のいずれかのライセンスを選択して利用できます。
