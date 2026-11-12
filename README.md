@@ -101,22 +101,22 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 
 テキストは標準出力へ、`-o`でファイルへ保存します。LLVM・QBEは`--target`が必須です。WATは出力・診断用のホスト関数を使います。
 
-## 全経路を試すための外部ツール
+## 外部ツール
 
-Ceruneのインストールや `run` / `run-mir` / `run-vm` の実行に、以下のツールすべてが必要なわけではありません。生成したコードをコンパイル・リンク・実行し、各実行方式の結果を比較する場合に使用します。
+生成したコードをコンパイル・リンク・実行する場合に使うツールです。Ceruneの通常のIR・MIR・VM実行には必要ありません。
 
-| 対象 | 外部ツール | 用途 |
-| --- | --- | --- |
-| Cerune本体のソースビルド・テスト | Rust / Cargo（テスト時はrustfmt・Clippy）、ソース取得時はGit | Cerune本体のビルド・テスト |
-| 生成C（`emit-c`） | GCCまたはClang、対象OSのC開発環境 | 生成Cコードのコンパイル・リンク・実行 |
-| 生成LLVM IR（`emit-llvm`） | LLVM IRを入力できるClang、対象OSのリンク環境 | 生成した`.ll`のコンパイル・実行 |
-| 生成QBE IR（`emit-qbe`） | [QBE 1.3](https://c9x.me/compile/releases.html)、Clangなどのアセンブリ・リンク環境 | `.ssa`をアセンブリへ変換してリンク・実行 |
-| 生成WAT（`emit-wat`） | [WABT](https://github.com/WebAssembly/wabt)の`wat2wasm`、必要なホスト関数を提供するWasm実行環境 | `.wat`を`.wasm`へ変換して実行。JavaScriptホストを使うテストにはNode.jsも必要 |
-| Native（`emit-asm` / `emit-obj` / `build native`） | Clang、対象OSのリンカ・ランタイム・開発ライブラリ | 生成ASM・Objectのリンク、Native実行ファイルの生成・実行 |
+| 外部ツール | 使用する経路 |
+| --- | --- |
+| Rust / Cargo | Cerune本体をソースからビルド・テストする場合 |
+| GCC / Clang | `emit-c` |
+| Clang（LLVM IR対応） | `emit-llvm` |
+| [QBE 1.3](https://c9x.me/compile/releases.html) | `emit-qbe` |
+| [WABT](https://github.com/WebAssembly/wabt)（`wat2wasm`） | `emit-wat` |
+| Wasm実行環境（必要なホスト関数を実装） | `emit-wat` の生成物の実行 |
+| Clang・対象OSのリンカと開発ライブラリ | `emit-asm` / `emit-obj` のリンク、`build native` |
+| Node.js | WasmのJavaScriptホストを使うテスト |
 
-Windows x64のリンクにはMSVCツールチェーンとWindows SDK、Linux x86-64のリンクには対応するCランタイム・開発ライブラリ・リンカが必要です。実行確認には各対象OSの環境を用意してください。`emit-obj`によるObject生成そのものには外部アセンブラは不要です。
-
-CIではQBE 1.3とWABT 1.0.39を使用しています。LLVM IRの検証には、ClangがCeruneの生成する`ptr`を含むLLVM IRをコンパイルできることも確認してください（[検証スクリプト](scripts/check-llvm-toolchain.sh)）。ブラウザー連携の追加テストではNode.jsに加えてTypeScriptやPlaywrightも使用します。
+Windows向けリンクにはMSVCツールチェーンとWindows SDK、Linux向けリンクにはCランタイムの開発ライブラリなどが必要です。`emit-obj`によるObject生成自体には外部アセンブラは不要です。
 
 ## 機能
 
