@@ -75,6 +75,32 @@ The program first prints `Hello, Cerune!` and the results for two floating-point
 
 During development, replace `cerune` with `cargo run --quiet --`.
 
+## Execution and Output
+
+| Command | Result / artifact | Use / target |
+| --- | --- | --- |
+| `build native` | Executable and generation/link records | Explicit Windows/Linux target and Clang path |
+| `release native` | Distribution directory, requirements and SHA-256 | Package a successful build without regeneration |
+| `fmt` | Source formatting | Keep comments; preserve/show/hide let; check or explicitly save |
+| `check` | Syntax and type checking | Validate Cerune source (`.ceru`) |
+| `run` / `run-ir` | Direct IR execution | Execute Cerune source (`.ceru`) from common IR |
+| `run-mir` | MIR execution | Compare lowered control flow; `--ssa` executes SSA directly |
+| `run-vm` | VM execution | Run Cerune source (`.ceru`) |
+| `emit-sources` | Source manifest (JSON) | Export loaded file names and contents |
+| `emit-ir` | Cerune IR (`.ceir`) | Inspect types and operations |
+| `observe` | Sources, HIR, MIR, annotated ASM, manifest | Save one compilation (explicit target required); `--ssa` includes the SSA path; `--lir` also saves LIR |
+| `emit-mir` | MIR observation text | Inspect temporaries, control, ownership, and origins; `--ssa` shows original MIR and SSA |
+| `emit-lir` | Native LIR observation text | Explicit target; instructions, frames, ABI, and origins; `--ssa` selects the SSA path |
+| `emit-bytecode` | Bytecode text (`.cebc`) | Inspect instructions |
+| `emit-c` | C (`.c`) | GCC, Clang, or another C compiler |
+| `emit-llvm` | LLVM IR (`.ll`) | LLVM / Clang; Windows / Linux x86-64 |
+| `emit-qbe` | QBE IR (`.ssa`) | QBE 1.3; Windows x64 / Linux x86-64 (explicit target) |
+| `emit-wat` | WebAssembly Text (`.wat`) | WebAssembly tools and a host |
+| `emit-asm` | Assembly (`.s`) | Windows / Linux x86-64; `--ssa` selects the SSA route |
+| `emit-obj` | ELF / COFF object (`.o` / `.obj`) | External linker; requires `--target` and `-o`, supports `--ssa` |
+
+Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT uses host functions for output and diagnostics.
+
 ## Capabilities
 
 ### Types
@@ -114,32 +140,6 @@ During development, replace `cerune` with `cargo run --quiet --`.
 - **I/O and modules:** Network I/O APIs, module re-exports, and package management.
 - **Build and distribution:** IR/VM `build` and `release` (Native executable construction and distribution directories are supported).
 
-## Execution and Output
-
-| Command | Result / artifact | Use / target |
-| --- | --- | --- |
-| `build native` | Executable and generation/link records | Explicit Windows/Linux target and Clang path |
-| `release native` | Distribution directory, requirements and SHA-256 | Package a successful build without regeneration |
-| `fmt` | Source formatting | Keep comments; preserve/show/hide let; check or explicitly save |
-| `check` | Syntax and type checking | Validate Cerune source (`.ceru`) |
-| `run` / `run-ir` | Direct IR execution | Execute Cerune source (`.ceru`) from common IR |
-| `run-mir` | MIR execution | Compare lowered control flow; `--ssa` executes SSA directly |
-| `run-vm` | VM execution | Run Cerune source (`.ceru`) |
-| `emit-sources` | Source manifest (JSON) | Export loaded file names and contents |
-| `emit-ir` | Cerune IR (`.ceir`) | Inspect types and operations |
-| `observe` | Sources, HIR, MIR, annotated ASM, manifest | Save one compilation (explicit target required); `--ssa` includes the SSA path; `--lir` also saves LIR |
-| `emit-mir` | MIR observation text | Inspect temporaries, control, ownership, and origins; `--ssa` shows original MIR and SSA |
-| `emit-lir` | Native LIR observation text | Explicit target; instructions, frames, ABI, and origins; `--ssa` selects the SSA path |
-| `emit-bytecode` | Bytecode text (`.cebc`) | Inspect instructions |
-| `emit-c` | C (`.c`) | GCC, Clang, or another C compiler |
-| `emit-llvm` | LLVM IR (`.ll`) | LLVM / Clang; Windows / Linux x86-64 |
-| `emit-qbe` | QBE IR (`.ssa`) | QBE 1.3; Windows x64 / Linux x86-64 (explicit target) |
-| `emit-wat` | WebAssembly Text (`.wat`) | WebAssembly tools and a host |
-| `emit-asm` | Assembly (`.s`) | Windows / Linux x86-64; `--ssa` selects the SSA route |
-| `emit-obj` | ELF / COFF object (`.o` / `.obj`) | External linker; requires `--target` and `-o`, supports `--ssa` |
-
-Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT uses host functions for output and diagnostics.
-
 ## Examples and Development
 
 | Task | Command |
@@ -156,16 +156,22 @@ WSL needs its own Rust installation. Shell scripts default to `target/unix` for 
 
 [Organization](https://github.com/Cerune-Lang) · [Project responsibilities](docs/design/ecosystem.en.md)
 
-| Purpose | Repository | Role |
-| --- | --- | --- |
-| Native generation | [Sashimi](https://github.com/Cerune-Lang/Sashimi) | Generate ASM/objects from typed instructions and map origins to byte ranges |
-| Development tools | [Tint\*](https://github.com/Cerune-Lang/Tint-St) / [Cerune-vscode](https://github.com/Cerune-Lang/Cerune-vscode) | Inspect source and generated representations / VS Code syntax highlighting and snippets |
-| Testing and research | [Parallax](https://github.com/Cerune-Lang/Parallax) / [Fracta](https://github.com/Cerune-Lang/Fracta) | Differential testing across execution routes / safety research |
-| Library experiments | [Quantelia](https://github.com/Cerune-Lang/Quantelia) / [Nerune](https://github.com/Cerune-Lang/Nerune) | Numerical computing / machine learning |
-| Programs written in Cerune | [Stelle](https://github.com/Cerune-Lang/stelle) / [Cisa](https://github.com/Cerune-Lang/Cisa) | A tiny CLI RPG / a small 32-bit virtual CPU; both early experiments |
-| Documentation and navigation | [website](https://github.com/Cerune-Lang/website) / [.github](https://github.com/Cerune-Lang/.github) | Documentation site / Organization overview |
-| Purpose not documented | [Symnexa](https://github.com/Cerune-Lang/Symnexa) | No published description of purpose or implementation yet |
-| External measurement environment | [Whitebase](https://github.com/Hokutaka/Whitebase) | Measure and compare Rust, C++, Assembly, and Cerune execution |
+## External Tools
+
+These tools are used to compile, link, or execute generated code. They are not required for Cerune's direct IR, MIR, or VM execution.
+
+| External tool | Used with |
+| --- | --- |
+| Rust / Cargo | Building and testing Cerune from source |
+| GCC / Clang | `emit-c` |
+| Clang (with LLVM IR support) | `emit-llvm` |
+| [QBE 1.3](https://c9x.me/compile/releases.html) | `emit-qbe` |
+| [WABT](https://github.com/WebAssembly/wabt) (`wat2wasm`) | `emit-wat` |
+| Wasm runtime (with the required host functions) | Executing the output of `emit-wat` |
+| Clang, target OS linker and development libraries | Linking `emit-asm` / `emit-obj` output; `build native` |
+| Node.js | Tests using a JavaScript Wasm host |
+
+Windows linking requires an MSVC toolchain and Windows SDK. Linux linking needs C runtime development libraries and related tools. `emit-obj` itself does not require an external assembler.
 
 ## License
 
