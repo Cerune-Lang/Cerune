@@ -1,0 +1,62 @@
+name: "不具合報告 / Bug report"
+description: "Ceruneの不具合を報告します / Report a Cerune bug"
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        セキュリティ上の問題は公開せず、[SECURITY.md](https://github.com/Cerune-Lang/Cerune/blob/master/SECURITY.md) に従って非公開で報告してください。
+        Please report security vulnerabilities privately according to SECURITY.md.
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "再現手順 / Reproduction steps"
+      description: "実行コマンドと、可能なら最小限の .ceru コード / Commands and minimal .ceru code"
+      placeholder: |
+        cerune run example.ceru
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "期待した結果 / Expected behavior"
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: "実際の結果 / Actual behavior"
+      description: "出力やエラー全文 / Output or error messages"
+    validations:
+      required: true
+  - type: dropdown
+    id: routes
+    attributes:
+      label: "関係する実行・生成経路 / Execution or code-generation route"
+      description: "主に関係する経路を選択してください。複数ある場合は下の補足に記載してください。"
+      options:
+        - "不明 / Unknown"
+        - "run / run-ir"
+        - "run-mir / SSA"
+        - "run-vm"
+        - "Native / emit-asm / emit-obj / build native"
+        - "C / emit-c"
+        - "LLVM / emit-llvm"
+        - "QBE / emit-qbe"
+        - "Wasm / emit-wat"
+        - "その他 / Other"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: "環境 / Environment"
+      description: "Ceruneのバージョンまたはコミット、OS、アーキテクチャ / Version or commit, OS, architecture"
+      placeholder: "master @ <commit>, Windows 11 x86_64"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: "補足 / Additional context"
+      description: "他の経路での結果、ログ、関連Issueなど（任意）"
