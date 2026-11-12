@@ -1,4 +1,5 @@
 name: "機能提案 / Feature request"
+labels: ["enhancement"]
 description: "言語・ツール・開発体験の改善を提案します / Suggest an improvement"
 title: "feat: "
 body:
