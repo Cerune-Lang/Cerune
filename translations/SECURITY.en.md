@@ -2,7 +2,7 @@
 
 [日本語](../SECURITY.md) | English
 
-Cerune is an experimental programming language developed by an individual as part of learning and research. It is under active development and is **not intended for security-critical or production use**. No security guarantees or fixed response times are provided.
+Cerune is an experimental programming language developed as a personal project. It is under active development and is **not intended for security-critical or production use**. No security guarantees or fixed response times are provided.
 
 ## Versions and support
 
