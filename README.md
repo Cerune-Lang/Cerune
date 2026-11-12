@@ -16,11 +16,11 @@ Ceruneは、静的型付け・IR直接実行・VM実行・複数形式へのコ�
 
 </div>
 
-## まず試す
+## インストール
 
 Cerune v0.1.0は、Windows・Linux・macOS向けのビルド済みバイナリを[GitHub Releases](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.1.0)からインストールできます。
 
-### リリース版をインストール
+### リリース版
 
 **Windows（PowerShell）**
 
@@ -34,7 +34,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/Cerune-Lang/Cerune
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.sh | sh
 ```
 
-### 最新のmasterブランチを試す
+### 開発版をソースからビルド
 
 Rust/Cargoがあれば、`master`ブランチの最新の実装をソースからビルドして試せます。
 
@@ -50,7 +50,23 @@ cargo run --quiet -- run examples/floating_point.ceru
 cargo install --path .
 ```
 
-### 実行方法と意味を確認する
+## クイックスタート
+
+インストールしたら、作業ディレクトリに `hello.ceru` というファイルを作成します。
+
+```cerune
+print("Hello, Cerune!");
+```
+
+```sh
+cerune run hello.ceru
+```
+
+`Hello, Cerune!` と表示されれば成功です。基本的なIR・MIR・VM実行には、Cコンパイラなどの外部ツールは必要ありません。
+
+### 実行経路を比較する
+
+以下はリポジトリ内のサンプルを使います。`examples/` があるディレクトリで実行してください（必要なら上記の手順でリポジトリをクローンします）。
 
 ```cerune
 print("Hello, Cerune!");
@@ -74,6 +90,17 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 最初に`Hello, Cerune!`と型ごとの計算結果を表示します。どの実行経路でも、使われない`unused`の加算で`integer-overflow`となり、`99`は表示されません。
 
 開発中は`cerune`を`cargo run --quiet --`に置き換えられます。
+
+## 対応・推奨環境
+
+| 用途 | 対応・推奨環境 |
+| --- | --- |
+| 配布版（v0.1.0） | Windows x64、Linux x64 / ARM64、macOS Intel（x64）/ Apple Silicon（ARM64）向けのバイナリを提供 |
+| 基本的な実行（`run` / `run-mir` / `run-vm`） | 対応する配布版のCerune本体。Clang・Node.js・WABTは不要 |
+| ソースからのビルド・開発 | Git、Rust / Cargo。リポジトリは `rust-toolchain.toml` で Rust 1.98.0 を指定 |
+| コード生成結果のコンパイル・実行 | 経路に応じたClang / GCC、QBE 1.3、WABT、OSのリンカ・SDKなど（[外部ツール](#外部ツール)参照） |
+
+※ これは配布対象と用途別の推奨構成です。最低OSバージョンやCPU・メモリ容量の動作保証ではありません。生成バックエンドの対応ターゲットは経路により異なります。
 
 ## 実行と出力
 
