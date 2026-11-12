@@ -179,10 +179,6 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 
 WSL側にもRustが必要です。`.sh`のビルド先は既定で`target/unix`です。
 
-## 関連リポジトリ
-
-[Organization一覧](https://github.com/Cerune-Lang) · [各プロジェクトの役割](docs/design/ecosystem.ja.md)
-
 ## 外部ツール
 
 生成したコードをコンパイル・リンク・実行する場合に使うツールです。Ceruneの通常のIR・MIR・VM実行には必要ありません。
@@ -203,6 +199,10 @@ Windows向けリンクにはMSVCツールチェーンとWindows SDK、Linux向�
 ## このプロジェクトについて
 
 Ceruneは、プログラミング言語やコンパイラの仕組みを学び、試すために個人で開発している実験的なプロジェクトです。リポジトリで使用する画像には、生成AIを利用したものが含まれる可能性があります。
+
+### 関連リポジトリ
+
+[Organization一覧](https://github.com/Cerune-Lang) · [各プロジェクトの役割](docs/design/ecosystem.ja.md)
 
 参加時は[行動規範](CODE_OF_CONDUCT.md)をご確認ください。セキュリティ上の問題は[セキュリティポリシー](SECURITY.md)に沿って非公開で報告してください。
 
