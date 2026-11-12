@@ -167,6 +167,12 @@ WSL needs its own Rust installation. Shell scripts default to `target/unix` for 
 | Purpose not documented | [Symnexa](https://github.com/Cerune-Lang/Symnexa) | No published description of purpose or implementation yet |
 | External measurement environment | [Whitebase](https://github.com/Hokutaka/Whitebase) | Measure and compare Rust, C++, Assembly, and Cerune execution |
 
+## About This Project
+
+Cerune is an experimental personal project for learning about and exploring programming languages and compilers. Some images used in this repository may have been created with the assistance of generative AI.
+
+Please read the [Code of Conduct](CODE_OF_CONDUCT.en.md) when participating. Report security concerns privately as described in the [Security Policy](SECURITY.en.md).
+
 ## License
 
 Cerune is dual-licensed under either of:
