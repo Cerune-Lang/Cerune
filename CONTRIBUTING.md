@@ -57,8 +57,6 @@ cargo test --lib
 
 ドキュメントを変更する場合は、必要に応じて日本語・英語の両方を更新し、Node.jsがあれば`node scripts/check-docs.cjs`でリンクと翻訳ペアを確認できます。
 
-生成コードや`observe`の記録（`sources.json`やソース全文・ツールのパスを含み得ます）は、原則としてGit管理外の`target/observations/`などに保存してください。リポジトリ直下の`observations/`もGit管理から除外しています。手書きの`.c`・`.s`・`.wat`などは`tests/`や`experiments/`で通常どおり管理でき、生成物をこれらのディレクトリへ直接出力しないでください。
-
 ## Pull Request
 
 - 1つのPRでは目的をなるべく絞ってください。
