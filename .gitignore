@@ -2,17 +2,8 @@
 /target/
 /observations/
 
-# Ad-hoc emit outputs in the repository root. Generated files elsewhere
-# should be written under target/ to avoid hiding handwritten fixtures.
-/*.c
-/*.exe
-/*.out
-/*.ll
-/*.ceir
-/*.ssa
-/*.wat
-/*.s
-/*.cebc
+# Only dedicated output directories are ignored, not file extensions.
+# New expected outputs under tests/fixtures/ stay visible to git add.
 
 # Independent local build directories for experiment projects.
 /experiments/host_calls/vm/target/
