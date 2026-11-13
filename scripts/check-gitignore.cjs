@@ -11,10 +11,13 @@ function ignored(file) {
     'git check-ignore failed for ' + file + ': ' + result.stderr);
   return result.status === 0;
 }
+// Never ignore by extension: both new test fixtures and manually generated
+// reference outputs must remain visible until intentionally moved or committed.
 for (const name of ['c', 'exe', 'out', 'll', 'ceir', 'ssa', 'wat', 's', 'cebc']) {
-  assert.equal(ignored('output.' + name), true, 'root generated output should be ignored');
-  assert.equal(ignored('tests/fixtures/new-example.' + name), false,
-    'handwritten fixture must remain trackable');
+  for (const prefix of ['output.', 'tests/fixtures/observation/new-case/expected/program.', 'tests/fixtures/new-example.']) {
+    assert.equal(ignored(prefix + name), false,
+      'new reference file must remain trackable: ' + prefix + name);
+  }
 }
 for (const file of [
   'target/observations/sources.json',
