@@ -1,29 +1,19 @@
-/target
-*.c
-*.exe
-*.out
-*.ll
-*.ceir
-*.ssa
-*.wat
-*.s
-*.cebc
+# Build outputs and local compiler observation bundles.
+/target/
+/observations/
 
-# 観察テストの期待値は生成物の拡張子でも追跡する
-!tests/fixtures/observation/**/expected/**
-# 動的配列の生成過程を比較するAssembly fixture
-!tests/fixtures/dynamic-arrays/*.s
+# Ad-hoc emit outputs in the repository root. Generated files elsewhere
+# should be written under target/ to avoid hiding handwritten fixtures.
+/*.c
+/*.exe
+/*.out
+/*.ll
+/*.ceir
+/*.ssa
+/*.wat
+/*.s
+/*.cebc
 
-# Input allocation measurement harness
-!tests/support/input_memory.c
-!tests/support/input_memory_probe.c
-
-/experiments/host_calls/vm/target
-
-# Fixed pre-migration Native runtime assembly
-!tests/support/native_runtime_reference/*.s
-
-/experiments/wat_host/target
-
-# Independent subprocess C ABI verification
-!experiments/subprocess/c_abi/probe.c
+# Independent local build directories for experiment projects.
+/experiments/host_calls/vm/target/
+/experiments/wat_host/target/
