@@ -57,8 +57,6 @@ The [preflight check](../scripts/check-llvm-toolchain.sh) prints the version and
 
 For documentation changes, update both Japanese and English where appropriate. With Node.js installed, use `node scripts/check-docs.cjs` to check links and translation pairs.
 
-Store generated code and `observe` records (which may contain `sources.json`, full source text, and local tool paths) under an ignored directory such as `target/observations/`. A top-level `observations/` directory is also ignored. Handwritten `.c`, `.s`, and `.wat` fixtures inside `tests/` and `experiments/` remain trackable; avoid writing generated artifacts directly into those source directories.
-
 ## Pull Requests
 
 - Keep each PR focused on one purpose where possible.
