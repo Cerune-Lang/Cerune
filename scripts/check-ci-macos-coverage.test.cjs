@@ -18,7 +18,7 @@ test('new integration targets require an explicit macOS decision', () => {
     /macOS test inventory changed/);
 });
 test('removing a macOS integration target fails coverage validation', () => {
-  assert.throws(() => check(workflow.replace('--test aggregate_values', ''), names),
+  assert.throws(() => check(workflow.replace('cargo test --lib --bins --test aggregate_values', 'cargo test --lib --bins'), names),
     /macOS test inventory changed/);
 });
 test('stale exclusions cannot silently persist', () => {
