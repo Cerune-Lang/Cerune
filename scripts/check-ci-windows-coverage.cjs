@@ -5,47 +5,42 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const expected = [
-  "aggregate_values",
-  "array_iteration",
-  "array_length",
-  "c_output",
-  "c_strings",
-  "constant_array_lengths",
-  "constants",
-  "dynamic_arrays",
-  "execution_output",
-  "execution_output_cli",
-  "explicit_flush",
-  "generic_functions",
-  "ir_executor",
-  "line_input",
-  "llvm_output",
-  "llvm_strings",
-  "mir_executor",
-  "modules",
-  "native_assembly",
-  "native_mir",
-  "native_output",
-  "native_program",
-  "observation_bundle",
-  "product_updates",
-  "rounding_conversions",
-  "runtime_routes",
-  "source_files",
-  "ssa_cli",
-  "ssa_executor",
-  "ssa_native",
-  "standard_input",
-  "stdin_routes",
-  "string_concat",
-  "string_heap_routes",
-  "string_routes",
-  "sums",
-  "truncating_conversions",
-  "wat_files_protocol",
-  "wat_output",
+// Targets deliberately not selected by Windows jobs. New integration targets must
+// be assigned to a suite or added here with an explicit coverage decision.
+const excluded = [
+  'diagnostics_cli',
+  'examples',
+  'fixed_width_integers',
+  'float_output',
+  'integer_bit_operations',
+  'integer_conversions',
+  'integer_types',
+  'io_protocol',
+  'lean_ssa',
+  'lean_verification',
+  'lir_observation',
+  'llvm_origins',
+  'main_entry',
+  'mir',
+  'mir_ssa',
+  'numeric_conversions',
+  'observation_cli',
+  'short_circuit',
+  'small_integers',
+  'ssa_construction',
+  'string_lexing',
+  'string_values',
+  'u64_values',
 ];
+const qbeOnly = ['qbe_output', 'qbe_windows'];
+const all = fs.readdirSync(path.join(__dirname, '..', 'tests'))
+  .filter(name => name.endsWith('.rs')).map(name => name.slice(0, -3));
+assert.equal(new Set(excluded).size, excluded.length, 'duplicate Windows exclusions');
+assert.equal(new Set(qbeOnly).size, qbeOnly.length, 'duplicate QBE-only targets');
+for (const name of [...excluded, ...qbeOnly]) {
+  assert.ok(all.includes(name), 'stale Windows test classification: ' + name);
+}
+const expected = all.filter(name => !excluded.includes(name) && !qbeOnly.includes(name)).sort();
 const repository = path.resolve(__dirname, '..');
 const workflow = fs.readFileSync(path.join(repository, '.github/workflows/ci.yml'), 'utf8');
 const windows = workflow.split(/^  windows-backends:\s*$/m)[1];
@@ -80,11 +75,12 @@ for (const entry of entries) {
 }
 assert.equal(libCount, 1, '--lib must be assigned exactly once');
 assert.deepEqual(qbeTests.sort(), qbeExpected.sort(), 'QBE suite coverage changed');
+assert.ok(qbeOnly.every(name => qbeTests.includes(name)), 'QBE-only targets lost coverage');
 assert.ok(!/^  windows-qbe:/m.test(workflow), 'QBE must be part of windows-backends');
 assert.match(workflow, /matrix\.suite == 'qbe'/, 'QBE tool setup is missing');
 assert.equal(new Set(assigned).size, assigned.length, 'a Windows test is assigned twice');
 assert.deepEqual(assigned.sort(), expected.sort(), 'Windows CI test coverage changed');
-console.log(`Windows CI coverage: ${assigned.length} original integration targets + --lib and ${qbeTests.length} QBE checks across ${entries.length} suites`);
+console.log(`Windows CI coverage: ${assigned.length} general integration targets, ${qbeOnly.length} QBE-only targets, ${excluded.length} deliberate exclusions and ${qbeTests.length} QBE checks across ${entries.length} suites`);
 
 assert.match(windows, /cargo test --test standard_input program_arguments::qbe/, 'QBE arguments must run with the required QBE toolchain');
 
