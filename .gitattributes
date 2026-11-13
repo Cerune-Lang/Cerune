@@ -1,6 +1,10 @@
 # 生成用文字列に他言語のコードを含むRustも正しく分類します。
 *.rs linguist-language=Rust
 
+# テスト用のRust/C/LLVM/QBE/WAT/ASMなどは言語割合から除外します。
+# Git管理・差分表示・改行設定は変更しません。
+tests/** -linguist-detectable
+
 tests/fixtures/** text eol=lf
 tests/fixtures/dynamic-arrays/c.c -linguist-detectable
 tests/fixtures/dynamic-arrays/*.ll -linguist-detectable
