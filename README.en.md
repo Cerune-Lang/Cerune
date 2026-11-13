@@ -16,11 +16,11 @@ Cerune is an experimental programming language with static typing, direct IR exe
 
 </div>
 
-## Try It
+## Installation
 
 Prebuilt Cerune v0.1.0 binaries for Windows, Linux, and macOS are available from [GitHub Releases](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.1.0).
 
-### Install the release
+### Release binaries
 
 **Windows (PowerShell)**
 
@@ -34,7 +34,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/Cerune-Lang/Cerune
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.sh | sh
 ```
 
-### Try the latest master branch
+### Build from source (latest master)
 
 With Rust and Cargo, you can build and try the latest implementation from the `master` branch.
 
@@ -50,7 +50,23 @@ To install from source:
 cargo install --path .
 ```
 
-### Compare execution and semantics
+## Quick Start
+
+After installation, create a file named `hello.ceru` in your working directory:
+
+```cerune
+print("Hello, Cerune!");
+```
+
+```sh
+cerune run hello.ceru
+```
+
+You should see `Hello, Cerune!`. Basic IR, MIR, and VM execution does not require external tools such as a C compiler.
+
+### Compare execution routes
+
+The following commands use samples from the repository. Run them from a directory containing `examples/` (clone the repository using the instructions above if necessary).
 
 ```cerune
 print("Hello, Cerune!");
@@ -74,6 +90,17 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 The program first prints `Hello, Cerune!` and the results for two floating-point types. Every execution path then stops with `integer-overflow` at the unused `unused` assignment, before printing `99`.
 
 During development, replace `cerune` with `cargo run --quiet --`.
+
+## Supported and Recommended Environments
+
+| Use case | Supported / recommended environment |
+| --- | --- |
+| Prebuilt release (v0.1.0) | Binaries for Windows x64, Linux x64 / ARM64, and macOS Intel (x64) / Apple Silicon (ARM64) |
+| Basic execution (`run` / `run-mir` / `run-vm`) | Cerune prebuilt binary for your platform; Clang, Node.js, and WABT are not required |
+| Building from source / development | Git and Rust / Cargo; this repository pins Rust 1.98.0 in `rust-toolchain.toml` |
+| Compiling / running generated code | Route-dependent tools such as Clang / GCC, QBE 1.3, WABT, or an OS linker / SDK (see [External Tools](#external-tools)) |
+
+These are release targets and task-specific recommendations, not guarantees about minimum OS versions, CPU specifications, or RAM. Supported targets differ by code generation backend.
 
 ## Execution and Output
 
@@ -152,10 +179,6 @@ Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT use
 
 WSL needs its own Rust installation. Shell scripts default to `target/unix` for builds.
 
-## Related Repositories
-
-[Organization](https://github.com/Cerune-Lang) · [Project responsibilities](docs/design/ecosystem.en.md)
-
 ## External Tools
 
 These tools are used to compile, link, or execute generated code. They are not required for Cerune's direct IR, MIR, or VM execution.
@@ -176,6 +199,10 @@ Windows linking requires an MSVC toolchain and Windows SDK. Linux linking needs 
 ## About This Project
 
 Cerune is an experimental personal project for learning about and exploring programming languages and compilers. Some images used in this repository may have been created with the assistance of generative AI.
+
+### Related Repositories
+
+[Organization](https://github.com/Cerune-Lang) · [Project responsibilities](docs/design/ecosystem.en.md)
 
 Please read the [Code of Conduct](translations/CODE_OF_CONDUCT.en.md) when participating. Report security concerns privately as described in the [Security Policy](translations/SECURITY.en.md).
 
