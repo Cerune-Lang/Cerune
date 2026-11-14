@@ -9,6 +9,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 ## CPU / ISA
 
 - **RV32Iインタプリタ** — レジスタ・PC・メモリ・decodeを全部Ceruneで。
+- **x86-64 / RISC-V 命令列比較** — 同じ小さな計算を異なるISAで手書きし、命令・レジスタ・分岐・呼出規約を観測。RISC-V向けCerune backendの実装とは区別する。
 - **6502 subsetエミュレータ** — flag処理が型とbit演算の良いストレステスト。
 - **CHIP-8 VM** — 小さいので最初の完成系に向く。
 - **LC-3エミュレータ** — 教育用ISAなので観測思想との相性がいい。
@@ -60,7 +61,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **reaching definitions** — dataflow解析の教材。
 - **dominator計算** — iterative algorithmで十分書ける。
 - **dominance frontier** — SSA構築の前準備。
-- **SSA変換器** — 今後のCerune本体設計の実験台にもなる。
+- **SSA変換器** — Cerune本体の既存SSA変換とは独立に極小CFGで作り、φ配置・検証・逆変換を比較する。
 - **φ elimination** — SSA→non-SSA lowering。
 - **linear-scan register allocator** — Native backendとの比較材料。
 - **graph-coloring register allocator** — 小規模CFGで。
@@ -83,7 +84,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **backend間命令数比較** — 同じCerune programが各生成先でどう膨らむか。
 - **code-size研究** — LLVM/QBE/自前Nativeで生成物サイズ比較。
 - **optimization-resistant test suite** — 評価順など壊しやすい意味を集める。
-- **backend bug zoo** — overflow、shift、NaN、u64境界などを1テーマ1例にする。
+- **backend bug zoo** — overflow、shift、NaN、u64の最大値付近などを1テーマ1例にする。
 - **ABI playground** — SysVとWindows x64の引数配置比較。
 - **calling convention visualizer用データ生成** — 引数型ごとの配置を追跡。
 
@@ -120,7 +121,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **heat diffusion** — 既存方向性とも合う。
 - **wave equation** — 時間発展型simulation。
 - **cellular automata** — 整数だけでも豊富。
-- **Conway's Game of Life** — 配列境界テストにもなる。
+- **Conway's Game of Life** — 盤面の端のセルを更新するとき、配列外を参照しないか試せる。
 - **elementary cellular automata** — Rule 30/110など。
 - **Langton's Ant** — state machine＋grid。
 - **Mandelbrot** — f32/f64差が見て分かる。
@@ -176,7 +177,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 
 - **Base64 encoder/decoder** — byte配列操作。
 - **hex codec** — 最小binary codec。
-- **varint codec** — integer boundaryのテスト。
+- **varint codec** — 127/128や16383/16384など、符号化後のバイト数が変わる値を試す。
 - **UTF-8 validator** — string indexingがなくてもbyte列なら実験可能。
 - **RLE** — 最小圧縮。
 - **delta encoding** — 数列向き。
@@ -187,14 +188,14 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 
 ## Algorithms
 
-- **quicksort** — 再帰なしなら明示stack版。
+- **quicksort** — 再帰版と明示stack版の状態管理・呼出し深さを比較。
 - **mergesort** — iterative版。
-- **heapsort** — heap構造の確認にも。
+- **heapsort** — 配列で表した親子要素の大小関係と交換処理を確かめる。
 - **radix sort** — 整数型が豊富なので相性良い。
-- **binary search** — 境界条件教材。
+- **binary search** — 空配列、先頭・末尾、見つからない場合を試す。
 - **union-find** — graph/grid系の基盤。
 - **BFS** — queue実装込み。
-- **DFS iterative** — recursionなしを逆に活かす。
+- **DFS iterative** — 再帰DFSと明示stack版の探索順・資源使用を比較。
 - **Dijkstra** — priority queue込み。
 - **A*** — heuristic＋state。
 - **Floyd–Warshall** — 配列だけで書きやすい。
@@ -240,7 +241,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **hash join** — hash tableもdogfood。
 - **sort-merge join** — sort＋merge。
 - **bitmap index** — bitset活用。
-- **B-tree simulator** — 永続化なしでも構造は実験可能。
+- **B-tree simulator** — ファイル保存なしでキーの挿入、ノードの分割、親子参照を試す。
 - **B+tree simulator** — page layout教材。
 - **MVCC simulator** — transaction visibility。
 - **WAL state machine** — recovery設計。
@@ -326,8 +327,8 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 
 - **MIR stress corpus** — branch/loop/ownershipを意図的に極端化。
 - **source provenance torture test** — 1式を大量loweringさせてNodeId追跡。
-- **checked arithmetic torture test** — 型ごとの境界値を総当たり。
-- **numeric conversion matrix** — 全数値型×全数値型の境界試験。
+- **checked arithmetic torture test** — 各整数型の最小値・最大値と、その前後の演算を試す。
+- **numeric conversion matrix** — 数値型の各組合せで、変換先の最小値・最大値や変換不能な値を試す。
 - **f32/f64 divergence gallery** — 同じ式の差を集める。
 - **negative zero / NaN gallery** — backend差が出やすい値を収集。
 - **short-circuit semantics suite** — RHSがtrapする式を大量生成。
@@ -350,9 +351,12 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **同じ仕様から複数実装をAI生成して相互比較** — N-version programmingっぽい実験。
 - **AI生成compiler passのmutation testing** — “それっぽく動く”最適化を壊して検出力を見る。
 
+- **固定重みの小型ニューラルネット推論** — 行列積・活性化・出力計算をCeruneで記述し、f32/f64・経路間の数値差を観測。学習機能の実装とは区別する。
+- **Transformer演算の極小模型** — 固定サイズの行列・attentionの一部を独立した計算題材にし、必要な演算や近似の制約を明示して比較。LLM全体の実行は前提にしない。
+
 ## Research
 
-- **HIR/MIR semantic distance測定** — 構造がどれだけ変わったか定量化。
+- **HIR/MIR semantic distance測定** — lowering前後の命令数・基本ブロック数・分岐数を数えて比較する。
 - **backend semantic drift分類** — どの種類の意味差がどこで発生するか。
 - **provenance保持コスト測定** — NodeId/span追跡がコード量・速度に与える影響。
 - **observability vs optimization tradeoff** — 観測可能性を残すとどこまで最適化できるか。
@@ -367,7 +371,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 
 ## 配布された成果物を題材にする
 
-Ceruneで書いた処理そのものではなく、**完成成果物をbuild環境の外へ持ち出し、検証・再読込・実行する境界**を実験する。通常のbackend差分検証、bytecode verifier、再現可能ビルド、source→machine追跡とは、この境界が異なる。
+Ceruneで書いた計算内容の比較だけでなく、**完成した実行ファイルや将来のIR/VM Imageを、ビルドしたディレクトリから別の場所へ移し、検証して起動できるか**を試す。生成直後の実行結果を比べるテストとは異なり、配布先で必要なファイル・runtime・互換性も調べる。
 
 [実行経路とbuild / release](../design/owned-routes.ja.md)ではNative build / release初版が実装済み。IR/VMのImage形式・検証器・loader・build / releaseは未実装。以下は実験案であり、互換性・安全性・実装時期の約束ではない。
 
@@ -381,17 +385,28 @@ Ceruneで書いた処理そのものではなく、**完成成果物をbuild環�
 - **Image round-trip** — IR/VMをImageに保存→別プロセスで検証・load→実行し、保存前の実行と比較。
 - **compiler不要の小型配布物** — Image＋互換runtimeだけを渡し、compiler抜きで動く最小配布構成と依存条件を測る。
 - **Image互換性試験場** — 形式版・意味版・runtime版を交差させ、受理・拒否・診断を表にする。
-- **壊れたImageの受入境界** — 不正な型・参照・所有情報・資源上限を持つ保存物を作り、実行前に安全に拒否するか検査。形式検証はsandboxの代わりではない。
+- **不正なImageをロード前に拒否する検証** — 型・参照・所有情報・資源上限に不正値を入れた保存物を作り、実行を始める前に拒否できるか確認する。形式検証はsandboxの代わりではない。
 - **配布後の停止位置逆引き** — 配布Imageで生じた停止・診断を、保存された出自情報から元のsource位置とbuild記録へ戻す。
 
 ### 埋め込みAPI・ホスト連携が追加されたら
 
 - **差し替え可能なVMロジック** — ゲームやsimulationの計算部分をImageで配り、host側でload・呼出し・差し替え。型付きhost API、version互換、資源制限も実験対象。
 
-## 将来: I/Oが入ったら
+## ブラウザ・GUIからの実行と子プロセス管理を試す
+
+現在のWATから生成した関数をJavaScript/TypeScriptで呼ぶ機能、Native実行ファイル、Windows/Linuxで子プロセスを起動・監視する共通runtimeを使った実験案。生成Cから子プロセスを呼ぶ処理は接続済みだが、LLVM/QBE/Native/WATから呼ぶ処理は順次対応する段階であり、以下の実験がすべて実行可能という意味ではない。現状は[子プロセスのロードマップ](../design/language-roadmap.ja.md)と[生成経路からの子プロセス呼出し設計](../design/subprocess-generated.ja.md)を参照する。
+
+- **ブラウザWasmとGUI起動のNative実行ファイルを比較** — 同じCeruneプログラムをブラウザ内のWasmとGUIから起動した実行ファイルで動かし、出力・終了状態・失敗時の表示と回収方法を比較する。
+- **子プロセスの起動から終了後の回収まで記録** — 起動、標準入出力、終了コード、タイムアウト、取消し、残ったプロセス・入出力の回収を時系列で記録し、WindowsとLinuxで違う箇所を確認する。
+- **子プロセス呼出しをIR/MIR/VM・生成Cで比較** — 同じコマンドの終了コード・エラー・終了前に得た出力を比較する。LLVM/QBE/Native/WATも子プロセスを呼べるようになったら対象に加える。
+- **ブラウザ・GUI・CLIと実行プログラムの要求・応答形式** — 実行する処理・引数・結果・エラーを渡す小さなメッセージ形式を定義し、順序違い、不正な値、途中切断を再現する。ネットワークI/Oは不要。
+
+## I/Oを使う題材（現行機能と将来の拡張）
+
+`std:io`の行入力、`std:fs`の限定的な読取り・新規保存、引数取得は実装済み。一方で任意のバイナリI/O、豊富な文字列操作、ネットワークI/Oなどは未対応である。以下は現在の機能で試せる部分実験と、追加機能が必要な題材を併記している。
 
 - **grep風ツール** — byte/string処理の実用品。
-- **wc/cat/head風CLI** — runtime境界の最初の実用品。
+- **wc/cat/head風CLI** — まず文字列の読取り・行入力で可能な最小版を作り、バイト単位の処理は機能追加後に比較。
 - **CSV processor** — parser＋集計。
 - **JSON pretty-printer** — parser/formatter dogfooding。
 - **binary inspector** — byte processingの本命。
@@ -420,6 +435,7 @@ Ceruneで書いた処理そのものではなく、**完成成果物をbuild環�
 Ceruneの現在の特徴を最も活かしやすい候補を抜き出すと、次あたりが特に面白い。
 
 - **RV32I / 独自CPU**
+- **x86-64 / RISC-V 命令列比較**
 - **tiny language + 複数executor**
 - **SSA / 最適化passの観測**
 - **differential compiler testing**
@@ -431,6 +447,9 @@ Ceruneの現在の特徴を最も活かしやすい候補を抜き出すと、�
 - **bounded model checking**
 - **distributed protocol simulation**
 - **self-hosting countdown**
+- **Wasmブラウザ / Native GUIのホスト比較**
+- **子プロセスのライフサイクル・経路差分観測**
+- **固定重みニューラルネットの複数経路比較**
 
 普通の言語では「作れる」で終わる題材も、Ceruneでは同じプログラムが
 
