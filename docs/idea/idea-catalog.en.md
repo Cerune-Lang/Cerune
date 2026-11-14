@@ -84,7 +84,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Backend instruction-count comparison** — Measure how the same Cerune program expands in each generated representation.
 - **Code-size study** — Compare LLVM, QBE, and Cerune's own Native output.
 - **Optimization-resistant test suite** — Collect cases whose semantics are easy to break, such as evaluation order.
-- **Backend bug zoo** — One focused example each for overflow, shifts, NaN, `u64` boundaries, and related cases.
+- **Backend bug zoo** — One focused example each for overflow, shifts, NaN, and values near the maximum `u64` value.
 - **ABI playground** — Compare SysV and Windows x64 argument placement.
 - **Calling-convention visualizer data generator** — Track placement for different argument types.
 
@@ -121,7 +121,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Heat diffusion** — Fits Cerune's existing numerical examples well.
 - **Wave equation** — A time-evolving simulation.
 - **Cellular automata** — Rich experiments using integers only.
-- **Conway's Game of Life** — Also a good array-bounds test.
+- **Conway's Game of Life** — Check that updates to cells along the grid edges never access elements outside the array.
 - **Elementary cellular automata** — Rule 30, Rule 110, and others.
 - **Langton's Ant** — State machine plus grid.
 - **Mandelbrot set** — Makes `f32`/`f64` differences easy to observe.
@@ -177,7 +177,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 
 - **Base64 encoder/decoder** — Byte-array manipulation.
 - **Hex codec** — A minimal binary/text codec.
-- **Varint codec** — Tests integer boundaries.
+- **Varint codec** — Test values such as 127/128 and 16383/16384, where the encoded byte count changes.
 - **UTF-8 validator** — Can operate on byte arrays even before string indexing exists.
 - **RLE** — Minimal compression.
 - **Delta encoding** — Natural for numeric sequences.
@@ -190,9 +190,9 @@ This document is not a roadmap. Items listed here are not implementation commitm
 
 - **Quicksort** — Compare recursive and explicit-stack versions for state management and call depth.
 - **Mergesort** — Implement the iterative form.
-- **Heapsort** — Also exercises heap data structures.
+- **Heapsort** — Check parent/child value ordering and swaps in an array-backed heap.
 - **Radix sort** — A good fit for Cerune's integer types.
-- **Binary search** — A compact boundary-condition exercise.
+- **Binary search** — Exercise empty arrays, the first and last elements, and missing values.
 - **Union-find** — A foundation for graph and grid experiments.
 - **BFS** — Includes building a queue.
 - **Iterative DFS** — Compare traversal order and resource use against recursive DFS.
@@ -241,7 +241,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Hash join** — Dogfood the hash-table implementation.
 - **Sort-merge join** — Sorting plus merging.
 - **Bitmap index** — Reuse bitsets.
-- **B-tree simulator** — Explore the structure even without persistence.
+- **B-tree simulator** — Test key insertion, node splitting, and parent/child links without saving files.
 - **B+ tree simulator** — A page-layout exercise.
 - **MVCC simulator** — Model transaction visibility.
 - **WAL state machine** — Explore recovery behavior.
@@ -327,8 +327,8 @@ This document is not a roadmap. Items listed here are not implementation commitm
 
 - **MIR stress corpus** — Deliberately extreme branches, loops, and ownership patterns.
 - **Source-provenance torture test** — Lower one source expression into many operations and track `NodeId`.
-- **Checked-arithmetic torture test** — Exhaustively exercise boundaries for every integer type.
-- **Numeric conversion matrix** — Test all numeric-type pairs at important boundaries.
+- **Checked-arithmetic torture test** — Exercise each integer type's minimum and maximum values and operations near those limits.
+- **Numeric conversion matrix** — For each numeric-type pair, test the target type's minimum and maximum and values that cannot be represented.
 - **f32/f64 divergence gallery** — Collect examples where the same expression diverges.
 - **Negative-zero / NaN gallery** — Collect values likely to expose backend differences.
 - **Short-circuit semantics suite** — Generate many expressions whose RHS traps if incorrectly evaluated.
@@ -356,7 +356,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 
 ## Research
 
-- **HIR/MIR semantic-distance measurement** — Quantify how much structure changes across lowering.
+- **HIR/MIR semantic-distance measurement** — Count instructions, basic blocks, and branches before and after lowering.
 - **Backend semantic-drift classification** — Classify what kinds of semantic differences arise and where.
 - **Provenance-retention cost measurement** — Measure the code-size and performance cost of carrying `NodeId`/span information.
 - **Observability vs. optimization tradeoff** — Study how much optimization can be done while retaining useful observability.
@@ -371,7 +371,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 
 ## Experiments with Distributed Artifacts
 
-Focus on the boundary where **a completed artifact leaves its build environment, then is validated, reloaded, and executed**. This is different from testing backends against each other, verifying bytecode in memory, checking reproducible builds, or tracing source-to-machine provenance alone.
+Besides comparing computations, test whether **a built executable or future IR/VM Image can be moved to another directory, checked, and run**. Unlike comparing freshly generated program outputs, these tests also examine the files, runtimes, and version compatibility required after distribution.
 
 The first Native build / release implementation is available; IR/VM Image formats, validators, loaders, and build / release are not. See [execution routes and build / release](../design/owned-routes.en.md). These are experiment ideas, not promises of implementation dates, compatibility, or security.
 
@@ -385,21 +385,21 @@ The first Native build / release implementation is available; IR/VM Image format
 - **Image round-trip** — Save IR/VM as an Image, validate/load it in another process, execute it, and compare against execution before serialization.
 - **Compiler-free minimal package** — Deliver only an Image and compatible runtime; measure the smallest working distribution layout and its dependencies.
 - **Image compatibility lab** — Cross format, semantic, and runtime versions to tabulate acceptance, rejection, and diagnostics.
-- **Malformed-Image acceptance boundary** — Construct saved Images with invalid types, references, ownership metadata, and resource limits; ensure rejection before execution. Format validation does not replace sandboxing.
+- **Reject malformed Images before loading** — Construct saved Images with invalid types, references, ownership metadata, or resource limits, and verify that they are rejected before execution. Format validation does not replace sandboxing.
 - **Post-distribution fault provenance** — Map a failure in a released Image back to its source location and build record using saved provenance.
 
 ### Once Embedding APIs and Host Integration Exist
 
 - **Replaceable VM logic** — Distribute game or simulation computations as Images for a host to load, call, and swap; test typed host APIs, version compatibility, and resource limits.
 
-## Host Integration and OS Boundary Experiments
+## Running Programs from Browsers and GUIs; Managing Subprocesses
 
-Build on the existing typed WAT host calls, Native artifacts, and shared subprocess runtime and real-OS connections. Generated-route subprocess integration is still incremental, so the following are experiment ideas, not completed product features. See the [subprocess roadmap](../design/language-roadmap.en.md) and [generated-route contract](../design/subprocess-generated.en.md) for current scope.
+These ideas build on functions generated from WAT that JavaScript/TypeScript can call, Native executables, and the shared runtime used to launch and monitor subprocesses on Windows and Linux. Calling subprocesses from generated C is connected, but LLVM/QBE/Native/WAT support is still being added. Not every experiment below can run today. See the [subprocess roadmap](../design/language-roadmap.en.md) and [design for subprocess calls from generated programs](../design/subprocess-generated.en.md).
 
-- **Browser Wasm vs. Native GUI host** — Run the same Cerune computation through WAT→Wasm in a browser and a Native executable launched by a GUI; compare outcomes, fault reasons, and host responsibilities.
-- **Subprocess lifecycle observation** — Record launch, standard I/O, exit status, deadlines, cancellation, and cleanup as event sequences; distinguish Windows/Linux behaviors from the shared contract.
-- **Cross-route subprocess result comparison** — Start with the existing executors and generated C; compare success, failures, and partial output, then extend to LLVM/QBE/Native/WAT as those integrations become available.
-- **Host-boundary protocol model** — Model requests and responses between browser, GUI, and CLI hosts; replay ordering, malformed input, and disconnection without requiring network I/O.
+- **Compare browser Wasm with a Native executable launched by a GUI** — Run the same Cerune program in browser Wasm and as a Native executable launched by a GUI. Compare output, exit status, and how failures are displayed and collected.
+- **Record subprocess launch, exit, and cleanup** — Log launch, standard I/O, exit codes, timeouts, cancellation, and cleanup of remaining processes and I/O in order; check which steps differ on Windows and Linux.
+- **Compare subprocess calls in IR/MIR/VM and generated C** — Run the same command and compare exit codes, errors, and output collected before termination. Add LLVM/QBE/Native/WAT once they can invoke subprocesses.
+- **Request and response format for browsers, GUIs, CLIs, and executed programs** — Define small messages for requested operations, arguments, results, and errors. Replay out-of-order messages, invalid values, and interrupted communication without network I/O.
 
 ## I/O Experiments (Current Facilities and Future Extensions)
 
