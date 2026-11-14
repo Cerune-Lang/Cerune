@@ -9,6 +9,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 ## CPU / ISA
 
 - **RV32I interpreter** — Implement registers, PC, memory, and instruction decoding entirely in Cerune.
+- **x86-64 / RISC-V instruction-sequence comparison** — Hand-write the same small calculation for different ISAs and observe instructions, registers, branches, and calling conventions. This does not imply a RISC-V Cerune backend.
 - **6502 subset emulator** — Flag behavior makes a good stress test for types and bit operations.
 - **CHIP-8 VM** — Small enough to make a good first complete emulator.
 - **LC-3 emulator** — An educational ISA that fits Cerune's observability goals well.
@@ -60,7 +61,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Reaching definitions** — A standard dataflow-analysis exercise.
 - **Dominator computation** — An iterative algorithm is enough.
 - **Dominance frontier** — Preparation for SSA construction.
-- **SSA converter** — Also useful as an experimental prototype for Cerune's own future design.
+- **SSA converter** — Independently build SSA for a tiny CFG and compare φ placement, validation, and lowering against Cerune's existing SSA conversion.
 - **φ elimination** — Lower SSA back to non-SSA form.
 - **Linear-scan register allocator** — Compare it with the Native backend.
 - **Graph-coloring register allocator** — Try it on small CFGs.
@@ -187,14 +188,14 @@ This document is not a roadmap. Items listed here are not implementation commitm
 
 ## Algorithms
 
-- **Quicksort** — Use an explicit stack instead of recursion.
+- **Quicksort** — Compare recursive and explicit-stack versions for state management and call depth.
 - **Mergesort** — Implement the iterative form.
 - **Heapsort** — Also exercises heap data structures.
 - **Radix sort** — A good fit for Cerune's integer types.
 - **Binary search** — A compact boundary-condition exercise.
 - **Union-find** — A foundation for graph and grid experiments.
 - **BFS** — Includes building a queue.
-- **Iterative DFS** — Turn the lack of recursion into an explicit-state exercise.
+- **Iterative DFS** — Compare traversal order and resource use against recursive DFS.
 - **Dijkstra** — Includes a priority queue.
 - **A*** — Heuristics plus state management.
 - **Floyd-Warshall** — Straightforward with arrays.
@@ -350,6 +351,9 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Generate multiple implementations from one specification and cross-check them** — An N-version-programming-style experiment.
 - **Mutation testing for AI-generated compiler passes** — Deliberately break plausible-looking optimizations and measure whether the tests detect it.
 
+- **Fixed-weight tiny neural-network inference** — Express matrix multiplication, activation, and output computation in Cerune; compare f32/f64 results across execution routes. Do not conflate inference with training support.
+- **Minimal Transformer-operation model** — Experiment with fixed-size matrices and parts of attention as isolated computations; document missing operations and approximation constraints. Full LLM execution is not a prerequisite.
+
 ## Research
 
 - **HIR/MIR semantic-distance measurement** — Quantify how much structure changes across lowering.
@@ -388,10 +392,21 @@ The first Native build / release implementation is available; IR/VM Image format
 
 - **Replaceable VM logic** — Distribute game or simulation computations as Images for a host to load, call, and swap; test typed host APIs, version compatibility, and resource limits.
 
-## Future: Once External I/O Exists
+## Host Integration and OS Boundary Experiments
+
+Build on the existing typed WAT host calls, Native artifacts, and shared subprocess runtime and real-OS connections. Generated-route subprocess integration is still incremental, so the following are experiment ideas, not completed product features. See the [subprocess roadmap](../design/language-roadmap.en.md) and [generated-route contract](../design/subprocess-generated.en.md) for current scope.
+
+- **Browser Wasm vs. Native GUI host** — Run the same Cerune computation through WAT→Wasm in a browser and a Native executable launched by a GUI; compare outcomes, fault reasons, and host responsibilities.
+- **Subprocess lifecycle observation** — Record launch, standard I/O, exit status, deadlines, cancellation, and cleanup as event sequences; distinguish Windows/Linux behaviors from the shared contract.
+- **Cross-route subprocess result comparison** — Start with the existing executors and generated C; compare success, failures, and partial output, then extend to LLVM/QBE/Native/WAT as those integrations become available.
+- **Host-boundary protocol model** — Model requests and responses between browser, GUI, and CLI hosts; replay ordering, malformed input, and disconnection without requiring network I/O.
+
+## I/O Experiments (Current Facilities and Future Extensions)
+
+Line input via `std:io`, limited file reading and creation via `std:fs`, and argument access are implemented. Arbitrary binary I/O, richer string operations, and network I/O remain unavailable. The ideas below include both small experiments possible with today's facilities and projects requiring additional features.
 
 - **grep-like tool** — A practical byte/string-processing utility.
-- **wc/cat/head-like CLI tools** — Small real programs for exercising runtime boundaries.
+- **wc/cat/head-like CLI tools** — Begin with a minimal text-reading or line-input version; compare byte-oriented variants when the required operations are available.
 - **CSV processor** — Parsing plus aggregation.
 - **JSON pretty-printer** — Parser/formatter dogfooding.
 - **Binary inspector** — A natural target for byte-level processing.
@@ -420,6 +435,7 @@ The first Native build / release implementation is available; IR/VM Image format
 The following ideas make especially good use of Cerune's current direction:
 
 - **RV32I / custom CPU**
+- **x86-64 / RISC-V instruction-sequence comparison**
 - **Tiny language + multiple executors**
 - **Observable SSA / optimization passes**
 - **Differential compiler testing**
@@ -431,6 +447,9 @@ The following ideas make especially good use of Cerune's current direction:
 - **Bounded model checking**
 - **Distributed-protocol simulation**
 - **Self-hosting countdown**
+- **Browser Wasm / Native GUI host comparison**
+- **Subprocess lifecycle and cross-route observations**
+- **Fixed-weight neural-network inference across routes**
 
 In many languages, these projects are simply things that can be built. In Cerune, the transformation itself can become part of the experiment:
 
