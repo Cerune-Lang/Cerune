@@ -9,6 +9,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 ## CPU / ISA
 
 - **RV32Iインタプリタ** — レジスタ・PC・メモリ・decodeを全部Ceruneで。
+- **x86-64 / RISC-V 命令列比較** — 同じ小さな計算を異なるISAで手書きし、命令・レジスタ・分岐・呼出規約を観測。RISC-V向けCerune backendの実装とは区別する。
 - **6502 subsetエミュレータ** — flag処理が型とbit演算の良いストレステスト。
 - **CHIP-8 VM** — 小さいので最初の完成系に向く。
 - **LC-3エミュレータ** — 教育用ISAなので観測思想との相性がいい。
@@ -60,7 +61,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **reaching definitions** — dataflow解析の教材。
 - **dominator計算** — iterative algorithmで十分書ける。
 - **dominance frontier** — SSA構築の前準備。
-- **SSA変換器** — 今後のCerune本体設計の実験台にもなる。
+- **SSA変換器** — Cerune本体の既存SSA変換とは独立に極小CFGで作り、φ配置・検証・逆変換を比較する。
 - **φ elimination** — SSA→non-SSA lowering。
 - **linear-scan register allocator** — Native backendとの比較材料。
 - **graph-coloring register allocator** — 小規模CFGで。
@@ -187,14 +188,14 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 
 ## Algorithms
 
-- **quicksort** — 再帰なしなら明示stack版。
+- **quicksort** — 再帰版と明示stack版の状態管理・呼出し深さを比較。
 - **mergesort** — iterative版。
 - **heapsort** — heap構造の確認にも。
 - **radix sort** — 整数型が豊富なので相性良い。
 - **binary search** — 境界条件教材。
 - **union-find** — graph/grid系の基盤。
 - **BFS** — queue実装込み。
-- **DFS iterative** — recursionなしを逆に活かす。
+- **DFS iterative** — 再帰DFSと明示stack版の探索順・資源使用を比較。
 - **Dijkstra** — priority queue込み。
 - **A*** — heuristic＋state。
 - **Floyd–Warshall** — 配列だけで書きやすい。
@@ -350,6 +351,9 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **同じ仕様から複数実装をAI生成して相互比較** — N-version programmingっぽい実験。
 - **AI生成compiler passのmutation testing** — “それっぽく動く”最適化を壊して検出力を見る。
 
+- **固定重みの小型ニューラルネット推論** — 行列積・活性化・出力計算をCeruneで記述し、f32/f64・経路間の数値差を観測。学習機能の実装とは区別する。
+- **Transformer演算の極小模型** — 固定サイズの行列・attentionの一部を独立した計算題材にし、必要な演算や近似の制約を明示して比較。LLM全体の実行は前提にしない。
+
 ## Research
 
 - **HIR/MIR semantic distance測定** — 構造がどれだけ変わったか定量化。
@@ -388,10 +392,21 @@ Ceruneで書いた処理そのものではなく、**完成成果物をbuild環�
 
 - **差し替え可能なVMロジック** — ゲームやsimulationの計算部分をImageで配り、host側でload・呼出し・差し替え。型付きhost API、version互換、資源制限も実験対象。
 
-## 将来: I/Oが入ったら
+## ホスト連携とOS境界の実験
+
+現在の型付きWATホスト呼出し、Native成果物、子プロセスの共通runtime・実OS接続を出発点にする。子プロセスの生成経路への接続は段階実装中であり、下記は完成済みの製品機能ではない。実装範囲は[子プロセスのロードマップ](../design/language-roadmap.ja.md)と[生成経路の契約](../design/subprocess-generated.ja.md)を基準とする。
+
+- **Wasmブラウザ vs Native GUIホスト** — 同じCerune計算をWAT→Wasmのブラウザ環境とNative→実行ファイルのGUI起動環境で試し、結果・停止理由・ホスト側の責務を比較。
+- **子プロセスのライフサイクル観測** — 起動・標準入出力・終了状態・期限・取消し・後始末をイベント列にして比較。Windows/Linuxの差と共通契約を切り分ける。
+- **子プロセス結果の経路横断比較** — まず既存の実行器と生成Cを基準に成功・失敗・部分出力を比較し、LLVM/QBE/Native/WATは接続が揃った段階で追加する。
+- **ホスト境界の通信プロトコル模型** — ブラウザ・GUI・CLIが要求と結果を受け渡す小型プロトコルを作り、順序・不正入力・切断を再現。ネットワークI/O実装は前提にしない。
+
+## I/Oを使う題材（現行機能と将来の拡張）
+
+`std:io`の行入力、`std:fs`の限定的な読取り・新規保存、引数取得は実装済み。一方で任意のバイナリI/O、豊富な文字列操作、ネットワークI/Oなどは未対応である。以下は現在の機能で試せる部分実験と、追加機能が必要な題材を併記している。
 
 - **grep風ツール** — byte/string処理の実用品。
-- **wc/cat/head風CLI** — runtime境界の最初の実用品。
+- **wc/cat/head風CLI** — まず文字列の読取り・行入力で可能な最小版を作り、バイト単位の処理は機能追加後に比較。
 - **CSV processor** — parser＋集計。
 - **JSON pretty-printer** — parser/formatter dogfooding。
 - **binary inspector** — byte processingの本命。
@@ -420,6 +435,7 @@ Ceruneで書いた処理そのものではなく、**完成成果物をbuild環�
 Ceruneの現在の特徴を最も活かしやすい候補を抜き出すと、次あたりが特に面白い。
 
 - **RV32I / 独自CPU**
+- **x86-64 / RISC-V 命令列比較**
 - **tiny language + 複数executor**
 - **SSA / 最適化passの観測**
 - **differential compiler testing**
@@ -431,6 +447,9 @@ Ceruneの現在の特徴を最も活かしやすい候補を抜き出すと、�
 - **bounded model checking**
 - **distributed protocol simulation**
 - **self-hosting countdown**
+- **Wasmブラウザ / Native GUIのホスト比較**
+- **子プロセスのライフサイクル・経路差分観測**
+- **固定重みニューラルネットの複数経路比較**
 
 普通の言語では「作れる」で終わる題材も、Ceruneでは同じプログラムが
 
