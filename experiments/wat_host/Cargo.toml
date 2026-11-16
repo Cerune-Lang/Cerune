@@ -11,5 +11,5 @@ wasmi = "=2.0.0"
 [dev-dependencies]
 serde_json = "1.0"
 
-[target.'cfg(all(target_arch = "x86_64", any(windows, target_os = "linux")))'.dev-dependencies]
+[target.'cfg(all(target_arch = "x86_64", any(all(windows, target_env = "msvc"), all(target_os = "linux", target_env = "gnu"))))'.dependencies]
 cerune-lang = { path = "../..", features = ["process-c-abi"] }

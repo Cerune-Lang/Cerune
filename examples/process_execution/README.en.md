@@ -49,7 +49,7 @@ Generated C also runs on Windows/Linux. Specify a target and explicitly link its
 cerune emit-c examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.c
 ~~~
 
-See [build/startup instructions](../../docs/design/subprocess-c.en.md) and the [four-executor comparison](../../experiments/subprocess/c_abi/generated.cjs). [LLVM generation and execution](../../docs/design/subprocess-llvm.en.md) are also supported. [QBE generation and execution](../../docs/design/subprocess-qbe.en.md) are also supported. [Native generation and execution](../../docs/design/subprocess-native.en.md) are also supported. WAT follows later. See the [execution design](../../docs/design/subprocess-execution.en.md) for support and preserved origins.
+See [build/startup instructions](../../docs/design/subprocess-c.en.md) and the [four-executor comparison](../../experiments/subprocess/c_abi/generated.cjs). [LLVM generation and execution](../../docs/design/subprocess-llvm.en.md) are also supported. [QBE generation and execution](../../docs/design/subprocess-qbe.en.md) are also supported. [Native generation and execution](../../docs/design/subprocess-native.en.md) are also supported. [Running through the WAT reference host](../../experiments/wat_host/README.en.md) is also supported. See the [execution design](../../docs/design/subprocess-execution.en.md) for support and preserved origins.
 
 LLVM generation uses the same example and process.json.
 

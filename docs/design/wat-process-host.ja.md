@@ -2,7 +2,7 @@
 
 [English](wat-process-host.en.md)
 
-**実装済み：8個のhost呼出しと生成WATへの接続。Windows/Linux x86-64で既存exampleを4実行器と比較しました。参照host CLIの接続指定は後続です。** [共通の子プロセス契約](subprocess-generated.ja.md)と同じ要求・失敗・Reportを扱います。言語機能をWAT専用に減らしません。
+**実装済み：8個のhost呼出しと生成WATへの接続。Windows/Linux x86-64で既存exampleを4実行器と比較しました。参照host CLIの明示接続と標準入出力・ファイルとの併用も実装しました。** [共通の子プロセス契約](subprocess-generated.ja.md)と同じ要求・失敗・Reportを扱います。言語機能をWAT専用に減らしません。
 
 ## 誰が何を行うか
 
@@ -66,7 +66,7 @@ reportは[固定Report v1の32語](subprocess-generated.ja.md)を返します。
 2. 生成WATへ要求転送、配列予約、Report変換・解放・診断を接続し、既存の.ceru exampleを4実行器と比較する。
 3. 参照hostのCLIへ明示接続を追加し、Windows/Linuxの実際の子・出力・時間超過・回収を比較する。その後にruntime・監督の公式配布へ進む。
 
-段階1・2は実装済みです。段階3の実子プロセス比較も試験用hostで開始しました。通常の参照host CLIにはまだ子プロセスのimport・接続指定がないため、今回の生成物を直接渡すと必要importの不足で停止します。
+段階1〜3のhost実装・比較は完了しました。[参照host CLI](../../experiments/wat_host/README.md)では --process-target を必須指定にし、任意の --process-config で共通の接続JSONを渡します。JSON省略時はUnconfiguredです。空・不正・1 MiB超のJSONや不一致targetをプログラム実行前に拒否します。targetを実行OSから補わず、内部memoryも公開しません。公式配布は次の作業です。
 
 ## 生成処理と検証
 
@@ -82,4 +82,4 @@ reportは[固定Report v1の32語](subprocess-generated.ja.md)を返します。
 | 不正host | 版・enum・payload・出自・件数・予約語、copyの短い応答・余分なバイト、転送失敗で位置付き停止 |
 | 互換性 | 未使用関数内も旧hostを拒否。操作なしはimport追加なし。memory非公開、main再実行拒否 |
 
-時間超過・回収失敗・他の入出力との同時利用の生成WAT比較と、参照host CLIへの接続は次の変更で行います。Wasm engineの物理メモリ不足と共通の容量上限は区別し、物理的な安全保証とはしません。
+[CLI比較](../../experiments/wat_host/tests/process_cli.rs)で両OSの時間超過・処理継続と、標準入力・出力・flush・引数・ファイル保存の併用を検証します。取消後の転送量が不明なら、回収済みでも接続の無効化を保持します。Linuxの回収失敗は試験用監督の通知遅延で再現し、4実行器と結果・次回起動の拒否を比較しました。両OSのReport注入はenum変換の試験であり、自然発生したOS障害とは扱いません。Wasm engineの物理メモリ不足と共通の容量上限は区別し、物理的な安全保証とはしません。

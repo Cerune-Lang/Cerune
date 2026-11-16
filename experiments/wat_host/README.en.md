@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-This independent reference implementation connects Cerune-generated WAT/Wasm to files, standard I/O, and arguments on Windows/Linux. WAT remains emit-only; this adds no Cerune CLI run/build/release route.
+This independent reference implementation connects Cerune-generated WAT/Wasm to files, standard I/O, arguments, and subprocesses on Windows/Linux. WAT remains emit-only; this adds no Cerune CLI run/build/release route.
 
 ## Run
 
@@ -20,22 +20,40 @@ Expected output is true and 16. sample.txt retains 16 bytes including Japanese, 
 | --- | --- |
 | First argument | .wat or .wasm module |
 | --file-root directory | Working directory opened before execution; omitted means unconfigured |
+| --process-target triple | Required for subprocess imports: explicit x86-64 Windows MSVC or Linux GNU |
+| --process-config json | Existing cerune-process-v1 connection JSON; requires target. Omitted means Unconfigured |
 | -- | Required end of host options, even with no program arguments |
 | After -- | Program arguments for std:env; marker-like strings remain ordinary arguments |
 
 Duplicate/unknown settings and missing values/delimiters fail startup. No root is inferred from cwd or environment variables. Explicit relative paths resolve from startup cwd. This host CLI differs from the Native artifact's --cerune-runtime-v1 syntax. Settings, root connection, and module loading are checked before execution; generated WAT checks program argument limits.
 
-## Structure and scope
+## Subprocesses
+
+Run the unconfigured example on Linux x86-64 as follows. On Windows, replace the target with x86_64-pc-windows-msvc. No target or connection is inferred from the running OS.
+
+~~~sh
+cargo run --quiet -- emit-wat examples/process_execution/unconfigured.ceru -o target/process.wat
+cargo run --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host -- target/process.wat --process-target x86_64-unknown-linux-gnu --
+~~~
+
+Generate [registered.ceru](../../examples/process_execution/README.en.md) similarly and add --process-config process.json to launch registered children. JSON follows the [existing contract](../../docs/design/subprocess-cli.en.md), including an explicit absolute Linux supervisor path. Empty/invalid/over-1-MiB JSON and mismatched targets fail before execution; diagnostics omit bodies and environment values.
+
+Each Wasmi Store owns one process connection. Releasing a request/result never clears a disabled connection. Normal completion, traps, and instantiation failures hand ownership back to the existing runtime destructor once. After timeout, unknown transfer progress or missing cancellation replies may disable further launches even when cleanup completed. There is no success fallback or implicit reconnection.
+
+Supported hosts are x86-64 Windows MSVC / Linux GNU. Other host builds explicitly reject subprocess settings. Wasm memory stays private. Official runtime/Linux-supervisor distribution is separate work.
+
+## Components and scope
 
 | Component | Responsibility |
 | --- | --- |
 | Wasmi 2.0.0 | Wasm validation and execution |
 | src/main.rs | Versioned imports, argument snapshot, standard I/O, and one main invocation |
+| src/process.rs | Versioned subprocess transport and request/result ownership; execution, failures and cleanup use the shared runtime |
 | src/files.rs | Transfers of at most eight bytes and instance-local handles |
 | Cerune runtime::files::Directory | OS scope, regular-file checks, exclusive creation, and close |
 | Generated WAT | Common-IR checks, ownership, retries, UTF-8, accounting, and file-v1 diagnostics |
 
-[Wasmi](https://docs.rs/wasmi/2.0.0/wasmi/) is pinned in this crate's Cargo.lock and is not a dependency of Cerune itself. The relative cerune-lang dependency stays inside the repository. Float formatting shares the executors' pure functions. The host does not copy complete bodies or access internal memory. Only the main export is accepted.
+[Wasmi](https://docs.rs/wasmi/2.0.0/wasmi/) is pinned in this crate's Cargo.lock and is not a dependency of Cerune itself. The relative cerune-lang dependency stays inside the repository. Float formatting shares the executors' pure functions. File transport avoids complete-body copies; subprocess transport owns complete requests before prepare. Neither accesses internal memory. Only the main export is accepted.
 
 Windows uses the existing directory-handle-relative connection; Linux uses the existing openat/procfs connection. The opened directory survives root renames, and symlinks/reparse points and non-regular targets are rejected. See the [common contract](../../docs/design/file-io.en.md) for OS requirements.
 
@@ -61,4 +79,11 @@ Windows/Linux CI requires these checks. Tests compare output, complete file-v1 d
 
 Short transfers, interruption, invalid responses, close consumption, and all 256 byte values use explicit test connections to the transport adapter. This does not claim those failures occurred naturally on the OS. Generated WAT response handling is also compared by the existing [in-memory tests](../../tests/file_io/wat.rs) under the [host contract](../../docs/design/wat-file-host.en.md).
 
-The separate [subprocess ABI probe](../subprocess/wat_abi/README.en.md) and [generated-WAT comparisons](tests/process_generated.rs) run in this crate’s Windows/Linux x86-64 tests. Generated WAT is connected to a test host using the existing runtime. **Subprocess imports/configuration in this host CLI follow later**; it cannot yet run artifacts containing subprocess operations directly. For Linux real-child tests, set CERUNE_TEST_PROCESS_SUPERVISOR to the absolute path of an explicitly built supervisor and use `-- --include-ignored`. CI requires this run.
+The [subprocess ABI probe](../subprocess/wat_abi/README.en.md), [generated-WAT tests](tests/process_generated.rs), and [CLI comparisons](tests/process_cli.rs) cover existing examples, standard I/O/files/arguments together, timeouts, continuation and disabled connections. Linux cleanup failure uses a supervisor fixture that delays notifications. Report injection on both OSes checks enum conversion, not a naturally occurring OS cleanup failure.
+
+On Linux, include the normally ignored child/supervisor tests with the following explicit paths. Windows/Linux CI requires these comparisons.
+
+~~~sh
+cargo build --locked --example subprocess_linux_supervisor --example subprocess_linux_backend
+CERUNE_TEST_PROCESS_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_supervisor" CERUNE_TEST_PROCESS_FAULT_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_backend" cargo test --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host -- --include-ignored
+~~~

@@ -1,15 +1,31 @@
 mod files;
+mod options;
+use options::options;
+#[cfg(all(
+    target_arch = "x86_64",
+    any(
+        all(windows, target_env = "msvc"),
+        all(target_os = "linux", target_env = "gnu")
+    )
+))]
+mod process;
 use cerune_lang::runtime::{files::Directory, float_output, input};
 use files::{Files, ProtocolError};
 use std::{
-    ffi::OsString,
     fs,
     io::{self, Read, Write},
-    path::PathBuf,
 };
 use wasmi::{Caller, Engine, Error, Linker, Module, Store, TrapCode};
 
 struct State {
+    #[cfg(all(
+        target_arch = "x86_64",
+        any(
+            all(windows, target_env = "msvc"),
+            all(target_os = "linux", target_env = "gnu")
+        )
+    ))]
+    process: Option<process::Process>,
     files: Files<Directory>,
     input: input::Stdin,
     input_failed: bool,
@@ -176,49 +192,47 @@ fn output_files() -> io::Result<(fs::File, fs::File)> {
         ))
     }
 }
-struct Options {
-    source: PathBuf,
-    root: Option<PathBuf>,
-    arguments: Vec<Vec<u8>>,
-}
-fn options(mut args: impl Iterator<Item = OsString>) -> Result<Options, String> {
-    let source=args.next().ok_or("usage: cerune-wat-host <module.wat|module.wasm> [--file-root <directory>] -- <program arguments>")?.into();
-    let mut root = None;
-    let mut delimited = false;
-    while let Some(option) = args.next() {
-        if option == "--" {
-            delimited = true;
-            break;
-        }
-        if option == "--file-root" && root.is_none() {
-            let value = args.next().ok_or("missing --file-root value")?;
-            if value.is_empty() || value == "--" || value == "--file-root" {
-                return Err("invalid --file-root value".into());
-            }
-            root = Some(PathBuf::from(value));
-        } else {
-            return Err("unknown or duplicate host setting".into());
-        }
-    }
-    if !delimited {
-        return Err("missing host argument delimiter --".into());
-    }
-    let arguments = args
-        .enumerate()
-        .map(|(i, a)| {
-            a.into_string()
-                .map(String::into_bytes)
-                .map_err(|_| format!("arguments-v1 phase=capture code=invalid-unicode index={i}"))
-        })
-        .collect::<Result<_, _>>()?;
-    Ok(Options {
-        source,
-        root,
-        arguments,
-    })
-}
 fn run() -> Result<(), String> {
     let options = options(std::env::args_os().skip(1))?;
+    let bytes = fs::read(options.source).map_err(|_| "cannot read Wasm module")?;
+    let engine = Engine::default();
+    let module = Module::new(&engine, bytes).map_err(|_| "invalid Wasm module")?;
+    if module.exports().map(|e| e.name()).collect::<Vec<_>>() != ["main"] {
+        return Err(
+            "expected only the generated main export; public memory is not supported".into(),
+        );
+    }
+    let needs_process = module
+        .imports()
+        .any(|i| i.module() == "cerune" && i.name().starts_with("process_"));
+    if needs_process && options.process_target.is_none() {
+        return Err("subprocess imports require explicit --process-target".into());
+    }
+    #[cfg(all(
+        target_arch = "x86_64",
+        any(
+            all(windows, target_env = "msvc"),
+            all(target_os = "linux", target_env = "gnu")
+        )
+    ))]
+    let processes = options
+        .process_target
+        .map(|target| {
+            let config = options::configuration(options.process_config.as_deref())?;
+            process::Process::new(target, &config)
+                .map_err(|status| format!("process host configuration failed: status={status}"))
+        })
+        .transpose()?;
+    #[cfg(not(all(
+        target_arch = "x86_64",
+        any(
+            all(windows, target_env = "msvc"),
+            all(target_os = "linux", target_env = "gnu")
+        )
+    )))]
+    if needs_process || options.process_target.is_some() || options.process_config.is_some() {
+        return Err("subprocess host requires x86-64 Windows MSVC or Linux GNU".into());
+    }
     // Select the backend before execution. No root is inferred from cwd or environment.
     let directory = options
         .root
@@ -228,6 +242,14 @@ fn run() -> Result<(), String> {
         .map_err(|e| e.record())?;
     let (output, error) = output_files().map_err(|_| "host stdout/stderr connection failed")?;
     let state = State {
+        #[cfg(all(
+            target_arch = "x86_64",
+            any(
+                all(windows, target_env = "msvc"),
+                all(target_os = "linux", target_env = "gnu")
+            )
+        ))]
+        process: processes,
         files: Files::new(directory),
         input: input::stdin().into_inner().expect("OS reader"),
         input_failed: false,
@@ -236,16 +258,18 @@ fn run() -> Result<(), String> {
         diagnostics: false,
         arguments: options.arguments,
     };
-    let bytes = fs::read(options.source).map_err(|_| "cannot read Wasm module")?;
-    let engine = Engine::default();
-    let module = Module::new(&engine, bytes).map_err(|_| "invalid Wasm module")?;
-    if module.exports().map(|e| e.name()).collect::<Vec<_>>() != ["main"] {
-        return Err(
-            "expected only the generated main export; public memory is not supported".into(),
-        );
-    }
     let mut store = Store::new(&engine, state);
     let mut linker = Linker::new(&engine);
+    #[cfg(all(
+        target_arch = "x86_64",
+        any(
+            all(windows, target_env = "msvc"),
+            all(target_os = "linux", target_env = "gnu")
+        )
+    ))]
+    if store.data().process.is_some() {
+        process::imports(&mut linker).map_err(|_| "cannot define subprocess imports")?;
+    }
     imports(&mut linker).map_err(|_| "cannot define host imports")?;
     let instance = linker
         .instantiate_and_start(&mut store, &module)
@@ -277,5 +301,34 @@ fn main() {
             eprintln!("cerune-wat-host: {error}");
         }
         std::process::exit(1);
+    }
+}
+
+#[cfg(all(
+    target_arch = "x86_64",
+    any(
+        all(windows, target_env = "msvc"),
+        all(target_os = "linux", target_env = "gnu")
+    )
+))]
+impl AsRef<process::Process> for State {
+    fn as_ref(&self) -> &process::Process {
+        self.process
+            .as_ref()
+            .expect("imports require explicit process target")
+    }
+}
+#[cfg(all(
+    target_arch = "x86_64",
+    any(
+        all(windows, target_env = "msvc"),
+        all(target_os = "linux", target_env = "gnu")
+    )
+))]
+impl AsMut<process::Process> for State {
+    fn as_mut(&mut self) -> &mut process::Process {
+        self.process
+            .as_mut()
+            .expect("imports require explicit process target")
     }
 }

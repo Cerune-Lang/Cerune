@@ -2,7 +2,7 @@
 
 [日本語](wat-process-host.ja.md)
 
-**Implemented: eight host calls and generated-WAT integration, compared with four executors using existing examples on Windows/Linux x86-64. Reference-host CLI configuration follows.** Use the requests, failures and Report from the [common subprocess contract](subprocess-generated.en.md), without defining a smaller WAT language subset.
+**Implemented: eight host calls and generated-WAT integration, compared with four executors using existing examples on Windows/Linux x86-64. Explicit reference-host CLI configuration and standard-I/O/file composition are also implemented.** Use the requests, failures and Report from the [common subprocess contract](subprocess-generated.en.md), without defining a smaller WAT language subset.
 
 ## Responsibilities
 
@@ -66,7 +66,7 @@ Subprocess operations, including those in uncalled functions, require all eight 
 2. Connect request transport, array reservation, Report conversion, release and diagnostics to generated WAT; compare existing .ceru examples with four executors.
 3. Add explicit configuration to the reference-host CLI and compare real Windows/Linux children, output, timeouts and cleanup. Then complete official runtime/supervisor distribution.
 
-Stages 1 and 2 are implemented. Stage 3 real-child comparisons have also started in the test host. The ordinary reference-host CLI does not yet provide subprocess imports/configuration, so passing these artifacts directly fails for missing imports.
+Host implementation/comparisons for stages 1–3 are complete. The [reference-host CLI](../../experiments/wat_host/README.en.md) requires --process-target and accepts common connection JSON through optional --process-config. Omitted JSON yields Unconfigured. Empty/invalid/over-1-MiB JSON and mismatched targets fail before program execution. No target is inferred from the running OS and no internal memory is exposed. Official distribution follows.
 
 ## Generation and validation
 
@@ -82,4 +82,4 @@ Stages 1 and 2 are implemented. Stage 3 real-child comparisons have also started
 | Invalid hosts | Located stops for malformed versions/enums/payloads/origins/counts/reserved words, short copies, excess bytes and transfer failures |
 | Compatibility | Unused calls still reject old hosts; no extra imports without operations; private memory and repeated-main rejection |
 
-Generated-WAT timeout/cleanup-failure comparisons, composition with other I/O, and reference-host CLI integration follow next. Physical Wasm-engine memory exhaustion remains separate from common capacity limits; these limits are not a physical safety guarantee.
+[CLI comparisons](../../experiments/wat_host/tests/process_cli.rs) cover timeouts/continuation on both OSes together with stdin/output/flush/arguments/file creation. Unknown progress after cancellation keeps the connection disabled even if cleanup completed. Linux cleanup failure uses delayed notifications from a supervisor fixture and compares the result and next-launch rejection with four executors. Report injection on both OSes checks enum conversion, not naturally occurring OS faults. Physical Wasm-engine memory exhaustion remains separate from common capacity limits; these limits are not a physical safety guarantee.
