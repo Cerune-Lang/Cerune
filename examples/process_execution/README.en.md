@@ -49,7 +49,7 @@ Generated C also runs on Windows/Linux. Specify a target and explicitly link its
 cerune emit-c examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.c
 ~~~
 
-See [build/startup instructions](../../docs/design/subprocess-c.en.md) and the [four-executor comparison](../../experiments/subprocess/c_abi/generated.cjs). [LLVM generation and execution](../../docs/design/subprocess-llvm.en.md) are also supported. [QBE generation and execution](../../docs/design/subprocess-qbe.en.md) are also supported. WAT/Native follow later. See the [execution design](../../docs/design/subprocess-execution.en.md) for support and preserved origins.
+See [build/startup instructions](../../docs/design/subprocess-c.en.md) and the [four-executor comparison](../../experiments/subprocess/c_abi/generated.cjs). [LLVM generation and execution](../../docs/design/subprocess-llvm.en.md) are also supported. [QBE generation and execution](../../docs/design/subprocess-qbe.en.md) are also supported. [Native generation and execution](../../docs/design/subprocess-native.en.md) are also supported. WAT follows later. See the [execution design](../../docs/design/subprocess-execution.en.md) for support and preserved origins.
 
 LLVM generation uses the same example and process.json.
 
@@ -73,4 +73,4 @@ cerune emit-lir examples/process_execution/unconfigured.ceru --target x86_64-pc-
 cerune emit-lir examples/process_execution/registered.ceru --ssa --target x86_64-unknown-linux-gnu
 ~~~
 
-No child is started at this stage. Native ASM/Object generation still stops with an unsupported-operation diagnostic. Successful LIR observation does not imply Native execution support.
+LIR observation does not start a child. [Native ASM/direct Objects](../../docs/design/subprocess-native.en.md) execute these examples after explicitly linking the common runtime. Additional-runtime inputs for Native build/release follow.

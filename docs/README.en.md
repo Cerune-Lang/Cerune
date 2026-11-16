@@ -98,6 +98,7 @@ Each document links to its Japanese counterpart.
 - [Subprocess connections in generated C](design/subprocess-c.en.md)
 - [Generated LLVM subprocess integration](design/subprocess-llvm.en.md)
 - [Generated QBE subprocess integration](design/subprocess-qbe.en.md)
+- [Native subprocess execution](design/subprocess-native.en.md)
 
 ### Build and distribution
 

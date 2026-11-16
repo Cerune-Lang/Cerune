@@ -2,7 +2,7 @@
 
 [English](subprocess-generated.en.md)
 
-**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。[生成Cの接続](subprocess-c.ja.md)も実装済みです。[生成LLVM](subprocess-llvm.ja.md)も実装済みです。[生成QBE](subprocess-qbe.ja.md)も実装済みです。NativeはLIRに操作・型・出自を保持しますが、ASM/Objectへの変換は引き続き拒否します。WATも実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
+**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。[生成Cの接続](subprocess-c.ja.md)も実装済みです。[生成LLVM](subprocess-llvm.ja.md)も実装済みです。[生成QBE](subprocess-qbe.ja.md)も実装済みです。[NativeのASM・自前Object実行](subprocess-native.ja.md)も実装済みです。Native build/releaseの追加runtime指定・記録・配布は後続です。WATも実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
 
 ## 調査結果と方針
 
@@ -171,7 +171,7 @@ program --cerune-runtime-v1 --process-config process.json --file-root directory 
 | 3（実装済み） | [生成Cのloweringと起動設定](subprocess-c.ja.md) | [registered.ceru](../../examples/process_execution/registered.ceru)を4実行器と比較。未接続・部分出力・非0終了・継続・所有・失敗位置が一致 |
 | 4a（実装済み） | [LLVMのlowering・予約・起動設定](subprocess-llvm.ja.md) | Windows/Linuxで既存exampleと異常系を比較 |
 | 4b（実装済み） | [QBEのlowering・予約・起動設定](subprocess-qbe.ja.md) | Windows/Linuxで既存exampleと異常系を比較 |
-| 4c（ABI試験・LIR保持済み） | Native、Native build/release | [独立したNative試験](../../experiments/subprocess/native_abi/README.md)で両OSのASM・自前Objectから同じABIを検証。[LIR](lir-observation.ja.md)に基準/SSAの操作・型・出自を保持。ASM/Object実行・起動設定・build/releaseの接続は後続 |
+| 4c（実行対応済み） | [Native ASM・自前Object](subprocess-native.ja.md)、Native build/release | 両OSの基準MIR・ASMとSSA・自前Objectを検証。追加runtimeを明示するbuild/releaseは後続 |
 | 5 | WATの版付きhost、Linux監督の配布仕上げ | private memory、旧hostの拒否、同じ要求・結果・回収、配置変更後の配布実行を検証 |
 
 C ABI試作の具体的なシグネチャ・状態・検証手順は[専用文書](../../experiments/subprocess/c_abi/README.md)にまとめています。設定JSONの解析をCLIと共有し、releaseが接続停止を解除しないことも検証します。

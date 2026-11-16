@@ -98,6 +98,7 @@
 - [生成Cの子プロセス接続](design/subprocess-c.ja.md)
 - [生成LLVMの子プロセス接続](design/subprocess-llvm.ja.md)
 - [生成QBEの子プロセス接続](design/subprocess-qbe.ja.md)
+- [Nativeの子プロセス実行](design/subprocess-native.ja.md)
 
 ### ビルド・配布
 

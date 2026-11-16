@@ -24,7 +24,7 @@ targetはWindows/Linuxのx86-64 tripleを明示します。ホストOSから補�
 
 名前解決済みの型宣言はMIRから保持します。型ID・フィールドID・型名・フィールド型・enumの宣言順に加え、各フィールドのslot番号と基準位置から負方向へのバイト変位を表示します。型の意味やenumタグをLIRで作り直しません。
 
-子プロセスは`ProcessRun`として、評価済み要求と結果全体のstack位置、要求型ID・結果型ID、出自を保持します。基準MIRとSSA経由のMIRから観測できます。ASM/Objectへの変換は未実装のため、観測に成功しても機械コード生成時には元の操作位置付きで拒否します。
+子プロセスは`ProcessRun`として、評価済み要求と結果全体のstack位置、要求型ID・結果型ID、出自を保持します。基準MIRとSSA経由のMIRから観測できます。[NativeのASM・自前Object](subprocess-native.ja.md)にも変換できます。型・格納位置を検査し、元の操作の出自を要求と診断へ渡します。
 
 命令番号は関数内の順番です。ASMの`cerune-mir`注釈のLIR番号と一致します。一つのLIR命令が複数のASM命令へ展開される場合があります。MIRに対応しないABI準備等は`mir: None`、ソースに直接対応しない操作は`Synthetic`です。幅0の値には、機械バイトを作らない`ObserveOnly`を残します。
 

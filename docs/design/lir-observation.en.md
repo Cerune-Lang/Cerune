@@ -24,7 +24,7 @@ The text header is `cerune-lir-observation-v1`. It records target, heap budgets,
 
 Resolved type declarations are retained from MIR. Alongside type/field IDs, names, field types, and enum declaration order, observation shows each field's slot and downward byte displacement from its aggregate base. LIR does not recreate type semantics or enum tags.
 
-ProcessRun retains the evaluated request and entire result stack positions, request/result type IDs, and origins. It is observable from baseline MIR and SSA-derived MIR. ASM/Object lowering remains unimplemented and reports the original operation location even when LIR observation succeeds.
+ProcessRun retains the evaluated request and entire result stack positions, request/result type IDs, and origins. It is observable from baseline MIR and SSA-derived MIR. [Native ASM/direct Object generation](subprocess-native.en.md) is implemented, with validated types/storage positions and original request/diagnostic origins.
 
 Instruction indices are local to each function and match the LIR indices in ASM `cerune-mir` annotations. One LIR instruction may expand into several ASM instructions. ABI preparation without a MIR counterpart has `mir: None`; operations without direct source provenance use `Synthetic`. Zero-width values retain `ObserveOnly` without emitting machine bytes.
 

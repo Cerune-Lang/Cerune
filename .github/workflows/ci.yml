@@ -650,6 +650,18 @@ jobs:
           $env:CERUNE_TEST_QBE = Join-Path $env:GITHUB_WORKSPACE 'target/qbe-1.3/qbe.exe'
           node experiments/subprocess/c_abi/generated.cjs --qbe x86_64-pc-windows-msvc clang target/subprocess-generated-qbe target/subprocess-c-abi/build/x86_64-pc-windows-msvc/debug/cerune_lang.lib
           exit $LASTEXITCODE
+      - name: Compare generated Native ASM and Object subprocesses on Linux
+        if: runner.os == 'Linux'
+        run: |
+          node experiments/subprocess/c_abi/generated.cjs --native x86_64-unknown-linux-gnu clang target/subprocess-generated-native-asm target/subprocess-c-abi/build/x86_64-unknown-linux-gnu/debug/libcerune_lang.a "$PWD/target/debug/examples/subprocess_linux_supervisor"
+          node experiments/subprocess/c_abi/generated.cjs --native --native-object --native-ssa x86_64-unknown-linux-gnu clang target/subprocess-generated-native-object target/subprocess-c-abi/build/x86_64-unknown-linux-gnu/debug/libcerune_lang.a "$PWD/target/debug/examples/subprocess_linux_supervisor"
+      - name: Compare generated Native ASM and Object subprocesses on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          node experiments/subprocess/c_abi/generated.cjs --native x86_64-pc-windows-msvc clang target/subprocess-generated-native-asm target/subprocess-c-abi/build/x86_64-pc-windows-msvc/debug/cerune_lang.lib
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node experiments/subprocess/c_abi/generated.cjs --native --native-object --native-ssa x86_64-pc-windows-msvc clang target/subprocess-generated-native-object target/subprocess-c-abi/build/x86_64-pc-windows-msvc/debug/cerune_lang.lib
       - name: Verify Linux common-runtime Backend
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend
@@ -679,6 +691,9 @@ jobs:
             target/subprocess-llvm-abi/commands.json
             target/subprocess-llvm-abi/*.ll
             target/subprocess-llvm-abi/*.s
+            target/subprocess-generated-native-*/commands.json
+            target/subprocess-generated-native-*/*.s
+            target/subprocess-generated-native-*/*.obj
             target/subprocess-native-abi/commands.json
             target/subprocess-native-abi/inputs.json
             target/subprocess-native-abi/*/typed.txt

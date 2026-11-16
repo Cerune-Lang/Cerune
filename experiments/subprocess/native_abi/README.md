@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-**型付きx86-64命令から作ったASMと自前Objectで、共通runtimeの呼出しを検証する試験です。** Windows/Linuxの両方で実行済みです。CeruneソースのProcessRunはLIRへ保持できますが、機械命令への変換、起動設定、build/releaseへの接続はまだ実装していません。
+**型付きx86-64命令から作ったASMと自前Objectで、共通runtimeの呼出しを検証する試験です。** Windows/Linuxの両方で実行済みです。[Ceruneソースからの実行と起動設定](../../../docs/design/subprocess-native.ja.md)も実装済みです。build/releaseへの追加runtime指定は後続です。
 
 [生成経路の契約](../../../docs/design/subprocess-generated.ja.md)に従い、言語機能を接続する前に値の渡し方とリンクを確かめます。[C ABI試験](../c_abi/README.md)と同じruntime archive・C側の期待値を使います。実行可能なCeruneの例は[process_execution](../../../examples/process_execution/README.md)に置き、この試験を言語exampleへ混ぜません。
 

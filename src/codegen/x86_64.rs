@@ -19,6 +19,7 @@ mod lower;
 mod machine;
 #[cfg(test)]
 mod object;
+mod process;
 mod program;
 pub use program::{NativeProgram, Origin as NativeOrigin};
 #[cfg(test)]
@@ -130,22 +131,6 @@ pub fn build_program_from_lir(
     annotate_origins: bool,
 ) -> Result<NativeProgram, Diagnostic> {
     lir::validate(module)?;
-    for (code, origins) in module
-        .functions
-        .iter()
-        .map(|f| (&f.instructions, &f.origins))
-        .chain(std::iter::once((&module.instructions, &module.origins)))
-    {
-        for (i, origin) in code.iter().zip(origins) {
-            if matches!(i, ir::Instruction::ProcessRun { .. }) {
-                let message = "Native subprocess execution is not supported yet";
-                return Err(match origin {
-                    ir::Origin::Source { span, .. } => Diagnostic::new(message, *span),
-                    ir::Origin::Synthetic => Diagnostic::without_span(message),
-                });
-            }
-        }
-    }
     Ok(emit::build(module, annotate_origins))
 }
 

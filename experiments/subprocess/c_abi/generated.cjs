@@ -1,11 +1,13 @@
 'use strict';
 const fs=require('fs'),path=require('path'),cp=require('child_process'),assert=require('assert');
 const compareCompleted=require('./completed-report.cjs');
+const native=process.argv.includes('--native'),nativeObject=process.argv.includes('--native-object'),nativeSsa=process.argv.includes('--native-ssa');
 const llvm=process.argv.includes('--llvm');
+if(nativeObject&&!native||nativeSsa&&!native||native&&(llvm||process.argv.includes('--qbe')))throw Error('Native flags require --native and exclude other modes');
 const qbe=process.argv.includes('--qbe'),qbeTool=process.env.CERUNE_TEST_QBE;
 if(qbe&&(!qbeTool||llvm))throw Error('--qbe requires CERUNE_TEST_QBE and excludes --llvm');
-const [target,clang,directory,archive,supervisor]=process.argv.slice(2).filter(x=>x!=='--llvm'&&x!=='--qbe');
-const emitter=qbe?'emit-qbe':llvm?'emit-llvm':'emit-c';
+const [target,clang,directory,archive,supervisor]=process.argv.slice(2).filter(x=>!['--llvm','--qbe','--native','--native-object','--native-ssa'].includes(x));
+const emitter=native?'emit-asm':qbe?'emit-qbe':llvm?'emit-llvm':'emit-c';
 const windows=target==='x86_64-pc-windows-msvc',root=path.resolve(__dirname,'../../..');
 if(!['x86_64-pc-windows-msvc','x86_64-unknown-linux-gnu'].includes(target)||windows!==(process.platform==='win32'))throw Error('explicit matching target required');
 const dir=path.resolve(directory);fs.mkdirSync(dir);
@@ -30,13 +32,24 @@ const libs=windows?['-lkernel32','-lntdll','-luserenv','-lws2_32','-ldbghelp','-
 const example=fs.readFileSync(path.join(root,'examples/process_execution/registered.ceru'),'utf8');
 const routes=[['run'],['run-mir'],['run-mir','--ssa'],['run-vm']];
 function build(label,source,options=[],hook='',transform=x=>x){
- const entry=path.join(dir,label+'.ceru'),c=path.join(dir,label+(qbe?'.ssa':llvm?'.ll':'.c')),exe=path.join(dir,label+(windows?'.exe':''));
+ const entry=path.join(dir,label+'.ceru'),c=path.join(dir,label+(native?'.s':qbe?'.ssa':llvm?'.ll':'.c')),exe=path.join(dir,label+(windows?'.exe':''));
  fs.writeFileSync(entry,source);
- run(cli,[emitter,entry,'--target',target,'-o',c,...options]);
+ run(cli,[emitter,entry,'--target',target,'-o',c,...options,...(nativeSsa?['--ssa']:[])]);
  let text=fs.readFileSync(c,'utf8');
- assert(text.includes('cerune_process_v1_prepare'));assert(text.includes(llvm?'@cerune.process.reserve(':'cerune_process_reserve('));
+ assert(text.includes('cerune_process_v1_prepare'));assert(text.includes(native?'cerune_process_reserve:':llvm?'@cerune.process.reserve(':'cerune_process_reserve('));
  // Check all common-IR array owners are released, including short/empty result capacity.
- if(qbe){
+ if(native){
+  const before='  callq cerune_program';assert(text.includes(before));
+  text=text.replace(before,()=>before+'\n  cmpq $0, .Lcerune_array_live(%rip)\n  je .Lprocess_test_no_leak\n  movl $95, '+(windows?'%ecx':'%edi')+'\n  call _Exit\n.Lprocess_test_no_leak:');
+  if(hook){const before='cerune_process_result_allocate:\n';assert(text.includes(before));
+   text=text.replace(before,()=>before+'  incq .Lprocess_test_attempts(%rip)\n  cmpq $'+hook+', .Lprocess_test_attempts(%rip)\n  jne .Lprocess_test_allocate\n  xorl %eax, %eax\n  movl $3, %edx\n  ret\n.Lprocess_test_allocate:\n')+'\n.data\n.p2align 3\n.Lprocess_test_attempts:\n.quad 0\n';
+  }
+  const transformed=transform(text);fs.writeFileSync(c,transformed);
+  // Fault injection uses ASM; ordinary cases also exercise the self-encoded Object.
+  let input=c;
+  if(nativeObject&&!hook&&transformed===text){input=path.join(dir,label+'.obj');run(cli,['emit-obj',entry,'--target',target,'-o',input,...options,...(nativeSsa?['--ssa']:[])]);}
+  run(clang,['--target='+target,input,path.resolve(archive),...libs,'-o',exe]);
+ }else if(qbe){
   const before='  %result =w call $cerune_program()';
   assert(text.includes(before));
   text=text.replace(before,before+'\n  %process_live =l loadl $cerune_array_live\n  jnz %process_live, @process_leak, @process_done\n@process_leak\n  call $_Exit(w 95)\n  hlt\n@process_done');
@@ -109,9 +122,9 @@ compare('full-report',example+'\nprint(result.report);\n',config,[],undefined,co
 // without depending on when the OS reports an empty process scope.
 for(const flag of [0,1]){
  const x=build('cleanup-flag-'+flag,example+'\nprint(result.report);\n',[],'',text=>{
-  const marker=qbe?'  %version =l loadl %words':llvm?'  %version = load i64, ptr %words':'    cerune_process_check(cerune_process_v1_report(cerune_process_context_value,w,32),0,origin);';
+  const marker=native?'  callq cerune_process_v1_report'+(windows?'':'@PLT'):qbe?'  %version =l loadl %words':llvm?'  %version = load i64, ptr %words':'    cerune_process_check(cerune_process_v1_report(cerune_process_context_value,w,32),0,origin);';
   assert(text.includes(marker),'cleanup injection marker');
-  const patch=qbe?'  %test_cleanup =l add %words, 184\n  storel '+flag+', %test_cleanup\n  %test_reported =l add %words, 208\n  storel '+flag+', %test_reported\n'+marker:llvm?'  %test.cleanup = getelementptr i64, ptr %words, i64 23\n  store i64 '+flag+', ptr %test.cleanup\n  %test.reported = getelementptr i64, ptr %words, i64 26\n  store i64 '+flag+', ptr %test.reported\n'+marker
+  const patch=native?marker+'\n  movq $'+flag+', 696(%rsp)\n  movq $'+flag+', 720(%rsp)':qbe?'  %test_cleanup =l add %words, 184\n  storel '+flag+', %test_cleanup\n  %test_reported =l add %words, 208\n  storel '+flag+', %test_reported\n'+marker:llvm?'  %test.cleanup = getelementptr i64, ptr %words, i64 23\n  store i64 '+flag+', ptr %test.cleanup\n  %test.reported = getelementptr i64, ptr %words, i64 26\n  store i64 '+flag+', ptr %test.reported\n'+marker
    :marker+'\n    w[23]='+flag+'; w[26]='+flag+';';
   return text.replace(marker,patch);
  });
@@ -131,7 +144,9 @@ compare('chunked-output',bulk,bulkConfig,[],'4097\ntrue\n');
 const empty=example.replace(/arguments: array_copy\(\[.*?\]\)/,'arguments: array_copy(["empty"])')
  .replace('stdin: array_copy([u8(255), u8(0), u8(13), u8(10)])','stdin: array_repeat::<u8>(u8(0), 0)');
 compare('empty-result-capacity',empty,config,[],'None{}');
-const abi=build('abi-failure',example,[],'',text=>qbe
+const abi=build('abi-failure',example,[],'',text=>native
+ ?text.replace('  callq cerune_process_v1_prepare'+(windows?'':'@PLT'),'  movl $13, %eax')
+ :qbe
  ? text.replace('%prepared =w call $cerune_process_v1_prepare(l %context, l %request)','%prepared =w copy 13')
  :llvm
  ? text.replace('call i32 @cerune_process_v1_prepare(ptr %context, ptr %request)','call i32 @process.test.prepare()')+
@@ -148,10 +163,10 @@ const sequencing=example+
  '\nfn invoke(r: types::Request) -> u64 { print("called"); return process::run(r).report.stdin_accepted; }\n'+
  'print(false && invoke(request) == 4);\nprint(invoke(request) + invoke(request));\n';
 compare('sequencing',sequencing,config);
-for(let n=1;n<=4;n++){
+for(let n=1;n<=(native?2:4);n++){
  const hook='#define _GNU_SOURCE\n#include <stdlib.h>\nstatic unsigned attempts;\n'+
  'static void *fail_result(size_t n) { return ++attempts == '+n+' ? NULL : malloc(n); }\n#define CERUNE_PROCESS_RESULT_MALLOC fail_result\n';
- const x=build('allocation-'+n,example,[],(llvm||qbe)?n:hook);
+ const x=build('allocation-'+n,example,[],(llvm||qbe||native)?n:hook);
  const r=run(x.exe,['--cerune-runtime-v1','--process-config',baseline.file,'--']);
  assert(r.stdout.includes('AllocationFailed{}')&&r.stdout.includes('Absent{}')&&r.stdout.endsWith('continued\n'));
 }
@@ -165,7 +180,7 @@ for(const args of [
  assert(r.stderr.includes('cerune-process-startup-v1'));
 }
 const unmarked=run(baseline.x.exe,['--process-config',baseline.file]);assert(unmarked.stdout.includes('Unconfigured{}'));
-const missingTarget=run(cli,[emitter,baseline.x.entry],false);
+const missingTarget=run(cli,native?['emit-obj',baseline.x.entry,'-o',path.join(dir,'missing-target.obj')]:[emitter,baseline.x.entry],false);
 assert.notStrictEqual(missingTarget.status,0);assert(missingTarget.stderr.includes('explicit --target'));
 
 
@@ -185,7 +200,11 @@ for(const [label,text]of [['empty',''],['invalid','{'],['platform',JSON.stringif
  assert.notStrictEqual(r.status,0);assert.strictEqual(r.stdout,'');assert(r.stderr.includes('cerune-process-'));
 }
 const other=windows?'x86_64-unknown-linux-gnu':'x86_64-pc-windows-msvc';
-if(qbe){
+if(native){
+ const wrong=path.join(dir,'other-target.s');run(cli,[emitter,baseline.x.entry,'--target',other,'-o',wrong]);
+ run(clang,['--target='+other,'-c',wrong,'-o',path.join(dir,'other-target.o')]);
+ run(cli,['emit-obj',baseline.x.entry,'--target',other,'-o',path.join(dir,'other-target-own.o')]);
+}else if(qbe){
  const wrong=path.join(dir,'other-target.ssa'),asm=path.join(dir,'other-target.s');
  run(cli,[emitter,baseline.x.entry,'--target',other,'-o',wrong]);
  assert(fs.readFileSync(wrong,'utf8').includes('# target: '+other));
@@ -202,4 +221,4 @@ if(qbe){
  const mismatch=run(clang,['--target='+target,'-std=c11','-D_CRT_SECURE_NO_WARNINGS','-fsyntax-only',wrong],false);
  assert.notStrictEqual(mismatch.status,0);assert(mismatch.stderr.includes('Cerune_process_runtime_target_mismatch'));
 }
-console.log('Generated '+(qbe?'QBE':llvm?'LLVM':'C')+': '+comparisons+' executor comparisons, allocation failures, startup checks: ok');
+console.log('Generated '+(native?'Native '+(nativeObject?'Object':'ASM')+(nativeSsa?' SSA':''):qbe?'QBE':llvm?'LLVM':'C')+': '+comparisons+' executor comparisons, allocation failures, startup checks: ok');

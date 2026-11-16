@@ -404,10 +404,12 @@ fn execution_module_rejects_unsupported_emitters_without_affecting_data_module()
         assert!(source.contains("$cerune_process_reserve("));
         assert!(source.contains("$cerune_process_finalize("));
     }
-    let errors = [
-        wat::emit_wat(&p).unwrap_err(),
-        x86_64::emit_x86_64_win_asm(&p).unwrap_err(),
-    ];
+    assert!(
+        x86_64::emit_x86_64_win_asm(&p)
+            .unwrap()
+            .contains("cerune_process_v1_prepare")
+    );
+    let errors = [wat::emit_wat(&p).unwrap_err()];
     for error in errors {
         assert!(
             error

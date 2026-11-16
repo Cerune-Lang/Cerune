@@ -276,6 +276,11 @@ fn body(
                 if request.slots == 0 || outcome.slots == 0 {
                     return Err(fail("process aggregates must not be empty"));
                 }
+                let Origin::Source { span, .. } = origins[index] else {
+                    unreachable!("checked I/O origin")
+                };
+                super::process::validate::validate(m, request_type.0, outcome_type.0, span)
+                    .map_err(fail)?;
                 stack(*request_offset, request.slots)?;
                 stack(*outcome_offset, outcome.slots)?;
                 let a = (-*request_offset) as usize;

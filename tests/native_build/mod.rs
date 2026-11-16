@@ -395,3 +395,28 @@ fn native_build_rejects_missing_or_non_clang_drivers() {
 mod release;
 
 mod file_connection;
+
+#[test]
+fn subprocess_build_rejects_unrecorded_runtime_dependency_before_output() {
+    let Some(clang) = driver() else {
+        return;
+    };
+    let scratch = Scratch::new();
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/process_execution/unconfigured.ceru");
+    for ssa in [false, true] {
+        let dir = scratch.0.join(if ssa { "ssa" } else { "baseline" });
+        let result = output(&mut build(&source, &dir, &clang, ssa), &scratch.0);
+        assert!(!result.status.success());
+        let error = String::from_utf8_lossy(&result.stderr);
+        assert!(
+            error.contains("subprocess runtime dependency is not supported yet"),
+            "{error}"
+        );
+        assert!(error.contains("std:process/run"), "{error}");
+        assert!(
+            !dir.exists(),
+            "must reject before producing a misleading completed build"
+        );
+    }
+}

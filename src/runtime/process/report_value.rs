@@ -11,6 +11,14 @@ pub(crate) enum Error {
     UnrepresentableReport,
 }
 
+/// Validate the shared Report declaration without constructing runtime values.
+pub(crate) fn validate_layout(
+    definitions: &[ir::TypeDefinition],
+    id: ir::TypeId,
+) -> Result<(), Error> {
+    shape::validate(definitions, id, Shape::Report)
+}
+
 /// 制御フロー・所有処理を共有せず、既存の2種類の値表現だけを橋渡しします。
 pub(crate) trait Value: Sized {
     fn integer(value: i128, ty: IntegerType) -> Self;
@@ -75,7 +83,7 @@ impl<'a, V: Value> PreparedReport<'a, V> {
         report_id: ir::TypeId,
         before_allocation: &mut impl FnMut(usize) -> Result<(), Error>,
     ) -> Result<Self, Error> {
-        shape::validate(definitions, report_id, Shape::Report)?;
+        validate_layout(definitions, report_id)?;
         Ok(Self {
             definitions,
             value: allocate(definitions, report_id, before_allocation)?,
