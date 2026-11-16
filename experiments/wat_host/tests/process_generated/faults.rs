@@ -163,3 +163,51 @@ fn no_process_imports_for_ordinary_programs_and_old_host_rejection_for_unused_ca
         .to_string();
     assert!(error.contains("process_begin_v1"), "{error}");
 }
+#[test]
+fn injected_cleanup_payloads_keep_flags_and_reported_verdict_separate() {
+    // This checks generated enum conversion, not an OS cleanup failure.
+    let source =
+        format!("{EXAMPLE}\nprint(result.report.cleanup);print(result.report.cleanup_reported);");
+    let engine = Engine::default();
+    let module = Module::new(&engine, wat::emit_wat(&hir(&source)).unwrap()).unwrap();
+    let mut linker = Linker::new(&engine);
+    host::imports(&mut linker).unwrap();
+    linker.allow_shadowing(true);
+    linker
+        .func_wrap(
+            "cerune",
+            "process_report_v1",
+            |c: Caller<'_, host::Process>, i: i32| {
+                let (word, status) = c.data().report(i);
+                let replacement = match i {
+                    19 => 20,
+                    20 => 7,
+                    22 => 2,
+                    23 => 14,
+                    24 => 5,
+                    25 => 1,
+                    26 => 1,
+                    _ => word,
+                };
+                (replacement, status)
+            },
+        )
+        .unwrap();
+    let out = Arc::new(Mutex::new(vec![]));
+    let err = Arc::new(Mutex::new(vec![]));
+    output_imports(&mut linker, out.clone(), err.clone());
+    let mut store = Store::new(&engine, host::Process::new(target(), &[]).unwrap());
+    let instance = linker.instantiate_and_start(&mut store, &module).unwrap();
+    instance
+        .get_typed_func::<(), ()>(&store, "main")
+        .unwrap()
+        .call(&mut store, ())
+        .unwrap();
+    let text = String::from_utf8(out.lock().unwrap().clone()).unwrap();
+    assert!(
+        text.contains("Reason{code: CleanupFailed{}, phase: Cleanup{}}"),
+        "{text}"
+    );
+    assert!(text.ends_with("Incomplete{child_reaped: true, handles_closed: true, scope_finished: true, error: InvalidResponse{}}\nComplete{termination_requested: true}\n"),"{text}");
+    assert!(err.lock().unwrap().is_empty());
+}

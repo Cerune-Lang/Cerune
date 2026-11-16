@@ -1,5 +1,11 @@
-#![cfg(all(target_arch = "x86_64", any(windows, target_os = "linux")))]
-#[path = "../../subprocess/wat_abi/host.rs"]
+#![cfg(all(
+    target_arch = "x86_64",
+    any(
+        all(windows, target_env = "msvc"),
+        all(target_os = "linux", target_env = "gnu")
+    )
+))]
+#[path = "../src/process.rs"]
 mod host;
 use host::Process;
 use serde_json::json;

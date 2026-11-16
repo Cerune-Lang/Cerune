@@ -1,4 +1,4 @@
-//! Test transport for ABI probes and generated WAT; semantics stay in the runtime ABI.
+//! Versioned subprocess value transport; execution semantics stay in the shared runtime ABI.
 use cerune_lang::runtime::process::abi::{self, Bytes, Context, RequestV1};
 use std::ptr;
 use wasmi::{Caller, Error, Linker};
@@ -261,11 +261,23 @@ impl Drop for Process {
         let _ = unsafe { abi::cerune_process_v1_destroy(&mut self.context) };
     }
 }
-pub fn imports(linker: &mut Linker<Process>) -> Result<(), Error> {
+impl AsRef<Process> for Process {
+    fn as_ref(&self) -> &Process {
+        self
+    }
+}
+impl AsMut<Process> for Process {
+    fn as_mut(&mut self) -> &mut Process {
+        self
+    }
+}
+pub fn imports<T: AsRef<Process> + AsMut<Process> + 'static>(
+    linker: &mut Linker<T>,
+) -> Result<(), Error> {
     linker.func_wrap(
         "cerune",
         "process_begin_v1",
-        |mut c: Caller<'_, Process>,
+        |mut c: Caller<'_, T>,
          arguments: i64,
          stdout: i64,
          stderr: i64,
@@ -275,44 +287,39 @@ pub fn imports(linker: &mut Linker<Process>) -> Result<(), Error> {
          start: i64,
          end: i64| {
             c.data_mut()
+                .as_mut()
                 .begin([arguments, stdout, stderr, timeout, node, source, start, end])
         },
     )?;
     linker.func_wrap(
         "cerune",
         "process_field_v1",
-        |mut c: Caller<'_, Process>, k: i32, i: i64, n: i64| c.data_mut().field(k, i, n),
+        |mut c: Caller<'_, T>, k: i32, i: i64, n: i64| c.data_mut().as_mut().field(k, i, n),
     )?;
     linker.func_wrap(
         "cerune",
         "process_chunk_v1",
-        |mut c: Caller<'_, Process>, b: i64, n: i32| c.data_mut().chunk(b, n),
+        |mut c: Caller<'_, T>, b: i64, n: i32| c.data_mut().as_mut().chunk(b, n),
     )?;
-    linker.func_wrap(
-        "cerune",
-        "process_prepare_v1",
-        |mut c: Caller<'_, Process>| c.data_mut().prepare(),
-    )?;
+    linker.func_wrap("cerune", "process_prepare_v1", |mut c: Caller<'_, T>| {
+        c.data_mut().as_mut().prepare()
+    })?;
     linker.func_wrap(
         "cerune",
         "process_execute_v1",
-        |mut c: Caller<'_, Process>, r: i32| c.data_mut().execute(r),
+        |mut c: Caller<'_, T>, r: i32| c.data_mut().as_mut().execute(r),
     )?;
-    linker.func_wrap(
-        "cerune",
-        "process_report_v1",
-        |c: Caller<'_, Process>, i: i32| c.data().report(i),
-    )?;
+    linker.func_wrap("cerune", "process_report_v1", |c: Caller<'_, T>, i: i32| {
+        c.data().as_ref().report(i)
+    })?;
     linker.func_wrap(
         "cerune",
         "process_copy_v1",
-        |c: Caller<'_, Process>, ch: i32, o: i64, n: i32| c.data().copy(ch, o, n),
+        |c: Caller<'_, T>, ch: i32, o: i64, n: i32| c.data().as_ref().copy(ch, o, n),
     )?;
-    linker.func_wrap(
-        "cerune",
-        "process_release_v1",
-        |mut c: Caller<'_, Process>| c.data_mut().release(),
-    )?;
+    linker.func_wrap("cerune", "process_release_v1", |mut c: Caller<'_, T>| {
+        c.data_mut().as_mut().release()
+    })?;
     Ok(())
 }
 
