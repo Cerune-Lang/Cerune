@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-**2026-11-16：QBE 1.3から共通Rust runtimeを呼ぶ試験はWindows/Linuxで成功しました。** 本体のemit-qbeは、子プロセス操作を含むIRを引き続き拒否します。この試験は外部関数の呼出し方を検証するもので、Ceruneソースからの実行対応完了ではありません。
+**2026-11-16：QBE 1.3から共通Rust runtimeを呼ぶ試験はWindows/Linuxで成功しました。** [本体のemit-qbe](../../../docs/design/subprocess-qbe.ja.md)にも接続済みです。この独立試験は外部関数の呼出し方を引き続き検証します。
 
 ## 確認した呼出し方
 
@@ -50,8 +50,6 @@ CIはQBE 1.3配布archiveのSHA-256をd587905d620dc5e1d2bfa7c2cc642b9b837aa89a31
 | inputs.json | 明示target、QBEとarchiveのパス、QBE実行ファイルとILのSHA-256 |
 | config-O0.json / config-O2.json | fixture登録。ローカル絶対パスを含むためCI artifactに含めない |
 
-## 次の実装
+## 本体の実行比較
 
-[共通契約](../../../docs/design/subprocess-generated.ja.md)と[LLVMの実装](../../../docs/design/subprocess-llvm.ja.md)を使い、次はQBE emitterへ要求変換・両出力配列の起動前予約・Report変換・起動設定・解放を接続します。QBE ILに各操作とNodeId/SourceId/Spanを残し、非最適化の共通IRも維持します。
-
-本体へ接続した段階で[registered.ceru](../../../examples/process_execution/registered.ceru)と異常系を4実行器・生成C/LLVMと比較します。このABI試験を実行example一覧へ追加しません。NativeのLIR/ASM/Object・build/releaseとWATは後続です。
+[生成QBE](../../../docs/design/subprocess-qbe.ja.md)にも接続し、要求変換・両出力予約・Report変換・起動設定・解放を実装しました。[比較試験](../c_abi/generated.cjs)に--qbeを指定すると、既存registered.ceruと異常系を4実行器と比較できます。CERUNE_TEST_QBEでQBEを明示します。ABI試験は言語example一覧へ追加しません。Native・WAT・配布は後続です。

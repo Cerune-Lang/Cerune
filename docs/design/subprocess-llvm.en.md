@@ -82,4 +82,4 @@ Subprocess operations require an explicit target. Programs with file operations 
 
 Request strings and argument tables are borrowed read-only with the same {ptr,i64} layout until prepare copies them. stdin u8 elements are converted from i64 storage to raw bytes and freed after prepare. Result bytes are read in 4096-byte chunks and widened into u8 element storage. These operations remain visible in emitted LLVM.
 
-QBE/Native/WAT subprocess execution and runtime distribution remain unfinished. QBE/Native integration is next.
+[Generated QBE](subprocess-qbe.en.md) is also connected. Next are Native, WAT, and runtime distribution.

@@ -1,0 +1,93 @@
+# ABI v1; l carries pointers and u64 bit patterns, w carries status codes.
+type :cerune_process_bytes = { l, l }
+data $cerune_process_context = align 8 { l 0 }
+function $cerune_process_check(w %status, w %expected, l %origin) {
+@start
+  %bad =w cnew %status, %expected
+  jnz %bad, @fail, @done
+@fail
+  call $cerune_process_fail(w %status, l %origin)
+  hlt
+@done
+  ret
+}
+function l $cerune_process_data(l %array) {
+@start
+  jnz %array, @read, @empty
+@empty
+  ret 0
+@read
+  %data =l loadl %array
+  ret %data
+}
+function l $cerune_process_allocate(l %bytes, l %failure, l %failure_len) {
+@start
+  jnz %bytes, @allocate, @empty
+@empty
+  ret 0
+@allocate
+  %p =l call $malloc(l %bytes)
+  jnz %p, @done, @failed
+@failed
+  call $cerune_fail_allocation_failed(l %failure, l %failure_len)
+  hlt
+@done
+  ret %p
+}
+function l $cerune_process_pack_input(l %array, l %failure, l %failure_len) {
+@start
+  %n =l call $cerune_array_length(l %array)
+  %packed =l call $cerune_process_allocate(l %n, l %failure, l %failure_len)
+  %data =l call $cerune_process_data(l %array)
+  jmp @loop
+@loop
+  %i =l phi @start 0, @body %next
+  %done =w ceql %i, %n
+  jnz %done, @return, @body
+@body
+  %offset =l mul %i, 8
+  %source =l add %data, %offset
+  %value =l loadl %source
+  %dest =l add %packed, %i
+  storeb %value, %dest
+  %next =l add %i, 1
+  jmp @loop
+@return
+  ret %packed
+}
+function l $cerune_process_pack_arguments(l %array, l %failure, l %failure_len) {
+@start
+  %n =l call $cerune_array_length(l %array)
+  %bytes =l call $cerune_array_size(l %n, l 16, l %failure, l %failure_len)
+  %packed =l call $cerune_process_allocate(l %bytes, l %failure, l %failure_len)
+  %data =l call $cerune_process_data(l %array)
+  jmp @loop
+@loop
+  %i =l phi @start 0, @body %next
+  %done =w ceql %i, %n
+  jnz %done, @return, @body
+@body
+  %source_offset =l mul %i, 8
+  %source =l add %data, %source_offset
+  %string =l loadl %source
+  %length =l loadl %string
+  %text =l add %string, 8
+  %dest_offset =l mul %i, 16
+  %dest =l add %packed, %dest_offset
+  %length_p =l add %dest, 8
+  storel %text, %dest
+  storel %length, %length_p
+  %next =l add %i, 1
+  jmp @loop
+@return
+  ret %packed
+}
+function w $cerune_process_create(l %version, l %target, l %data, l %length, l %out) {
+@start
+  %bytes =l alloc8 16
+  storel %data, %bytes
+  %length_p =l add %bytes, 8
+  storel %length, %length_p
+  %status =w call $cerune_process_v1_create(l %version, l %target, :cerune_process_bytes %bytes, l %out)
+  ret %status
+}

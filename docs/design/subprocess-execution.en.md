@@ -13,11 +13,11 @@ Use `import "std:process" as types;` for types and `import "std:process/run" as 
 | HIR, MIR, SSA, VM | Execute the common `process.run` operation |
 | Ordinary CLI run commands | [Explicit configuration](subprocess-cli.en.md) connects Windows/Linux; without it, return `Unconfigured` |
 | Each Rust executor | `run_with_processes(program, &mut Processes<B>, transfer_bytes)` explicitly supplies connection and capacity |
-| Generated C / [LLVM](subprocess-llvm.en.md) | Windows/Linux execution with [explicit target and runtime linking](subprocess-c.en.md) |
-| LLVM, QBE, WAT, Native | Reject IR containing the execution module with a source diagnostic; existing type-only programs still emit |
+| Generated C / [LLVM](subprocess-llvm.en.md) / [QBE](subprocess-qbe.en.md) | Windows/Linux execution with [explicit target and runtime linking](subprocess-c.en.md) |
+| WAT, Native | Reject IR containing the execution module with a source diagnostic; existing type-only programs still emit |
 | Remaining generated execution, Linux supervisor distribution | Subsequent work |
 
-Unused functions are retained and emitted. Separate imports preserve existing type-only generation without introducing implicit unused-function removal. Even an unused execution-module import requires a target/runtime link in C and introduces an unsupported operation in the other generated routes.
+Unused functions are retained and emitted. Separate imports preserve existing type-only generation without introducing implicit unused-function removal. Even an unused execution-module import requires a target/runtime link in C/LLVM/QBE and introduces an unsupported operation in the other generated routes.
 
 Both modules are reserved virtual standard sources at contract version 1. The execution module imports the original types through normal resolution without duplication. Aliases and import order resolve to the same definitions. Standard dependencies perform no filesystem search and do not change user relative-import rules.
 
@@ -45,4 +45,4 @@ Observation remains read-only. Identical backend responses with zero/nonzero tra
 - [OS connections](../../experiments/subprocess/execution.rs): four executors send input to a registered fixture on Windows/Linux, comparing nonzero exit, bytes, and continuation. This dedicated comparison fixture runs four times; arbitrary user programs are not automatically replayed.
 - [Runnable example](../../examples/process_execution/README.en.md): receive missing configuration as a value and continue.
 
-[CLI registration, limits, and Linux supervisor paths](subprocess-cli.en.md) are connected. Staged runtime APIs, fixed Report, C ABI, [generated C](subprocess-c.en.md), and [LLVM](subprocess-llvm.en.md) are also implemented. Next follow the [generated-route sequence](subprocess-generated.en.md) for QBE/Native/WAT and distribution.
+[CLI registration, limits, and Linux supervisor paths](subprocess-cli.en.md) are connected. Staged runtime APIs, fixed Report, C ABI, [generated C](subprocess-c.en.md), [LLVM](subprocess-llvm.en.md), and [QBE](subprocess-qbe.en.md) are also implemented. Next follow the [generated-route sequence](subprocess-generated.en.md) for Native/WAT and distribution.

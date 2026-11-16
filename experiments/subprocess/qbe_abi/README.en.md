@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-**2026-11-16: calls from QBE 1.3 to the shared Rust runtime passed on Windows/Linux.** The production emit-qbe still rejects IR containing subprocess operations. This probe verifies external calls, not completed execution support for Cerune source.
+**2026-11-16: calls from QBE 1.3 to the shared Rust runtime passed on Windows/Linux.** [Production emit-qbe](../../../docs/design/subprocess-qbe.en.md) is also connected. This independent probe continues to verify external calls.
 
 ## Verified calls
 
@@ -50,8 +50,6 @@ CI pins the QBE 1.3 release archive SHA-256 to d587905d620dc5e1d2bfa7c2cc642b9b8
 | inputs.json | Explicit target, QBE/archive paths, SHA-256 of QBE executable and IL |
 | config-O0.json / config-O2.json | Fixture registration containing local absolute paths; excluded from CI artifacts |
 
-## Next implementation
+## Production execution comparisons
 
-Following the [shared contract](../../../docs/design/subprocess-generated.en.md) and [LLVM implementation](../../../docs/design/subprocess-llvm.en.md), connect request conversion, reservation of both output arrays before launch, Report conversion, startup settings, and disposal to the QBE emitter. Preserve each operation and NodeId/SourceId/Span in QBE IL and keep unoptimized common IR available.
-
-Once connected, compare [registered.ceru](../../../examples/process_execution/registered.ceru) and failure cases with four executors and generated C/LLVM. This ABI probe does not belong in the executable language example list. Native LIR/ASM/Object and build/release, then WAT, remain later work.
+[Generated QBE](../../../docs/design/subprocess-qbe.en.md) now implements request conversion, both output reservations, Report conversion, startup, and disposal. The [comparison runner](../c_abi/generated.cjs) with --qbe compares existing registered.ceru and failures against four executors; specify QBE through CERUNE_TEST_QBE. Keep ABI probes outside language examples. Native, WAT, and distribution follow later.

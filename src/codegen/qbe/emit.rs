@@ -20,6 +20,7 @@ pub fn emit(module: &Module) -> String {
     super::input::emit(module, &mut output);
     super::arguments::emit_support(module, &mut output);
     super::files::emit(module, &mut output);
+    super::process::support(module, &mut output);
     let i64_operations = i64_operations(module);
     super::failure::emit(module, &mut output);
     if module.uses_strings {
@@ -346,6 +347,18 @@ fn emit_instruction(
             writeln!(output, "  call $cerune_flush_{}()", origin.node.0).unwrap();
         }
 
+        Instruction::ProcessRun {
+            result,
+            request,
+            request_type,
+            outcome_type,
+            origin,
+        } => {
+            writeln!(output, "  call $cerune_process_run_{request_type}_{outcome_type}(l {}, l {}, l {}, l {}, l {}, l {}, l ${}, {})",
+                operand(result, slots), operand(request, slots), origin.node.0,
+                origin.span.source_id().index(), origin.span.start(), origin.span.end(),
+                super::process::origin_name(*origin), super::failure::arguments(*origin)).unwrap();
+        }
         Instruction::ArrayAllocate {
             dest,
             length,

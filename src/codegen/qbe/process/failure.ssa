@@ -1,0 +1,34 @@
+function $cerune_process_fail(w %status, l %origin) {
+@start
+  call $fflush(l 0)
+  %text =l alloc8 512
+  %length =w call $snprintf(l %text, l 512, l $cerune_process_format, ..., w %status, l %origin)
+  call $cerune_process_stop(l %text, w %length)
+  hlt
+}
+function $cerune_process_startup_failed(l %phase, l %code) {
+@start
+  %text =l alloc8 512
+  %length =w call $snprintf(l %text, l 512, l $cerune_process_startup_format, ..., l %phase, l %code)
+  call $cerune_process_stop(l %text, w %length)
+  hlt
+}
+function $cerune_process_stop(l %text, w %length) {
+@start
+  %positive =w csgtw %length, 0
+  jnz %positive, @bound, @exit
+@bound
+  %fits =w cultw %length, 512
+  jnz %fits, @fit, @truncate
+@fit
+  jmp @write
+@truncate
+  jmp @write
+@write
+  %count =w phi @fit %length, @truncate 511
+@WRITE@
+  jmp @exit
+@exit
+  call $_Exit(w 1)
+  hlt
+}

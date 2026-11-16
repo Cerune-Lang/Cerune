@@ -1,0 +1,39 @@
+function $cerune_process_connect(l %path) {
+@start
+  jnz %path, @open, @unconfigured
+@unconfigured
+  %empty =w call $cerune_process_create(l 1, l @TARGET@, l 0, l 0, l $cerune_process_context)
+  call $cerune_process_check(w %empty, w 0, l $cerune_process_host)
+  ret
+@open
+  %file =l call $@OPEN@(l %path, l $cerune_process_mode)
+  jnz %file, @allocate, @failed
+@allocate
+  %data =l call $malloc(l 1048577)
+  jnz %data, @read, @close_failed
+@read
+  %n =l call $fread(l %data, l 1, l 1048577, l %file)
+  %error =w call $ferror(l %file)
+  %closed =w call $fclose(l %file)
+  %empty =w ceql %n, 0
+  %excess =w cugtl %n, 1048576
+  %size_bad =w or %empty, %excess
+  %io_bad =w or %error, %closed
+  %bad =w or %size_bad, %io_bad
+  jnz %bad, @free_failed, @create
+@create
+  %status =w call $cerune_process_create(l 1, l @TARGET@, l %data, l %n, l $cerune_process_context)
+  call $free(l %data)
+  call $cerune_process_check(w %status, w 0, l $cerune_process_host)
+  ret
+@close_failed
+  call $fclose(l %file)
+  call $cerune_process_fail(w 15, l $cerune_process_host)
+  hlt
+@free_failed
+  call $free(l %data)
+  jmp @failed
+@failed
+  call $cerune_process_fail(w 16, l $cerune_process_host)
+  hlt
+}
