@@ -2,13 +2,27 @@
 
 [日本語](language-roadmap.ja.md)
 
-Generated subprocess support follows the [contract](subprocess-generated.en.md). Shared prepare/execute stages and the fixed Report v1 codec are implemented. The C ABI adapter and static linking are verified in the [Windows/Linux probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C](subprocess-c.en.md) is connected. [Generated LLVM](subprocess-llvm.en.md) is also connected on Windows/Linux. [Generated QBE](subprocess-qbe.en.md) is also connected. The [Native ABI probe](../../experiments/subprocess/native_abi/README.en.md) successfully calls the common runtime from ASM and directly encoded Objects on both OSes. Next is Native language-operation and build/release integration, followed by WAT and distribution.
+Generated subprocess support follows the [contract](subprocess-generated.en.md). Shared prepare/execute stages and the fixed Report v1 codec are implemented. The C ABI adapter and static linking are verified in the [Windows/Linux probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C](subprocess-c.en.md) is connected. [Generated LLVM](subprocess-llvm.en.md) is also connected on Windows/Linux. [Generated QBE](subprocess-qbe.en.md) is also connected. The [Native ABI probe](../../experiments/subprocess/native_abi/README.en.md) successfully calls the common runtime from ASM and directly encoded Objects on both OSes. Operation/type/origin retention in [LIR](lir-observation.en.md) is also implemented. Next is Native ASM/Object execution and build/release integration, followed by WAT and distribution.
 
 QBE request conversion, output reservation, Report conversion, and startup are implemented, with 76 comparisons of existing examples/failures on each of Windows/Linux.
 
 This inventory records capabilities, execution routes, and next steps as of 2026-11-09. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
 The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline. This page tracks current status.
+
+
+## Next release candidate
+
+**v0.2.0 is the candidate** for the next compiler GitHub Release. No publication date is set; the version and included changes will be confirmed during release preparation. This is separate from the `release native` command for packaging user programs.
+
+| Before publication | Current state |
+| --- | --- |
+| Subprocess execution | Four executors and generated C/LLVM/QBE are implemented. Native has an ABI probe and LIR operation/type/origin retention. ASM/Object execution, build/release, and the WAT host follow |
+| Runtime/Linux supervisor distribution | Record placement, target, version, hashes, and dependencies; verify execution away from the development checkout |
+| Compiler distribution tests | [#272](https://github.com/Cerune-Lang/Cerune/issues/272): unpack Windows/Linux/macOS archives, then start the actual binaries and execute a minimal source |
+| Published information | All CI checks pass; describe changes, unsupported features, compatibility changes, and supported OSes in both languages |
+
+The proposal is to finish the current subprocess work, then prepare publication. IR/VM Images, optimization, GPU, GUI, and other unimplemented features are not additional requirements for this release. Tagging and publication have not yet been decided.
 
 ## Core development order
 

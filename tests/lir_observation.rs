@@ -12,7 +12,7 @@ fn module(source: &str, target: Target) -> Module {
 const TARGETS: [Target; 2] = [Target::X86_64PcWindowsMsvc, Target::X86_64UnknownLinuxGnu];
 
 #[test]
-fn examples_have_deterministic_lir_or_explicit_unsupported_operation() {
+fn examples_have_deterministic_lir_and_explicit_unsupported_machine_generation() {
     fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
         for e in std::fs::read_dir(dir).unwrap() {
             let p = e.unwrap().path();
@@ -38,16 +38,6 @@ fn examples_have_deterministic_lir_or_explicit_unsupported_operation() {
         let lowered = mir::ssa::lower(&ssa).unwrap();
         for p in [&original, &lowered.program] {
             for target in TARGETS {
-                if let Some(span) = hir.first_process_span() {
-                    let error = x86_64::lower_mir(p, target).unwrap_err();
-                    assert!(
-                        error
-                            .message()
-                            .contains("subprocess execution is not supported yet")
-                    );
-                    assert_eq!(error.primary_span(), Some(span));
-                    continue;
-                }
                 let m = x86_64::lower_mir(p, target)
                     .unwrap_or_else(|e| panic!("{} {target:?}: {e:?}", file.display()));
                 let before = m.clone();
@@ -57,6 +47,20 @@ fn examples_have_deterministic_lir_or_explicit_unsupported_operation() {
                     lir::emit(&x86_64::lower_mir(p, target).unwrap()).unwrap()
                 );
                 assert_eq!(m, before);
+                if let Some(span) = hir.first_process_span() {
+                    for error in [
+                        x86_64::emit_asm_from_lir(&m, true).unwrap_err(),
+                        x86_64::emit_object_from_lir(&m, true).unwrap_err(),
+                    ] {
+                        assert!(
+                            error
+                                .message()
+                                .contains("subprocess execution is not supported yet")
+                        );
+                        assert_eq!(error.primary_span(), Some(span));
+                    }
+                    continue;
+                }
                 assert_eq!(
                     x86_64::emit_asm_from_lir(&m, true).unwrap(),
                     x86_64::emit_asm_from_mir(p, target, true).unwrap()
@@ -319,3 +323,6 @@ fn target_changes_abi_and_lir_snapshot_drives_native_without_relowering() {
         assert!(!x86_64::emit_object_from_lir(&m, true).unwrap().is_empty());
     }
 }
+
+#[path = "lir_observation/process.rs"]
+mod process;

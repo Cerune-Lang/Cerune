@@ -30,6 +30,8 @@ pub enum CompareOp {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    /// Resolved MIR declarations; IDs, field types and enum tags are preserved.
+    pub types: Vec<crate::mir::TypeDefinition>,
     pub call_limit: Option<std::num::NonZeroU32>,
     pub source_functions: Vec<bool>,
     pub argument_limits: crate::runtime::arguments::Limits,
@@ -115,6 +117,13 @@ pub enum FloatConstant {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
+    /// One evaluated request and the complete aggregate destination.
+    ProcessRun {
+        request_offset: isize,
+        outcome_offset: isize,
+        request_type: crate::ir::TypeId,
+        outcome_type: crate::ir::TypeId,
+    },
     /// 保存幅が0の値の操作もMIR対応に残します。機械バイトは生成しません。
     ObserveOnly,
     /// 到達不能blockの末尾。言語の異常停止とは区別します。

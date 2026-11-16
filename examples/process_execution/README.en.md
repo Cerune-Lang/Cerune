@@ -63,3 +63,14 @@ QBE uses the same example. Match the explicit target with the QBE target, then l
 cerune emit-qbe examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.ssa
 qbe -t amd64_sysv -o process.s process.ssa
 ~~~
+
+## Inspect the representation before Native generation
+
+The same examples expose request/result storage, type-field positions, and original source locations in LIR.
+
+~~~sh
+cerune emit-lir examples/process_execution/unconfigured.ceru --target x86_64-pc-windows-msvc
+cerune emit-lir examples/process_execution/registered.ceru --ssa --target x86_64-unknown-linux-gnu
+~~~
+
+No child is started at this stage. Native ASM/Object generation still stops with an unsupported-operation diagnostic. Successful LIR observation does not imply Native execution support.
