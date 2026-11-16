@@ -1,0 +1,18 @@
+;; Transport exports belong to this probe, never to generated products.
+(module
+  (import "cerune" "process_begin_v1" (func $begin (param i64 i64 i64 i64 i64 i64 i64 i64) (result i32)))
+  (import "cerune" "process_field_v1" (func $field (param i32 i64 i64) (result i32)))
+  (import "cerune" "process_chunk_v1" (func $chunk (param i64 i32) (result i32)))
+  (import "cerune" "process_prepare_v1" (func $prepare (result i32)))
+  (import "cerune" "process_execute_v1" (func $execute (param i32) (result i32)))
+  (import "cerune" "process_report_v1" (func $report (param i32) (result i64 i32)))
+  (import "cerune" "process_copy_v1" (func $copy (param i32 i64 i32) (result i64 i32 i32)))
+  (import "cerune" "process_release_v1" (func $release (result i32)))
+  (export "begin" (func $begin))
+  (export "field" (func $field))
+  (export "chunk" (func $chunk))
+  (export "prepare" (func $prepare))
+  (export "execute" (func $execute))
+  (export "report" (func $report))
+  (export "copy" (func $copy))
+  (export "release" (func $release)))

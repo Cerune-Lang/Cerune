@@ -60,3 +60,5 @@ cargo test --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir
 Windows/Linux CI requires these checks. Tests compare output, complete file-v1 diagnostics, and remaining files against four executors, covering empty/exact/exceeded limits, invalid UTF-8, usage limits, evaluation order, short circuits, recursion, and copies. They also cover stdin/arguments/scalar/aggregate output, root movement during execution, and link rejection.
 
 Short transfers, interruption, invalid responses, close consumption, and all 256 byte values use explicit test connections to the transport adapter. This does not claim those failures occurred naturally on the OS. Generated WAT response handling is also compared by the existing [in-memory tests](../../tests/file_io/wat.rs) under the [host contract](../../docs/design/wat-file-host.en.md).
+
+The separate [subprocess ABI probe](../subprocess/wat_abi/README.en.md) runs in this crate’s test suite on Windows/Linux x86-64. It does not yet add subprocess operations or configuration options to this host CLI.

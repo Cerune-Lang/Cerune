@@ -27,3 +27,6 @@
 
 # Independent subprocess C ABI verification
 !experiments/subprocess/c_abi/probe.c
+
+# Handwritten subprocess WAT ABI verification, not emitter output
+!experiments/subprocess/wat_abi/probe.wat
