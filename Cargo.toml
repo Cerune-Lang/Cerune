@@ -62,6 +62,10 @@ path = "experiments/subprocess/linux_supervisor.rs"
 name = "subprocess_linux_backend"
 path = "experiments/subprocess/linux_backend.rs"
 
+[[example]]
+name = "subprocess_native_abi"
+path = "experiments/subprocess/native_abi/emit.rs"
+
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }

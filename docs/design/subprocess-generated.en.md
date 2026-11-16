@@ -171,7 +171,7 @@ Never automatically embed local registered absolute paths, environment values, o
 | 3 (implemented) | [Generated C lowering and startup](subprocess-c.en.md) | Compare [registered.ceru](../../examples/process_execution/registered.ceru) with four executors: unconfigured, partial output, nonzero exit, continuation, ownership, origins |
 | 4a (implemented) | [LLVM lowering, reservation, and startup](subprocess-llvm.en.md) | Compare existing examples and failures on Windows/Linux |
 | 4b (implemented) | [QBE lowering, reservation, and startup](subprocess-qbe.en.md) | Compare existing examples and failures on Windows/Linux |
-| 4c | Native and Native build/release | Same ABI; baseline/SSA, explicit target/linking/dependency records |
+| 4c (ABI probe verified) | Native and Native build/release | [Independent Native probe](../../experiments/subprocess/native_abi/README.en.md) verifies the same ABI from ASM/direct Objects on both OSes. Language operations, baseline/SSA, startup, and build/release integration follow |
 | 5 | Versioned WAT host and supervisor distribution completion | Private memory, old-host rejection, matching requests/results/cleanup, relocated distribution execution |
 
 Never replace remaining unsupported emission with successful stubs. Do not add unimplemented future-API `.ceru` files to executable examples; update existing example instructions as each route becomes executable.
