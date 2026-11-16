@@ -395,6 +395,7 @@ fn native_build_rejects_missing_or_non_clang_drivers() {
 mod release;
 
 mod file_connection;
+mod process_runtime;
 
 #[test]
 fn subprocess_build_rejects_unrecorded_runtime_dependency_before_output() {
@@ -410,7 +411,7 @@ fn subprocess_build_rejects_unrecorded_runtime_dependency_before_output() {
         assert!(!result.status.success());
         let error = String::from_utf8_lossy(&result.stderr);
         assert!(
-            error.contains("subprocess runtime dependency is not supported yet"),
+            error.contains("requires --process-runtime <archive>"),
             "{error}"
         );
         assert!(error.contains("std:process/run"), "{error}");

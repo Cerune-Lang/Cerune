@@ -52,4 +52,4 @@ CI pins the QBE 1.3 release archive SHA-256 to d587905d620dc5e1d2bfa7c2cc642b9b8
 
 ## Production execution comparisons
 
-[Generated QBE](../../../docs/design/subprocess-qbe.en.md) now implements request conversion, both output reservations, Report conversion, startup, and disposal. The [comparison runner](../c_abi/generated.cjs) with --qbe compares existing registered.ceru and failures against four executors; specify QBE through CERUNE_TEST_QBE. Keep ABI probes outside language examples. Native, WAT, and distribution follow later.
+[Generated QBE](../../../docs/design/subprocess-qbe.en.md) now implements request conversion, both output reservations, Report conversion, startup, and disposal. The [comparison runner](../c_abi/generated.cjs) with --qbe compares existing registered.ceru and failures against four executors; specify QBE through CERUNE_TEST_QBE. Keep ABI probes outside language examples. Native execution and explicit-runtime build/release are also implemented. WAT and official runtime/supervisor distribution follow later.

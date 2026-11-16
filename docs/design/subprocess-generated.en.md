@@ -2,7 +2,7 @@
 
 [日本語](subprocess-generated.ja.md)
 
-**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C integration](subprocess-c.en.md) is also implemented. [Generated LLVM](subprocess-llvm.en.md) is also implemented. [Generated QBE](subprocess-qbe.en.md) is also implemented. [Native ASM/direct Object execution](subprocess-native.en.md) is also implemented. Additional-runtime inputs, records and distribution for Native build/release follow. WAT still rejects IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
+**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C integration](subprocess-c.en.md) is also implemented. [Generated LLVM](subprocess-llvm.en.md) is also implemented. [Generated QBE](subprocess-qbe.en.md) is also implemented. [Native ASM/direct Object execution](subprocess-native.en.md) is also implemented. Explicit runtime inputs and validated dependency records for Native build/release are also implemented. Official runtime/supervisor distribution follows. WAT still rejects IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
 
 ## Findings and direction
 
@@ -142,7 +142,7 @@ Do not expose internal memory. Preserve existing output, `flush_stdout_v1`, inpu
 
 ## Startup, linking, and distribution impact
 
-Generated C, LLVM, and QBE extend the existing leading runtime marker as shown below. WAT/Native follow later.
+Generated C, LLVM, QBE and Native extend the existing leading runtime marker as shown below. WAT follows later.
 
 ```text
 program --cerune-runtime-v1 --process-config process.json --file-root directory -- program-arguments
@@ -160,7 +160,7 @@ Without the marker, preserve existing argv and leave the connection unconfigured
 
 A new subprocess link dependency changes compatibility. Existing `target-system-runtime` / `cerune_runtime: in-object` records cannot represent it alone. Version Native manifest/runtime/release validation changes; do not invent missing dependency records for older artifacts.
 
-Never automatically embed local registered absolute paths, environment values, or configuration JSON in distribution artifacts. Supervisor bundling records its executable, version, target, and hash. Runtime filenames, public build options, and distribution layout will be finalized through linking probes.
+Never automatically embed local registered absolute paths, environment values, or configuration JSON in distribution artifacts. Native build selects `--process-runtime <archive>` and saves `process-runtime.a`/`process-runtime.lib`; manifest/runtime/link-plan and release/requirements use v2 for these builds. The Linux supervisor remains separate and explicitly configured at execution. Future supervisor bundling must record its executable, version, target and hash.
 
 ## Implementation order and verification
 
@@ -171,7 +171,7 @@ Never automatically embed local registered absolute paths, environment values, o
 | 3 (implemented) | [Generated C lowering and startup](subprocess-c.en.md) | Compare [registered.ceru](../../examples/process_execution/registered.ceru) with four executors: unconfigured, partial output, nonzero exit, continuation, ownership, origins |
 | 4a (implemented) | [LLVM lowering, reservation, and startup](subprocess-llvm.en.md) | Compare existing examples and failures on Windows/Linux |
 | 4b (implemented) | [QBE lowering, reservation, and startup](subprocess-qbe.en.md) | Compare existing examples and failures on Windows/Linux |
-| 4c (execution implemented) | [Native ASM/direct Object](subprocess-native.en.md), Native build/release | Baseline MIR/ASM and SSA/direct Object verified on both OSes. Explicit additional-runtime inputs for build/release follow |
+| 4c (implemented) | [Native ASM/direct Object](subprocess-native.en.md), Native build/release | Baseline MIR/ASM and SSA/direct Object verified on both OSes. Explicit archive build/release and relocated execution are also verified |
 | 5 | Versioned WAT host and supervisor distribution completion | Private memory, old-host rejection, matching requests/results/cleanup, relocated distribution execution |
 
 Never replace remaining unsupported emission with successful stubs. Do not add unimplemented future-API `.ceru` files to executable examples; update existing example instructions as each route becomes executable.

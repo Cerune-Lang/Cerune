@@ -76,6 +76,6 @@ cerune run-vm app.ceru --process-config process.json
 
 Linuxの実OSテストは`CERUNE_TEST_PROCESS_SUPERVISOR`で明示した検証用監督を必要とします。通常のテストではignoreされ、OS専用CIで`--include-ignored`を付けて必ず実行します。これはテスト設定であり、Cerune CLIはこの環境変数を読みません。
 
-Linux監督は現在Cargo exampleとして構築します。[生成C](subprocess-c.ja.md)は明示target・runtimeリンクと生成実行ファイル側の接続設定に対応しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続済みです。監督の配布同梱、WATの実行操作、Native build/releaseの追加runtime指定・記録は後続です。emit自体には接続JSONを渡しません。
+Linux監督は現在Cargo exampleとして構築します。[生成C](subprocess-c.ja.md)は明示target・runtimeリンクと生成実行ファイル側の接続設定に対応しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続済みです。Native build/releaseの明示runtime archive指定・依存記録も実装済みです。監督の配布同梱、WATの実行操作は後続です。emit自体には接続JSONを渡しません。
 
 次の具体的な順序と互換性への影響は[生成経路の契約案](subprocess-generated.ja.md)にまとめています。

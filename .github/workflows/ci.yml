@@ -666,6 +666,15 @@ jobs:
           node experiments/subprocess/c_abi/generated.cjs --native x86_64-pc-windows-msvc clang target/subprocess-generated-native-asm target/subprocess-c-abi/build/x86_64-pc-windows-msvc/debug/cerune_lang.lib
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node experiments/subprocess/c_abi/generated.cjs --native --native-object --native-ssa x86_64-pc-windows-msvc clang target/subprocess-generated-native-object target/subprocess-c-abi/build/x86_64-pc-windows-msvc/debug/cerune_lang.lib
+      - name: Verify Native subprocess build and release on Linux
+        if: runner.os == 'Linux'
+        run: CERUNE_TEST_PROCESS_RUNTIME="$PWD/target/subprocess-c-abi/build/x86_64-unknown-linux-gnu/debug/libcerune_lang.a" CERUNE_TEST_PROCESS_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_supervisor" cargo test --test native_program process_runtime_build_release -- --include-ignored
+      - name: Verify Native subprocess build and release on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:CERUNE_TEST_PROCESS_RUNTIME = Join-Path $env:GITHUB_WORKSPACE 'target/subprocess-c-abi/build/x86_64-pc-windows-msvc/debug/cerune_lang.lib'
+          cargo test --test native_program process_runtime_build_release -- --include-ignored
       - name: Verify Linux common-runtime Backend
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: cargo run --example subprocess_linux_backend -- "$PWD/target/debug/examples/subprocess_linux_supervisor" target/subprocess-linux-backend

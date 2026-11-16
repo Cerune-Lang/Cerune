@@ -8,13 +8,13 @@
 
 | 項目 | 初版の契約 |
 | --- | --- |
-| 入力 | schema `cerune-native-build-v1`、status `success`のbuildディレクトリ |
+| 入力 | schema `cerune-native-build-v1`または`cerune-native-build-v2`、status `success`のbuildディレクトリ |
 | 出力 | 新規ディレクトリ。親は事前に作成。既存先・入力配下への出力は拒否 |
 | target・上限・SSA | buildの選択を保持。releaseで変更するオプションはない |
-| runtime | 対象OSのシステムruntimeを要求。ライブラリ・SDK・コンパイラは同梱しない |
+| runtime | 対象OSのシステムruntimeを要求。システムライブラリ・SDK・コンパイラは同梱しない。子プロセスの静的archiveはリンク入力として保存 |
 | 本文 | buildの`--include-sources`選択を保持。releaseで追加・削除しない |
 | 最適化 | 再コンパイル・再リンク・strip・最適化を行わない |
-| 対象外 | IR/VM Image、圧縮archive、installer、署名、自動公開、依存ライブラリの同梱・探索 |
+| 対象外 | IR/VM Image、圧縮archive、installer、署名、自動公開、任意の依存ライブラリの同梱・探索 |
 
 配布物の形式はディレクトリです。zip等への梱包は別ツールで行えますが、展開後の内容とLinux実行権限を保持してください。処理系自体のGitHub Releaseとは別の機能です。
 
@@ -23,8 +23,8 @@
 | パス | 内容 |
 | --- | --- |
 | `build/` | 元のbuildの全規定ファイル。実行ファイル、非最適化HIR/MIR、選択したSSA/LIR、型付き命令・Object、出自・リンク記録を同じバイト列で保持 |
-| `release.json` | schema `cerune-native-release-v1`、status、target、入口の相対パス、本文同梱の有無、ファイル別サイズ・SHA-256。全書込みの最後に作成 |
-| `runtime-requirements.json` | 実行ファイルを非実行で解析した直接のruntime要求と、buildから継承したファイル接続の要件 |
+| `release.json` | schema `cerune-native-release-v1`（子プロセスありはv2）、status、target、入口の相対パス、本文同梱の有無、ファイル別サイズ・SHA-256。全書込みの最後に作成 |
+| `runtime-requirements.json` | 実行ファイルを非実行で解析した直接のruntime要求と、buildから継承したファイル・子プロセス接続の要件 |
 | `SHA256SUMS` | payloadとrelease.jsonのSHA-256。自分自身は含まない |
 | `README.md`・`README.en.md` | target、実行方法、依存条件、観測記録・ハッシュの意味 |
 | `CERUNE-LICENSE-MIT`・`CERUNE-LICENSE-APACHE` | Ceruneのライセンス本文。利用者のプログラムのライセンスを設定する操作ではない |
@@ -67,8 +67,20 @@ buildのmanifestとruntimeにある`file_connection`を照合し、targetに対�
 | 両方に未記録（旧build） | 不明として両出力へnullを保存。未使用や既定設定を補わない |
 | 片方だけ欠落、値の不一致、null、不正型、未知の版・フィールド、targetと異なるOS要件 | 出力を作る前に拒否する |
 
-配布物の日英READMEにも、明示rootを使う起動例・未設定時の停止・OS要件を載せます。未使用の場合は起動マーカーを解釈しないこと、旧buildでは要件が不明なことを明記します。rootの実パスは記録から作成・接続・探索しません。
+配布物の日英READMEにも、明示rootを使う起動例・未設定時の停止・OS要件を載せます。ファイル・子プロセスとも未使用の場合は起動マーカーを解釈しないこと、旧buildでは要件が不明なことを明記します。rootの実パスは記録から作成・接続・探索しません。
 
 procfsとNtCreateFileの要求はCeruneが生成時に記録した条件で、実行ファイルから抽出する直接依存一覧とは区別します。releaseは配布先OSを検証せず、`deployment_verified: false`を維持します。記録の整合性検証は、変更された実行ファイルと記録の意味対応や真正性を証明するものではありません。
 
 検証では、通常MIR／SSAのファイルexampleをbuild・releaseして別ディレクトリへ移し、明示した新しいrootで実行します。HIR／MIR／SSA／VMと出力・保存バイトを比較し、未設定・既存ファイル拒否、出自付き停止、旧記録と不整合の扱いも確認します。
+
+## 子プロセスを含むbuildの配布
+
+v2 buildでは、manifest/runtime/link-planの `process_runtime` が一致することに加え、保存archiveのサイズ・SHA-256・target、ABI版、固定リンク引数と入力名、実行時設定・Linux監督の要求を検証します。不一致は出力作成前に拒否します。v1への子プロセス依存の後付けや、未記録情報の補完は行いません。
+
+`process-runtime.a` または `process-runtime.lib` を `build/` にそのまま保持し、配布ファイル一覧とSHA256SUMSに含めます。元のarchiveを削除・移動してもreleaseできます。これは実行時に配置する動的ライブラリではなく、使用済みの静的リンク入力です。
+
+`release.json` は `cerune-native-release-v2`、`runtime-requirements.json` は `cerune-native-requirements-v2` となり、同じ依存記録と `target-system-runtime+process-runtime-v1` 方針を保持します。`libraries_bundled: true` は静的archiveの保存を表し、`system_libraries_bundled: false` はOSライブラリを含まないことを表します。実行ファイルの直接依存は従来どおり非実行で解析します。
+
+配布物の日英READMEには `--cerune-runtime-v1 --process-config <json> --`、未設定時のUnconfigured、ファイルrootとの併用、Linux監督を別途指定する手順を載せます。JSON・登録先プログラム・環境値・Linux監督は自動同梱しません。監督の公式配布は後続です。
+
+Windows/Linuxの基準MIR・SSAで既存の子プロセスexampleをbuild/releaseし、移動した配布物を4実行器と比較します。元archiveの削除、記録・archiveの改変拒否、PATHなしのreleaseと移動後実行も検証します。

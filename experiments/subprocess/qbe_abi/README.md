@@ -52,4 +52,4 @@ CIはQBE 1.3配布archiveのSHA-256をd587905d620dc5e1d2bfa7c2cc642b9b837aa89a31
 
 ## 本体の実行比較
 
-[生成QBE](../../../docs/design/subprocess-qbe.ja.md)にも接続し、要求変換・両出力予約・Report変換・起動設定・解放を実装しました。[比較試験](../c_abi/generated.cjs)に--qbeを指定すると、既存registered.ceruと異常系を4実行器と比較できます。CERUNE_TEST_QBEでQBEを明示します。ABI試験は言語example一覧へ追加しません。Native・WAT・配布は後続です。
+[生成QBE](../../../docs/design/subprocess-qbe.ja.md)にも接続し、要求変換・両出力予約・Report変換・起動設定・解放を実装しました。[比較試験](../c_abi/generated.cjs)に--qbeを指定すると、既存registered.ceruと異常系を4実行器と比較できます。CERUNE_TEST_QBEでQBEを明示します。ABI試験は言語example一覧へ追加しません。Native実行と明示runtimeによるbuild/releaseも実装済みです。WATとruntime・監督の公式配布は後続です。
