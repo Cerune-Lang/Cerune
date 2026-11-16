@@ -2,7 +2,7 @@
 
 [English](wat-process-host.en.md)
 
-**段階：host呼出しと独立したABI試験を定義します。生成WATへの接続は後続です。** [共通の子プロセス契約](subprocess-generated.ja.md)と同じ要求・失敗・Reportを扱います。言語機能をWAT専用に減らしません。
+**実装済み：8個のhost呼出しと生成WATへの接続。Windows/Linux x86-64で既存exampleを4実行器と比較しました。参照host CLIの接続指定は後続です。** [共通の子プロセス契約](subprocess-generated.ja.md)と同じ要求・失敗・Reportを扱います。言語機能をWAT専用に減らしません。
 
 ## 誰が何を行うか
 
@@ -66,4 +66,20 @@ reportは[固定Report v1の32語](subprocess-generated.ja.md)を返します。
 2. 生成WATへ要求転送、配列予約、Report変換・解放・診断を接続し、既存の.ceru exampleを4実行器と比較する。
 3. 参照hostのCLIへ明示接続を追加し、Windows/Linuxの実際の子・出力・時間超過・回収を比較する。その後にruntime・監督の公式配布へ進む。
 
-段階1だけでは生成WATで言語exampleを実行できたことにはしません。試験用WATはexperimentsに置き、未対応の.ceru exampleは追加しません。
+段階1・2は実装済みです。段階3の実子プロセス比較も試験用hostで開始しました。通常の参照host CLIにはまだ子プロセスのimport・接続指定がないため、今回の生成物を直接渡すと必要importの不足で停止します。
+
+## 生成処理と検証
+
+[src/codegen/wat/process.rs](../../src/codegen/wat/process.rs)は要求を一度評価して転送し、Reportを32個の私有localで受け取ります。両出力配列は合計容量を検査してから予約し、途中の確保失敗では先の予約を取り消します。起動後は追加の結果領域を確保せず、保持バイト数を長さへ設定します。短い結果や空の結果でも予約容量は解放まで使用量に残します。
+
+[生成物の試験](../../experiments/wat_host/tests/process_generated.rs)では既存の[子プロセスexample](../../examples/process_execution/README.md)を使います。
+
+| 確認 | 比較・検査する内容 |
+| --- | --- |
+| 4実行器との一致 | 未設定・未登録・不正要求・容量不足、評価順・短絡、Reportの出自 |
+| Windows/Linuxの実子 | 日本語・空引数・引用符・末尾の逆斜線、生バイト入力、終了コード7、複数chunk、繰返し呼出し・コピー |
+| 予約・所有 | 2つ目の確保失敗を注入し、起動前に失敗を返す。正常終了時に配列使用量が0へ戻ることを検査 |
+| 不正host | 版・enum・payload・出自・件数・予約語、copyの短い応答・余分なバイト、転送失敗で位置付き停止 |
+| 互換性 | 未使用関数内も旧hostを拒否。操作なしはimport追加なし。memory非公開、main再実行拒否 |
+
+時間超過・回収失敗・他の入出力との同時利用の生成WAT比較と、参照host CLIへの接続は次の変更で行います。Wasm engineの物理メモリ不足と共通の容量上限は区別し、物理的な安全保証とはしません。

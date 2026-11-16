@@ -61,4 +61,4 @@ Windows/Linux CIで必須実行します。4実行器との出力・file-v1全�
 
 短い転送・割込み・不正応答・close消費・全256バイト値は、転送adapterへの明示した試験接続で確認します。実OSでそれらの失敗を自然発生させたという意味ではありません。生成WAT側の応答処理は既存の[メモリ接続テスト](../../tests/file_io/wat.rs)と[host契約](../../docs/design/wat-file-host.ja.md)でも比較します。
 
-別の[子プロセスABI試験](../subprocess/wat_abi/README.md)も、このcrateのWindows/Linux x86-64試験で実行します。host CLIへの子プロセス操作や接続指定の追加はまだ行っていません。
+別の[子プロセスABI試験](../subprocess/wat_abi/README.md)と[生成WATの実行比較](tests/process_generated.rs)も、このcrateのWindows/Linux x86-64試験で実行します。生成WATは既存runtimeを使う試験用hostへ接続済みです。**このhost CLIへの子プロセスimport・接続指定の追加は後続**のため、現時点では子プロセス操作を含む生成物を直接実行できません。Linuxの実子試験は、明示的にビルドした監督の絶対パスを `CERUNE_TEST_PROCESS_SUPERVISOR` に設定し、`-- --include-ignored` で実行します。CIでは必須です。

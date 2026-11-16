@@ -2,7 +2,7 @@
 
 [日本語](subprocess-generated.ja.md)
 
-**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C integration](subprocess-c.en.md) is also implemented. [Generated LLVM](subprocess-llvm.en.md) is also implemented. [Generated QBE](subprocess-qbe.en.md) is also implemented. [Native ASM/direct Object execution](subprocess-native.en.md) is also implemented. Explicit runtime inputs and validated dependency records for Native build/release are also implemented. Official runtime/supervisor distribution follows. WAT still rejects IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
+**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C integration](subprocess-c.en.md) is also implemented. [Generated LLVM](subprocess-llvm.en.md) is also implemented. [Generated QBE](subprocess-qbe.en.md) is also implemented. [Native ASM/direct Object execution](subprocess-native.en.md) is also implemented. Explicit runtime inputs and validated dependency records for Native build/release are also implemented. Official runtime/supervisor distribution follows. [Generated WAT](wat-process-host.en.md) is also connected and compared using a test host. Reference-host CLI configuration follows. The implemented Rust API is distinguished below from future generated-route contracts.
 
 ## Findings and direction
 
@@ -64,7 +64,7 @@ The [staged API](../../src/runtime/process/preparation.rs) has these responsibil
 | `Prepared::execute` | Accept language-side reservation status and launch only on success; consume preparation and return the result and reserved storage |
 | `run` / `run_with_reservation` | Existing entry points calling the same consecutive stages |
 
-The Rust API borrows the request immutably and the connection exclusively, while owning transfer buffers. Existing language bridges copy requests before the call. No additional owned copy or Box allocation is introduced. The C ABI prototype now owns request copies and contexts across foreign calls and checks protocol states. WAT integration follows later. Borrowing Rust structures are not exported as an ABI.
+The Rust API borrows the request immutably and the connection exclusively, while owning transfer buffers. Existing language bridges copy requests before the call. No additional owned copy or Box allocation is introduced. The C ABI prototype now owns request copies and contexts across foreign calls and checks protocol states. WAT is also connected to a test host using the same C ABI. Borrowing Rust structures are not exported as an ABI.
 
 Dropping an unexecuted pending state releases only unsubmitted buffers. It advances no clock, launch, or cleanup; observations retain Validate/Reserve. The consumed call identity is not rolled back, and the next call receives the next identity. Compile-fail tests reject duplicate execution and connection reuse while preparation remains live.
 
@@ -128,7 +128,7 @@ No casts based on Rust declaration order or host integer width. Test every encod
 
 Wrap the same staged API with value transport. Do not reenter generated WAT through a host reservation callback.
 
-| Stage | Proposed generated-WAT/host contract |
+| Stage | Generated-WAT/host contract |
 | --- | --- |
 | Request transport | Versioned imports accept declared lengths and chunks of up to eight bytes; reject omissions, excess, and duplicate completion |
 | prepare | Invoke shared prepare once after receiving the complete request; distinguish result-ready and reservation-needed |
@@ -138,11 +138,11 @@ Wrap the same staged API with value transport. Do not reenter generated WAT thro
 
 Allocate request staging before launch. Never silently truncate declared lengths or prevalidate using connection execution limits in a way that changes common-runtime precedence. Distinguish wasm32 physical capacity from semantic limits. Use BigInt/i64 bits without rounding u64 through JavaScript Number.
 
-Do not expose internal memory. Preserve existing output, `flush_stdout_v1`, input, argument, and file imports. New artifacts containing subprocess operations require versioned imports and fail instantiation on old hosts. Artifacts without subprocess operations require no additional imports. The [WAT contract](wat-process-host.en.md) now fixes the eight import names/signatures; an independent probe verifies the host calls before generated-WAT integration.
+Do not expose internal memory. Preserve existing output, `flush_stdout_v1`, input, argument, and file imports. New artifacts containing subprocess operations require versioned imports and fail instantiation on old hosts. Artifacts without subprocess operations require no additional imports. The [WAT contract](wat-process-host.en.md) now fixes the eight import names/signatures; an independent ABI probe and generated-WAT execution comparisons verify the host calls.
 
 ## Startup, linking, and distribution impact
 
-Generated C, LLVM, QBE and Native extend the existing leading runtime marker as shown below. WAT follows later.
+Generated C, LLVM, QBE and Native extend the existing leading runtime marker as shown below. WAT reference-host CLI configuration follows later.
 
 ```text
 program --cerune-runtime-v1 --process-config process.json --file-root directory -- program-arguments

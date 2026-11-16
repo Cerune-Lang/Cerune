@@ -20,4 +20,4 @@ Targets are Windows x86-64 MSVC / Linux x86-64 GNU. Enable process-c-abi only as
 
 Probe exports are never added to generated products. No memory is exposed; bodies use at most eight bytes per value. Configured tests have no registered targets and launch neither children nor a Linux supervisor.
 
-**Remaining:** generated-WAT language operations, array reservation and diagnostics; comparisons of compiled .ceru programs; connection JSON in the reference-host CLI; real child I/O, timeout and cleanup comparisons. These are subsequent stages. No unsupported language examples are added.
+[Generated-WAT comparisons](../../wat_host/tests/process_generated.rs) reuse host.rs for existing .ceru examples, array reservation/release, located diagnostics and real Windows/Linux child I/O. They are separate from the independent ABI tests above. **Remaining:** reference-host CLI connection JSON and generated-WAT timeout/cleanup-failure/other-I/O comparisons.

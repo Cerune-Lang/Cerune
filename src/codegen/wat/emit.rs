@@ -24,6 +24,9 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
     }
 
     writeln!(output, "(module").unwrap();
+    if !module.process_types.is_empty() {
+        output.push_str(super::process::IMPORT);
+    }
     if module.uses_arguments {
         output.push_str(super::arguments::IMPORT);
     }
@@ -44,7 +47,11 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
             "  (import \"cerune\" \"write_error_byte\" (func $write_error_byte (param i32)))\n",
         );
     }
-    if module.uses_flush || module.uses_arguments || module.uses_files {
+    if module.uses_flush
+        || module.uses_arguments
+        || module.uses_files
+        || !module.process_types.is_empty()
+    {
         output.push_str(
             "  (import \"cerune\" \"flush_stdout_v1\" (func $flush_stdout_v1 (result i32)))\n",
         );
@@ -52,7 +59,7 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
     writeln!(output).unwrap();
 
     for (name, (instruction, origin)) in helpers {
-        emit_helper(instruction, origin, &name, &mut output);
+        emit_helper(instruction, origin, &name, module, &mut output);
     }
 
     if module.memory_pages > 0 || module.uses_strings {
@@ -91,6 +98,9 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
     if module.uses_files {
         super::files::support(module, &mut output);
     }
+    if !module.process_types.is_empty() {
+        super::process::support(module, &mut output);
+    }
     for function in &module.functions {
         emit_function(function, module, &mut output);
         writeln!(output).unwrap();
@@ -118,6 +128,9 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
             writeln!(output).unwrap();
         }
 
+        if !module.process_types.is_empty() {
+            output.push_str("    call $cerune_process_start\n");
+        }
         if module.uses_files {
             output.push_str("    call $cerune_files_start\n");
         }
@@ -280,7 +293,13 @@ fn collect_helpers<'a>(
     }
 }
 
-fn emit_helper(instruction: &Instruction, origin: Origin, name: &str, output: &mut String) {
+fn emit_helper(
+    instruction: &Instruction,
+    origin: Origin,
+    name: &str,
+    module: &Module,
+    output: &mut String,
+) {
     match instruction {
         Instruction::Output { kind, newline, .. } => {
             super::output::located(kind, *newline, origin, name, output)
@@ -290,6 +309,9 @@ fn emit_helper(instruction: &Instruction, origin: Origin, name: &str, output: &m
         | Instruction::ArrayRangeCheck => super::array::checked(instruction, origin, name, output),
         Instruction::ArgumentCount | Instruction::ArgumentGet => {
             super::arguments::located(instruction, origin, name, output)
+        }
+        Instruction::ProcessRun { request, outcome } => {
+            super::process::located(module, *request, *outcome, origin, name, output)
         }
         Instruction::ReadLine => super::input::located(origin, name, output),
         Instruction::FileReadText | Instruction::FileWriteNew => {
@@ -444,6 +466,7 @@ fn emit_instruction(
         Instruction::ArgumentCount | Instruction::ArgumentGet => {
             unreachable!("arguments carry source origin")
         }
+        Instruction::ProcessRun { .. } => unreachable!("process carries source origin"),
         Instruction::ReadLine => unreachable!("input carries its source origin"),
         Instruction::FileReadText | Instruction::FileWriteNew => {
             unreachable!("files carry their source origin")

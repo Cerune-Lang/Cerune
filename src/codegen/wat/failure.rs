@@ -16,6 +16,9 @@ pub(super) fn helper_name(instruction: &Instruction, origin: Origin) -> String {
         Instruction::ArrayRangeCheck => "cerune_array_range".into(),
         Instruction::ArgumentCount => "cerune_arguments_count".into(),
         Instruction::ArgumentGet => "cerune_arguments_get".into(),
+        Instruction::ProcessRun { request, outcome } => {
+            format!("cerune_process_run_{request}_{outcome}")
+        }
         Instruction::ReadLine => "cerune_input_read_line".into(),
         Instruction::FileReadText => "cerune_file_read_text".into(),
         Instruction::FileWriteNew => "cerune_file_write_new".into(),

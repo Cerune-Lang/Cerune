@@ -366,7 +366,7 @@ fn explicit_run_module_preserves_type_identity_and_virtual_origins() {
     assert!(bytecode.contains("\"Unconfigured\""));
 }
 #[test]
-fn execution_module_rejects_unsupported_emitters_without_affecting_data_module() {
+fn execution_module_uses_explicit_native_targets_and_versioned_wat_imports() {
     use cerune_lang::codegen::{c, llvm, qbe, wat, x86_64};
     let p = cerune_lang::compile_to_ir(EXECUTION).unwrap();
     let error = c::emit_c(&p).unwrap_err();
@@ -409,16 +409,10 @@ fn execution_module_rejects_unsupported_emitters_without_affecting_data_module()
             .unwrap()
             .contains("cerune_process_v1_prepare")
     );
-    let errors = [wat::emit_wat(&p).unwrap_err()];
-    for error in errors {
-        assert!(
-            error
-                .message()
-                .contains("subprocess execution is not supported yet"),
-            "{error:?}"
-        );
-        assert_eq!(error.primary_span(), p.first_process_span());
-    }
+    let source = wat::emit_wat(&p).unwrap();
+    assert!(source.contains("process_prepare_v1"));
+    assert!(source.contains("$cerune_process_reserve"));
+    assert!(!source.contains("(export \"memory\""));
 }
 #[test]
 fn run_intrinsic_remains_private_and_arguments_are_checked() {

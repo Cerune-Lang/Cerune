@@ -2,7 +2,7 @@
 
 [日本語](wat-process-host.ja.md)
 
-**Stage: host calls and an independent ABI probe are defined. Generated-WAT integration follows.** Use the requests, failures and Report from the [common subprocess contract](subprocess-generated.en.md), without defining a smaller WAT language subset.
+**Implemented: eight host calls and generated-WAT integration, compared with four executors using existing examples on Windows/Linux x86-64. Reference-host CLI configuration follows.** Use the requests, failures and Report from the [common subprocess contract](subprocess-generated.en.md), without defining a smaller WAT language subset.
 
 ## Responsibilities
 
@@ -66,4 +66,20 @@ Subprocess operations, including those in uncalled functions, require all eight 
 2. Connect request transport, array reservation, Report conversion, release and diagnostics to generated WAT; compare existing .ceru examples with four executors.
 3. Add explicit configuration to the reference-host CLI and compare real Windows/Linux children, output, timeouts and cleanup. Then complete official runtime/supervisor distribution.
 
-Stage 1 alone does not mean generated WAT runs language examples. Probe WAT stays under experiments; do not add unsupported .ceru examples.
+Stages 1 and 2 are implemented. Stage 3 real-child comparisons have also started in the test host. The ordinary reference-host CLI does not yet provide subprocess imports/configuration, so passing these artifacts directly fails for missing imports.
+
+## Generation and validation
+
+[src/codegen/wat/process.rs](../../src/codegen/wat/process.rs) evaluates/transports the request once and receives Report into 32 private locals. It checks combined output capacity before reserving both arrays and cancels partial reservation on allocation failure. After launch, no additional result storage is allocated; retained bytes become array length. Short/empty results remain charged at reserved capacity until release.
+
+[Generated-artifact tests](../../experiments/wat_host/tests/process_generated.rs) use the existing [subprocess examples](../../examples/process_execution/README.en.md).
+
+| Check | Compared or verified behavior |
+| --- | --- |
+| Four executors | Unconfigured/unregistered/invalid requests, capacity failure, evaluation order, short circuits, Report origins |
+| Real Windows/Linux children | Japanese/empty/quoted/trailing-backslash arguments, binary stdin, exit code 7, multiple chunks, repeated calls and copies |
+| Reservation/ownership | Inject second-allocation failure before launch; check array usage returns to zero at normal completion |
+| Invalid hosts | Located stops for malformed versions/enums/payloads/origins/counts/reserved words, short copies, excess bytes and transfer failures |
+| Compatibility | Unused calls still reject old hosts; no extra imports without operations; private memory and repeated-main rejection |
+
+Generated-WAT timeout/cleanup-failure comparisons, composition with other I/O, and reference-host CLI integration follow next. Physical Wasm-engine memory exhaustion remains separate from common capacity limits; these limits are not a physical safety guarantee.
