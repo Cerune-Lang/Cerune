@@ -55,6 +55,9 @@ Windows/Linuxの-O0と明示的な追加検証の-O2で、7関数の呼出し、
 
 独立ABI試験に加え、[比較試験](../../experiments/subprocess/c_abi/generated.cjs)の--llvmで既存registered.ceruを実行します。Windows/Linux各76比較で、Report全体、コピーの独立性、評価順、4097バイトの出力、空結果、上限、起動設定を4実行器と照合します。4箇所の出力確保失敗を注入し、起動しないことと最終配列使用量0を確認します。ABI状態番号13の注入では、先行出力とNodeId/Spanを保持して終了1となり、continuedへ進まないことを検査します。OSで再現できない失敗分類は共通runtime/codecの既存試験に任せ、全失敗を実OSで検証したとは扱いません。Nativeの配布・WATのhost・汎用観測APIも別段階です。
 
+
+Report全体の実OS比較は、失敗なし・進行が既知・回収完了・cleanupとcleanup_reportedの一致を必須にします。独立した実行ではJob／process groupが空になったことを確認する時点が異なるため、この条件を満たす場合だけtermination_requestedを比較用の写しから除きます。commands.jsonの生出力は変更しません。出自・転送数・出力・終了コード・回収失敗などの差は引き続き拒否します。[比較規則の回帰試験](../../experiments/subprocess/c_abi/completed-report.cjs)で除外範囲を検査し、生成C/LLVMへfalseとtrueを個別に注入して、公開enumへの変換自体は両方とも正確に検査します。
+
 ## 生成・リンク・起動
 
 同じtargetのruntime archiveを明示します。Linuxでは次の手順です。process.jsonには[CLIと同じ設定](subprocess-cli.ja.md)を使い、監督の絶対パスを指定します。

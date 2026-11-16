@@ -1,5 +1,6 @@
 'use strict';
 const fs=require('fs'),path=require('path'),cp=require('child_process'),assert=require('assert');
+const compareCompleted=require('./completed-report.cjs');
 const llvm=process.argv.includes('--llvm');
 const [target,clang,directory,archive,supervisor]=process.argv.slice(2).filter(x=>x!=='--llvm');
 const emitter=llvm?'emit-llvm':'emit-c';
@@ -14,6 +15,7 @@ function run(exe,args,ok=true){
  fs.writeFileSync(path.join(dir,'commands.json'),JSON.stringify(logs,null,2));
  if(r.error||(ok&&r.status!==0))throw Error(JSON.stringify(logs[logs.length-1]));return r;
 }
+run(process.execPath,[path.join(__dirname,'completed-report.cjs')]);
 run('cargo',['build','--locked','--bin','cerune']);
 const cli=path.resolve(process.env.CARGO_TARGET_DIR||path.join(root,'target'),'debug',windows?'cerune.exe':'cerune');
 const child=path.join(dir,windows?'child.exe':'child');
@@ -48,7 +50,7 @@ function build(label,source,options=[],hook='',transform=x=>x){
  return {entry,exe};
 }
 let comparisons=0;
-function compare(label,source,cfg,options=[],expected){
+function compare(label,source,cfg,options=[],expected,compareOutput=assert.strictEqual){
  const x=build(label,source,options),file=path.join(dir,label+'.json');
  if(cfg)fs.writeFileSync(file,JSON.stringify(cfg));
  const ca=cfg?['--cerune-runtime-v1','--process-config',file,'--']:[];
@@ -57,7 +59,7 @@ function compare(label,source,cfg,options=[],expected){
  if(expected)assert(actual.stdout.includes(expected),label+': '+actual.stdout);
  for(const route of routes){
   const r=run(cli,[route[0],x.entry,...route.slice(1),...options,...(cfg?['--process-config',file]:[])]);
-  assert.strictEqual(actual.stdout,r.stdout,label+' / '+route.join(' '));assert.strictEqual(r.stderr,'');comparisons++;
+  compareOutput(actual.stdout,r.stdout,label+' / '+route.join(' '));assert.strictEqual(r.stderr,'');comparisons++;
  }
  return {x,file};
 }
@@ -87,7 +89,23 @@ for(const [exe,args] of [[timed.exe,['--cerune-runtime-v1','--process-config',ba
  const r=run(exe,args);assert(r.stdout.includes('Timeout{}')&&r.stdout.endsWith('continued\n'));
 }
 compare('origins',example+'\nprint(result.report.origin);\n',config);
-compare('full-report',example+'\nprint(result.report);\n',config);
+compare('full-report',example+'\nprint(result.report);\n',config,[],undefined,compareCompleted);
+// Force both valid cleanup flags after ABI readback to check enum conversion
+// without depending on when the OS reports an empty process scope.
+for(const flag of [0,1]){
+ const x=build('cleanup-flag-'+flag,example+'\nprint(result.report);\n',[],'',text=>{
+  const marker=llvm?'  %version = load i64, ptr %words':'    cerune_process_check(cerune_process_v1_report(cerune_process_context_value,w,32),0,origin);';
+  assert(text.includes(marker),'cleanup injection marker');
+  const patch=llvm?'  %test.cleanup = getelementptr i64, ptr %words, i64 23\n  store i64 '+flag+', ptr %test.cleanup\n  %test.reported = getelementptr i64, ptr %words, i64 26\n  store i64 '+flag+', ptr %test.reported\n'+marker
+   :marker+'\n    w[23]='+flag+'; w[26]='+flag+';';
+  return text.replace(marker,patch);
+ });
+ const r=run(x.exe,['--cerune-runtime-v1','--process-config',baseline.file,'--']);
+ assert.strictEqual(r.stderr,'');
+ const value=flag?'true':'false';
+ assert(r.stdout.endsWith('cleanup: Complete{termination_requested: '+value+'}, cleanup_reported: Complete{termination_requested: '+value+'}}\n'));
+ assert(r.stdout.includes('failure: None{}'));
+}
 const bulkConfig=JSON.parse(JSON.stringify(config));
 bulkConfig.limits.stdin_bytes=5000;bulkConfig.limits.output_bytes=8192;
 const bulk=example.replace(/arguments: array_copy\(\[.*?\]\)/,'arguments: array_copy(["bulk"])')

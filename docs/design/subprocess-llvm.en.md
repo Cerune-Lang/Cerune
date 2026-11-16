@@ -55,6 +55,8 @@ Windows/Linux at -O0 and explicit additional -O2 checks cover seven calls, layou
 
 In addition to the independent ABI probe, the [comparison script](../../experiments/subprocess/c_abi/generated.cjs) executes registered.ceru with --llvm. Windows/Linux each perform 76 comparisons against four executors, including the complete Report, independent copies, evaluation order, 4097-byte output, empty results, limits, and startup settings. Four injected output-allocation failures verify no launch and final array usage zero. Injecting ABI status 13 verifies prior output and NodeId/Span, exit status 1, and no continuation. Existing shared-runtime/codec tests cover failure classes that cannot be induced reliably on a real OS; this is not a claim that every failure was tested on an OS. Native packaging, WAT hosts, and a general observation API remain separate stages.
 
+Full-Report comparisons between independent OS runs require no failure, known progress, complete cleanup, and agreement between cleanup and cleanup_reported. Only under these conditions, exclude termination_requested from the comparison copy: separate runs can observe an empty Job/process group at different times. Raw stdout remains unchanged in commands.json. Differences in origins, transfer counts, output, exit code, or cleanup failures still fail. The [comparison regression test](../../experiments/subprocess/c_abi/completed-report.cjs) checks this exclusion; generated C/LLVM separately receive injected false and true flags to verify exact conversion to public enum values.
+
 ## Generate, link, and run
 
 Specify the runtime archive for the same target. On Linux, use the following commands. process.json uses the [CLI configuration](subprocess-cli.en.md), including an absolute supervisor path.
