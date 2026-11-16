@@ -170,7 +170,7 @@ program --cerune-runtime-v1 --process-config process.json --file-root directory 
 | 2（試作実装済み） | Native系C ABIのアダプタと静的リンク試作 | Windows/Linuxで型幅・配置・寿命・不正版・失敗・回収を検証。Rustと独立したC側の期待値と比較 |
 | 3（実装済み） | [生成Cのloweringと起動設定](subprocess-c.ja.md) | [registered.ceru](../../examples/process_execution/registered.ceru)を4実行器と比較。未接続・部分出力・非0終了・継続・所有・失敗位置が一致 |
 | 4a（実装済み） | [LLVMのlowering・予約・起動設定](subprocess-llvm.ja.md) | Windows/Linuxで既存exampleと異常系を比較 |
-| 4b | QBE・Native、Native build/release | 同じABIを使用。非最適化/SSA、明示target・リンク・依存記録を比較 |
+| 4b | QBE・Native、Native build/release | [QBE ABI試験](../../experiments/subprocess/qbe_abi/README.md)はWindows/Linuxで成功。本体接続は未実装。同じABIを使用。非最適化/SSA、明示target・リンク・依存記録を比較 |
 | 5 | WATの版付きhost、Linux監督の配布仕上げ | private memory、旧hostの拒否、同じ要求・結果・回収、配置変更後の配布実行を検証 |
 
 C ABI試作の具体的なシグネチャ・状態・検証手順は[専用文書](../../experiments/subprocess/c_abi/README.md)にまとめています。設定JSONの解析をCLIと共有し、releaseが接続停止を解除しないことも検証します。

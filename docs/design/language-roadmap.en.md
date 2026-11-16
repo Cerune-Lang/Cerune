@@ -4,6 +4,8 @@
 
 Generated subprocess support follows the [contract](subprocess-generated.en.md). Shared prepare/execute stages and the fixed Report v1 codec are implemented. The C ABI adapter and static linking are verified in the [Windows/Linux probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C](subprocess-c.en.md) is connected. [Generated LLVM](subprocess-llvm.en.md) is also connected on Windows/Linux. Next are QBE/Native, followed by WAT and distribution.
 
+The [QBE ABI call probe](../../experiments/subprocess/qbe_abi/README.en.md) passed on Windows/Linux. Production QBE subprocess execution remains unimplemented; next connect request conversion, output-array reservation, Report conversion, and startup settings.
+
 This inventory records capabilities, execution routes, and next steps as of 2026-11-09. Implemented work is distinguished from unimplemented plans; each design stage determines candidate syntax and adoption. See the [language reference](../reference/language.en.md) for the exact specification.
 
 The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline. This page tracks current status.

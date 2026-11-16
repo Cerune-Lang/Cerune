@@ -1,0 +1,51 @@
+# Handwritten QBE calls to the shared runtime. The same IL is used on both ABIs.
+type :bytes = { l, l }
+
+export function w $cerune_qbe_create(l %version, l %target, l %data, l %length, l %out) {
+@start
+    %bytes =l alloc8 16
+    storel %data, %bytes
+    %lengthp =l add %bytes, 8
+    storel %length, %lengthp
+    %status =w call $cerune_process_v1_create(l %version, l %target, :bytes %bytes, l %out)
+    ret %status
+}
+
+export function w $cerune_qbe_prepare(l %context, l %input) {
+@start
+    %request =l alloc8 120
+    blit %input, %request, 120
+    %status =w call $cerune_process_v1_prepare(l %context, l %request)
+    ret %status
+}
+
+export function w $cerune_qbe_execute(l %context, l %reservation) {
+@start
+    %status =w call $cerune_process_v1_execute(l %context, l %reservation)
+    ret %status
+}
+
+export function w $cerune_qbe_report(l %context, l %words, l %length) {
+@start
+    %status =w call $cerune_process_v1_report(l %context, l %words, l %length)
+    ret %status
+}
+
+# Six arguments exercise register and stack passing in both directions.
+export function w $cerune_qbe_copy(l %context, l %channel, l %offset, l %output, l %capacity, l %written) {
+@start
+    %status =w call $cerune_process_v1_copy(l %context, l %channel, l %offset, l %output, l %capacity, l %written)
+    ret %status
+}
+
+export function w $cerune_qbe_release(l %context) {
+@start
+    %status =w call $cerune_process_v1_release(l %context)
+    ret %status
+}
+
+export function w $cerune_qbe_destroy(l %context_address) {
+@start
+    %status =w call $cerune_process_v1_destroy(l %context_address)
+    ret %status
+}
