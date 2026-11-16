@@ -49,6 +49,8 @@ pub struct TypeDefinition {
     pub id: usize,
     pub name: String,
     pub fields: Vec<Type>,
+    pub field_names: Vec<String>,
+    pub variants: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,6 +104,12 @@ pub enum CompareOp {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
+    ProcessRun {
+        dest: Temp,
+        request: Operand,
+        request_type: usize,
+        outcome_type: usize,
+    },
     ArrayAllocate {
         dest: Temp,
         element: Type,

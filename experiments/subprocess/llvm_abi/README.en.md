@@ -34,4 +34,4 @@ CI retains commands.json and LLVM/ASM only. Reference LLVM includes checkout sou
 
 Windows/Linux -O0/-O2 passed on 2026-11-16. Tests cover 15 sizes/offsets, 64-bit values, independent request copies, origins, NUL/CR/LF/non-UTF-8 output, nonzero exit, reservation failures, unregistered/missing children, output limits, timeout, and state transitions. Raw exit results are retained; uncertain progress after timeout is not substituted with success.
 
-The production LLVM emitter still rejects subprocess execution. Language array reservation, Outcome conversion, startup settings, and existing .ceru route comparisons will be verified in the next implementation.
+Production LLVM integration is also implemented. Pass --llvm to the [generated-artifact comparison](../c_abi/generated.cjs) to verify language array reservation, Outcome conversion, startup, and existing .ceru execution. This independent ABI probe continues to test external calling conventions.

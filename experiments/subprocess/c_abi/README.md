@@ -2,9 +2,9 @@
 
 [English](README.en.md)
 
-**Rust共通runtimeを独立したCプログラムへ静的リンクする試作です。** [生成C](../../../docs/design/subprocess-c.ja.md)は接続済みです。LLVM・QBE・Native・WATへの接続、Native build/releaseへの同梱は未実装です。言語exampleは[process_execution](../../../examples/process_execution/README.md)に分けています。
+**Rust共通runtimeを独立したCプログラムへ静的リンクする試作です。** [生成C](../../../docs/design/subprocess-c.ja.md)は接続済みです。QBE・Native・WATへの接続、Native build/releaseへの同梱は未実装です。言語exampleは[process_execution](../../../examples/process_execution/README.md)に分けています。
 
-[LLVM ABI試験](../llvm_abi/README.md)でも同じarchiveとC側の期待値を使います。本体のLLVM生成はまだ非対応です。
+[LLVM ABI試験](../llvm_abi/README.md)でも同じarchiveとC側の期待値を使います。[生成LLVM](../../../docs/design/subprocess-llvm.ja.md)も接続済みです。generated.cjsに--llvmを渡すと、同じexampleと期待値をLLVM経路で検証します。
 
 ## 構築と実行
 

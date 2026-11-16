@@ -4,6 +4,8 @@
 
 `run`・`run-ir`・`run-mir`・`run-mir --ssa`・`run-vm`に`--process-config <JSONファイル>`を指定し、[共通runtime](subprocesses.ja.md)へWindows/Linux接続を渡します。指定がなければ妥当な要求は`Unconfigured`を返します。環境変数・探索パス・設定ファイルの自動探索は使いません。
 
+[生成LLVMも同じ設定で接続済みです。](subprocess-llvm.ja.md)
+
 ## 設定と責務
 
 設定ファイルはUTF-8のJSON、最大1 MiBです。版・OS・全上限・登録先を実行前に検査します。未知の項目、項目の重複、必須項目の欠落、負数・小数・整数幅超過は拒否します。設定本文や環境変数の値を診断に転記しません。
@@ -74,6 +76,6 @@ cerune run-vm app.ceru --process-config process.json
 
 Linuxの実OSテストは`CERUNE_TEST_PROCESS_SUPERVISOR`で明示した検証用監督を必要とします。通常のテストではignoreされ、OS専用CIで`--include-ignored`を付けて必ず実行します。これはテスト設定であり、Cerune CLIはこの環境変数を読みません。
 
-Linux監督は現在Cargo exampleとして構築します。[生成C](subprocess-c.ja.md)は明示target・runtimeリンクと生成実行ファイル側の接続設定に対応しました。監督の配布同梱、LLVM・QBE・WAT・Nativeの実行操作、Native build/releaseの設定記録は後続です。emit自体には接続JSONを渡しません。
+Linux監督は現在Cargo exampleとして構築します。[生成C](subprocess-c.ja.md)は明示target・runtimeリンクと生成実行ファイル側の接続設定に対応しました。監督の配布同梱、QBE・WAT・Nativeの実行操作、Native build/releaseの設定記録は後続です。emit自体には接続JSONを渡しません。
 
 次の具体的な順序と互換性への影響は[生成経路の契約案](subprocess-generated.ja.md)にまとめています。

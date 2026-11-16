@@ -45,7 +45,7 @@ fn codes(instruction: &Instruction) -> Vec<Code> {
             Code::AllocationLimitExceeded,
             Code::AllocationFailed,
         ],
-        Instruction::StringConcat { .. } => vec![
+        Instruction::ProcessRun { .. } | Instruction::StringConcat { .. } => vec![
             Code::AllocationSizeOverflow,
             Code::AllocationLimitExceeded,
             Code::AllocationFailed,
