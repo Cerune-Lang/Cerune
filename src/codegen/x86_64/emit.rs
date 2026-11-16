@@ -21,7 +21,8 @@ pub(super) fn build_with_file_connection(
     file_connection: bool,
 ) -> NativeProgram {
     let files = super::files::used(module) && file_connection;
-    let arguments = super::arguments::used(module) || files;
+    let process = super::process::used(module);
+    let arguments = super::arguments::used(module) || files || process;
     let mut reporter = Reporter::new(module.target);
     let mut output = NativeProgram::new(module.target);
     if annotate {
@@ -46,7 +47,7 @@ pub(super) fn build_with_file_connection(
     if let Some(limit) = module.array_heap_limit {
         super::array::append(&mut output.program, limit);
     }
-    if super::input::used(module) || super::arguments::used(module) || super::files::used(module) {
+    if super::input::used(module) || arguments || super::files::used(module) {
         super::utf8::append(&mut output.program);
     }
     if arguments {
@@ -60,6 +61,9 @@ pub(super) fn build_with_file_connection(
     }
     if super::files::used(module) {
         super::files::append(&mut output);
+    }
+    if process {
+        super::process::append(&mut output, module, files);
     }
     for function in &module.functions {
         emit_function(function, module, annotate, &mut reporter, &mut output);
@@ -145,7 +149,7 @@ pub(super) fn build_with_file_connection(
     emit_epilogue(module.frame_size, true, &mut output);
 
     if arguments {
-        super::arguments::append_entry_with_files(&mut output, files);
+        super::arguments::append_entry_with_files(&mut output, files, process);
     }
     if !reporter.data.is_empty() {
         output.push(EntryKind::Section(Section::ReadOnlyData));
@@ -314,7 +318,9 @@ fn emit_instruction(
         Instruction::ArgumentCount => reporter.argument(false, output),
         Instruction::ArgumentGet => reporter.argument(true, output),
         Instruction::ReadLine => reporter.input(output),
-        Instruction::ProcessRun { .. } => unreachable!("checked before machine generation"),
+        Instruction::ProcessRun { .. } => {
+            super::process::emit(output, module, instruction, reporter)
+        }
         Instruction::FileReadText { name_offset } => {
             output.emit(
                 Opcode::Mov64,

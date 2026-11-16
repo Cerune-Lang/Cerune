@@ -14,7 +14,8 @@
 | 通常のCLI run系列 | [明示した設定](subprocess-cli.ja.md)でWindows/Linuxへ接続。指定なしでは`Unconfigured`を返す |
 | Rustの各実行器 | `run_with_processes(program, &mut Processes<B>, transfer_bytes)`で接続・上限を明示 |
 | 生成C・[LLVM](subprocess-llvm.ja.md)・[QBE](subprocess-qbe.ja.md) | [明示targetとruntimeリンク](subprocess-c.ja.md)でWindows/Linuxの実行操作に対応 |
-| WAT・Native | 実行モジュールを含むIRをソース位置付きで拒否。型だけの既存ソースは引き続き生成可能 |
+| [Native](subprocess-native.ja.md) | ASM・自前Objectで実行可能。追加runtimeを明示するbuild/releaseは後続 |
+| WAT | 実行モジュールを含むIRをソース位置付きで拒否。型だけの既存ソースは引き続き生成可能 |
 | 残る生成経路の実行・Linux監督の配布同梱 | 後続作業 |
 
 現在は未使用関数も保持・生成します。既存の型だけを使うソースを未対応扱いにせず、暗黙の未使用削除も追加しないため、型と実行のimportを分けました。実行モジュールをimportして呼ばない場合も、C・LLVM・QBEはtargetとruntimeリンクを要求し、他の生成経路は未対応操作を検出します。
@@ -45,4 +46,4 @@ MIR/SSAとVMは各経路に保持された型情報からReportの形状を検�
 - [実OS接続](../../experiments/subprocess/execution.rs)：Windows/Linuxで4実行器から明示登録したfixtureへ入力し、非0終了・生バイト・継続を比較。比較用fixtureを4回実行し、任意の利用者プログラムを自動で再実行しません。
 - [実行example](../../examples/process_execution/README.md)：未接続を値として受け取り継続。
 
-[CLI登録・上限・Linux監督パス](subprocess-cli.ja.md)を接続しました。共通runtimeの段階API・固定Report・C ABI・[生成C](subprocess-c.ja.md)・[LLVM](subprocess-llvm.ja.md)・[QBE](subprocess-qbe.ja.md)も実装済みです。次は[生成経路の順序](subprocess-generated.ja.md)に沿ってNative・WATと配布を揃えます。
+[CLI登録・上限・Linux監督パス](subprocess-cli.ja.md)を接続しました。共通runtimeの段階API・固定Report・C ABI・[生成C](subprocess-c.ja.md)・[LLVM](subprocess-llvm.ja.md)・[QBE](subprocess-qbe.ja.md)も実装済みです。次は[生成経路の順序](subprocess-generated.ja.md)に沿ってNative build/releaseの追加runtime指定・記録、WATと配布を揃えます。

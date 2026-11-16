@@ -2,7 +2,7 @@
 
 [日本語](language-roadmap.ja.md)
 
-Generated subprocess support follows the [contract](subprocess-generated.en.md). Shared prepare/execute stages and the fixed Report v1 codec are implemented. The C ABI adapter and static linking are verified in the [Windows/Linux probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C](subprocess-c.en.md) is connected. [Generated LLVM](subprocess-llvm.en.md) is also connected on Windows/Linux. [Generated QBE](subprocess-qbe.en.md) is also connected. The [Native ABI probe](../../experiments/subprocess/native_abi/README.en.md) successfully calls the common runtime from ASM and directly encoded Objects on both OSes. Operation/type/origin retention in [LIR](lir-observation.en.md) is also implemented. Next is Native ASM/Object execution and build/release integration, followed by WAT and distribution.
+Generated subprocess support follows the [contract](subprocess-generated.en.md). Shared prepare/execute stages and the fixed Report v1 codec are implemented. The C ABI adapter and static linking are verified in the [Windows/Linux probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C](subprocess-c.en.md) is connected. [Generated LLVM](subprocess-llvm.en.md) is also connected on Windows/Linux. [Generated QBE](subprocess-qbe.en.md) is also connected. The [Native ABI probe](../../experiments/subprocess/native_abi/README.en.md) successfully calls the common runtime from ASM and directly encoded Objects on both OSes. Operation/type/origin retention in [LIR](lir-observation.en.md) is also implemented. [Native ASM/direct Object execution](subprocess-native.en.md) is also connected. Next are additional-runtime inputs and records for Native build/release, followed by WAT and distribution.
 
 QBE request conversion, output reservation, Report conversion, and startup are implemented, with 76 comparisons of existing examples/failures on each of Windows/Linux.
 
@@ -17,7 +17,7 @@ The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline.
 
 | Before publication | Current state |
 | --- | --- |
-| Subprocess execution | Four executors and generated C/LLVM/QBE are implemented. Native has an ABI probe and LIR operation/type/origin retention. ASM/Object execution, build/release, and the WAT host follow |
+| Subprocess execution | Four executors and generated C/LLVM/QBE/Native are implemented. Additional-runtime inputs/records for Native build/release and the WAT host follow |
 | Runtime/Linux supervisor distribution | Record placement, target, version, hashes, and dependencies; verify execution away from the development checkout |
 | Compiler distribution tests | [#272](https://github.com/Cerune-Lang/Cerune/issues/272): unpack Windows/Linux/macOS archives, then start the actual binaries and execute a minimal source |
 | Published information | All CI checks pass; describe changes, unsupported features, compatibility changes, and supported OSes in both languages |

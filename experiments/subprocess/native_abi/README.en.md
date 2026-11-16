@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-**This probe verifies common-runtime calls from ASM and directly encoded Objects produced from typed x86-64 instructions.** It has been executed on Windows and Linux. Cerune ProcessRun is retained in LIR, but machine-instruction lowering, startup configuration, and build/release integration remain unimplemented.
+**This probe verifies common-runtime calls from ASM and directly encoded Objects produced from typed x86-64 instructions.** It has been executed on Windows and Linux. [Execution from Cerune sources and startup configuration](../../../docs/design/subprocess-native.en.md) are also implemented. Additional-runtime inputs for build/release follow.
 
 Following the [generated-route contract](../../../docs/design/subprocess-generated.en.md), verify value passing and linking before connecting language operations. The probe uses the same runtime archive and independent C expectations as the [C ABI probe](../c_abi/README.en.md). Runnable Cerune examples remain under [process_execution](../../../examples/process_execution/README.en.md); this probe is not a language example.
 

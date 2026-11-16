@@ -12,7 +12,7 @@ fn module(source: &str, target: Target) -> Module {
 const TARGETS: [Target; 2] = [Target::X86_64PcWindowsMsvc, Target::X86_64UnknownLinuxGnu];
 
 #[test]
-fn examples_have_deterministic_lir_and_explicit_unsupported_machine_generation() {
+fn examples_have_deterministic_lir_and_machine_generation() {
     fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
         for e in std::fs::read_dir(dir).unwrap() {
             let p = e.unwrap().path();
@@ -47,20 +47,6 @@ fn examples_have_deterministic_lir_and_explicit_unsupported_machine_generation()
                     lir::emit(&x86_64::lower_mir(p, target).unwrap()).unwrap()
                 );
                 assert_eq!(m, before);
-                if let Some(span) = hir.first_process_span() {
-                    for error in [
-                        x86_64::emit_asm_from_lir(&m, true).unwrap_err(),
-                        x86_64::emit_object_from_lir(&m, true).unwrap_err(),
-                    ] {
-                        assert!(
-                            error
-                                .message()
-                                .contains("subprocess execution is not supported yet")
-                        );
-                        assert_eq!(error.primary_span(), Some(span));
-                    }
-                    continue;
-                }
                 assert_eq!(
                     x86_64::emit_asm_from_lir(&m, true).unwrap(),
                     x86_64::emit_asm_from_mir(p, target, true).unwrap()

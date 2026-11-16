@@ -135,18 +135,17 @@ fn keeps_process_operands_types_and_origin_for_baseline_and_ssa() {
             }
             assert_eq!(seen, 1);
             assert_eq!(text, lir::emit(&m).unwrap());
-            for error in [
-                x86_64::emit(&m).unwrap_err(),
-                x86_64::build_program_from_lir(&m, true).unwrap_err(),
-                x86_64::emit_object_from_lir(&m, false).unwrap_err(),
-            ] {
-                assert!(
-                    error
-                        .message()
-                        .contains("subprocess execution is not supported yet")
-                );
-                assert_eq!(error.primary_span(), hir.first_process_span());
-            }
+            let program = x86_64::build_program_from_lir(&m, true).unwrap();
+            let before = program.assemble().unwrap();
+            let text = program.render_asm().unwrap();
+            assert!(text.contains("cerune_process_v1_prepare"));
+            assert!(text.contains("cerune_process_reserve"));
+            assert!(
+                before.object == program.assemble().unwrap().object,
+                "rendering must not change Object bytes"
+            );
+            assert!(!x86_64::emit_object_from_lir(&m, false).unwrap().is_empty());
+            assert!(program.origins().iter().any(|o|matches!(o.source, Origin::Source{span,..} if Some(span)==hir.first_process_span())));
         }
     }
 }
@@ -294,5 +293,82 @@ fn unused_large_type_does_not_require_an_impossible_native_stack_frame() {
                 .contains("byte-displacement=-17179869176")
         );
         assert_eq!(before, x86_64::emit_object_from_lir(&m, true).unwrap());
+    }
+}
+
+#[test]
+fn rejects_process_field_corruption_before_machine_selection() {
+    for target in TARGETS {
+        let original = sample(target);
+        let mut copy = original.clone();
+        let (f, index) = process_body(&mut copy);
+        let Instruction::ProcessRun {
+            request_type,
+            outcome_type,
+            ..
+        } = f.instructions[index]
+        else {
+            unreachable!()
+        };
+        for (id, name, message) in [
+            (request_type, "target", "invalid process request fields"),
+            (outcome_type, "stdout", "invalid process outcome fields"),
+        ] {
+            rejects(
+                original.clone(),
+                |m| {
+                    m.types[id.0]
+                        .fields
+                        .iter_mut()
+                        .find(|(_, n, _)| n == name)
+                        .unwrap()
+                        .2 = ir::Type::Integer(IntegerType::U64);
+                },
+                message,
+            );
+        }
+        let report = original
+            .types
+            .iter()
+            .find(|t| t.fields.iter().any(|(_, n, _)| n == "progress_known"))
+            .unwrap()
+            .id;
+        rejects(
+            original.clone(),
+            |m| {
+                m.types[report.0]
+                    .fields
+                    .iter_mut()
+                    .find(|(_, n, _)| n == "progress_known")
+                    .unwrap()
+                    .2 = ir::Type::String;
+            },
+            "invalid process report fields",
+        );
+        let started = original
+            .types
+            .iter()
+            .find(|t| {
+                t.variants
+                    .as_ref()
+                    .is_some_and(|v| v.iter().any(|n| n == "Unknown"))
+            })
+            .unwrap()
+            .id;
+        rejects(
+            original.clone(),
+            |m| {
+                m.types[started.0].variants.as_mut().unwrap()[0] = "Unexpected".into();
+            },
+            "invalid process report fields",
+        );
+        // Enum numbers belong to the actual LIR declaration, not a fixed Rust enum order.
+        let mut reordered = original;
+        reordered.types[started.0]
+            .variants
+            .as_mut()
+            .unwrap()
+            .reverse();
+        assert!(x86_64::emit_object_from_lir(&reordered, false).is_ok());
     }
 }

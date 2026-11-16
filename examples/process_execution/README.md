@@ -49,7 +49,7 @@ CERUNE_TEST_PROCESS_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_supe
 cerune emit-c examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.c
 ~~~
 
-[構築・起動手順](../../docs/design/subprocess-c.ja.md)と[4実行器との比較試験](../../experiments/subprocess/c_abi/generated.cjs)を用意しています。[LLVMでの構築・起動](../../docs/design/subprocess-llvm.ja.md)にも対応しました。[QBEでの構築・起動](../../docs/design/subprocess-qbe.ja.md)にも対応しました。WAT・Nativeは後続です。[実行設計](../../docs/design/subprocess-execution.ja.md)に対応状況と出自の保持をまとめています。
+[構築・起動手順](../../docs/design/subprocess-c.ja.md)と[4実行器との比較試験](../../experiments/subprocess/c_abi/generated.cjs)を用意しています。[LLVMでの構築・起動](../../docs/design/subprocess-llvm.ja.md)にも対応しました。[QBEでの構築・起動](../../docs/design/subprocess-qbe.ja.md)にも対応しました。[Nativeでの構築・起動](../../docs/design/subprocess-native.ja.md)にも対応しました。WATは後続です。[実行設計](../../docs/design/subprocess-execution.ja.md)に対応状況と出自の保持をまとめています。
 
 LLVMへ生成する場合も、同じexampleとprocess.jsonを使います。
 
@@ -73,4 +73,4 @@ cerune emit-lir examples/process_execution/unconfigured.ceru --target x86_64-pc-
 cerune emit-lir examples/process_execution/registered.ceru --ssa --target x86_64-unknown-linux-gnu
 ~~~
 
-この段階では子は起動しません。NativeのASM/Object生成はまだ未対応の診断で停止します。LIRの表示に成功することとNativeで実行できることは別です。
+LIRの表示自体は子を起動しません。[NativeのASM・自前Object](../../docs/design/subprocess-native.ja.md)は、共通runtimeを明示してリンクするとこの例を実行できます。Native build/releaseの追加runtime指定は後続です。

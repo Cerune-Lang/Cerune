@@ -649,9 +649,9 @@ fn failure(out: &mut NativeProgram, linux: bool) {
     out.label(".Largs_failure_format");
 }
 
-pub(super) fn append_entry_with_files(out: &mut NativeProgram, files: bool) {
+pub(super) fn append_entry_with_files(out: &mut NativeProgram, files: bool, process: bool) {
     let linux = out.program.target == sashimi_assembler::Target::X86_64UnknownLinuxGnu;
-    entry(out, linux, files);
+    entry(out, linux, files, process);
     if linux {
         linux_value(out);
     } else {
@@ -660,21 +660,31 @@ pub(super) fn append_entry_with_files(out: &mut NativeProgram, files: bool) {
 }
 // OS conversion precedes common capture, as in C/LLVM/QBE. argc excludes argv[0].
 // Frame: 64 count,72 argv,80 temporary pairs,88 index,96 result.
-fn entry(out: &mut NativeProgram, linux: bool, files: bool) {
+fn entry(out: &mut NativeProgram, linux: bool, files: bool, process: bool) {
     let (first, argv) = if linux { (7, 6) } else { (1, 2) };
 
     out.push(EntryKind::Section(Section::Text));
     out.global_label(if linux { "main" } else { "wmain" });
     out.emit(
         Opcode::Sub64,
-        [Operand::Immediate(if files { 136 } else { 120 }), r64(4)],
+        [
+            Operand::Immediate(if files || process { 136 } else { 120 }),
+            r64(4),
+        ],
     );
     out.emit(Opcode::Mov64, [r64(argv), address(4, None, 72)]);
-    if files {
+    if files || process {
         out.emit(Opcode::Mov32, [r32(first), r32(0)]);
         out.emit(Opcode::Mov64, [r64(0), address(4, None, 64)]);
         out.emit(Opcode::Mov64, [r64(0), r64(first)]);
-        let symbol = out.symbol("cerune_files_parse", Linkage::Local);
+        let symbol = out.symbol(
+            if process {
+                "cerune_process_parse"
+            } else {
+                "cerune_files_parse"
+            },
+            Linkage::Local,
+        );
         out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
         out.emit(Opcode::Mov64, [r64(2), address(4, None, 112)]);
         out.emit(Opcode::Mov64, [r64(0), address(4, None, 104)]);
@@ -769,6 +779,10 @@ fn entry(out: &mut NativeProgram, linux: bool, files: bool) {
         let s = out.symbol("cerune_files_connect", Linkage::Local);
         out.emit(Opcode::Call, [Operand::Symbol(s)]);
     }
+    if process {
+        let s = out.symbol("cerune_process_connect", Linkage::Local);
+        out.emit(Opcode::Call, [Operand::Symbol(s)]);
+    }
     let symbol = out.symbol("cerune_program", Linkage::Local);
     out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
 
@@ -778,13 +792,20 @@ fn entry(out: &mut NativeProgram, linux: bool, files: bool) {
         let s = out.symbol("cerune_files_disconnect", Linkage::Local);
         out.emit(Opcode::Call, [Operand::Symbol(s)]);
     }
+    if process {
+        let s = out.symbol("cerune_process_disconnect", Linkage::Local);
+        out.emit(Opcode::Call, [Operand::Symbol(s)]);
+    }
     let symbol = out.symbol("cerune_arguments_dispose", Linkage::Local);
     out.emit(Opcode::Call, [Operand::Symbol(symbol)]);
 
     out.emit(Opcode::Mov64, [address(4, None, 96), r64(0)]);
     out.emit(
         Opcode::Add64,
-        [Operand::Immediate(if files { 136 } else { 120 }), r64(4)],
+        [
+            Operand::Immediate(if files || process { 136 } else { 120 }),
+            r64(4),
+        ],
     );
     out.emit(Opcode::Ret, []);
     out.label(".Largs_start_allocation");
