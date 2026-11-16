@@ -2,13 +2,27 @@
 
 [English](language-roadmap.en.md)
 
-生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。次はNativeの言語操作とbuild/releaseへの接続、その後にWATと配布を揃えます。
+生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。[LIR](lir-observation.ja.md)への操作・型・出自の保持も実装しました。次はNativeのASM/Object実行とbuild/releaseへの接続、その後にWATと配布を揃えます。
 
 QBEの要求変換・出力配列予約・Report変換・起動設定を実装し、既存exampleと異常系をWindows/Linux各76比較で確認しました。
 
 2026-11-09時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
 
 [以前の監査記録](development-status.ja.md)は2026-10-11時点の履歴です。現在の状態はこのページで管理します。
+
+
+## 次回リリースの候補
+
+処理系の次回GitHub Releaseは **v0.2.0を候補**とします。公開日は未定で、版番号と収録範囲は公開準備時に確定します。利用者のプログラムをまとめる `release native` コマンドとは別です。
+
+| 公開前に揃えるもの | 現在の状態 |
+| --- | --- |
+| 子プロセスの実行 | 4実行器と生成C/LLVM/QBEは実装済み。NativeはABI試験とLIRへの操作・型・出自保持まで。ASM/Object実行、build/release、WAT hostは後続 |
+| runtime・Linux監督の配布 | 配置・target・版・ハッシュ・必要な依存物を記録し、開発用checkoutから離した場所で実行できることを確認する |
+| 処理系の配布試験 | [#272](https://github.com/Cerune-Lang/Cerune/issues/272)。Windows/Linux/macOS向けのアーカイブを展開し、実際のバイナリで起動・最小ソースの実行を確認する |
+| 公開する内容 | 全CI成功、変更点・未対応項目・互換性変更・対応OSを日英で整理する |
+
+現在の子プロセス対応を揃えてから公開準備へ移る案です。IR/VM Image、最適化、GPU、GUIなどの未実装項目をこのリリースの必須条件へ加えません。まだタグ作成や公開を決定したものではありません。
 
 ## 本体の開発順
 

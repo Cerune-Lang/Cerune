@@ -13,6 +13,7 @@ mod files;
 mod heap;
 mod input;
 pub mod ir;
+mod layout;
 pub mod lir;
 mod lower;
 mod machine;
@@ -31,7 +32,10 @@ use super::test_process;
 mod unsigned;
 mod utf8;
 
-pub use emit::emit;
+/// Validate a LIR snapshot and diagnose unsupported machine operations.
+pub fn emit(module: &ir::Module) -> Result<String, crate::diagnostic::Diagnostic> {
+    emit_asm_from_lir(module, false)
+}
 /// MIRから直接Native LIRを作ります。ターゲットは必須です。
 pub use lower::{lower as lower_mir, lower_with_argument_limits as lower_mir_with_argument_limits};
 /// 同じ上限付きLIRからASM・自前Objectの両方を生成できます。
@@ -126,6 +130,22 @@ pub fn build_program_from_lir(
     annotate_origins: bool,
 ) -> Result<NativeProgram, Diagnostic> {
     lir::validate(module)?;
+    for (code, origins) in module
+        .functions
+        .iter()
+        .map(|f| (&f.instructions, &f.origins))
+        .chain(std::iter::once((&module.instructions, &module.origins)))
+    {
+        for (i, origin) in code.iter().zip(origins) {
+            if matches!(i, ir::Instruction::ProcessRun { .. }) {
+                let message = "Native subprocess execution is not supported yet";
+                return Err(match origin {
+                    ir::Origin::Source { span, .. } => Diagnostic::new(message, *span),
+                    ir::Origin::Synthetic => Diagnostic::without_span(message),
+                });
+            }
+        }
+    }
     Ok(emit::build(module, annotate_origins))
 }
 
@@ -191,7 +211,7 @@ mod tests {
             let mut module = lower(&program);
             module.frame_size = frame_size;
             module.functions[0].frame_size = frame_size;
-            let asm = super::emit(&module);
+            let asm = super::emit(&module).unwrap();
             if frame_size >= 4096 {
                 let allocation =
                     format!("movq ${frame_size}, %rax\n  callq __chkstk\n  subq %rax, %rsp");

@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-**型付きx86-64命令から作ったASMと自前Objectで、共通runtimeの呼出しを検証する試験です。** Windows/Linuxの両方で実行済みです。CeruneソースのProcessRunからNativeへの変換、起動設定、build/releaseへの接続はまだ実装していません。
+**型付きx86-64命令から作ったASMと自前Objectで、共通runtimeの呼出しを検証する試験です。** Windows/Linuxの両方で実行済みです。CeruneソースのProcessRunはLIRへ保持できますが、機械命令への変換、起動設定、build/releaseへの接続はまだ実装していません。
 
 [生成経路の契約](../../../docs/design/subprocess-generated.ja.md)に従い、言語機能を接続する前に値の渡し方とリンクを確かめます。[C ABI試験](../c_abi/README.md)と同じruntime archive・C側の期待値を使います。実行可能なCeruneの例は[process_execution](../../../examples/process_execution/README.md)に置き、この試験を言語exampleへ混ぜません。
 
@@ -37,4 +37,4 @@ Clangが正規のCヘッダから生成したcreate呼出しもreference.sへ保
 
 commands.jsonにコマンド・引数・終了状態・出力を保存します。inputs.jsonには明示target、archiveとemit.rsとCargo.lockのSHA-256を保存します。windows/linuxディレクトリには型付き命令、ASM、Object、外部呼出しの出自対応を残します。設定JSONはローカルの絶対パスを含むためCI artifactに収録しません。試験用C/Rust/JSは既存のexperiments/subprocess属性によりGitHubの言語集計から除外されます。
 
-次はProcessRunのLIRへの保持、要求変換、配列予約・Report変換・所有解放、起動設定を接続します。非最適化/SSAとASM/Objectを既存のCerune実行例で比較した後、Native build/releaseの明示リンク入力と依存記録を更新します。この試験だけでは言語配列の予約・解放や生成ソースの出自対応を検証したことにはなりません。runtimeや監督の配布も後続です。
+ProcessRunの[LIRへの保持](../../../docs/design/lir-observation.ja.md)は実装済みです。次は機械命令へ変換し、要求変換、配列予約・Report変換・所有解放、起動設定を接続します。非最適化/SSAとASM/Objectを既存のCerune実行例で比較した後、Native build/releaseの明示リンク入力と依存記録を更新します。この試験だけでは言語配列の予約・解放や生成ソースの出自対応を検証したことにはなりません。runtimeや監督の配布も後続です。

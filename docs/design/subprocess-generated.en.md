@@ -2,7 +2,7 @@
 
 [日本語](subprocess-generated.ja.md)
 
-**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C integration](subprocess-c.en.md) is also implemented. [Generated LLVM](subprocess-llvm.en.md) is also implemented. [Generated QBE](subprocess-qbe.en.md) is also implemented. WAT/Native still reject IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
+**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C integration](subprocess-c.en.md) is also implemented. [Generated LLVM](subprocess-llvm.en.md) is also implemented. [Generated QBE](subprocess-qbe.en.md) is also implemented. Native retains the operation, types, and origins in LIR but still rejects ASM/Object generation. WAT still rejects IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
 
 ## Findings and direction
 
@@ -171,7 +171,7 @@ Never automatically embed local registered absolute paths, environment values, o
 | 3 (implemented) | [Generated C lowering and startup](subprocess-c.en.md) | Compare [registered.ceru](../../examples/process_execution/registered.ceru) with four executors: unconfigured, partial output, nonzero exit, continuation, ownership, origins |
 | 4a (implemented) | [LLVM lowering, reservation, and startup](subprocess-llvm.en.md) | Compare existing examples and failures on Windows/Linux |
 | 4b (implemented) | [QBE lowering, reservation, and startup](subprocess-qbe.en.md) | Compare existing examples and failures on Windows/Linux |
-| 4c (ABI probe verified) | Native and Native build/release | [Independent Native probe](../../experiments/subprocess/native_abi/README.en.md) verifies the same ABI from ASM/direct Objects on both OSes. Language operations, baseline/SSA, startup, and build/release integration follow |
+| 4c (ABI probe and LIR retention verified) | Native and Native build/release | [Independent Native probe](../../experiments/subprocess/native_abi/README.en.md) verifies the same ABI from ASM/direct Objects on both OSes. [LIR](lir-observation.en.md) retains baseline/SSA operations, types, and origins. ASM/Object execution, startup, and build/release integration follow |
 | 5 | Versioned WAT host and supervisor distribution completion | Private memory, old-host rejection, matching requests/results/cleanup, relocated distribution execution |
 
 Never replace remaining unsupported emission with successful stubs. Do not add unimplemented future-API `.ceru` files to executable examples; update existing example instructions as each route becomes executable.

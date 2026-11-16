@@ -6,10 +6,7 @@ use super::machine::{EntryKind, Linkage, Opcode, Operand, Scale, Section, r8, r3
 use super::program::{NativeProgram, address, xmm};
 use crate::runtime::FailureCode as Failure;
 
-pub fn emit(module: &Module) -> String {
-    emit_with_origins(module, false)
-}
-
+#[cfg(test)]
 pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
     build(module, annotate)
         .render_asm()
@@ -317,6 +314,7 @@ fn emit_instruction(
         Instruction::ArgumentCount => reporter.argument(false, output),
         Instruction::ArgumentGet => reporter.argument(true, output),
         Instruction::ReadLine => reporter.input(output),
+        Instruction::ProcessRun { .. } => unreachable!("checked before machine generation"),
         Instruction::FileReadText { name_offset } => {
             output.emit(
                 Opcode::Mov64,

@@ -32,6 +32,7 @@ pub fn lower_with_argument_limits(
     }
     mir::validate(program).map_err(|e| e.diagnostic())?;
     let mut module = Module {
+        types: program.types.clone(),
         call_limit: None,
         source_functions: program
             .functions
@@ -65,22 +66,9 @@ pub fn lower_with_argument_limits(
         }
         for b in &f.blocks {
             for i in &b.instructions {
-                if matches!(
-                    &i.kind,
-                    Kind::Assign {
-                        value: Op::ProcessRun { .. },
-                        ..
-                    }
-                ) {
-                    let message = "Native subprocess execution is not supported yet";
-                    return Err(match i.origin.source() {
-                        Some(o) => crate::diagnostic::Diagnostic::new(message, o.span),
-                        None => crate::diagnostic::Diagnostic::without_span(message),
-                    });
-                }
                 match &i.kind {
                     Kind::Assign {
-                        value: Op::ArgumentCount | Op::ArgumentGet(_),
+                        value: Op::ArgumentCount | Op::ArgumentGet(_) | Op::ProcessRun { .. },
                         ..
                     } => {
                         module.string_heap_limit = Some(program.string_heap_limit);
@@ -726,7 +714,19 @@ impl Lowerer<'_> {
                     self.push(Instruction::ArrayLength);
                 }
             },
-            Op::ProcessRun { .. } => unreachable!("process operation rejected before lowering"),
+            Op::ProcessRun {
+                request,
+                request_type,
+                outcome_type,
+            } => {
+                self.push(Instruction::ProcessRun {
+                    request_offset: self.offset(*request),
+                    outcome_offset: self.offset(d),
+                    request_type: *request_type,
+                    outcome_type: *outcome_type,
+                });
+                return;
+            }
             Op::FileReadText { name, max_bytes } => {
                 self.load(*max_bytes);
                 self.push(Instruction::FileReadText {

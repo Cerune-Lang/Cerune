@@ -18,9 +18,13 @@ Native生成で使っているx86-64 LIRを、そのまま表示・保存・構�
 | `x86_64::lir::emit(&module)` | 検証後に観測テキストを生成 |
 | `emit_asm_from_lir`／`emit_object_from_lir` | 検証後、同じModuleからASM／自前Objectを生成 |
 
-targetはWindows/Linuxのx86-64 tripleを明示します。ホストOSから補いません。既存のheap予算オプションを使えます。LIR変換自体も末尾で検証します。既存の低水準API `x86_64::emit` は検証済みModule用です。
+targetはWindows/Linuxのx86-64 tripleを明示します。ホストOSから補いません。既存のheap予算オプションを使えます。LIR変換自体も末尾で検証します。低水準API `x86_64::emit` も検証し、`Result<String, Diagnostic>`を返します。以前のString戻り値からの変更です。
 
 観測テキストの見出しは`cerune-lir-observation-v1`です。target、heap予算、runtime利用、UTF-8バイト数付き文字列、浮動小数点定数のbit値、関数ID・名前・frameサイズ、命令番号・operand、SourceId/NodeId/Span、MIR block・命令・派生理由を含みます。命令・operand・出典は内部Rust型のDebug表記です。時刻や外部環境には依存せず、同じコンパイラ・同じsnapshotで決定的です。安定したserialization、load形式、配布Imageではなく、内部型の変更に伴い表示は変わり得ます。
+
+名前解決済みの型宣言はMIRから保持します。型ID・フィールドID・型名・フィールド型・enumの宣言順に加え、各フィールドのslot番号と基準位置から負方向へのバイト変位を表示します。型の意味やenumタグをLIRで作り直しません。
+
+子プロセスは`ProcessRun`として、評価済み要求と結果全体のstack位置、要求型ID・結果型ID、出自を保持します。基準MIRとSSA経由のMIRから観測できます。ASM/Objectへの変換は未実装のため、観測に成功しても機械コード生成時には元の操作位置付きで拒否します。
 
 命令番号は関数内の順番です。ASMの`cerune-mir`注釈のLIR番号と一致します。一つのLIR命令が複数のASM命令へ展開される場合があります。MIRに対応しないABI準備等は`mir: None`、ソースに直接対応しない操作は`Synthetic`です。幅0の値には、機械バイトを作らない`ObserveOnly`を残します。
 
@@ -32,6 +36,8 @@ targetはWindows/Linuxのx86-64 tripleを明示します。ホストOSから補�
 | --- | --- |
 | 出典 | 命令と2種類の出典配列の長さ、MIR出典から得たソース出典との一致 |
 | 関数・分岐 | 関数IDとindex、呼出先、block labelの重複と参照、展開用label IDの重複 |
+| 型 | 型・フィールドIDとindex、参照先、enum名の重複、インライン型の循環、slot数のoverflow |
+| 子プロセス | 要求・結果の全slotの範囲と非重複、型ID、ソース出自、文字列・配列runtimeの設定 |
 | 定数 | 文字列index、f32/f64の種類別IDと重複 |
 | frame | 16byte整列、signed 32-bit変位の範囲、負方向の8byte slot配置 |
 | stack operand | 単一slot／集約値／固定配列の範囲、サイズ計算のoverflow、呼出引数領域との重なり |

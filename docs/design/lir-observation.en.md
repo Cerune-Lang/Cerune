@@ -18,9 +18,13 @@ Text observation and ASM generation consume the same Module. Baseline and SSA-de
 | `x86_64::lir::emit(&module)` | Validates and emits observation text |
 | `emit_asm_from_lir` / `emit_object_from_lir` | Validates and generates ASM / self-encoded objects from that Module |
 
-An explicit Windows/Linux x86-64 target is required; it is never inferred from the host. Existing heap-budget options apply. MIR→LIR lowering also validates its result. The existing low-level `x86_64::emit` API expects a validated Module.
+An explicit Windows/Linux x86-64 target is required; it is never inferred from the host. Existing heap-budget options apply. MIR→LIR lowering also validates its result. The low-level `x86_64::emit` API also validates and returns `Result<String, Diagnostic>`, changed from its previous String return type.
 
 The text header is `cerune-lir-observation-v1`. It records target, heap budgets, runtime flags, strings with UTF-8 byte lengths, floating-point constant bits, function IDs/names/frame sizes, instruction indices/operands, SourceId/NodeId/Span, and MIR blocks/instructions/derivation reasons. Instructions, operands, and provenance use Debug notation of internal Rust types. Output is deterministic for the same compiler and snapshot, without timestamps or environment data. This is not stable serialization, a loading format, or a distribution Image; internal type changes may change its presentation.
+
+Resolved type declarations are retained from MIR. Alongside type/field IDs, names, field types, and enum declaration order, observation shows each field's slot and downward byte displacement from its aggregate base. LIR does not recreate type semantics or enum tags.
+
+ProcessRun retains the evaluated request and entire result stack positions, request/result type IDs, and origins. It is observable from baseline MIR and SSA-derived MIR. ASM/Object lowering remains unimplemented and reports the original operation location even when LIR observation succeeds.
 
 Instruction indices are local to each function and match the LIR indices in ASM `cerune-mir` annotations. One LIR instruction may expand into several ASM instructions. ABI preparation without a MIR counterpart has `mir: None`; operations without direct source provenance use `Synthetic`. Zero-width values retain `ObserveOnly` without emitting machine bytes.
 
@@ -32,6 +36,8 @@ Validation catches malformed internal snapshots early.
 | --- | --- |
 | Provenance | Instruction and both provenance-array lengths; source origin agrees with MIR provenance |
 | Functions/branches | Function ID/index agreement, callees, duplicate/referenced block labels, duplicate expansion label IDs |
+| Types | Type/field IDs and indices, references, duplicate enum names, inline cycles and slot-count overflow |
+| Subprocess | Full request/result slot extents and non-overlap, type IDs, source origins, string/array runtime settings |
 | Constants | String indices and distinct f32/f64 constant IDs |
 | Frames | 16-byte alignment, signed 32-bit displacement range, downward 8-byte slots |
 | Stack operands | Scalar/aggregate/fixed-array extents, arithmetic overflow, overlap with outgoing arguments |

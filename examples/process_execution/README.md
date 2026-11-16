@@ -63,3 +63,14 @@ QBEでも同じexampleを使います。明示targetとQBEのtargetを揃え、�
 cerune emit-qbe examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.ssa
 qbe -t amd64_sysv -o process.s process.ssa
 ~~~
+
+## Nativeの生成前の表現を確認する
+
+同じ実行例から、要求・結果の保存位置、型のフィールド位置、元のソース位置をLIRで確認できます。
+
+~~~sh
+cerune emit-lir examples/process_execution/unconfigured.ceru --target x86_64-pc-windows-msvc
+cerune emit-lir examples/process_execution/registered.ceru --ssa --target x86_64-unknown-linux-gnu
+~~~
+
+この段階では子は起動しません。NativeのASM/Object生成はまだ未対応の診断で停止します。LIRの表示に成功することとNativeで実行できることは別です。

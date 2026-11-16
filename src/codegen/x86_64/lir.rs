@@ -15,6 +15,7 @@ pub fn validate(module: &Module) -> Result<(), Diagnostic> {
             "LIR: argument count limit must not exceed i64::MAX",
         ));
     }
+    let layouts = super::layout::resolve(&module.types)?;
     let mut constants = BTreeSet::new();
     for c in &module.float_constants {
         let key = match c {
@@ -33,6 +34,7 @@ pub fn validate(module: &Module) -> Result<(), Diagnostic> {
         }
         body(
             module,
+            &layouts,
             &format!("function {}", f.id),
             f.frame_size,
             &f.instructions,
@@ -42,6 +44,7 @@ pub fn validate(module: &Module) -> Result<(), Diagnostic> {
     }
     body(
         module,
+        &layouts,
         "main",
         module.frame_size,
         &module.instructions,
@@ -50,8 +53,10 @@ pub fn validate(module: &Module) -> Result<(), Diagnostic> {
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn body(
     m: &Module,
+    layouts: &[super::layout::Layout],
     name: &str,
     frame: usize,
     code: &[Instruction],
@@ -117,7 +122,8 @@ fn body(
         }
         if matches!(
             i,
-            Instruction::ArgumentCount
+            Instruction::ProcessRun { .. }
+                | Instruction::ArgumentCount
                 | Instruction::ArgumentGet
                 | Instruction::ReadLine
                 | Instruction::FileReadText { .. }
@@ -255,6 +261,29 @@ fn body(
             }
             | StringConcat { left_offset: o, .. }
             | CompareString { left_offset: o, .. } => stack(*o, 1)?,
+            ProcessRun {
+                request_offset,
+                outcome_offset,
+                request_type,
+                outcome_type,
+            } => {
+                let request = layouts
+                    .get(request_type.0)
+                    .ok_or_else(|| fail("missing process request type"))?;
+                let outcome = layouts
+                    .get(outcome_type.0)
+                    .ok_or_else(|| fail("missing process outcome type"))?;
+                if request.slots == 0 || outcome.slots == 0 {
+                    return Err(fail("process aggregates must not be empty"));
+                }
+                stack(*request_offset, request.slots)?;
+                stack(*outcome_offset, outcome.slots)?;
+                let a = (-*request_offset) as usize;
+                let b = (-*outcome_offset) as usize;
+                if a < b + outcome.slots * 8 && b < a + request.slots * 8 {
+                    return Err(fail("process request and outcome overlap"));
+                }
+            }
             FileReadText { name_offset } => stack(*name_offset, 1)?,
             FileWriteNew {
                 name_offset,
@@ -422,7 +451,8 @@ fn body(
         }
         if matches!(
             i,
-            ArgumentCount
+            ProcessRun { .. }
+                | ArgumentCount
                 | ArgumentGet
                 | ReadLine
                 | FileReadText { .. }
@@ -435,7 +465,8 @@ fn body(
         }
         if matches!(
             i,
-            ArrayAllocate { .. }
+            ProcessRun { .. }
+                | ArrayAllocate { .. }
                 | ArrayRangeCheck { .. }
                 | DynamicArrayAddress { .. }
                 | ArrayInitAddress { .. }
@@ -478,6 +509,28 @@ pub fn emit(module: &Module) -> Result<String, Diagnostic> {
             module.argument_limits.max_count, module.argument_limits.max_bytes
         )
         .unwrap();
+    }
+    let layouts = super::layout::resolve(&module.types)?;
+    for (definition, layout) in module.types.iter().zip(&layouts) {
+        writeln!(
+            out,
+            "type {} {:?} slots={} variants={:?} {{",
+            definition.id.0, definition.name, layout.slots, definition.variants
+        )
+        .unwrap();
+        for ((id, name, ty), slot) in definition.fields.iter().zip(&layout.fields) {
+            writeln!(
+                out,
+                "  field {} {:?} {:?} slot={} byte-displacement={}",
+                id.0,
+                name,
+                ty,
+                slot,
+                -8 * (*slot as i128)
+            )
+            .unwrap();
+        }
+        out.push_str("}\n");
     }
     for (id, s) in module.strings.iter().enumerate() {
         writeln!(out, "string {id} bytes={} {s:?}", s.len()).unwrap();
