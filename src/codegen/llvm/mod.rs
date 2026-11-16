@@ -11,6 +11,7 @@ mod integer;
 pub mod ir;
 mod lower;
 mod output;
+mod process;
 mod rounding;
 mod string;
 mod unsigned;
@@ -120,7 +121,14 @@ fn emit_configured(
     limits: crate::runtime::arguments::Limits,
     call_limit: Option<std::num::NonZeroU32>,
 ) -> Result<String, Diagnostic> {
-    super::support::reject_process(program, "LLVM")?;
+    if options.target.is_none()
+        && let Some(span) = program.first_process_span()
+    {
+        return Err(Diagnostic::new(
+            "LLVM subprocess execution requires an explicit --target and runtime archive",
+            span,
+        ));
+    }
     if options.target.is_none()
         && let Some(span) = program.first_file_span()
     {
@@ -133,6 +141,7 @@ fn emit_configured(
     if let Some(span) = program
         .first_argument_span()
         .or_else(|| program.first_file_span())
+        .or_else(|| program.first_process_span())
     {
         if target.is_none() {
             return Err(Diagnostic::new(

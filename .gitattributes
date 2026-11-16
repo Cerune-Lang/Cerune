@@ -52,3 +52,5 @@ src/runtime/process/abi/*.h text eol=lf -linguist-detectable
 src/codegen/c/process/*.c.inc text eol=lf -linguist-detectable
 
 experiments/subprocess/llvm_abi/* text eol=lf
+
+src/codegen/llvm/process/*.ll text eol=lf -linguist-detectable

@@ -49,7 +49,12 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
         string_heap_limit: crate::codegen::support::string_heap_limit(program)
-            .or_else(|| program.first_file_span().map(|_| program.string_heap_limit)),
+            .or_else(|| program.first_file_span().map(|_| program.string_heap_limit))
+            .or_else(|| {
+                program
+                    .first_process_span()
+                    .map(|_| program.string_heap_limit)
+            }),
         target: None,
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
         type_definitions: program
@@ -58,6 +63,8 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
             .map(|definition| TypeDefinition {
                 id: definition.id.0,
                 name: definition.name.clone(),
+                field_names: definition.fields.iter().map(|f| f.name.clone()).collect(),
+                variants: definition.variants.clone(),
                 fields: definition
                     .fields
                     .iter()
@@ -713,8 +720,25 @@ impl Lowerer<'_> {
                     operand: Operand::Temp(dest),
                 }
             }
-            cerune_ir::ExprKind::ProcessRun { .. } => {
-                unreachable!("process operation rejected before lowering")
+            cerune_ir::ExprKind::ProcessRun { request } => {
+                let request = self.lower_expr(request);
+                let Type::Named(request_type) = request.ty else {
+                    unreachable!()
+                };
+                let Type::Named(outcome_type) = expr.ty.clone().into() else {
+                    unreachable!()
+                };
+                let dest = self.next_temp();
+                self.push(Instruction::ProcessRun {
+                    dest,
+                    request: request.operand,
+                    request_type,
+                    outcome_type,
+                });
+                Value {
+                    ty: Type::Named(outcome_type),
+                    operand: Operand::Temp(dest),
+                }
             }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 let name = self.lower_expr(name).operand;

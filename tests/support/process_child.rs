@@ -6,13 +6,27 @@ fn main() {
         std::thread::sleep(std::time::Duration::from_secs(20));
         return;
     }
-    assert_eq!(args, ["echo", "", "日本語", "a\"b", "tail\\", "--"]);
+    let bulk = args == ["bulk"];
+    let empty = args == ["empty"];
+    if !bulk && !empty {
+        assert_eq!(args, ["echo", "", "日本語", "a\"b", "tail\\", "--"]);
+    }
     assert_eq!(std::env::var("CERUNE_CHILD_VALUE").unwrap(), "日本語\r\n");
     assert!(std::env::var_os("CERUNE_PARENT_SENTINEL").is_none());
-    assert_eq!(std::fs::read("child-directory-marker").unwrap(), b"registered cwd");
+    assert_eq!(
+        std::fs::read("child-directory-marker").unwrap(),
+        b"registered cwd"
+    );
     let mut bytes = Vec::new();
     std::io::stdin().read_to_end(&mut bytes).unwrap();
-    assert_eq!(bytes, [255, 0, 13, 10]);
+    if bulk {
+        assert_eq!(bytes.len(), 4097);
+        assert!(bytes.iter().all(|b| *b == 255));
+    } else if empty {
+        assert!(bytes.is_empty());
+    } else {
+        assert_eq!(bytes, [255, 0, 13, 10]);
+    }
     std::io::stdout().write_all(&bytes).unwrap();
     std::io::stderr().write_all(b"err\0\r\n").unwrap();
     std::process::exit(7);

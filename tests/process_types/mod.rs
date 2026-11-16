@@ -380,8 +380,19 @@ fn execution_module_rejects_unsupported_emitters_without_affecting_data_module()
         assert!(source.contains("cerune_process_v1_prepare"));
         assert!(source.contains("cerune_process_finalize"));
     }
+    let error = llvm::emit_llvm(&p).unwrap_err();
+    assert!(error.message().contains("explicit --target"));
+    assert_eq!(error.primary_span(), p.first_process_span());
+    for target in [
+        llvm::Target::X86_64PcWindowsMsvc,
+        llvm::Target::X86_64UnknownLinuxGnu,
+    ] {
+        let source = llvm::emit_llvm_with_target(&p, Some(target)).unwrap();
+        assert!(source.contains("cerune_process_v1_prepare"));
+        assert!(source.contains("@cerune.process.reserve("));
+        assert!(source.contains("@cerune.process.finalize("));
+    }
     let errors = [
-        llvm::emit_llvm(&p).unwrap_err(),
         qbe::emit_qbe(&p).unwrap_err(),
         wat::emit_wat(&p).unwrap_err(),
         x86_64::emit_x86_64_win_asm(&p).unwrap_err(),

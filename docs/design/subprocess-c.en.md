@@ -2,7 +2,9 @@
 
 [日本語](subprocess-c.ja.md)
 
-**Implemented and verified on Windows x86-64 MSVC and Linux x86-64 GNU.** Common-IR process.run connects to the [existing runtime C ABI](../../experiments/subprocess/c_abi/README.en.md). LLVM/QBE/Native/WAT operations and runtime/supervisor distribution integration follow later.
+**Implemented and verified on Windows x86-64 MSVC and Linux x86-64 GNU.** Common-IR process.run connects to the [existing runtime C ABI](../../experiments/subprocess/c_abi/README.en.md). QBE/Native/WAT operations and runtime/supervisor distribution integration follow later.
+
+[Generated LLVM also uses the same configuration.](subprocess-llvm.en.md)
 
 ## Emit, link, and start
 

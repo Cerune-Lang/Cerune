@@ -105,6 +105,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     super::arguments::emit_support(module, &mut output);
     super::input::emit_support(module, &mut output);
     super::files::emit_support(module, &mut output);
+    super::process::support(module, &mut output);
     for ty in &array_types {
         emit_array_get(ty, module, &mut output);
         output.push('\n');
@@ -349,6 +350,20 @@ fn emit_instruction(
                 super::arguments::origin_name(origin)
             )
             .unwrap();
+        }
+        Instruction::ProcessRun {
+            dest,
+            request,
+            request_type,
+            outcome_type,
+        } => {
+            let Origin::Source { node_id, span } = origin else {
+                unreachable!()
+            };
+            writeln!(output, "  {} = call {} @cerune.process.run.{}.{}({} {}, i64 {}, i64 {}, i64 {}, i64 {}, ptr {}, ptr {failure})",
+                temp(*dest), type_name(&Type::Named(*outcome_type),module), request_type, outcome_type,
+                type_name(&Type::Named(*request_type),module), operand(*request),
+                node_id.0, span.source_id().index(), span.start(), span.end(), super::process::origin_name(origin)).unwrap();
         }
         Instruction::FileReadText {
             dest,
@@ -725,7 +740,7 @@ fn label(label: Label) -> String {
     format!("block{}", label.0)
 }
 
-fn type_name(ty: &Type, module: &Module) -> String {
+pub(super) fn type_name(ty: &Type, module: &Module) -> String {
     match ty {
         Type::DynamicArray { .. } => "%cerune.array".into(),
         Type::String => "%cerune.string".into(),

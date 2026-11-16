@@ -2,18 +2,18 @@
 
 [日本語](subprocess-llvm.ja.md)
 
-**2026-11-16: external runtime ABI probes are complete; production LLVM lowering is unimplemented.** emit-llvm still diagnoses IR containing subprocess execution. Integration follows the [generated-route contract](subprocess-generated.en.md), after generated C.
+**2026-11-16: Windows/Linux LLVM generation, linking, and execution are implemented.** Emitted calls use the shared runtime for the explicit target; existing examples and recoverable failures are compared with four executors. Integration follows the [generated-route contract](subprocess-generated.en.md), after generated C.
 
 ## Current findings
 
 | Area | Current state and decision |
 | --- | --- |
-| Issues and roadmap | Continue LLVM → QBE/Native → WAT and distribution. Execution traces (#282), RV64 experiments (#284), distribution archive checks (#272), binary I/O (#243), and self-launch limits (#249) remain separate work |
+| Issues and roadmap | LLVM is implemented; continue QBE/Native → WAT and distribution. Execution traces (#282), RV64 experiments (#284), distribution archive checks (#272), binary I/O (#243), and self-launch limits (#249) remain separate work |
 | Shared runtime | Reuse prepare/execute, fixed Report, C ABI, and Windows/Linux connections. Add no LLVM-specific deadline or cleanup semantics |
-| [LLVM lowering](../../src/codegen/llvm/lower.rs) | Converts HIR to LLVM-specific instructions. ProcessRun is rejected at the entry point and has no instruction representation yet |
-| LLVM type metadata | Retains field types only. Request extraction and Report conversion also need field and variant names |
-| LLVM arrays | Ordinary allocation stops on failure. Both subprocess outputs need fallible reservation with rollback |
-| LLVM startup | argv and file-root are supported. process-config and context lifetime are not connected |
+| [LLVM lowering](../../src/codegen/llvm/lower.rs) | Converts HIR ProcessRun to an LLVM instruction retaining the request and origin |
+| LLVM type metadata | Retains field types, names, and variant names; converts the fixed Report by name |
+| LLVM arrays | Ordinary allocation stops on failure. Both subprocess outputs now use fallible reservation with rollback |
+| LLVM startup | argv, file-root, and process-config are supported; create the context before execution and destroy it afterwards |
 
 In line with the duplication concerns in [#268](https://github.com/Cerune-Lang/Cerune/issues/268), semantic decisions stay in the shared runtime. Converting Cerune value layouts into ABI values remains visible in emitted LLVM. Restructuring all backends or introducing general FFI is not a prerequisite.
 
@@ -34,9 +34,9 @@ Bytes occupies 16 bytes and Request 120. Two sizes and all 13 field offsets comp
 
 On Windows, Clang appends an MSVC environment version to the selected MSVC triple. The probe checks that it still matches the requested target, allows only a numeric version suffix for that target, and writes that spelling into LLVM. It neither changes OS/ABI nor suppresses all warnings.
 
-## Production integration steps (unimplemented)
+## Implemented generated operations
 
-| Order | Work | Conditions to retain |
+| Order | Generated operation | Conditions to retain |
 | --- | --- | --- |
 | 1 | LLVM ProcessRun instruction and type names | Evaluate the request once; retain short-circuiting, left-to-right order, and NodeId/SourceId/Span |
 | 2 | Request conversion and prepare | Convert UTF-8 and raw bytes explicitly. Free temporary storage only after prepare owns the request |
@@ -53,4 +53,33 @@ ABI violations stop with an operation origin and status, instead of becoming rec
 
 Windows/Linux at -O0 and explicit additional -O2 checks cover seven calls, layouts, u64, request ownership, origins, raw bytes, nonzero exit, repeated positional reads, malformed inputs and duplicate operations, reservation failures, unregistered/missing children, output limits, timeout, and reuse after release. If real OS timeout cleanup leaves progress unknown, the probe checks that the connection stays disabled.
 
-This probe **does not execute a language example through the LLVM route**. Fallible language array reservation, public Outcome conversion, startup arguments, and integration into the ordinary LLVM emitter are the next change. Existing shared-runtime/codec tests cover failure classes that cannot be induced reliably on a real OS; this is not a claim that every failure was tested on an OS. Native packaging, WAT hosts, and a general observation API remain separate stages.
+In addition to the independent ABI probe, the [comparison script](../../experiments/subprocess/c_abi/generated.cjs) executes registered.ceru with --llvm. Windows/Linux each perform 76 comparisons against four executors, including the complete Report, independent copies, evaluation order, 4097-byte output, empty results, limits, and startup settings. Four injected output-allocation failures verify no launch and final array usage zero. Injecting ABI status 13 verifies prior output and NodeId/Span, exit status 1, and no continuation. Existing shared-runtime/codec tests cover failure classes that cannot be induced reliably on a real OS; this is not a claim that every failure was tested on an OS. Native packaging, WAT hosts, and a general observation API remain separate stages.
+
+Full-Report comparisons between independent OS runs require no failure, known progress, complete cleanup, and agreement between cleanup and cleanup_reported. Only under these conditions, exclude termination_requested from the comparison copy: separate runs can observe an empty Job/process group at different times. Raw stdout remains unchanged in commands.json. Differences in origins, transfer counts, output, exit code, or cleanup failures still fail. The [comparison regression test](../../experiments/subprocess/c_abi/completed-report.cjs) checks this exclusion; generated C/LLVM separately receive injected false and true flags to verify exact conversion to public enum values.
+
+## Generate, link, and run
+
+Specify the runtime archive for the same target. On Linux, use the following commands. process.json uses the [CLI configuration](subprocess-cli.en.md), including an absolute supervisor path.
+
+~~~sh
+cargo build --example subprocess_linux_supervisor
+cargo rustc --lib --features process-c-abi --target x86_64-unknown-linux-gnu --crate-type staticlib -- --print native-static-libs
+cerune emit-llvm examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o target/process.ll
+clang --target=x86_64-unknown-linux-gnu -O0 target/process.ll target/x86_64-unknown-linux-gnu/debug/libcerune_lang.a -lgcc_s -lutil -lrt -lpthread -lm -ldl -lc -o target/process
+target/process --cerune-runtime-v1 --process-config process.json --
+~~~
+
+On Windows, use the MSVC/Windows SDK link libraries.
+
+~~~powershell
+cargo rustc --lib --features process-c-abi --target x86_64-pc-windows-msvc --crate-type staticlib -- --print native-static-libs
+cerune emit-llvm examples/process_execution/registered.ceru --target x86_64-pc-windows-msvc -o target/process.ll
+clang --target=x86_64-pc-windows-msvc -O0 target/process.ll target/x86_64-pc-windows-msvc/debug/cerune_lang.lib -lkernel32 -lntdll -luserenv -lws2_32 -ldbghelp -ladvapi32 -lbcrypt -o target/process.exe
+target/process.exe --cerune-runtime-v1 --process-config process.json --
+~~~
+
+Subprocess operations require an explicit target. Programs with file operations may also specify --file-root inside the same marker. Without the marker, the connection is unconfigured and argv retains its previous meaning. Missing, duplicate, or unknown settings, and empty, invalid, or oversized JSON stop before user code executes. JSON is bounded to 1 MiB and is not automatically embedded into generated artifacts.
+
+Request strings and argument tables are borrowed read-only with the same {ptr,i64} layout until prepare copies them. stdin u8 elements are converted from i64 storage to raw bytes and freed after prepare. Result bytes are read in 4096-byte chunks and widened into u8 element storage. These operations remain visible in emitted LLVM.
+
+QBE/Native/WAT subprocess execution and runtime distribution remain unfinished. QBE/Native integration is next.

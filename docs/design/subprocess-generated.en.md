@@ -2,7 +2,7 @@
 
 [日本語](subprocess-generated.ja.md)
 
-**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C integration](subprocess-c.en.md) is also implemented. The [LLVM ABI probe and next integration steps](subprocess-llvm.en.md) are now documented. LLVM/QBE/WAT/Native still reject IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
+**Status: the Rust prepare/execute API and fixed Report v1 codec are implemented.** [Four executors](subprocess-execution.en.md) and [Windows/Linux CLI connections](subprocess-cli.en.md) use the same runtime. The C ABI and static linking are verified by an [independent C probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C integration](subprocess-c.en.md) is also implemented. [Generated LLVM](subprocess-llvm.en.md) is also implemented. QBE/WAT/Native still reject IR containing the execution operation. The implemented Rust API is distinguished below from future generated-route contracts.
 
 ## Findings and direction
 
@@ -142,7 +142,7 @@ Do not expose internal memory. Preserve existing output, `flush_stdout_v1`, inpu
 
 ## Startup, linking, and distribution impact
 
-Generated C extends the existing leading runtime marker as shown below. Other generated routes follow later.
+Generated C and LLVM extend the existing leading runtime marker as shown below. QBE/WAT/Native follow later.
 
 ```text
 program --cerune-runtime-v1 --process-config process.json --file-root directory -- program-arguments
@@ -169,7 +169,8 @@ Never automatically embed local registered absolute paths, environment values, o
 | 1 (implemented) | Split shared prepare/execute and implement fixed Report codec | Existing/staged APIs agree on results, OS calls, and observations; failed reservation never launches; test duplicate execution and discarded preparation |
 | 2 (prototype implemented) | Native C ABI adapter and static linking probe | Windows/Linux widths, layout, lifetime, invalid version, failure, and reclamation; independent C expectations |
 | 3 (implemented) | [Generated C lowering and startup](subprocess-c.en.md) | Compare [registered.ceru](../../examples/process_execution/registered.ceru) with four executors: unconfigured, partial output, nonzero exit, continuation, ownership, origins |
-| 4 | LLVM/QBE/Native and Native build/release | Same ABI; baseline/SSA, explicit target/linking/dependency records |
+| 4a (implemented) | [LLVM lowering, reservation, and startup](subprocess-llvm.en.md) | Compare existing examples and failures on Windows/Linux |
+| 4b | QBE/Native and Native build/release | Same ABI; baseline/SSA, explicit target/linking/dependency records |
 | 5 | Versioned WAT host and supervisor distribution completion | Private memory, old-host rejection, matching requests/results/cleanup, relocated distribution execution |
 
 Never replace remaining unsupported emission with successful stubs. Do not add unimplemented future-API `.ceru` files to executable examples; update existing example instructions as each route becomes executable.

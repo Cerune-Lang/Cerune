@@ -96,7 +96,7 @@ Each document links to its Japanese counterpart.
 - [Linux subprocess Backend](design/subprocess-linux.en.md)
 - [Windows subprocess Backend](design/subprocess-windows.en.md)
 - [Subprocess connections in generated C](design/subprocess-c.en.md)
-- [LLVM subprocess integration (ABI verified, lowering unimplemented)](design/subprocess-llvm.en.md)
+- [Generated LLVM subprocess integration](design/subprocess-llvm.en.md)
 
 ### Build and distribution
 
