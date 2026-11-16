@@ -626,6 +626,12 @@ jobs:
       - name: Link and execute subprocess QBE ABI on Windows
         if: ${{ matrix.os == 'windows-latest' }}
         run: node experiments/subprocess/qbe_abi/check.cjs x86_64-pc-windows-msvc target/qbe-1.3/qbe.exe clang target/subprocess-qbe-abi target/subprocess-c-abi/build/x86_64-pc-windows-msvc/debug/cerune_lang.lib
+      - name: Link and execute subprocess Native ABI on Linux
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: node experiments/subprocess/native_abi/check.cjs x86_64-unknown-linux-gnu clang target/subprocess-native-abi target/subprocess-c-abi/build/x86_64-unknown-linux-gnu/debug/libcerune_lang.a "$PWD/target/debug/examples/subprocess_linux_supervisor"
+      - name: Link and execute subprocess Native ABI on Windows
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: node experiments/subprocess/native_abi/check.cjs x86_64-pc-windows-msvc clang target/subprocess-native-abi target/subprocess-c-abi/build/x86_64-pc-windows-msvc/debug/cerune_lang.lib
       - name: Compare generated C subprocesses on Linux
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: node experiments/subprocess/c_abi/generated.cjs x86_64-unknown-linux-gnu clang target/subprocess-generated-c target/subprocess-c-abi/build/x86_64-unknown-linux-gnu/debug/libcerune_lang.a "$PWD/target/debug/examples/subprocess_linux_supervisor"
@@ -677,6 +683,12 @@ jobs:
             target/subprocess-llvm-abi/commands.json
             target/subprocess-llvm-abi/*.ll
             target/subprocess-llvm-abi/*.s
+            target/subprocess-native-abi/commands.json
+            target/subprocess-native-abi/inputs.json
+            target/subprocess-native-abi/*/typed.txt
+            target/subprocess-native-abi/*/origins.json
+            target/subprocess-native-abi/*/*.s
+            target/subprocess-native-abi/*/*.o
             target/subprocess-qbe-abi/commands.json
             target/subprocess-qbe-abi/inputs.json
             target/subprocess-qbe-abi/*.ssa

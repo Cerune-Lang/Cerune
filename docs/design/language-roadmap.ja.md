@@ -2,7 +2,7 @@
 
 [English](language-roadmap.en.md)
 
-生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。次はNative、その後にWATと配布を揃えます。
+生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。次はNativeの言語操作とbuild/releaseへの接続、その後にWATと配布を揃えます。
 
 QBEの要求変換・出力配列予約・Report変換・起動設定を実装し、既存exampleと異常系をWindows/Linux各76比較で確認しました。
 

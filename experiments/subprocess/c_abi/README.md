@@ -2,9 +2,11 @@
 
 [English](README.en.md)
 
-**Rust共通runtimeを独立したCプログラムへ静的リンクする試作です。** [生成C](../../../docs/design/subprocess-c.ja.md)は接続済みです。QBE・Native・WATへの接続、Native build/releaseへの同梱は未実装です。言語exampleは[process_execution](../../../examples/process_execution/README.md)に分けています。
+**Rust共通runtimeを独立したCプログラムへ静的リンクする試作です。** [生成C](../../../docs/design/subprocess-c.ja.md)は接続済みです。[生成QBE](../../../docs/design/subprocess-qbe.ja.md)も接続済みです。Native・WATへの言語操作の接続、Native build/releaseへの同梱は未実装です。言語exampleは[process_execution](../../../examples/process_execution/README.md)に分けています。
 
 [LLVM ABI試験](../llvm_abi/README.md)でも同じarchiveとC側の期待値を使います。[生成LLVM](../../../docs/design/subprocess-llvm.ja.md)も接続済みです。generated.cjsに--llvmを渡すと、同じexampleと期待値をLLVM経路で検証します。
+
+[Native ABI試験](../native_abi/README.md)では、同じarchiveとC側の期待値を使い、型付き命令から生成したASM・自前Objectの呼出しを検証します。
 
 ## 構築と実行
 

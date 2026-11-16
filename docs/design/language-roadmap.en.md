@@ -2,7 +2,7 @@
 
 [日本語](language-roadmap.ja.md)
 
-Generated subprocess support follows the [contract](subprocess-generated.en.md). Shared prepare/execute stages and the fixed Report v1 codec are implemented. The C ABI adapter and static linking are verified in the [Windows/Linux probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C](subprocess-c.en.md) is connected. [Generated LLVM](subprocess-llvm.en.md) is also connected on Windows/Linux. [Generated QBE](subprocess-qbe.en.md) is also connected. Next is Native, followed by WAT and distribution.
+Generated subprocess support follows the [contract](subprocess-generated.en.md). Shared prepare/execute stages and the fixed Report v1 codec are implemented. The C ABI adapter and static linking are verified in the [Windows/Linux probe](../../experiments/subprocess/c_abi/README.en.md). [Generated C](subprocess-c.en.md) is connected. [Generated LLVM](subprocess-llvm.en.md) is also connected on Windows/Linux. [Generated QBE](subprocess-qbe.en.md) is also connected. The [Native ABI probe](../../experiments/subprocess/native_abi/README.en.md) successfully calls the common runtime from ASM and directly encoded Objects on both OSes. Next is Native language-operation and build/release integration, followed by WAT and distribution.
 
 QBE request conversion, output reservation, Report conversion, and startup are implemented, with 76 comparisons of existing examples/failures on each of Windows/Linux.
 
