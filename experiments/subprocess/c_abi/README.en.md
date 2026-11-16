@@ -4,6 +4,8 @@
 
 **This probe statically links the shared Rust runtime into an independent C program.** [Generated C](../../../docs/design/subprocess-c.en.md) is integrated. LLVM/QBE/Native/WAT integration and Native build/release packaging remain unimplemented. Language examples stay in [process_execution](../../../examples/process_execution/README.en.md).
 
+[The LLVM ABI probe](../llvm_abi/README.en.md) uses the same archive and C expectations. Production LLVM generation is still unsupported.
+
 ## Build and run
 
 Use Rust 1.98, Node, Clang, and the matching OS system linker/development libraries. Specify the target and Clang explicitly; the probe rejects targets that differ from its host. Build the Linux supervisor first. Choose an output directory that does not exist.
