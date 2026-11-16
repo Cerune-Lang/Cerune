@@ -96,6 +96,7 @@
 - [Linux子プロセスBackend](design/subprocess-linux.ja.md)
 - [Windows子プロセスBackend](design/subprocess-windows.ja.md)
 - [生成Cの子プロセス接続](design/subprocess-c.ja.md)
+- [LLVMの子プロセス接続（ABI検証済み・lowering未実装）](design/subprocess-llvm.ja.md)
 
 ### ビルド・配布
 

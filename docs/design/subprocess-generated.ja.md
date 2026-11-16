@@ -2,7 +2,7 @@
 
 [English](subprocess-generated.en.md)
 
-**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。[生成Cの接続](subprocess-c.ja.md)も実装済みです。LLVM・QBE・WAT・Nativeは引き続き実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
+**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。[生成Cの接続](subprocess-c.ja.md)も実装済みです。[LLVM ABI試験と次の接続手順](subprocess-llvm.ja.md)を追加しました。LLVM・QBE・WAT・Nativeは引き続き実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
 
 ## 調査結果と方針
 
