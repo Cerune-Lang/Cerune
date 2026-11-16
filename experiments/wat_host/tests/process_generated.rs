@@ -221,24 +221,31 @@ fn registered_child_preserves_binary_data_exit_and_repeated_ownership() {
 mod faults;
 #[test]
 fn request_evaluation_short_circuit_and_report_origin_match_four_executors() {
-    let declaration = EXAMPLE
-        .split("request: types::Request = ")
-        .nth(1)
-        .unwrap()
-        .split(";\nprint")
-        .next()
-        .unwrap();
-    let source = format!(
-        r#"import "std:process" as types; import "std:process/run" as process;
+    for example in [
+        EXAMPLE.replace("\r\n", "\n"),
+        EXAMPLE.replace("\r\n", "\n").replace("\n", "\r\n"),
+    ] {
+        let declaration = example
+            .split("request: types::Request = ")
+            .nth(1)
+            .unwrap()
+            .split("print(\"before\");")
+            .next()
+            .unwrap()
+            .trim()
+            .trim_end_matches(';');
+        let source = format!(
+            r#"import "std:process" as types; import "std:process/run" as process;
         fn request()->types::Request {{print("request");return {declaration};}}
         fn skip()->bool {{print("unexpected"); result: types::Outcome=process::run(request());return true;}}
         print(false && skip()); print("before"); result:types::Outcome=process::run(request());
         print(result.report); print("continued");"#
-    );
-    let p = hir(&source);
-    let config = serde_json::to_vec(&configuration()).unwrap();
-    let out = compare(&p, &config);
-    assert_eq!(out.matches("request\n").count(), 1);
-    assert!(!out.contains("unexpected"));
-    assert!(out.starts_with("false\nbefore\nrequest\n"));
+        );
+        let p = hir(&source);
+        let config = serde_json::to_vec(&configuration()).unwrap();
+        let out = compare(&p, &config);
+        assert_eq!(out.matches("request\n").count(), 1);
+        assert!(!out.contains("unexpected"));
+        assert!(out.starts_with("false\nbefore\nrequest\n"));
+    }
 }
