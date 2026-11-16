@@ -20,4 +20,4 @@ Windows x86-64 MSVC / Linux x86-64 GNUが対象です。既存WAT host crateの�
 
 試験用のexportは生成物に追加しません。memoryは公開せず、本文は最大8バイトの値で渡します。接続ありの試験は登録先なしで行い、子やLinux監督を起動しません。
 
-**未対応：** emit-watへの言語操作・配列予約・診断の接続、生成された.ceruプログラムの比較、参照host CLIの接続JSON指定、実際の子の入出力・時間超過・回収比較。これらは次の段階です。未対応の言語exampleは追加していません。
+[生成WATの比較](../../wat_host/tests/process_generated.rs)では同じhost.rsを使い、既存.ceru example、配列予約・解放・位置付き診断、Windows/Linuxの実子入出力を検証します。上の独立したABI試験とは別のテストです。**残件：** 参照host CLIの接続JSON指定、生成WATでの時間超過・回収失敗・他I/Oとの同時利用の比較。

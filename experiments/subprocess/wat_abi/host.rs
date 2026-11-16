@@ -1,4 +1,4 @@
-//! Probe transport only: subprocess semantics remain in the existing runtime ABI.
+//! Test transport for ABI probes and generated WAT; semantics stay in the runtime ABI.
 use cerune_lang::runtime::process::abi::{self, Bytes, Context, RequestV1};
 use std::ptr;
 use wasmi::{Caller, Error, Linker};

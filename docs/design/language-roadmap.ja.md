@@ -2,7 +2,7 @@
 
 [English](language-roadmap.en.md)
 
-生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。[LIR](lir-observation.ja.md)への操作・型・出自の保持も実装しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続しました。Native build/releaseの明示runtime archive指定・記録の検証も実装済みです。[WAT host契約とABI試験](wat-process-host.ja.md)を追加しました。次は生成WATと実OS比較へ接続し、その後にruntime・監督の公式配布を揃えます。
+生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。[LIR](lir-observation.ja.md)への操作・型・出自の保持も実装しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続しました。Native build/releaseの明示runtime archive指定・記録の検証も実装済みです。[WAT host契約とABI試験](wat-process-host.ja.md)を追加しました。生成WATの接続とWindows/Linuxの実子比較も試験用hostで実装しました。次は参照host CLIの接続指定と時間超過・回収・他I/Oとの比較、その後にruntime・監督の公式配布を揃えます。
 
 QBEの要求変換・出力配列予約・Report変換・起動設定を実装し、既存exampleと異常系をWindows/Linux各76比較で確認しました。
 
@@ -17,7 +17,7 @@ QBEの要求変換・出力配列予約・Report変換・起動設定を実装�
 
 | 公開前に揃えるもの | 現在の状態 |
 | --- | --- |
-| 子プロセスの実行 | 4実行器と生成C/LLVM/QBE/Nativeは実装済み。Native build/releaseの明示runtime指定・記録も実装済み。WAT hostは後続 |
+| 子プロセスの実行 | 4実行器と生成C/LLVM/QBE/Nativeは実装済み。Native build/releaseの明示runtime指定・記録も実装済み。生成WATも試験用hostで比較済み。参照host CLIは後続 |
 | runtime・Linux監督の配布 | 配置・target・版・ハッシュ・必要な依存物を記録し、開発用checkoutから離した場所で実行できることを確認する |
 | 処理系の配布試験 | [#272](https://github.com/Cerune-Lang/Cerune/issues/272)。Windows/Linux/macOS向けのアーカイブを展開し、実際のバイナリで起動・最小ソースの実行を確認する |
 | 公開する内容 | 全CI成功、変更点・未対応項目・互換性変更・対応OSを日英で整理する |

@@ -66,3 +66,5 @@ experiments/subprocess/native_abi/* text eol=lf
 .github/vendor/**/LICENSE -text
 
 experiments/subprocess/wat_abi/* text eol=lf
+
+src/codegen/wat/process/*.wat.inc text eol=lf -linguist-detectable

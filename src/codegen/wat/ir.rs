@@ -14,6 +14,7 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
+    pub process_types: Vec<crate::ir::TypeDefinition>,
     pub call_limit: Option<std::num::NonZeroU32>,
     pub source_functions: Vec<bool>,
     pub entry_frame_size: usize,
@@ -76,6 +77,10 @@ pub enum Instruction {
     ArgumentCount,
     ArgumentGet,
     ReadLine,
+    ProcessRun {
+        request: usize,
+        outcome: usize,
+    },
     FileReadText,
     FileWriteNew,
     StringByteAt,

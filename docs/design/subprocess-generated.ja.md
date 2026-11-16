@@ -2,7 +2,7 @@
 
 [English](subprocess-generated.en.md)
 
-**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。[生成Cの接続](subprocess-c.ja.md)も実装済みです。[生成LLVM](subprocess-llvm.ja.md)も実装済みです。[生成QBE](subprocess-qbe.ja.md)も実装済みです。[NativeのASM・自前Object実行](subprocess-native.ja.md)も実装済みです。Native build/releaseの明示runtime指定・依存記録の検証も実装済みです。runtime・監督の公式配布は後続です。WATも実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
+**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。[生成Cの接続](subprocess-c.ja.md)も実装済みです。[生成LLVM](subprocess-llvm.ja.md)も実装済みです。[生成QBE](subprocess-qbe.ja.md)も実装済みです。[NativeのASM・自前Object実行](subprocess-native.ja.md)も実装済みです。Native build/releaseの明示runtime指定・依存記録の検証も実装済みです。runtime・監督の公式配布は後続です。[生成WAT](wat-process-host.ja.md)も接続し、試験用hostで実行比較しました。参照host CLIの接続指定は後続です。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
 
 ## 調査結果と方針
 
@@ -64,7 +64,7 @@ Reportと保持済み生バイトを、予約済みの言語値へ変換
 | `Prepared::execute` | 言語側の予約結果を受け、成功時だけ起動する。準備状態を消費し、結果と予約した所有物を返す |
 | `run` / `run_with_reservation` | 同じ段階処理を続けて呼ぶ既存の入口 |
 
-Rust版は要求を不変借用し、接続を排他的に借用して転送bufferを保持します。既存の言語側は呼出し前に要求をコピーします。追加の所有コピーやBox確保は導入しません。C ABI試作では、外部呼出し間の要求コピー・contextの所有と状態検査を実装しました。WAT接続は後続です。借用を含むRust構造をそのままABIへ公開しません。
+Rust版は要求を不変借用し、接続を排他的に借用して転送bufferを保持します。既存の言語側は呼出し前に要求をコピーします。追加の所有コピーやBox確保は導入しません。C ABI試作では、外部呼出し間の要求コピー・contextの所有と状態検査を実装しました。WATも同じC ABIを使う試験用hostへ接続しました。借用を含むRust構造をそのままABIへ公開しません。
 
 未実行の`Pending`を破棄すると未提出bufferだけを解放します。時計・起動・後始末は進めず、記録にはValidate/Reserveまでが残ります。消費した呼出し番号は戻さず、次の呼出しは次の番号を使います。二重executeと準備中の接続再利用はコンパイル失敗テストで検査します。
 
@@ -128,7 +128,7 @@ Rust enumの宣言順やホスト整数幅に依存するcastは禁止です。�
 
 同じ段階APIを値転送のアダプタで包みます。hostが生成WATへ予約callbackで再入する方式は採りません。
 
-| 段階 | 生成WATとhostの契約案 |
+| 段階 | 生成WATとhostの契約 |
 | --- | --- |
 | 要求受渡し | 宣言した長さと最大8バイトのchunkを版付きimportで渡す。欠落・超過・二重終端を拒否 |
 | prepare | 全要求を受けて共通runtimeのprepareを一度呼ぶ。結果確定済み／予約待ちを区別 |
@@ -138,11 +138,11 @@ Rust enumの宣言順やホスト整数幅に依存するcastは禁止です。�
 
 要求の受渡し領域の確保は起動前です。hostは要求の宣言長を無検査で切り詰めず、接続の実行上限を使った独自の先行判定で共通runtimeの優先順位を変えません。wasm32の物理領域制約は意味上の上限と分けます。数値はBigIntまたはi64のビット表現を使い、JavaScript Numberを経由してu64を丸めません。
 
-内部memoryは公開しません。既存の出力・`flush_stdout_v1`・入力・引数・ファイルimportは維持します。子プロセス操作を含む新しい生成物は新しい版付きimportを要求し、旧hostならinstantiateで失敗します。子プロセスを含まない生成物には追加importを要求しません。[WAT契約書](wat-process-host.ja.md)で8個のimport名・シグネチャを固定し、独立した試験でhost呼出しを検証します。生成WATへの接続は後続です。
+内部memoryは公開しません。既存の出力・`flush_stdout_v1`・入力・引数・ファイルimportは維持します。子プロセス操作を含む新しい生成物は新しい版付きimportを要求し、旧hostならinstantiateで失敗します。子プロセスを含まない生成物には追加importを要求しません。[WAT契約書](wat-process-host.ja.md)で8個のimport名・シグネチャを固定し、独立したABI試験と生成WATの実行比較でhost呼出しを検証します。
 
 ## 起動設定・リンク・配布への影響
 
-生成C・LLVM・QBE・Nativeでは、既存の先頭マーカーの内側へ設定を追加しました。WATは後続です。
+生成C・LLVM・QBE・Nativeでは、既存の先頭マーカーの内側へ設定を追加しました。WAT参照host CLIの接続指定は後続です。
 
 ```text
 program --cerune-runtime-v1 --process-config process.json --file-root directory -- program-arguments

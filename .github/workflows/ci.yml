@@ -175,7 +175,8 @@ jobs:
           set -o pipefail
           cargo fmt --manifest-path experiments/wat_host/Cargo.toml --check
           cargo clippy --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host --all-targets -- -D warnings
-          timeout --kill-after=10s 5m cargo test --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host 2>&1 | tee target/linux-wat-os-files.log
+          cargo build --locked --example subprocess_linux_supervisor
+          CERUNE_TEST_PROCESS_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_supervisor" timeout --kill-after=10s 5m cargo test --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host -- --include-ignored 2>&1 | tee target/linux-wat-os-files.log
       - name: Compare Native arguments, file semantics, and OS connections
         if: ${{ matrix.suite == 'native' }}
         shell: bash

@@ -57,6 +57,11 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
         static_address = static_address.div_ceil(8) * 8 + 8;
     }
     Module {
+        process_types: if program.first_process_span().is_some() {
+            program.type_definitions.clone()
+        } else {
+            vec![]
+        },
         call_limit: None,
         source_functions: program
             .function_definitions
@@ -866,8 +871,31 @@ impl LoweringContext<'_> {
                 instructions.push(Instruction::StringConcat.at(expr));
                 Value::Scalar(Type::String)
             }
-            cerune_ir::ExprKind::ProcessRun { .. } => {
-                unreachable!("process operation rejected before lowering")
+            cerune_ir::ExprKind::ProcessRun { request } => {
+                let Value::Aggregate {
+                    type_id: request_id,
+                    address,
+                } = self.lower_expr(request, instructions)
+                else {
+                    unreachable!()
+                };
+                let cerune_ir::Type::Named(outcome) = expr.ty else {
+                    unreachable!()
+                };
+                let destination = self.allocate(type_size(self.program, &expr.ty));
+                self.emit_address(address, instructions);
+                instructions.push(Instruction::FrameAddress(destination));
+                instructions.push(
+                    Instruction::ProcessRun {
+                        request: request_id,
+                        outcome: outcome.0,
+                    }
+                    .at(expr),
+                );
+                Value::Aggregate {
+                    type_id: outcome.0,
+                    address: Address::Frame(destination),
+                }
             }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 self.lower_expr(name, instructions);
