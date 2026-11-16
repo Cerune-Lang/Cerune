@@ -60,3 +60,5 @@ cargo test --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir
 Windows/Linux CIで必須実行します。4実行器との出力・file-v1全文・残存ファイル比較、空・上限ちょうど・超過・不正UTF-8・使用量上限、評価順・短絡・再帰・コピーを確認します。標準入力・引数・数値／複合値出力の併用、実行中のroot移動、リンク拒否も検証します。
 
 短い転送・割込み・不正応答・close消費・全256バイト値は、転送adapterへの明示した試験接続で確認します。実OSでそれらの失敗を自然発生させたという意味ではありません。生成WAT側の応答処理は既存の[メモリ接続テスト](../../tests/file_io/wat.rs)と[host契約](../../docs/design/wat-file-host.ja.md)でも比較します。
+
+別の[子プロセスABI試験](../subprocess/wat_abi/README.md)も、このcrateのWindows/Linux x86-64試験で実行します。host CLIへの子プロセス操作や接続指定の追加はまだ行っていません。

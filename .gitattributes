@@ -64,3 +64,5 @@ experiments/subprocess/native_abi/* text eol=lf
 .github/vendor/** linguist-vendored -linguist-detectable
 .github/vendor/**/*.tar.xz -text
 .github/vendor/**/LICENSE -text
+
+experiments/subprocess/wat_abi/* text eol=lf

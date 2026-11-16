@@ -67,6 +67,7 @@
 - [自前オブジェクトエンコーダ](design/native-encoder.ja.md)
 - [Native全体の型付きProgram構築](design/native-typed-runtime.ja.md)
 - [QBEのWindows対応](design/qbe-windows.ja.md)
+- [WAT子プロセスhost契約とABI試験](design/wat-process-host.ja.md)
 - [WATライブラリの関数公開](design/wat-library.ja.md)
 - [WATライブラリのJS/TS API](design/wat-js-bindings.ja.md)
 - [WATのプログラム引数host契約 v1](design/wat-arguments-host.ja.md)

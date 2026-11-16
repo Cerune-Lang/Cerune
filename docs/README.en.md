@@ -67,6 +67,7 @@ Each document links to its Japanese counterpart.
 - [Native object encoder](design/native-encoder.en.md)
 - [Typed Program construction for complete Native programs](design/native-typed-runtime.en.md)
 - [QBE Windows support](design/qbe-windows.en.md)
+- [WAT subprocess host contract and ABI probe](design/wat-process-host.en.md)
 - [WAT library function exports](design/wat-library.en.md)
 - [WAT library JS/TS API](design/wat-js-bindings.en.md)
 - [WAT program-argument host contract v1](design/wat-arguments-host.en.md)

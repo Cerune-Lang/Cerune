@@ -138,7 +138,7 @@ Wrap the same staged API with value transport. Do not reenter generated WAT thro
 
 Allocate request staging before launch. Never silently truncate declared lengths or prevalidate using connection execution limits in a way that changes common-runtime precedence. Distinguish wasm32 physical capacity from semantic limits. Use BigInt/i64 bits without rounding u64 through JavaScript Number.
 
-Do not expose internal memory. Preserve existing output, `flush_stdout_v1`, input, argument, and file imports. New artifacts containing subprocess operations require versioned imports and fail instantiation on old hosts. Artifacts without subprocess operations require no additional imports. Freeze exact import names/signatures in the WAT contract before implementation.
+Do not expose internal memory. Preserve existing output, `flush_stdout_v1`, input, argument, and file imports. New artifacts containing subprocess operations require versioned imports and fail instantiation on old hosts. Artifacts without subprocess operations require no additional imports. The [WAT contract](wat-process-host.en.md) now fixes the eight import names/signatures; an independent probe verifies the host calls before generated-WAT integration.
 
 ## Startup, linking, and distribution impact
 

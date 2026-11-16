@@ -2,7 +2,7 @@
 
 [English](language-roadmap.en.md)
 
-生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。[LIR](lir-observation.ja.md)への操作・型・出自の保持も実装しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続しました。Native build/releaseの明示runtime archive指定・記録の検証も実装済みです。次はWATとruntime・監督の公式配布を揃えます。
+生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。[LIR](lir-observation.ja.md)への操作・型・出自の保持も実装しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続しました。Native build/releaseの明示runtime archive指定・記録の検証も実装済みです。[WAT host契約とABI試験](wat-process-host.ja.md)を追加しました。次は生成WATと実OS比較へ接続し、その後にruntime・監督の公式配布を揃えます。
 
 QBEの要求変換・出力配列予約・Report変換・起動設定を実装し、既存exampleと異常系をWindows/Linux各76比較で確認しました。
 
