@@ -1,5 +1,6 @@
 #[derive(Debug, Clone)]
 pub struct Module {
+    pub type_definitions: Vec<TypeDefinition>,
     pub call_limit: Option<std::num::NonZeroU32>,
     pub source_functions: Vec<bool>,
     pub argument_limits: crate::runtime::arguments::Limits,
@@ -101,6 +102,13 @@ pub enum CompareOp {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
+    ProcessRun {
+        result: Operand,
+        request: Operand,
+        request_type: usize,
+        outcome_type: usize,
+        origin: FailureOrigin,
+    },
     StringByteAt {
         dest: Temp,
         value: Operand,
@@ -299,4 +307,18 @@ impl From<&crate::ir::Expr> for FailureOrigin {
             span: expr.span,
         }
     }
+}
+
+/// QBEの格納位置と、公開enumを名前で復元するための型情報です。
+#[derive(Debug, Clone)]
+pub struct TypeDefinition {
+    pub size: usize,
+    pub fields: Vec<Field>,
+    pub variants: Option<Vec<String>>,
+}
+#[derive(Debug, Clone)]
+pub struct Field {
+    pub name: String,
+    pub offset: usize,
+    pub named: Option<usize>,
 }

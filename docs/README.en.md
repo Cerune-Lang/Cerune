@@ -97,6 +97,7 @@ Each document links to its Japanese counterpart.
 - [Windows subprocess Backend](design/subprocess-windows.en.md)
 - [Subprocess connections in generated C](design/subprocess-c.en.md)
 - [Generated LLVM subprocess integration](design/subprocess-llvm.en.md)
+- [Generated QBE subprocess integration](design/subprocess-qbe.en.md)
 
 ### Build and distribution
 

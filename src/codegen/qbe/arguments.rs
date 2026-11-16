@@ -5,7 +5,8 @@ use super::{
 use std::fmt::Write;
 
 pub(super) fn used(module: &Module) -> bool {
-    super::files::used(module)
+    super::process::used(module)
+        || super::files::used(module)
         || module
             .instructions
             .iter()
@@ -403,7 +404,9 @@ pub(super) fn emit_entry(module: &Module, out: &mut String) {
     }
     let windows = module.target.expect("arguments target") == Target::X86_64PcWindowsMsvc;
     out.push_str(if windows { WINDOWS } else { LINUX });
-    let entry = if super::files::used(module) {
+    let entry = if super::process::used(module) {
+        super::process::entry::adapt(ENTRY, super::files::used(module))
+    } else if super::files::used(module) {
         super::files::entry::adapt(ENTRY)
     } else {
         ENTRY.to_owned()

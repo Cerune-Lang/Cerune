@@ -49,10 +49,17 @@ CERUNE_TEST_PROCESS_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_supe
 cerune emit-c examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.c
 ~~~
 
-[構築・起動手順](../../docs/design/subprocess-c.ja.md)と[4実行器との比較試験](../../experiments/subprocess/c_abi/generated.cjs)を用意しています。[LLVMでの構築・起動](../../docs/design/subprocess-llvm.ja.md)にも対応しました。QBE・WAT・Nativeは後続です。[実行設計](../../docs/design/subprocess-execution.ja.md)に対応状況と出自の保持をまとめています。
+[構築・起動手順](../../docs/design/subprocess-c.ja.md)と[4実行器との比較試験](../../experiments/subprocess/c_abi/generated.cjs)を用意しています。[LLVMでの構築・起動](../../docs/design/subprocess-llvm.ja.md)にも対応しました。[QBEでの構築・起動](../../docs/design/subprocess-qbe.ja.md)にも対応しました。WAT・Nativeは後続です。[実行設計](../../docs/design/subprocess-execution.ja.md)に対応状況と出自の保持をまとめています。
 
 LLVMへ生成する場合も、同じexampleとprocess.jsonを使います。
 
 ~~~sh
 cerune emit-llvm examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.ll
+~~~
+
+QBEでも同じexampleを使います。明示targetとQBEのtargetを揃え、生成ASMを同じruntime archiveへリンクします。
+
+~~~sh
+cerune emit-qbe examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.ssa
+qbe -t amd64_sysv -o process.s process.ssa
 ~~~

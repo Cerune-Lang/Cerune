@@ -49,10 +49,17 @@ Generated C also runs on Windows/Linux. Specify a target and explicitly link its
 cerune emit-c examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.c
 ~~~
 
-See [build/startup instructions](../../docs/design/subprocess-c.en.md) and the [four-executor comparison](../../experiments/subprocess/c_abi/generated.cjs). [LLVM generation and execution](../../docs/design/subprocess-llvm.en.md) are also supported. QBE/WAT/Native follow later. See the [execution design](../../docs/design/subprocess-execution.en.md) for support and preserved origins.
+See [build/startup instructions](../../docs/design/subprocess-c.en.md) and the [four-executor comparison](../../experiments/subprocess/c_abi/generated.cjs). [LLVM generation and execution](../../docs/design/subprocess-llvm.en.md) are also supported. [QBE generation and execution](../../docs/design/subprocess-qbe.en.md) are also supported. WAT/Native follow later. See the [execution design](../../docs/design/subprocess-execution.en.md) for support and preserved origins.
 
 LLVM generation uses the same example and process.json.
 
 ~~~sh
 cerune emit-llvm examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.ll
+~~~
+
+QBE uses the same example. Match the explicit target with the QBE target, then link the assembly with the matching runtime archive.
+
+~~~sh
+cerune emit-qbe examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu -o process.ssa
+qbe -t amd64_sysv -o process.s process.ssa
 ~~~

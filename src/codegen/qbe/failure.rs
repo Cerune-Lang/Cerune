@@ -6,7 +6,8 @@ use super::ir::{BinaryOp, FailureOrigin, Instruction, Module};
 
 fn origin(instruction: &Instruction) -> Option<FailureOrigin> {
     match instruction {
-        Instruction::ArrayAllocate { origin, .. }
+        Instruction::ProcessRun { origin, .. }
+        | Instruction::ArrayAllocate { origin, .. }
         | Instruction::ArrayRangeCheck { origin, .. }
         | Instruction::ArrayAddress { origin, .. }
         | Instruction::StringConcat { origin, .. }

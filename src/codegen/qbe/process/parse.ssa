@@ -1,0 +1,86 @@
+
+# runtime-startup-v1: only the leading marker introduces configuration.
+function l $cerune_process_parse(w %argc, l %argv, l %selected_root, l %selected_config) {
+@start
+  %index_slot =l alloc8 8
+  storel 0, %selected_config
+  storel 0, %selected_root
+  storel 2, %index_slot
+  %argc_wide =l extsw %argc
+  %has_argument =w csgtw %argc, 1
+  jnz %has_argument, @marker, @unchanged
+@marker
+  %first_slot =l add %argv, 8
+  %first =l loadl %first_slot
+  %comparison =w call $@CMP@(l %first, l $cerune_process_marker)
+  %is_marker =w ceqw %comparison, 0
+  jnz %is_marker, @loop, @unchanged
+@unchanged
+  ret 1
+@loop
+  %index =l loadl %index_slot
+  %end =w csgel %index, %argc_wide
+  jnz %end, @missing_delimiter, @argument
+@argument
+  %offset =l mul %index, 8
+  %slot =l add %argv, %offset
+  %arg =l loadl %slot
+  %delim_cmp =w call $@CMP@(l %arg, l $cerune_process_delimiter)
+  %is_delimiter =w ceqw %delim_cmp, 0
+  jnz %is_delimiter, @done, @option
+@option
+  %config_cmp =w call $@CMP@(l %arg, l $cerune_process_config_option)
+  %is_config =w ceqw %config_cmp, 0
+  jnz %is_config, @config_option, @file_check
+@file_check
+  %option_cmp =w call $@CMP@(l %arg, l $cerune_process_root_option)
+  %recognized =w ceqw %option_cmp, 0
+  %allowed =w and %recognized, @FILES@
+  jnz %allowed, @root_option, @unknown
+@config_option
+  jmp @duplicate_check
+@root_option
+  jmp @duplicate_check
+@duplicate_check
+  %selected_slot =l phi @config_option %selected_config, @root_option %selected_root
+  %previous =l loadl %selected_slot
+  jnz %previous, @duplicate_setting, @value_check
+@value_check
+  %value_index =l add %index, 1
+  %missing =w csgel %value_index, %argc_wide
+  jnz %missing, @invalid_root, @value
+@value
+  %value_offset =l mul %value_index, 8
+  %value_slot =l add %argv, %value_offset
+  %root =l loadl %value_slot
+  %first_char =w @LOAD@ %root
+  %empty =w ceqw %first_char, 0
+  jnz %empty, @invalid_root, @prefix
+@prefix
+  %second_ptr =l add %root, @STEP@
+  %second_char =w @LOAD@ %second_ptr
+  %first_dash =w ceqw %first_char, 45
+  %second_dash =w ceqw %second_char, 45
+  %looks_option =w and %first_dash, %second_dash
+  jnz %looks_option, @invalid_root, @accept
+@accept
+  storel %root, %selected_slot
+  %next =l add %value_index, 1
+  storel %next, %index_slot
+  jmp @loop
+@done
+  %start =l add %index, 1
+  ret %start
+@missing_delimiter
+  call $cerune_process_startup_failed(l $cerune_process_label_configure, l $cerune_process_label_missing_delimiter)
+  hlt
+@unknown
+  call $cerune_process_startup_failed(l $cerune_process_label_configure, l $cerune_process_label_unknown_setting)
+  hlt
+@duplicate_setting
+  call $cerune_process_startup_failed(l $cerune_process_label_configure, l $cerune_process_label_duplicate_setting)
+  hlt
+@invalid_root
+  call $cerune_process_startup_failed(l $cerune_process_label_configure, l $cerune_process_label_invalid_root)
+  hlt
+}

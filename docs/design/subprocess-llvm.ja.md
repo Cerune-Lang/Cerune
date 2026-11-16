@@ -83,4 +83,4 @@ target/process.exe --cerune-runtime-v1 --process-config process.json --
 
 要求の文字列・引数表は、同じ{ptr,i64}配置を使う読取り専用の値としてprepareへ渡します。prepareがコピーするまで有効に保ちます。stdinのu8要素はi64の格納領域から生バイトへ変換し、prepare後に一時領域を解放します。結果の生バイトは4096バイトずつ読み取り、u8の格納領域へ広げます。生成したLLVMにこの処理を残します。
 
-この変更でQBE・Native・WATの子プロセス対応やruntime配布は完成しません。次はQBE/Nativeへの接続です。
+[生成QBE](subprocess-qbe.ja.md)も接続済みです。次はNativeへの接続、WAT、runtime配布です。

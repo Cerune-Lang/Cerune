@@ -4,7 +4,7 @@
 
 `--process-config <JSON file>` connects Windows/Linux backends to the [common runtime](subprocesses.en.md) in `run`, `run-ir`, `run-mir`, `run-mir --ssa`, and `run-vm`. Without it, valid requests return `Unconfigured`. There is no environment, PATH, or automatic configuration search.
 
-[Generated LLVM also uses the same configuration.](subprocess-llvm.en.md)
+[LLVM](subprocess-llvm.en.md) and [QBE](subprocess-qbe.en.md) also use the same configuration.
 
 ## Configuration and responsibilities
 
@@ -76,6 +76,6 @@ The [registered-target example](../../examples/process_execution/README.en.md) r
 
 The Linux OS test requires an explicitly supplied verification supervisor through `CERUNE_TEST_PROCESS_SUPERVISOR`. It is ignored in ordinary tests and explicitly executed with `--include-ignored` in OS CI. This is a test setting: the Cerune CLI never reads that environment variable.
 
-The Linux supervisor is currently built as a Cargo example. [Generated C](subprocess-c.en.md) now uses explicit target/runtime linking and startup configuration in the generated executable. Supervisor distribution, QBE/WAT/Native operations, and Native build/release records remain future work. Configuration JSON is not passed to emit itself.
+The Linux supervisor is currently built as a Cargo example. [Generated C](subprocess-c.en.md) now uses explicit target/runtime linking and startup configuration in the generated executable. Supervisor distribution, WAT/Native operations, and Native build/release records remain future work. Configuration JSON is not passed to emit itself.
 
 The [generated-route proposal](subprocess-generated.en.md) details the next steps and compatibility impact.

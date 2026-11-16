@@ -1,0 +1,147 @@
+# Result reservations alone use this wrapper so allocation faults can be tested.
+function l $cerune_process_result_malloc(l %bytes) {
+@start
+  %p =l call $malloc(l %bytes)
+  ret %p
+}
+function $cerune_process_cancel(l %slot) {
+@start
+  %p =l loadl %slot
+  jnz %p, @free, @done
+@free
+  %data =l loadl %p
+  %bytes_p =l add %p, 24
+  %bytes =l loadl %bytes_p
+  %live =l loadl $cerune_array_live
+  %less =l sub %live, %bytes
+  storel %less, $cerune_array_live
+  call $free(l %data)
+  call $free(l %p)
+  storel 0, %slot
+@done
+  ret
+}
+function w $cerune_process_reserve_one(l %n, l %slot) {
+@start
+  jnz %n, @owner, @empty
+@empty
+  storel 0, %slot
+  ret 0
+@owner
+  %p =l call $cerune_process_result_malloc(l 48)
+  jnz %p, @data, @failed
+@data
+  %bytes =l mul %n, 8
+  %data =l call $cerune_process_result_malloc(l %bytes)
+  jnz %data, @initialize, @free
+@free
+  call $free(l %p)
+  jmp @failed
+@failed
+  ret 2
+@initialize
+  storel %data, %p
+  %length_p =l add %p, 8
+  storel %n, %length_p
+  %refs_p =l add %p, 16
+  storel 1, %refs_p
+  %bytes_p =l add %p, 24
+  storel %bytes, %bytes_p
+  %count_p =l add %p, 32
+  storel 0, %count_p
+  %stride_p =l add %p, 40
+  storel 8, %stride_p
+  %live =l loadl $cerune_array_live
+  %total =l add %live, %bytes
+  storel %total, $cerune_array_live
+  storel %p, %slot
+  ret 0
+}
+function w $cerune_process_reserve(l %a, l %b, l %out, l %err) {
+@start
+  %bad_a =w cugtl %a, 1152921504606846975
+  %bad_b =w cugtl %b, 1152921504606846975
+  %bad =w or %bad_a, %bad_b
+  jnz %bad, @capacity, @sizes
+@sizes
+  %sum =l add %a, %b
+  %bytes =l mul %sum, 8
+  %live =l loadl $cerune_array_live
+  %available =l sub @LIMIT@, %live
+  %over =w cugtl %bytes, %available
+  jnz %over, @capacity, @first
+@first
+  %first =w call $cerune_process_reserve_one(l %a, l %out)
+  jnz %first, @failed, @second
+@second
+  %second =w call $cerune_process_reserve_one(l %b, l %err)
+  jnz %second, @failed, @done
+@failed
+  call $cerune_process_cancel(l %out)
+  call $cerune_process_cancel(l %err)
+  ret 2
+@capacity
+  ret 1
+@done
+  ret 0
+}
+function $cerune_process_finalize(l %slot, l %n, l %channel, l %origin) {
+@start
+  %buffer =l alloc8 4096
+  %written =l alloc8 8
+  %p =l loadl %slot
+  %capacity =l call $cerune_array_length(l %p)
+  %excess =w cugtl %n, %capacity
+  jnz %excess, @invalid, @setup
+@invalid
+  call $cerune_process_fail(w 13, l %origin)
+  hlt
+@setup
+  %data =l call $cerune_process_data(l %p)
+  %context =l loadl $cerune_process_context
+  jmp @chunks
+@chunks
+  %offset =l phi @setup 0, @chunk_done %next_offset
+  %finished =w ceql %offset, %n
+  jnz %finished, @finish, @amount
+@amount
+  %remaining =l sub %n, %offset
+  %short =w cultl %remaining, 4096
+  jnz %short, @tail, @full
+@tail
+  jmp @read
+@full
+  jmp @read
+@read
+  %wanted =l phi @tail %remaining, @full 4096
+  %status =w call $cerune_process_v1_copy(l %context, l %channel, l %offset, l %buffer, l %wanted, l %written)
+  call $cerune_process_check(w %status, w 0, l %origin)
+  %received =l loadl %written
+  %wrong =w cnel %received, %wanted
+  jnz %wrong, @invalid, @widen
+@widen
+  %i =l phi @read 0, @byte %next_i
+  %end_chunk =w ceql %i, %wanted
+  jnz %end_chunk, @chunk_done, @byte
+@byte
+  %byte_p =l add %buffer, %i
+  %value =l loadub %byte_p
+  %index =l add %offset, %i
+  %scaled =l mul %index, 8
+  %element =l add %data, %scaled
+  storel %value, %element
+  %next_i =l add %i, 1
+  jmp @widen
+@chunk_done
+  %next_offset =l add %offset, %wanted
+  jmp @chunks
+@finish
+  jnz %p, @length, @done
+@length
+  %length_p =l add %p, 8
+  %count_p =l add %p, 32
+  storel %n, %length_p
+  storel %n, %count_p
+@done
+  ret
+}

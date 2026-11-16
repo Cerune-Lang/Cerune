@@ -1,0 +1,91 @@
+# Request fields follow cerune_process_request_v1; prepare owns their bytes.
+function $cerune_process_perform(l %outputs, l %target, l %arguments, l %stdin, l %out_limit, l %err_limit, l %timeout, l %node, l %source, l %start, l %end, l %words, l %origin, l %failure, l %failure_len) {
+@start
+  %request =l alloc8 120
+  %out =l copy %outputs
+  %err =l add %outputs, 8
+  storel 0, %out
+  storel 0, %err
+  %target_length =l loadl %target
+  %target_data =l add %target, 8
+  %argc =l call $cerune_array_length(l %arguments)
+  %arg_data =l call $cerune_process_pack_arguments(l %arguments, l %failure, l %failure_len)
+  %stdin_length =l call $cerune_array_length(l %stdin)
+  %stdin_data =l call $cerune_process_pack_input(l %stdin, l %failure, l %failure_len)
+  %request_0 =l add %request, 0
+  storel 1, %request_0
+  %request_1 =l add %request, 8
+  storel 120, %request_1
+  %request_2 =l add %request, 16
+  storel %target_data, %request_2
+  %request_3 =l add %request, 24
+  storel %target_length, %request_3
+  %request_4 =l add %request, 32
+  storel %arg_data, %request_4
+  %request_5 =l add %request, 40
+  storel %argc, %request_5
+  %request_6 =l add %request, 48
+  storel %stdin_data, %request_6
+  %request_7 =l add %request, 56
+  storel %stdin_length, %request_7
+  %request_8 =l add %request, 64
+  storel %out_limit, %request_8
+  %request_9 =l add %request, 72
+  storel %err_limit, %request_9
+  %request_10 =l add %request, 80
+  storel %timeout, %request_10
+  %request_11 =l add %request, 88
+  storel %node, %request_11
+  %request_12 =l add %request, 96
+  storel %source, %request_12
+  %request_13 =l add %request, 104
+  storel %start, %request_13
+  %request_14 =l add %request, 112
+  storel %end, %request_14
+  %context =l loadl $cerune_process_context
+  %prepared =w call $cerune_process_v1_prepare(l %context, l %request)
+  call $free(l %arg_data)
+  call $free(l %stdin_data)
+  %pending =w ceqw %prepared, 1
+  jnz %pending, @reserve, @complete
+@reserve
+  %reservation =w call $cerune_process_reserve(l %out_limit, l %err_limit, l %out, l %err)
+  %wide =l extuw %reservation
+  %executed =w call $cerune_process_v1_execute(l %context, l %wide)
+  call $cerune_process_check(w %executed, w 2, l %origin)
+  jmp @report
+@complete
+  call $cerune_process_check(w %prepared, w 2, l %origin)
+  jmp @report
+@report
+  %reported =w call $cerune_process_v1_report(l %context, l %words, l 32)
+  call $cerune_process_check(w %reported, w 0, l %origin)
+  %version =l loadl %words
+  %size_p =l add %words, 8
+  %size =l loadl %size_p
+  %version_bad =w cnel %version, 1
+  %size_bad =w cnel %size, 32
+  %header_bad =w or %version_bad, %size_bad
+  jnz %header_bad, @invalid, @reserved
+@invalid
+  call $cerune_process_fail(w 13, l %origin)
+  hlt
+@reserved
+  %i =l phi @report 28, @advance %next
+  %offset =l mul %i, 8
+  %word_p =l add %words, %offset
+  %word =l loadl %word_p
+  jnz %word, @invalid, @advance
+@advance
+  %next =l add %i, 1
+  %done =w ceql %next, 32
+  jnz %done, @finalize, @reserved
+@finalize
+  %out_n_p =l add %words, 112
+  %err_n_p =l add %words, 120
+  %out_n =l loadl %out_n_p
+  %err_n =l loadl %err_n_p
+  call $cerune_process_finalize(l %out, l %out_n, l 1, l %origin)
+  call $cerune_process_finalize(l %err, l %err_n, l 2, l %origin)
+  ret
+}

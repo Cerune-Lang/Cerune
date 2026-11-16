@@ -2,9 +2,9 @@
 
 [English](subprocess-c.en.md)
 
-**Windows x86-64 MSVC・Linux x86-64 GNUで実装・検証済みです。** 共通IRのprocess.runを[既存runtimeのC ABI](../../experiments/subprocess/c_abi/README.md)へ接続します。QBE・Native・WATの実行操作と、runtime・Linux監督の配布統合は後続です。
+**Windows x86-64 MSVC・Linux x86-64 GNUで実装・検証済みです。** 共通IRのprocess.runを[既存runtimeのC ABI](../../experiments/subprocess/c_abi/README.md)へ接続します。Native・WATの実行操作と、runtime・Linux監督の配布統合は後続です。
 
-[生成LLVMも同じ設定で接続済みです。](subprocess-llvm.ja.md)
+[LLVM](subprocess-llvm.ja.md)・[QBE](subprocess-qbe.ja.md)も同じ設定で接続済みです。
 
 ## 生成・リンク・起動
 

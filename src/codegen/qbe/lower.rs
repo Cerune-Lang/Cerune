@@ -40,6 +40,27 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
     lowerer.lower_statements(&program.statements);
 
     Module {
+        type_definitions: program
+            .type_definitions
+            .iter()
+            .map(|d| super::ir::TypeDefinition {
+                size: type_size(program, &cerune_ir::Type::Named(d.id)),
+                variants: d.variants.clone(),
+                fields: d
+                    .fields
+                    .iter()
+                    .map(|f| super::ir::Field {
+                        name: f.name.clone(),
+                        offset: field_offset(program, d.id.0, f.id.0),
+                        named: if let cerune_ir::Type::Named(id) = f.ty {
+                            Some(id.0)
+                        } else {
+                            None
+                        },
+                    })
+                    .collect(),
+            })
+            .collect(),
         call_limit: None,
         source_functions: program
             .function_definitions
@@ -50,7 +71,11 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
         array_heap_limit: program
             .first_dynamic_array_span()
             .map(|_| program.array_heap_limit),
-        string_heap_limit: crate::codegen::support::string_heap_limit(program),
+        string_heap_limit: crate::codegen::support::string_heap_limit(program).or_else(|| {
+            program
+                .first_process_span()
+                .map(|_| program.string_heap_limit)
+        }),
         target: None,
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
         functions,
@@ -731,8 +756,25 @@ impl Lowerer<'_> {
                     operand: Operand::Temp(dest),
                 }
             }
-            cerune_ir::ExprKind::ProcessRun { .. } => {
-                unreachable!("process operation rejected before lowering")
+            cerune_ir::ExprKind::ProcessRun { request } => {
+                let Value::Aggregate { address, type_id } = self.lower_expr(request) else {
+                    unreachable!()
+                };
+                let cerune_ir::Type::Named(outcome) = expr.ty else {
+                    unreachable!()
+                };
+                let slot = self.allocate_aggregate(type_size(self.program, &expr.ty));
+                self.instructions.push(Instruction::ProcessRun {
+                    result: Operand::Slot(slot),
+                    request: address,
+                    request_type: type_id,
+                    outcome_type: outcome.0,
+                    origin: expr.into(),
+                });
+                Value::Aggregate {
+                    type_id: outcome.0,
+                    address: Operand::Slot(slot),
+                }
             }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 let (_, name) = self.lower_scalar_expr(name);
