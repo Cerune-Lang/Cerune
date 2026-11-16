@@ -14,7 +14,7 @@ Use `import "std:process" as types;` for types and `import "std:process/run" as 
 | Ordinary CLI run commands | [Explicit configuration](subprocess-cli.en.md) connects Windows/Linux; without it, return `Unconfigured` |
 | Each Rust executor | `run_with_processes(program, &mut Processes<B>, transfer_bytes)` explicitly supplies connection and capacity |
 | Generated C / [LLVM](subprocess-llvm.en.md) / [QBE](subprocess-qbe.en.md) | Windows/Linux execution with [explicit target and runtime linking](subprocess-c.en.md) |
-| [Native](subprocess-native.en.md) | ASM/direct Object execution implemented; additional-runtime inputs for build/release follow |
+| [Native](subprocess-native.en.md) | ASM/direct Object execution and explicit-runtime build/release implemented |
 | WAT | Reject IR containing the execution module with a source diagnostic; existing type-only programs still emit |
 | Remaining generated execution, Linux supervisor distribution | Subsequent work |
 
@@ -46,4 +46,4 @@ Observation remains read-only. Identical backend responses with zero/nonzero tra
 - [OS connections](../../experiments/subprocess/execution.rs): four executors send input to a registered fixture on Windows/Linux, comparing nonzero exit, bytes, and continuation. This dedicated comparison fixture runs four times; arbitrary user programs are not automatically replayed.
 - [Runnable example](../../examples/process_execution/README.en.md): receive missing configuration as a value and continue.
 
-[CLI registration, limits, and Linux supervisor paths](subprocess-cli.en.md) are connected. Staged runtime APIs, fixed Report, C ABI, [generated C](subprocess-c.en.md), [LLVM](subprocess-llvm.en.md), and [QBE](subprocess-qbe.en.md) are also implemented. Next follow the [generated-route sequence](subprocess-generated.en.md) for Native build/release dependency inputs/records, WAT and distribution.
+[CLI registration, limits, and Linux supervisor paths](subprocess-cli.en.md) are connected. Staged runtime APIs, fixed Report, C ABI, [generated C](subprocess-c.en.md), [LLVM](subprocess-llvm.en.md), and [QBE](subprocess-qbe.en.md) are also implemented. Next follow the [generated-route sequence](subprocess-generated.en.md) for WAT and official runtime/supervisor distribution. Native build/release dependency inputs/records are also implemented.

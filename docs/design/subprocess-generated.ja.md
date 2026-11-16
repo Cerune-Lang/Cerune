@@ -2,7 +2,7 @@
 
 [English](subprocess-generated.en.md)
 
-**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。[生成Cの接続](subprocess-c.ja.md)も実装済みです。[生成LLVM](subprocess-llvm.ja.md)も実装済みです。[生成QBE](subprocess-qbe.ja.md)も実装済みです。[NativeのASM・自前Object実行](subprocess-native.ja.md)も実装済みです。Native build/releaseの追加runtime指定・記録・配布は後続です。WATも実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
+**状態：Rustのprepare/execute段階APIと固定Report v1 codecは実装済みです。** [4実行器](subprocess-execution.ja.md)と[Windows/LinuxのCLI接続](subprocess-cli.ja.md)は同じruntimeを使います。C ABIと静的リンクは[独立したC試作](../../experiments/subprocess/c_abi/README.md)で検証済みです。[生成Cの接続](subprocess-c.ja.md)も実装済みです。[生成LLVM](subprocess-llvm.ja.md)も実装済みです。[生成QBE](subprocess-qbe.ja.md)も実装済みです。[NativeのASM・自前Object実行](subprocess-native.ja.md)も実装済みです。Native build/releaseの明示runtime指定・依存記録の検証も実装済みです。runtime・監督の公式配布は後続です。WATも実行操作を含むIRを拒否します。以下では実装済みのRust APIと、今後の生成経路向け契約を分けます。
 
 ## 調査結果と方針
 
@@ -142,7 +142,7 @@ Rust enumの宣言順やホスト整数幅に依存するcastは禁止です。�
 
 ## 起動設定・リンク・配布への影響
 
-生成C・LLVM・QBEでは、既存の先頭マーカーの内側へ設定を追加しました。以下は生成C・LLVM・QBEで利用可能な形式で、他の生成経路への接続は後続です。
+生成C・LLVM・QBE・Nativeでは、既存の先頭マーカーの内側へ設定を追加しました。WATは後続です。
 
 ```text
 program --cerune-runtime-v1 --process-config process.json --file-root directory -- program-arguments
@@ -160,7 +160,7 @@ program --cerune-runtime-v1 --process-config process.json --file-root directory 
 
 子プロセス使用時の新しいリンク依存は互換性変更です。既存の`target-system-runtime` / `cerune_runtime: in-object`だけの記録では追加依存を表せません。Nativeのmanifest・runtime記録・release検証は版付きの変更で扱い、古い成果物へ存在しない依存情報を書き足しません。
 
-ローカルの登録先絶対パス・環境値・設定JSONを配布物へ自動埋込みしません。Linux監督の同梱は、必要な実行ファイル・版・target・hashを記録した上で扱います。runtimeライブラリのファイル名、公開ビルドオプション、配布ディレクトリ構成はリンク試作で確定します。
+ローカルの登録先絶対パス・環境値・設定JSONを配布物へ自動埋込みしません。Native buildは`--process-runtime <archive>`を受け取り、`process-runtime.a`/`process-runtime.lib`を保存します。子プロセスを使うbuildのmanifest/runtime/link-planとrelease/requirementsはv2です。Linux監督は同梱せず、実行時に明示指定します。将来同梱する場合は、実行ファイル・版・target・hashの記録が必要です。
 
 ## 実装順と検証
 
@@ -171,7 +171,7 @@ program --cerune-runtime-v1 --process-config process.json --file-root directory 
 | 3（実装済み） | [生成Cのloweringと起動設定](subprocess-c.ja.md) | [registered.ceru](../../examples/process_execution/registered.ceru)を4実行器と比較。未接続・部分出力・非0終了・継続・所有・失敗位置が一致 |
 | 4a（実装済み） | [LLVMのlowering・予約・起動設定](subprocess-llvm.ja.md) | Windows/Linuxで既存exampleと異常系を比較 |
 | 4b（実装済み） | [QBEのlowering・予約・起動設定](subprocess-qbe.ja.md) | Windows/Linuxで既存exampleと異常系を比較 |
-| 4c（実行対応済み） | [Native ASM・自前Object](subprocess-native.ja.md)、Native build/release | 両OSの基準MIR・ASMとSSA・自前Objectを検証。追加runtimeを明示するbuild/releaseは後続 |
+| 4c（実装済み） | [Native ASM・自前Object](subprocess-native.ja.md)、Native build/release | 両OSの基準MIR・ASMとSSA・自前Objectを検証。明示archiveによるbuild/releaseと移動後実行も検証 |
 | 5 | WATの版付きhost、Linux監督の配布仕上げ | private memory、旧hostの拒否、同じ要求・結果・回収、配置変更後の配布実行を検証 |
 
 C ABI試作の具体的なシグネチャ・状態・検証手順は[専用文書](../../experiments/subprocess/c_abi/README.md)にまとめています。設定JSONの解析をCLIと共有し、releaseが接続停止を解除しないことも検証します。

@@ -4,7 +4,7 @@
 
 ## Completed artifact and scope
 
-`build native` links Cerune’s own Object through the Clang driver and saves an executable plus generation/link records in a new directory. It does not execute the program. `emit-obj` continues to emit just an Object. IR/VM Images, release and a custom linker are outside this change.
+`build native` links Cerune’s own Object through the Clang driver and saves an executable plus generation/link records in a new directory. It does not execute the program. `emit-obj` continues to emit just an Object. IR/VM Images and a custom linker remain out of scope. Packaging uses the separate `release native` operation.
 
 ```sh
 cerune build native app.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin/clang -o app-build
@@ -14,12 +14,13 @@ cerune build native app.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin
 | --- | --- |
 | `native`, `--target`, `--linker`, `-o` | Required. No host-inferred target or PATH search for Clang. Linker is an absolute/relative path to an actual file |
 | Target | `x86_64-unknown-linux-gnu` → `program` (ELF64 PIE); `x86_64-pc-windows-msvc` → `program.exe` (PE32+) |
+| `--process-runtime <archive>` | Required for programs containing subprocess operations; explicitly select a target static archive; reject the option when unused |
 | `--ssa` | Explicit SSA transformation; retain baseline MIR. No implicit optimization passes |
 | `--include-sources` | Add exact source contents in `sources.json`. File names and literals in generated code are recorded even without this option |
 | `--link-timeout-seconds` | Limit for each of version query and link; default 60 seconds, range 1–3600 |
 | Heap/argument limits | The same four options as emit-obj, fixed in generated code and manifest |
 
-Create the parent directory beforehand. Reject existing output files, directories and links without overwriting. Arbitrary linker arguments, sysroots, extra Objects and library inputs are not provided initially. Select a Clang environment with the target SDK, CRT and linker available.
+Create the parent directory beforehand. Reject existing output files, directories and links without overwriting. Arbitrary linker arguments, sysroots and general extra Object/library inputs are not provided. Only the subprocess runtime has a dedicated input option. Select a Clang environment with the target SDK, CRT and linker available.
 
 ## Responsibilities and observation
 
@@ -27,14 +28,14 @@ Create the parent directory beforehand. Reject existing output files, directorie
 
 | Files | Contents |
 | --- | --- |
-| `manifest.json` | `cerune-native-build-v1`, building/success/failed, Cerune version, target, limits, SSA choice and artifact list. Success is written only after final checks |
+| `manifest.json` | `cerune-native-build-v1` (v2 with subprocesses), building/success/failed, Cerune version, target, limits, SSA choice and artifact list. Success is written only after final checks |
 | `program.ceir`, `program.mir.txt` | HIR and baseline non-SSA MIR |
 | `program.ssa*` (when selected) | SSA, its origin map, lowered MIR and map |
 | `program.lir.txt`, `program.machine.txt` | LIR and typed instructions actually used for Object generation |
 | `program.origins.s`, `program.o` | Annotated ASM and Object from the same instructions; no external assembler |
 | `program.origins.json`, `program.object-map.txt` | OriginId→NodeId/SourceId/Span, MIR/LIR; instruction, symbol and relocation positions within the Object |
 | `source-index.json`, optional `sources.json` | File IDs, names, user/standard-module origins and UTF-8 sizes; exact contents when requested |
-| `runtime.json` | External symbols and target runtime conditions; Cerune runtime is generated inside the Object |
+| `runtime.json` | External symbols and target runtime conditions; Cerune runtime is generated inside the Object; subprocess operations also use the explicit static archive |
 | `link-plan.json` | Resolved driver path, explicit target, input, argument array, cwd, stdin and environment policy |
 | `version.*`, `link.*` | Raw stdout/stderr and exit code/termination reason/duration. Clang `-v` also records downstream linker selection and arguments |
 | `program.link.map`, `link-result.json` | Downstream linker map and overall link result |
@@ -77,3 +78,19 @@ When a connection is generated, record the following fields.
 For `enabled: false`, save only schema and enabled. Neither the build output directory, an execution-time root, nor environment variables are embedded as connection settings. Build performs no file operation and opens no root. Reading metadata does not configure execution. Generation stages, Objects, and origins remain preserved.
 
 [Release](native-release.en.md) validates and carries these records forward. The [file example](../../examples/files/README.en.md) covers baseline MIR/SSA build, release, and execution after relocation.
+
+## Explicit subprocess runtime linking
+
+Subprocess operations, including those in uncalled functions, require `--process-runtime <archive>`. See the [Native subprocess example](subprocess-native.en.md). No archive is discovered automatically.
+
+| Saved or checked input | Behavior |
+| --- | --- |
+| Source archive | Regular file up to 128 MiB. Reject symlinks/reparse points, thin archives, empty archives, incomplete headers and Object members for a different target |
+| Link input | Save the exact bytes read as `process-runtime.a` on Linux or `process-runtime.lib` on Windows and pass this copy to Clang |
+| `process_runtime` | Record ABI name `cerune-process-v1`, version 1 and 32 Report words, target, original absolute path, saved name/size/SHA-256, system link arguments, execution-time configuration and Linux supervisor requirements |
+| Record versions | Subprocess manifest/runtime/link-plan use v2 and contain identical `cerune-native-process-runtime-v1` records. Programs without subprocesses retain v1 |
+| Link checks | Clang resolves required ABI symbols; check exit status, executable format and map. Archive header validation does not prove ABI implementation correctness |
+
+System link arguments are the same fixed lists as the [ASM/Object linking instructions](subprocess-native.en.md). Arbitrary additional link arguments are not accepted. Failed links retain the archive, generated files, logs and failed manifest.
+
+Build executes neither the program nor children. It embeds no connection JSON, registered executables or environment values, and bundles no Linux supervisor. At execution, pass `--cerune-runtime-v1 --process-config <json> --`; on Linux, explicitly name a separately supplied supervisor in that JSON. The source archive path is historical and is not reopened during release.

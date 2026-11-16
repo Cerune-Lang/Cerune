@@ -4,7 +4,7 @@
 
 ## 完成成果物と範囲
 
-`build native`は、Ceruneの自前ObjectをClang driverでリンクし、実行ファイルと生成・リンク記録を新規ディレクトリへ保存します。プログラムは実行しません。`emit-obj`は引き続きObjectだけを生成します。IR/VM Image、release、自作リンカは今回の対象外です。
+`build native`は、Ceruneの自前ObjectをClang driverでリンクし、実行ファイルと生成・リンク記録を新規ディレクトリへ保存します。プログラムは実行しません。`emit-obj`は引き続きObjectだけを生成します。IR/VM Imageと自作リンカは対象外です。配布は別操作の`release native`で行います。
 
 ```sh
 cerune build native app.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin/clang -o app-build
@@ -14,12 +14,13 @@ cerune build native app.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin
 | --- | --- |
 | `native`・`--target`・`--linker`・`-o` | 必須。OSからtargetを補わず、PATHからClangを探索しない。linkerは実ファイルへの絶対／相対パス |
 | target | `x86_64-unknown-linux-gnu` → `program`（ELF64 PIE）、`x86_64-pc-windows-msvc` → `program.exe`（PE32+） |
+| `--process-runtime <archive>` | 子プロセス操作を含むプログラムで必須。対象targetの静的archiveを明示し、未使用時の指定は拒否 |
 | `--ssa` | 明示的なSSA変換。基準MIRも残す。暗黙の最適化passはない |
 | `--include-sources` | 正確なソース本文を`sources.json`へ追加。既定でも出自のファイル名・生成コード中のリテラルは記録される |
 | `--link-timeout-seconds` | version照会とリンクそれぞれの上限。既定60秒、1〜3600 |
 | heap・argument上限 | 既存emit-objと同じ4オプション。生成物とmanifestへ固定 |
 
-出力先の親ディレクトリは事前に用意します。既存の出力先（ファイル・ディレクトリ・リンク）は拒否し、上書きしません。任意のlinker引数、sysroot指定、追加Object／ライブラリ入力は初版では提供しません。targetのSDK・CRT・リンカが使えるClang環境を指定してください。
+出力先の親ディレクトリは事前に用意します。既存の出力先（ファイル・ディレクトリ・リンク）は拒否し、上書きしません。任意のlinker引数、sysroot指定、一般の追加Object／ライブラリ入力は提供しません。子プロセスruntimeだけは専用オプションで指定します。targetのSDK・CRT・リンカが使えるClang環境を指定してください。
 
 ## 責務と観測
 
@@ -27,14 +28,14 @@ cerune build native app.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin
 
 | 保存物 | 内容 |
 | --- | --- |
-| `manifest.json` | schema `cerune-native-build-v1`、building/success/failed、Cerune版、target、予算、SSA選択、成果物一覧。成功は最終確認後だけ記録 |
+| `manifest.json` | schema `cerune-native-build-v1`（子プロセスありはv2）、building/success/failed、Cerune版、target、予算、SSA選択、成果物一覧。成功は最終確認後だけ記録 |
 | `program.ceir`・`program.mir.txt` | HIRと基準の非SSA MIR |
 | `program.ssa*`（選択時） | SSA、その出自map、SSAから戻したMIRとmap |
 | `program.lir.txt`・`program.machine.txt` | 実際にObjectへ渡すLIR・型付き命令 |
 | `program.origins.s`・`program.o` | 同じ命令から生成した注釈付きASMと自前Object。外部アセンブラは呼ばない |
 | `program.origins.json`・`program.object-map.txt` | OriginId→NodeId/SourceId/Span・MIR/LIR、および命令・symbol・relocationのObject内位置 |
 | `source-index.json`・任意の`sources.json` | ファイルID・名前・ユーザー／標準モジュールの出自・UTF-8サイズ、選択時は本文も保持 |
-| `runtime.json` | 外部参照symbol、targetのruntime条件。Cerune runtimeはObject内に生成 |
+| `runtime.json` | 外部参照symbol、targetのruntime条件。Cerune runtimeはObject内に生成。子プロセス操作は明示した静的archiveも使用 |
 | `link-plan.json` | driverの解決済みパス、明示target、入力、引数配列、cwd、stdinと環境の方針 |
 | `version.*`・`link.*` | stdout/stderrの生ログと終了コード／終了理由・経過時間。Clangの`-v`で実際の下位リンカ選択・引数も記録 |
 | `program.link.map`・`link-result.json` | 下位リンカのmapとリンク全体の結果 |
@@ -77,3 +78,19 @@ buildは `--call-depth-limit N`（既定128・範囲1〜128）を生成LIR・検
 `enabled: false`の場合はschemaとenabledだけを保存します。build時の保存先、実行時のroot、環境変数を接続設定として埋め込みません。buildはファイル操作を実行せず、rootをopenしません。記録を読むことは実行設定の変更ではありません。生成過程・Object・出自は従来どおり保持します。
 
 [release](native-release.ja.md)はこの記録を検証・引継ぎします。[ファイルexample](../../examples/files/README.md)で、通常MIR／SSAのbuild→release→移動後実行を試せます。
+
+## 子プロセスruntimeの明示リンク
+
+子プロセス操作があれば、未使用関数内も含めて `--process-runtime <archive>` を要求します。[Native子プロセスの実行例](subprocess-native.ja.md)を参照してください。archiveの自動探索はしません。
+
+| 保存・確認対象 | 処理 |
+| --- | --- |
+| 入力archive | 128 MiB以下の通常ファイル。symlink/reparse point、thin archive、空archive、不完全なヘッダ、異なるtargetのObjectを拒否 |
+| リンク入力 | 読み取った同じバイト列をLinuxでは `process-runtime.a`、Windowsでは `process-runtime.lib` として保存し、Clangへ渡す |
+| `process_runtime` | ABI名 `cerune-process-v1`、版1・Report 32語、target、元の絶対パス、保存名・サイズ・SHA-256、OS別リンク引数、実行時設定・Linux監督の要求を記録 |
+| 記録の版 | 子プロセスありではmanifest/runtime/link-planがv2。同じ `cerune-native-process-runtime-v1` の記録を3ファイルに保持。なしでは従来のv1を維持 |
+| リンク確認 | 必要なABI symbolの解決はClangに委ね、終了結果・実行形式・mapを確認。archiveのヘッダ確認だけでABIの実装が正しいとは判断しない |
+
+OS別ライブラリ引数は[ASM・Objectのリンク手順](subprocess-native.ja.md)と同じ固定一覧です。一般の追加リンク引数は受け付けません。リンク失敗時もarchive・生成物・ログ・failed manifestを残します。
+
+buildはプログラムや子を実行しません。接続JSON、登録先実行ファイル、環境値を埋め込まず、Linux監督も同梱しません。実行時に `--cerune-runtime-v1 --process-config <json> --` を指定し、LinuxではJSONに別途用意した監督のパスを明示します。元のarchiveパスは履歴であり、release時に再読込みしません。

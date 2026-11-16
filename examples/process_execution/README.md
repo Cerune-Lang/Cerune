@@ -73,4 +73,4 @@ cerune emit-lir examples/process_execution/unconfigured.ceru --target x86_64-pc-
 cerune emit-lir examples/process_execution/registered.ceru --ssa --target x86_64-unknown-linux-gnu
 ~~~
 
-LIRの表示自体は子を起動しません。[NativeのASM・自前Object](../../docs/design/subprocess-native.ja.md)は、共通runtimeを明示してリンクするとこの例を実行できます。Native build/releaseの追加runtime指定は後続です。
+LIRの表示自体は子を起動しません。[NativeのASM・自前Object](../../docs/design/subprocess-native.ja.md)は、共通runtimeを明示してリンクするとこの例を実行できます。`build native --process-runtime <archive>`とreleaseの依存記録検証にも対応しました。[同じexampleのコマンド](../../docs/design/subprocess-native.ja.md#buildreleaseで実行ファイルを作る)を載せています。接続JSONとLinux監督は実行時に別途指定します。

@@ -2,7 +2,7 @@
 
 [English](subprocess-native.en.md)
 
-**Windows/Linux x86-64のASM・自前Objectで実装済みです。** 基準MIRとSSA経由のMIRを同じLIRへ渡します。要求検査、転送、期限、回収、失敗の選択は[共通runtime](subprocess-generated.ja.md)を使います。Native build/releaseの追加runtime指定・記録・配布は未実装で、子プロセスを含むbuildは説明付きで拒否します。releaseで配布するための依存記録も後続です。
+**Windows/Linux x86-64のASM・自前Objectで実装済みです。** 基準MIRとSSA経由のMIRを同じLIRへ渡します。要求検査、転送、期限、回収、失敗の選択は[共通runtime](subprocess-generated.ja.md)を使います。`build native --process-runtime <archive>`とreleaseの依存記録・検証も実装済みです。
 
 ## 生成する処理
 
@@ -39,4 +39,18 @@ process.jsonは[CLIと共通の設定](subprocess-cli.ja.md)です。Linux監督
 
 [共通比較スクリプト](../../experiments/subprocess/c_abi/generated.cjs)へ--nativeを渡すと基準MIR・ASM、--native --native-object --native-ssaを渡すとSSA・自前Objectを検証します。Windows/Linuxとも、既存の[実行example](../../examples/process_execution/README.md)と4実行器を各76件比較します。コピー、評価順、短絡、4097バイトの出力、非0終了、時間超過、出力上限、予約失敗、全配列解放、起動引数とファイル接続を確認します。確保失敗・ABI失敗・cleanup値の注入はASM版で実行し、コマンドと生の結果を保存します。
 
-子プロセスを使わない生成物にarchive依存は追加しません。追加runtimeを明示するNative build/release、runtimeとLinux監督の配布、WAT hostは後続です。
+子プロセスを使わない生成物にarchive依存は追加しません。Native build/releaseは明示したarchiveと生成記録を保持します。runtimeとLinux監督の公式配布、WAT hostは後続です。
+
+## build/releaseで実行ファイルを作る
+
+[同じABIのarchiveを構築](../../experiments/subprocess/c_abi/README.md)した後、Linuxでは次のように指定します。出力先は新規ディレクトリを使います。
+
+~~~sh
+cerune build native examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin/clang --process-runtime target/x86_64-unknown-linux-gnu/debug/libcerune_lang.a -o target/process-build
+cerune release native target/process-build -o target/process-dist
+target/process-dist/build/program --cerune-runtime-v1 --process-config process.json --
+~~~
+
+Windowsではtargetを `x86_64-pc-windows-msvc`、archiveを `cerune_lang.lib`、実行入口を `program.exe` に替え、Clangの実ファイルを指定します。SSA経由を試す場合はbuildに `--ssa` を付けます。非最適化HIR/MIRも保存されます。
+
+[build](native-build.ja.md)はarchiveの保存名・サイズ・SHA-256・必要ABI・target・リンク引数を記録し、[release](native-release.ja.md)が照合します。archiveは配布先で動的ロードするものではありません。接続JSONとLinux監督は実行時に別途指定します。既存の `registered.ceru` について、両OS・基準MIR/SSAでbuild→release→移動後実行を4実行器と比較しています。

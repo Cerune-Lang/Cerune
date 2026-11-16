@@ -60,3 +60,7 @@ cargo run --quiet -- release native target/native-demo -o target/native-dist
 | 配布先での実行案内 | `README.md`・`README.en.md` |
 
 既存の配布先は上書きしません。本文の同梱はbuild時の選択を引き継ぎます。配布先での実行可能性や推移的依存物の自動検査は初版に含みません。[配布契約](../../docs/design/native-release.ja.md)も参照してください。
+
+## 子プロセスを使うプログラム
+
+既存の[登録済み子プロセスのexample](../process_execution/README.md)もbuild/releaseできます。`--process-runtime <archive>`で対応するarchiveを指定し、[コマンド例](../../docs/design/subprocess-native.ja.md#buildreleaseで実行ファイルを作る)に沿って配布・実行します。使用したarchive・必要ABI・hash・リンク引数を保持します。接続JSONとLinux監督は実行時に別途指定します。

@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-**This probe statically links the shared Rust runtime into an independent C program.** [Generated C](../../../docs/design/subprocess-c.en.md) is integrated. [Generated QBE](../../../docs/design/subprocess-qbe.en.md) is also integrated. [Native language operations](../../../docs/design/subprocess-native.en.md) are also connected. WAT and additional dependencies/packaging for Native build/release follow. Language examples stay in [process_execution](../../../examples/process_execution/README.en.md).
+**This probe statically links the shared Rust runtime into an independent C program.** [Generated C](../../../docs/design/subprocess-c.en.md) is integrated. [Generated QBE](../../../docs/design/subprocess-qbe.en.md) is also integrated. [Native language operations](../../../docs/design/subprocess-native.en.md) are also connected. Native build/release also support explicit archive inputs and dependency records. WAT and official runtime/supervisor distribution follow. Language examples stay in [process_execution](../../../examples/process_execution/README.en.md).
 
 [The LLVM ABI probe](../llvm_abi/README.en.md) uses the same archive and C expectations. [Generated LLVM](../../../docs/design/subprocess-llvm.en.md) is also integrated. Pass --llvm to generated.cjs to test the same examples and expectations through LLVM.
 

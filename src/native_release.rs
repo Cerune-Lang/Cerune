@@ -115,8 +115,17 @@ pub(super) fn run(mut args: impl Iterator<Item = String>) -> Result<(), String> 
         &parse(&files["runtime.json"])?,
         target,
     )?;
+    let process_runtime = super::native_build::process_runtime::validate_records(&files, target)?;
+    let process = process_runtime.is_some();
     let mut requirements = dependencies::inspect(&files[executable], target)?;
     requirements["file_connection"] = file_connection.clone();
+    if let Some(record) = &process_runtime {
+        requirements["schema"] = json!("cerune-native-requirements-v2");
+        requirements["policy"] = json!(super::native_build::process_runtime::POLICY);
+        requirements["libraries_bundled"] = json!(true);
+        requirements["system_libraries_bundled"] = json!(false);
+        requirements["process_runtime"] = record.clone();
+    }
     #[cfg(unix)]
     if target == Target::X86_64UnknownLinuxGnu {
         use std::os::unix::fs::PermissionsExt;
@@ -137,11 +146,11 @@ pub(super) fn run(mut args: impl Iterator<Item = String>) -> Result<(), String> 
     payload.insert("runtime-requirements.json".into(), encoded(&requirements)?);
     payload.insert(
         "README.md".into(),
-        guide(target, executable, false, &file_connection).into_bytes(),
+        guide(target, executable, false, &file_connection, process).into_bytes(),
     );
     payload.insert(
         "README.en.md".into(),
-        guide(target, executable, true, &file_connection).into_bytes(),
+        guide(target, executable, true, &file_connection, process).into_bytes(),
     );
     payload.insert(
         "CERUNE-LICENSE-MIT".into(),
@@ -152,7 +161,7 @@ pub(super) fn run(mut args: impl Iterator<Item = String>) -> Result<(), String> 
         include_bytes!("../LICENSE-APACHE").to_vec(),
     );
     let entries: Vec<_> = payload.iter().map(|(name,bytes)| json!({"path":name,"bytes":bytes.len(),"sha256":hash(bytes),"executable":name == &format!("build/{executable}")})).collect();
-    let release = encoded(&json!({
+    let mut release_record = json!({
         "schema":"cerune-native-release-v1", "status":"success", "route":"native",
         "cerune_version":env!("CARGO_PKG_VERSION"), "build_cerune_version":manifest["cerune_version"],
         "target":target.triple(), "entry":format!("build/{executable}"),
@@ -162,7 +171,15 @@ pub(super) fn run(mut args: impl Iterator<Item = String>) -> Result<(), String> 
         "sources_included":manifest["sources_included"], "files":entries,
         "call_depth_limit":manifest["call_depth_limit"],
         "file_connection":file_connection
-    }))?;
+    });
+    if let Some(record) = process_runtime {
+        release_record["schema"] = json!("cerune-native-release-v2");
+        release_record["runtime_policy"] = json!(super::native_build::process_runtime::POLICY);
+        release_record["libraries_bundled"] = json!(true);
+        release_record["system_libraries_bundled"] = json!(false);
+        release_record["process_runtime"] = record;
+    }
+    let release = encoded(&release_record)?;
     let mut sums = payload
         .iter()
         .map(|(name, bytes)| format!("{}  {name}\n", hash(bytes)))
@@ -258,14 +275,25 @@ fn require(value: &Value, key: &str, expected: Value) -> Result<(), String> {
     Ok(())
 }
 fn validate_manifest(m: &Value) -> Result<(Target, &'static str, BTreeSet<String>), String> {
+    let process = match m["schema"].as_str() {
+        Some("cerune-native-build-v1") => false,
+        Some("cerune-native-build-v2") => true,
+        _ => return Err("unsupported build schema".into()),
+    };
     for (key, value) in [
-        ("schema", json!("cerune-native-build-v1")),
         ("status", json!("success")),
         ("route", json!("native")),
         ("executed", json!(false)),
         ("error", Value::Null),
         ("optimization_passes", json!([])),
-        ("runtime_policy", json!("target-system-runtime")),
+        (
+            "runtime_policy",
+            json!(if process {
+                super::native_build::process_runtime::POLICY
+            } else {
+                "target-system-runtime"
+            }),
+        ),
         ("link_plan", json!("link-plan.json")),
         ("link_result", json!("link-result.json")),
     ] {
@@ -306,6 +334,9 @@ fn validate_manifest(m: &Value) -> Result<(Target, &'static str, BTreeSet<String
         .as_bool()
         .ok_or("missing source inclusion selection")?;
     let mut artifacts: BTreeSet<String> = BASE.iter().map(|s| s.to_string()).collect();
+    if process {
+        artifacts.insert(super::native_build::process_runtime::filename(target).into());
+    }
     if ssa {
         artifacts.extend(SSA.iter().map(|s| s.to_string()));
     }
@@ -341,9 +372,17 @@ fn validate_records(
             return Err("failed linker phase record".into());
         }
     }
+    let process = parse(&files["manifest.json"])?["schema"] == "cerune-native-build-v2";
     let plan = parse(&files["link-plan.json"])?;
     for (key, value) in [
-        ("schema", json!("cerune-link-plan-v1")),
+        (
+            "schema",
+            json!(if process {
+                "cerune-link-plan-v2"
+            } else {
+                "cerune-link-plan-v1"
+            }),
+        ),
         ("target", json!(target.triple())),
         ("input", json!("program.o")),
         ("output", json!(executable)),
@@ -352,8 +391,22 @@ fn validate_records(
     }
     let runtime = parse(&files["runtime.json"])?;
     for (key, value) in [
-        ("schema", json!("cerune-native-runtime-v1")),
-        ("policy", json!("target-system-runtime")),
+        (
+            "schema",
+            json!(if process {
+                "cerune-native-runtime-v2"
+            } else {
+                "cerune-native-runtime-v1"
+            }),
+        ),
+        (
+            "policy",
+            json!(if process {
+                super::native_build::process_runtime::POLICY
+            } else {
+                "target-system-runtime"
+            }),
+        ),
         ("target", json!(target.triple())),
         ("system_libraries_bundled", json!(false)),
     ] {
@@ -370,17 +423,41 @@ fn validate_records(
     }
     Ok(())
 }
-fn guide(target: Target, executable: &str, english: bool, file_connection: &Value) -> String {
+fn guide(
+    target: Target,
+    executable: &str,
+    english: bool,
+    file_connection: &Value,
+    process: bool,
+) -> String {
     let command = match target {
         Target::X86_64UnknownLinuxGnu => format!("./build/{executable}"),
         Target::X86_64PcWindowsMsvc => format!(".\\build\\{executable}"),
     };
-    let command = if file_connection["enabled"] == true {
+    let command = if process {
+        format!(
+            "{command} --cerune-runtime-v1 --process-config <json>{} -- <arguments...>",
+            if file_connection["enabled"] == true {
+                " --file-root <directory>"
+            } else {
+                ""
+            }
+        )
+    } else if file_connection["enabled"] == true {
         format!("{command} --cerune-runtime-v1 --file-root <directory> --")
     } else {
         format!("{command} 3")
     };
-    let files = file_guide(target, executable, english, file_connection);
+    let mut files = file_guide(target, executable, english, file_connection);
+    if process {
+        files = files
+            .replace(" or interpret the file startup marker", "")
+            .replace(
+                "ファイル接続を生成せず、ファイル接続用の起動マーカーを解釈しません",
+                "ファイル接続を生成しません",
+            );
+        files.push_str(&super::native_build::process_runtime::guide(english, true));
+    }
     if english {
         format!(
             "# Native distribution\n\n[日本語](README.md)\n\nTarget: {}. Entry: build/{executable}. From this directory, run the entry with your program arguments, for example:\n\n    {command}\n\n{files}No Cerune compiler or Clang is needed to run it. The target OS must supply the dependencies recorded in runtime-requirements.json, including their own transitive dependencies. The direct list records binary dependencies; file_connection records Cerune connection requirements. Neither is a tested minimum OS or a guarantee of compatibility. No system libraries are bundled.\n\nCopy the whole directory. Preserve execute permission on Linux (chmod +x build/program if transferred through Windows). SHA256SUMS covers all payload files and release.json; verify it with sha256sum -c SHA256SUMS or a SHA-256 tool such as Get-FileHash. These hashes detect changed contents; they are not signatures or proof of provenance.\n\nThe build/ files are unchanged snapshots, including generation stages and failure-origin maps. Paths in link logs describe the original build environment. Packaging performs no compilation, link, execution, stripping, or optimization. Source contents are included only if selected at build time, but code literals, filenames and local toolchain paths may still appear. See release.json for the source-inclusion choice and file inventory.\n",

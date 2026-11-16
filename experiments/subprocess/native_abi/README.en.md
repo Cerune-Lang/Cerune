@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-**This probe verifies common-runtime calls from ASM and directly encoded Objects produced from typed x86-64 instructions.** It has been executed on Windows and Linux. [Execution from Cerune sources and startup configuration](../../../docs/design/subprocess-native.en.md) are also implemented. Additional-runtime inputs for build/release follow.
+**This probe verifies common-runtime calls from ASM and directly encoded Objects produced from typed x86-64 instructions.** It has been executed on Windows and Linux. [Execution from Cerune sources and startup configuration](../../../docs/design/subprocess-native.en.md) are also implemented. Explicit runtime inputs and dependency records for build/release are also implemented.
 
 Following the [generated-route contract](../../../docs/design/subprocess-generated.en.md), verify value passing and linking before connecting language operations. The probe uses the same runtime archive and independent C expectations as the [C ABI probe](../c_abi/README.en.md). Runnable Cerune examples remain under [process_execution](../../../examples/process_execution/README.en.md); this probe is not a language example.
 
@@ -37,4 +37,4 @@ Clang's create call generated from the canonical C header is saved as reference.
 
 commands.json preserves commands, arguments, exit status, and output. inputs.json records the explicit target and SHA-256 hashes of the archive, emit.rs, and Cargo.lock. The windows/linux directories retain typed instructions, ASM, Objects, and external-call origin mappings. Configuration JSON contains local absolute paths and is excluded from CI artifacts. Existing experiments/subprocess attributes exclude this test's C/Rust/JS files from GitHub language statistics.
 
-ProcessRun [retention in LIR](../../../docs/design/lir-observation.en.md) is implemented. Next, lower it to machine instructions and connect request conversion, array reservation, Report conversion, ownership release, and startup configuration. Compare baseline/SSA and ASM/Object with existing Cerune execution examples, then update Native build/release's explicit link inputs and dependency records. This probe alone does not verify language-array reservation/release or generated source mappings. Runtime and supervisor distribution also remain subsequent work.
+ProcessRun [retention in LIR](../../../docs/design/lir-observation.en.md) is implemented. Machine-instruction lowering, request conversion, array reservation, Report conversion, ownership release and startup configuration are also implemented. Existing Cerune examples compare baseline/SSA and ASM/Object; explicit-runtime build/release also verify relocated execution. This probe alone does not verify language-array reservation/release or generated source mappings. Runtime and supervisor distribution also remain subsequent work.

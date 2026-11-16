@@ -60,3 +60,7 @@ Output matches the example above. Copy the entire `native-dist` directory elsewh
 | Recipient usage guides | `README.md`, `README.en.md` |
 
 Existing destinations are not overwritten. Source inclusion follows the build-time choice. Automatic target-environment execution checks and transitive dependency resolution are outside this initial release. See the [distribution contract](../../docs/design/native-release.en.md).
+
+## Subprocess programs
+
+The existing [registered subprocess example](../process_execution/README.en.md) also supports build/release. Select the matching archive with `--process-runtime <archive>`; [commands](../../docs/design/subprocess-native.en.md#building-and-packaging-an-executable) cover packaging and execution. The exact archive, required ABI, hash and link arguments are preserved. Supply connection JSON and the Linux supervisor separately at execution.

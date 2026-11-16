@@ -21,10 +21,6 @@ pub(super) fn prepare(
     limits: Limits,
     call_depth_limit: std::num::NonZeroU32,
 ) -> Result<Generated, String> {
-    if let Some(span) = hir.first_process_span() {
-        return Err(source.render(&cerune_lang::diagnostic::Diagnostic::new(
-            "Native build/release subprocess runtime dependency is not supported yet; use emit-obj and explicitly link the process-c-abi archive", span)));
-    }
     let mut files = Vec::new();
     let mut text = |name, value: String| files.push((name, value.into_bytes()));
     text("program.ceir", ir::text::emit(hir));

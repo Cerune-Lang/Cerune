@@ -73,4 +73,4 @@ cerune emit-lir examples/process_execution/unconfigured.ceru --target x86_64-pc-
 cerune emit-lir examples/process_execution/registered.ceru --ssa --target x86_64-unknown-linux-gnu
 ~~~
 
-LIR observation does not start a child. [Native ASM/direct Objects](../../docs/design/subprocess-native.en.md) execute these examples after explicitly linking the common runtime. Additional-runtime inputs for Native build/release follow.
+LIR observation does not start a child. [Native ASM/direct Objects](../../docs/design/subprocess-native.en.md) execute these examples after explicitly linking the common runtime. `build native --process-runtime <archive>` and release dependency validation are also supported; [commands](../../docs/design/subprocess-native.en.md#building-and-packaging-an-executable) use this same example. Connection JSON and the Linux supervisor are supplied separately at execution.

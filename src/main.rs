@@ -765,7 +765,7 @@ fn print_help() {
          A small experimental language with observable code generation.\n\n\
          USAGE:\n\
            cerune check <file>\n\
-           cerune build native <file> --target <triple> --linker <clang-path> -o <new-directory> [--ssa] [--include-sources]\n\
+           cerune build native <file> --target <triple> --linker <clang-path> -o <new-directory> [--process-runtime <archive>] [--ssa] [--include-sources]\n\
            cerune release native <build-directory> -o <new-directory>\n\
            cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]\n\
            cerune emit-sources <file> [-o <sources.json>]\n\

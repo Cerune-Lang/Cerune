@@ -8,13 +8,13 @@
 
 | Item | Initial contract |
 | --- | --- |
-| Input | Build directory with schema `cerune-native-build-v1` and status `success` |
+| Input | Build directory with schema `cerune-native-build-v1` or `cerune-native-build-v2` and status `success` |
 | Output | New directory with an existing parent. Reject existing destinations and output inside the input |
 | Target, limits, SSA | Preserve build choices; release has no options to change them |
-| Runtime | Require the target system runtime; no libraries, SDKs or compilers bundled |
+| Runtime | Require the target system runtime; no system libraries, SDKs or compilers bundled; preserve the static subprocess archive as a link input |
 | Source contents | Preserve the build-time `--include-sources` choice; do not add or remove contents |
 | Optimization | No compilation, relinking, stripping or optimization |
-| Out of scope | IR/VM Images, compressed archives, installers, signatures, automatic publication, library bundling/discovery |
+| Out of scope | IR/VM Images, compressed archives, installers, signatures, automatic publication, arbitrary library bundling/discovery |
 
 The distribution format is a directory. External archive tools may package it, preserving contents and Linux execute permissions after extraction. This command is separate from GitHub releases of the Cerune compiler.
 
@@ -23,8 +23,8 @@ The distribution format is a directory. External archive tools may package it, p
 | Path | Contents |
 | --- | --- |
 | `build/` | Every prescribed build file, byte-for-byte: executable, baseline HIR/MIR, selected SSA/LIR, typed instructions/Object, origins and link records |
-| `release.json` | Schema `cerune-native-release-v1`, status, target, relative entry path, source inclusion, per-file sizes and SHA-256; written last |
-| `runtime-requirements.json` | Direct runtime requirements inspected without executing the binary, plus file-connection requirements inherited from build |
+| `release.json` | Schema `cerune-native-release-v1` (v2 with subprocesses), status, target, relative entry path, source inclusion, per-file sizes and SHA-256; written last |
+| `runtime-requirements.json` | Direct runtime requirements inspected without executing the binary, plus file/subprocess connection requirements inherited from build |
 | `SHA256SUMS` | SHA-256 of all payload files and release.json, excluding itself |
 | `README.md`, `README.en.md` | Target, invocation, dependency conditions, observation records and checksum meaning |
 | `CERUNE-LICENSE-MIT`, `CERUNE-LICENSE-APACHE` | Cerune license texts; this does not assign a license to the user's program |
@@ -67,8 +67,20 @@ Compare `file_connection` in the build manifest and runtime records, and require
 | Neither contains a record (older build) | Save null in both outputs as unknown; infer neither non-use nor defaults |
 | One missing, unequal values, null, invalid types, unknown versions/fields, or requirements for another target | Reject before creating output |
 
-The distribution's Japanese/English README includes explicit-root startup, unconfigured stopping behavior, and OS requirements. For disabled connections, explain that the startup marker is not interpreted; for older builds, explain that requirements are unknown. Never create, connect, or discover a root from the recorded metadata.
+The distribution's Japanese/English README includes explicit-root startup, unconfigured stopping behavior, and OS requirements. When both file and subprocess connections are disabled, explain that the startup marker is not interpreted; for older builds, explain that requirements are unknown. Never create, connect, or discover a root from the recorded metadata.
 
 The procfs and NtCreateFile requirements are Cerune generation-time records, separate from direct dependencies extracted from the executable. Release does not verify the deployment OS and retains `deployment_verified: false`. Record consistency is not proof of semantic correspondence with a modified executable or of authenticity.
 
 Tests build/release the file example through baseline MIR and SSA, move the distribution, and execute using a new explicit root. Compare output and saved bytes with HIR/MIR/SSA/VM; also verify missing configuration, existing-file rejection, failure origins, legacy records, and inconsistent records.
+
+## Packaging builds containing subprocesses
+
+For v2 builds, require identical `process_runtime` records in manifest/runtime/link-plan and validate archive size/SHA-256/target, ABI version, fixed link arguments and input names, execution-time configuration and Linux supervisor requirements. Reject inconsistencies before creating output. Do not retrofit subprocess dependencies into v1 or invent missing records.
+
+Preserve `process-runtime.a` or `process-runtime.lib` unchanged in `build/`, the file inventory and SHA256SUMS. Release remains possible after moving or deleting the original archive. This is a static link input already used, not a dynamic library to install at execution.
+
+`release.json` uses `cerune-native-release-v2` and `runtime-requirements.json` uses `cerune-native-requirements-v2`; both retain the same dependency record and `target-system-runtime+process-runtime-v1` policy. `libraries_bundled: true` describes the saved static archive; `system_libraries_bundled: false` excludes OS libraries. Direct executable dependencies are still inspected without execution.
+
+Distribution READMEs explain `--cerune-runtime-v1 --process-config <json> --`, Unconfigured without settings, combining a file root, and supplying a separate Linux supervisor. JSON, registered programs, environment values and the supervisor are not automatically bundled. Official supervisor distribution follows separately.
+
+Windows/Linux tests build/release the existing subprocess example through baseline MIR and SSA, relocate the distribution and compare execution with four executors. They also cover deleting the original archive, rejecting changed records/archive bytes, and release/relocated execution without PATH.

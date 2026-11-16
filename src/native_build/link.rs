@@ -16,9 +16,16 @@ pub(super) struct Request {
     args: Vec<String>,
     pub executable: &'static str,
     timeout: Duration,
+    process_runtime: Option<serde_json::Value>,
 }
 impl Request {
-    pub fn clang(driver: PathBuf, target: Target, directory: &Path, timeout: Duration) -> Self {
+    pub fn clang(
+        driver: PathBuf,
+        target: Target,
+        directory: &Path,
+        timeout: Duration,
+        process_runtime: Option<&serde_json::Value>,
+    ) -> Self {
         let executable = match target {
             Target::X86_64UnknownLinuxGnu => "program",
             Target::X86_64PcWindowsMsvc => "program.exe",
@@ -44,7 +51,16 @@ impl Request {
                 args.extend(["-Xlinker", "/map:program.link.map"].map(str::to_owned))
             }
         }
+        if process_runtime.is_some() {
+            args.insert(3, super::process_runtime::filename(target).into());
+            args.extend(
+                super::process_runtime::libraries(target)
+                    .into_iter()
+                    .map(str::to_owned),
+            );
+        }
         Self {
+            process_runtime: process_runtime.cloned(),
             driver,
             target,
             directory: directory.into(),
@@ -54,7 +70,7 @@ impl Request {
         }
     }
     pub fn plan(&self) -> String {
-        format!(
+        let text = format!(
             r#"{{"schema":"cerune-link-plan-v1","adapter":"clang-driver-v1","driver":{},"target":{},"cwd":{},"input":"program.o","output":{},"args":[{}],"version_args":["--version"],"timeout_seconds":{},"stdin":"null","environment":"inherited-toolchain","runtime":"target-system-runtime"}}"#,
             json(&self.driver.to_string_lossy()),
             json(self.target.triple()),
@@ -66,7 +82,19 @@ impl Request {
                 .collect::<Vec<_>>()
                 .join(","),
             self.timeout.as_secs()
-        )
+        );
+        if let Some(process) = &self.process_runtime {
+            let mut plan: serde_json::Value =
+                serde_json::from_str(&text).expect("generated link plan");
+            plan["schema"] = serde_json::json!("cerune-link-plan-v2");
+            plan["runtime"] = serde_json::json!(super::process_runtime::POLICY);
+            plan["inputs"] =
+                serde_json::json!(["program.o", super::process_runtime::filename(self.target)]);
+            plan["process_runtime"] = process.clone();
+            serde_json::to_string_pretty(&plan).expect("link plan")
+        } else {
+            text
+        }
     }
     pub fn execute(&self) -> Result<(), String> {
         let result = self.execute_inner();
@@ -240,4 +268,16 @@ fn validate(path: &Path, target: Target) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+// Release validates recorded arguments without discovering or invoking a tool.
+pub(crate) fn process_arguments(target: Target, record: &serde_json::Value) -> Vec<String> {
+    Request::clang(
+        PathBuf::new(),
+        target,
+        Path::new("."),
+        Duration::from_secs(1),
+        Some(record),
+    )
+    .args
 }

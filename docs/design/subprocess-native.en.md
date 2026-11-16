@@ -2,7 +2,7 @@
 
 [日本語](subprocess-native.ja.md)
 
-**Implemented for Windows/Linux x86-64 ASM and directly encoded Objects.** Baseline and SSA-lowered MIR feed the same LIR. Validation, transfers, deadlines, cleanup and failure selection use the [common runtime](subprocess-generated.en.md). Additional-runtime selection, records and distribution for Native build/release remain unimplemented; subprocess build requests stop with an explanatory diagnostic. Dependency records required for release packaging also follow.
+**Implemented for Windows/Linux x86-64 ASM and directly encoded Objects.** Baseline and SSA-lowered MIR feed the same LIR. Validation, transfers, deadlines, cleanup and failure selection use the [common runtime](subprocess-generated.en.md). `build native --process-runtime <archive>` and release dependency records/validation are also implemented.
 
 ## Generated operations
 
@@ -39,4 +39,18 @@ process.json uses the [shared CLI configuration](subprocess-cli.en.md), includin
 
 The [common comparison script](../../experiments/subprocess/c_abi/generated.cjs) accepts --native for baseline MIR/ASM, or --native --native-object --native-ssa for SSA/direct Object. Both Windows and Linux perform 76 comparisons of existing [execution examples](../../examples/process_execution/README.en.md) against four executors. Coverage includes copies, evaluation order, short circuiting, 4097-byte output, nonzero exit, timeout, output limits, reservation failures, complete array release, program arguments and file connections. Allocation/ABI failures and cleanup values are injected in the ASM variant; commands and raw results are preserved.
 
-Programs without subprocess operations gain no archive dependency. Explicit additional-runtime inputs for Native build/release, runtime/Linux-supervisor distribution and the WAT host follow separately.
+Programs without subprocess operations gain no archive dependency. Native build/release preserve the explicit archive and generation records. Official runtime/Linux-supervisor distribution and the WAT host follow separately.
+
+## Building and packaging an executable
+
+After [building the matching ABI archive](../../experiments/subprocess/c_abi/README.en.md), use these Linux commands. Output directories must be new.
+
+~~~sh
+cerune build native examples/process_execution/registered.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin/clang --process-runtime target/x86_64-unknown-linux-gnu/debug/libcerune_lang.a -o target/process-build
+cerune release native target/process-build -o target/process-dist
+target/process-dist/build/program --cerune-runtime-v1 --process-config process.json --
+~~~
+
+On Windows, select `x86_64-pc-windows-msvc`, `cerune_lang.lib`, the `program.exe` entry and an actual Clang path. Add `--ssa` to build for the SSA route; baseline HIR/MIR remain saved.
+
+[Build](native-build.en.md) records archive name/size/SHA-256, required ABI, target and link arguments; [release](native-release.en.md) validates them. The archive is not dynamically loaded at deployment. Supply connection JSON and the Linux supervisor separately at execution. The existing `registered.ceru` is compared with four executors through build→release→relocated execution on both OSes and baseline MIR/SSA.
