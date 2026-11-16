@@ -59,3 +59,8 @@ experiments/subprocess/qbe_abi/* text eol=lf
 src/codegen/qbe/process/*.ssa text eol=lf -linguist-detectable
 
 experiments/subprocess/native_abi/* text eol=lf
+
+# Preserve the upstream CI source archive exactly; exclude dependency code from language statistics.
+.github/vendor/** linguist-vendored -linguist-detectable
+.github/vendor/**/*.tar.xz -text
+.github/vendor/**/LICENSE -text
