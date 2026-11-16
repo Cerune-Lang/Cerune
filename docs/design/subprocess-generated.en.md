@@ -162,6 +162,8 @@ A new subprocess link dependency changes compatibility. Existing `target-system-
 
 Never automatically embed local registered absolute paths, environment values, or configuration JSON in distribution artifacts. Native build selects `--process-runtime <archive>` and saves `process-runtime.a`/`process-runtime.lib`; manifest/runtime/link-plan and release/requirements use v2 for these builds. The Linux supervisor remains separate and explicitly configured at execution. Future supervisor bundling must record its executable, version, target and hash.
 
+The [runtime distribution candidate](../distribution/process-runtime/README.en.md) packages the static library, header, Linux supervisor, versions, hashes and licenses, with relocated linking/execution checks. This is separate from automatically bundling the supervisor in Native release. Official Release attachment remains later work.
+
 ## Implementation order and verification
 
 | Order | Change | Completion criterion |
@@ -172,7 +174,7 @@ Never automatically embed local registered absolute paths, environment values, o
 | 4a (implemented) | [LLVM lowering, reservation, and startup](subprocess-llvm.en.md) | Compare existing examples and failures on Windows/Linux |
 | 4b (implemented) | [QBE lowering, reservation, and startup](subprocess-qbe.en.md) | Compare existing examples and failures on Windows/Linux |
 | 4c (implemented) | [Native ASM/direct Object](subprocess-native.en.md), Native build/release | Baseline MIR/ASM and SSA/direct Object verified on both OSes. Explicit archive build/release and relocated execution are also verified |
-| 5 | Versioned WAT host and supervisor distribution completion | Private memory, old-host rejection, matching requests/results/cleanup, relocated distribution execution |
+| 5 (partly implemented) | WAT reference host and distribution candidate creation/checks | Private memory, old-host rejection, matching requests/results/cleanup and relocated execution verified. Official Release attachment and minimum OS versions remain |
 
 Never replace remaining unsupported emission with successful stubs. Do not add unimplemented future-API `.ceru` files to executable examples; update existing example instructions as each route becomes executable.
 

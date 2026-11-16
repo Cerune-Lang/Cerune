@@ -56,7 +56,7 @@ path = "experiments/subprocess/windows_backend.rs"
 
 [[example]]
 name = "subprocess_linux_supervisor"
-path = "experiments/subprocess/linux_supervisor.rs"
+path = "src/runtime/process/linux/supervisor_main.rs"
 
 [[example]]
 name = "subprocess_linux_backend"

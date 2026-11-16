@@ -162,6 +162,8 @@ program --cerune-runtime-v1 --process-config process.json --file-root directory 
 
 ローカルの登録先絶対パス・環境値・設定JSONを配布物へ自動埋込みしません。Native buildは`--process-runtime <archive>`を受け取り、`process-runtime.a`/`process-runtime.lib`を保存します。子プロセスを使うbuildのmanifest/runtime/link-planとrelease/requirementsはv2です。Linux監督は同梱せず、実行時に明示指定します。将来同梱する場合は、実行ファイル・版・target・hashの記録が必要です。
 
+[runtime配布候補](../distribution/process-runtime/README.md)では、静的ライブラリ・ヘッダ・Linux監督・版とハッシュ・ライセンスをまとめ、展開先を変えたリンクと実行を検証します。Native releaseによる監督の自動同梱とは別です。公式Releaseへの添付は後続です。
+
 ## 実装順と検証
 
 | 順序 | 変更単位 | 完了条件 |
@@ -172,7 +174,7 @@ program --cerune-runtime-v1 --process-config process.json --file-root directory 
 | 4a（実装済み） | [LLVMのlowering・予約・起動設定](subprocess-llvm.ja.md) | Windows/Linuxで既存exampleと異常系を比較 |
 | 4b（実装済み） | [QBEのlowering・予約・起動設定](subprocess-qbe.ja.md) | Windows/Linuxで既存exampleと異常系を比較 |
 | 4c（実装済み） | [Native ASM・自前Object](subprocess-native.ja.md)、Native build/release | 両OSの基準MIR・ASMとSSA・自前Objectを検証。明示archiveによるbuild/releaseと移動後実行も検証 |
-| 5 | WATの版付きhost、Linux監督の配布仕上げ | private memory、旧hostの拒否、同じ要求・結果・回収、配置変更後の配布実行を検証 |
+| 5（一部実装済み） | WAT参照host・配布候補の作成と検証 | private memory、旧host拒否、同じ要求・結果・回収、移動後実行は検証済み。公式Releaseへの添付と最低OS版の確定が残る |
 
 C ABI試作の具体的なシグネチャ・状態・検証手順は[専用文書](../../experiments/subprocess/c_abi/README.md)にまとめています。設定JSONの解析をCLIと共有し、releaseが接続停止を解除しないことも検証します。
 
