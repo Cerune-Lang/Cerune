@@ -54,3 +54,4 @@ src/codegen/c/process/*.c.inc text eol=lf -linguist-detectable
 experiments/subprocess/llvm_abi/* text eol=lf
 
 src/codegen/llvm/process/*.ll text eol=lf -linguist-detectable
+experiments/subprocess/qbe_abi/* text eol=lf

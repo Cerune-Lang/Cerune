@@ -4,6 +4,8 @@
 
 生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。次はQBE/Native、その後にWATと配布を揃えます。
 
+[QBE ABIの呼出し試験](../../experiments/subprocess/qbe_abi/README.md)はWindows/Linuxで成功しました。本体のQBE子プロセス実行は未実装で、次は要求変換・出力配列の予約・Report変換・起動設定を接続します。
+
 2026-11-09時点の機能・実行経路・次の作業をまとめます。「実装済み」と「計画・未実装」を区別し、候補の構文や採用は各段階の設計で決めます。正確な仕様は[言語リファレンス](../reference/language.ja.md)を参照してください。
 
 [以前の監査記録](development-status.ja.md)は2026-10-11時点の履歴です。現在の状態はこのページで管理します。
