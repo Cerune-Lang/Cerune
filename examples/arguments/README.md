@@ -23,7 +23,7 @@ end
 
 引数なしでは `0` と `end`、空文字を1個渡すと `1`・`[""]`・`0`・`end` です。空文字の渡し方は利用するshellの規則に従います。
 
-HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeで実行できます。整数の読取りは未実装です。[契約・上限・未対応範囲](../../docs/design/dogfooding-inputs.ja.md)を参照してください。
+HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeで実行できます。整数の読取りには `std:num::parse_i64` を使えます（下記のseed例）。[契約・上限・未対応範囲](../../docs/design/dogfooding-inputs.ja.md)を参照してください。
 
 生成Cでも同じ出力を確認できます。Linux/macOSでは次のように実行します。
 
@@ -56,7 +56,7 @@ clang -target x86_64-unknown-linux-gnu target/arguments.s -o target/arguments
 
 WindowsではCeruneとClangのtargetを`x86_64-pc-windows-msvc`、QBEの`-t`を`amd64_win`、実行ファイルを`target/arguments.exe`にします。引数取得の上限は`emit-qbe --argument-count-limit 2 --argument-byte-limit 10`のように明示します。
 
-WATはWABT 1.0.39・Node.js 20と[テストhost契約](../../docs/design/wat-arguments-host.ja.md)で同じ引数を明示注入します。
+WATはWABT 1.0.39・Node.js 24と[テストhost契約](../../docs/design/wat-arguments-host.ja.md)で同じ引数を明示注入します。
 
 ```sh
 cargo run -- emit-wat examples/arguments/list.ceru -o target/arguments.wat

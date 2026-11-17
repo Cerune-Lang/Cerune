@@ -4,6 +4,8 @@
 
 As of 2026-11-17, **v0.2.0** is the next candidate. The published version and Cargo.toml still say **v0.1.0**, and the test archives below also identify themselves as 0.1.0. The next version, included commit and publication date will be decided during final review.
 
+See the [v0.2.0 release notes draft](v0.2.0-notes.en.md) for included features and upgrade instructions.
+
 ## Completed distribution tests
 
 ```text

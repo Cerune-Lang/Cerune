@@ -20,7 +20,7 @@ QBEの要求変換・出力配列予約・Report変換・起動設定を実装�
 | 子プロセスの実行 | 4実行器と生成C/LLVM/QBE/Nativeは実装済み。Native build/releaseの明示runtime指定・記録も実装済み。生成WATも参照host CLIへ接続し比較済み。runtime・監督のRelease添付手順も統合済み。公開タグは未作成 |
 | runtime・Linux監督の配布 | [版付きアーカイブの作成・検証](../distribution/process-runtime/README.md)を実装。両OSで展開後のリンクと実行をCIで確認。Releaseへの添付手順と版・commit・内容照合も統合済み。Server 2022／Ubuntu 22.04のCIに加え、Windows 11 Home 10.0.26100で配布候補の実行に成功 |
 | 処理系の配布試験 | [#272](https://github.com/Cerune-Lang/Cerune/issues/272)。[コンパイラ配布試験](../distribution/compiler/README.md)を追加。PRで5対象を作成し、同じOS・CPUで展開して起動する。5対象すべてCIで展開・起動に成功 |
-| 公開する内容 | [配布試験の記録と公開までの手順](../distribution/release-readiness.ja.md)を日英で整理。次は収録commit・版・リリースノートを確定し、その版で再試験する |
+| 公開する内容 | [配布試験の記録と公開までの手順](../distribution/release-readiness.ja.md)を日英で整理。[リリースノート案](../distribution/v0.2.0-notes.ja.md)を追加。次は収録commit・版と記載内容を確定し、その版で再試験する |
 
 現在の子プロセス対応を揃えてから公開準備へ移る案です。IR/VM Image、最適化、GPU、GUIなどの未実装項目をこのリリースの必須条件へ加えません。まだタグ作成や公開を決定したものではありません。
 
