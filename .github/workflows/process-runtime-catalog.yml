@@ -1,0 +1,41 @@
+name: Verify runtime Release assets
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  catalog:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Download the tested Linux runtime
+        uses: actions/download-artifact@v8
+        with:
+          name: artifacts-process-runtime-x86_64-unknown-linux-gnu
+          path: runtime-assets
+      - name: Download the tested Windows runtime
+        uses: actions/download-artifact@v8
+        with:
+          name: artifacts-process-runtime-x86_64-pc-windows-msvc
+          path: runtime-assets
+      - name: Save plan
+        env:
+          CERUNE_DIST_PLAN: ${{ inputs.plan }}
+        run: node -e "require('fs').writeFileSync('runtime-plan.json', process.env.CERUNE_DIST_PLAN)"
+      - name: Check both archives and write the Release file list
+        run: node scripts/process-runtime-release.cjs catalog runtime-plan.json '${{ github.sha }}' runtime-assets "${{ runner.temp }}/runtime-catalog"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: artifacts-process-runtime-catalog
+          path: ${{ runner.temp }}/runtime-catalog/cerune-process-runtime.json
+          if-no-files-found: error

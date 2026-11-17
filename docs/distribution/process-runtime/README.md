@@ -1,19 +1,27 @@
-# 子プロセスruntimeの配布候補
+# 子プロセスruntimeの配布
 
 [English](README.en.md)
 
-生成C・LLVM・QBE・Nativeのリンクに使う静的ライブラリと、Linuxで子プロセスを監督する実行ファイルをまとめます。対象は `x86_64-pc-windows-msvc` と `x86_64-unknown-linux-gnu` です。macOS・ARM64・muslには対応しません。WAT参照host、コンパイラ本体、利用者の実行ファイルはこのアーカイブに含みません。
+生成C・LLVM・QBE・Nativeのリンクに使う静的ライブラリと、Linuxで子プロセスを監督する実行ファイルを配布します。対象はx86_64 Windows MSVC／Linux GNUです。macOS・ARM64・muslへの対応は今後の作業です。コンパイラ本体、WAT参照host、利用者の実行ファイルには、それぞれの配布手順を使います。
 
-## 内容と使い方
+## ファイルと使い方
+
+```text
+静的runtime → リンク → 利用者の実行ファイル
+                             ↓ 実行時の設定JSON
+                  登録対象・環境変数・上限を指定
+                             ↓ Linuxの場合
+                  cerune-process-supervisor
+```
 
 展開先には次のファイルがあります。
 
 | ファイル | 用途 |
 | --- | --- |
-| `manifest.json` | 形式版、Cerune版、ソースcommitと未コミット変更の有無、target、ABI版、Rust/Cargo版、ファイルごとのバイト数・SHA-256 |
+| `manifest.json` | 形式版、Cerune版、ソースcommitと未コミット変更の有無、target、ABI版、Rust/Cargo版、ビルドOS、ファイルごとのバイト数・SHA-256 |
 | `lib/process-runtime.lib` または `lib/process-runtime.a` | リンク時に指定する静的runtime |
 | `include/cerune_process_v1.h` | C ABI v1。Reportは32個の64-bit word |
-| `bin/cerune-process-supervisor` | Linuxのみ。実行時の設定JSONで絶対パスを指定する監督 |
+| `bin/cerune-process-supervisor` | Linuxのみ。設定JSONで絶対パスを指定する監督 |
 | `Cargo.lock`、`licenses/` | 固定した依存版、Cerune・依存crate・Rust標準ライブラリのライセンス文書 |
 | `README.md`、`README.en.md` | この説明 |
 
@@ -23,39 +31,70 @@ Nativeでは `build native` の `--process-runtime` にライブラリを明示�
 cerune build native program.ceru --target x86_64-unknown-linux-gnu --linker /usr/bin/clang --process-runtime /opt/cerune-runtime/lib/process-runtime.a -o program-build
 ```
 
-WindowsではtargetとライブラリをWindows用に置き換えます。生成C・LLVM・QBEを外部ツールでリンクする場合は、同じライブラリと `manifest.json` の `systemLinkArgs` が必要です。Native buildは既存の検査でObjectのtargetも確認します。
+WindowsではtargetとライブラリをWindows用に置き換えます。生成C・LLVM・QBEを外部ツールでリンクする場合は、同じライブラリと `manifest.json` の `systemLinkArgs` が必要です。Native buildはObjectのtargetも確認します。
 
-Linuxでは、実行時に渡す `cerune-process-v1` 設定JSONの `linux_supervisor` に、展開した `bin/cerune-process-supervisor` の絶対パスを指定します。自動探索はしません。`--version` はCerune版と制御プロトコル版を表示します。それ以外の起動はruntimeが渡す制御用ファイル記述子を必要とします。
+Linuxでは、実行時に渡す `cerune-process-v1` 設定JSONの `linux_supervisor` に、展開した監督の絶対パスを指定します。`--version` はCerune版と制御プロトコル版を表示します。通常の監督起動にはruntimeが渡す制御用ファイル記述子が必要です。
 
 ```text
 program --cerune-runtime-v1 --process-config process.json -- program-arguments
 ```
 
-登録対象・環境変数・設定JSONはアーカイブに含めません。静的runtimeはリンク先へ組み込まれますが、Linux監督は別ファイルです。`release native` が監督を自動同梱するように変えたものではありません。
+登録対象・環境変数・設定JSONは利用者が実行環境に合わせて用意します。静的runtimeはリンク先へ組み込まれます。Linux監督は実行時に指定したファイルを使うため、`release native` の利用者も監督の配置と設定を用意してください。
 
 ## 作成と検証
 
-リポジトリ内でNode.js 24、Rust/Cargo、Git、tarを使います。ライセンス収録のため `rustup component add rust-docs` も必要です。targetと実行中のx86_64 OSが一致しない場合は作成を拒否します。出力先は新規ディレクトリに限ります。
+Node.js 24、Rust/Cargo、Git、tarを使います。ライセンス収録のため `rustup component add rust-docs` も必要です。targetと実行中のx86_64 OSが一致する環境で、新規ディレクトリを出力先に指定します。
 
 ```text
 node scripts/process-runtime-bundle.cjs build x86_64-unknown-linux-gnu target/process-runtime-linux
 node scripts/process-runtime-bundle.cjs verify x86_64-unknown-linux-gnu target/process-runtime-linux/bundle
 ```
 
-`build` は `--locked --release` でビルドし、`bundle/` と `cerune-process-runtime-<version>-<target>.tar.gz`、その `.sha256`、`logs/commands.json` を作成します。ログには実行コマンドと成否・標準出力・標準エラーを保存しますが、アーカイブには含めません。未コミット変更がある開発ビルドは `source.dirty: true` と記録します。同じ版番号でもcommitとSHA-256を確認してください。
+| 操作 | 結果・確認項目 |
+| --- | --- |
+| `build` | `--locked --release` でビルドし、`bundle/`、版・target付き `.tar.gz`、その `.sha256` を作成 |
+| ビルド記録 | `logs/commands.json` とログにコマンド・成否・標準出力・標準エラーを保存。CIの観測用artifactとして保管 |
+| `verify` | ファイルを読み、指定target・ABI・固定のリンク依存・必須ファイル・長さ・SHA-256・Linuxの実行権限を照合 |
+| 不一致の検出 | 欠落、変更、重複、想定外ファイル、リンクをエラーにする |
 
-`verify` は内容を実行せず、指定target・ABI・固定のリンク依存・必須ファイル・ファイル長・SHA-256・Linuxの実行権限を確認します。欠落、変更、重複、想定外ファイル、リンクを拒否します。ハッシュは破損検出であり、配布者の署名やABIの正しさの証明ではありません。
+開発ビルドは未コミット変更を `source.dirty: true` と記録します。同じ版番号でもcommitとSHA-256を確認してください。ハッシュは破損検出に使います。配布元の確認には信頼するReleaseを使い、ABIの動作は実行試験で確かめます。ライセンス一覧はCargoが解決した依存を収録するため、最終バイナリにリンクされたcrateより広い範囲を含みます。
 
-ローカルで作成したアーカイブには、次の実行試験を使えます。検証前に展開するため、出所不明のアーカイブを入力しないでください。
+作成したアーカイブの実行試験は次のコマンドで行います。展開後に内容を検証するので、自分で作成したものなど、信頼できるアーカイブを入力してください。
 
 ```text
 node scripts/process-runtime-smoke.cjs x86_64-unknown-linux-gnu /usr/bin/clang target/process-runtime-linux/cerune-process-runtime-0.1.0-x86_64-unknown-linux-gnu.tar.gz /tmp/cerune-runtime-smoke
 ```
 
-Windows/Linux CIはcheckoutの外へ展開し、同梱ヘッダ・ライブラリだけでC ABI試験をリンクします。PATHを空にして実行し、任意バイト、出自、非0終了、失敗、時間切れ、回収を確認します。さらに展開したruntimeで既存の `registered.ceru` をNative build/releaseし、移動後の出力と依存記録を検証します。
+試験はcheckoutの外へ展開し、同梱ヘッダ・ライブラリだけでC ABI試験をリンクします。PATHを空にして実行し、任意バイト、出自、非0終了、失敗、時間切れ、回収を確認します。Release workflowでは、展開したruntimeで既存の `registered.ceru` をNative build/releaseし、移動後の出力と依存記録も検証します。
 
-## 公開前に残る作業
+## Releaseへ渡す手順
 
-今回のアーカイブはCIでも作成する配布候補です。GitHub Releaseへの自動添付、公開用のクリーンcommit確認、コンパイラ配布物そのものの試験（Issue #272）は後続です。タグ作成・公開は行いません。
+```text
+同じcommitのソース
+  ├─ コンパイラ5対象 → 展開・起動試験
+  └─ runtime 2対象 → 展開・C ABI試験 → exampleのbuild/release
+                       ↓
+             版・commit・ビルドOS・SHA-256を照合
+                       ↓
+             2対象を再展開してmanifestと照合
+                       ↓
+             cerune-process-runtime.json を作成
+                       ↓
+             全試験成功 → タグ実行時にReleaseへ添付
+```
 
-WindowsはシステムDLL、Linuxはglibc等のシステムライブラリが必要です。`systemLinkArgs` とビルド時のOS/glibcを記録しますが、全OS版での実行や古いglibcとの互換性を保証しません。公式配布には対応OSの最低版を確定し、その環境でも試験する必要があります。ライセンス一覧はCargoが解決した依存を収録し、すべてが最終バイナリへリンクされるという意味ではありません。
+| 実行 | 出力 |
+| --- | --- |
+| PR | アーカイブ・検証記録をActions artifactに保存 |
+| 配布タグ | 試験済みファイルをGitHub Releaseへ添付 |
+
+`process-runtime-release.cjs stage` はコンパイラと同じ版・commit、未コミット変更なし、下表のビルドOSを確認します。`catalog` は両対象のアーカイブ・チェックサム・個別JSONの6ファイルを受け取り、再展開したmanifestまで照合します。ログの混入や片方の欠落も検出します。
+
+| target | 作成・実行試験に使うrunner | 記録するシステムruntime |
+| --- | --- | --- |
+| `x86_64-unknown-linux-gnu` | Ubuntu 22.04 | glibc 2.35 |
+| `x86_64-pc-windows-msvc` | Windows Server 2022 | Windows 10.0.20348系 |
+
+Releaseには各targetの `cerune-process-runtime-<version>-<target>.tar.gz`、`.tar.gz.sha256`、`.json` と、一覧の `cerune-process-runtime.json` を添付します。個別JSONにはmanifestと試験runner、一覧には版・commit・ハッシュ・ABI・リンク引数・ビルド時のシステムruntimeを記録します。ビルドログと実行記録はActionsの観測用artifactから確認できます。
+
+実行にはWindowsのシステムDLL、Linuxのglibc等が必要です。上表は配布物を作成して試験するOSです。Windowsデスクトップ版の対応範囲や、それより古いOSの対応可否は、対象OSでの実行試験を追加して確定します。タグ作成と公開版の決定は、このworkflowの実装後に行うリリース作業です。

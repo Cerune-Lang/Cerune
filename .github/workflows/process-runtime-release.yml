@@ -1,0 +1,70 @@
+name: Build runtime Release assets
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  runtime:
+    name: Runtime Release / ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            library: process-runtime.a
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            library: process-runtime.lib
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.98.0
+        with:
+          components: rust-docs
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Check runtime artifact validation
+        run: node --test scripts/process-runtime-release.test.cjs scripts/process-runtime-bundle.test.cjs
+      - name: Build runtime for this target
+        run: node scripts/process-runtime-bundle.cjs build ${{ matrix.target }} "${{ runner.temp }}/runtime-build"
+      - name: Extract, link and execute outside the checkout
+        shell: bash
+        run: |
+          archive=("$RUNNER_TEMP"/runtime-build/*.tar.gz)
+          test "${#archive[@]}" = 1
+          test -f "${archive[0]}"
+          node scripts/process-runtime-smoke.cjs '${{ matrix.target }}' clang "${archive[0]}" "$RUNNER_TEMP/runtime-smoke"
+      - name: Build and release the registered.ceru example
+        env:
+          CERUNE_TEST_PROCESS_RUNTIME: ${{ runner.temp }}/runtime-smoke/runtime/lib/${{ matrix.library }}
+          CERUNE_TEST_PROCESS_SUPERVISOR: ${{ runner.temp }}/runtime-smoke/runtime/bin/cerune-process-supervisor
+        run: cargo test --locked --test native_program process_runtime_build_release -- --include-ignored
+      - name: Select tested files for Release
+        env:
+          CERUNE_RELEASE_VERSION: ${{ fromJSON(inputs.plan).releases[0].app_version }}
+          CERUNE_RELEASE_COMMIT: ${{ github.sha }}
+        run: node scripts/process-runtime-release.cjs stage ${{ matrix.target }} "${{ runner.temp }}/runtime-build" "${{ env.CERUNE_RELEASE_VERSION }}" "${{ env.CERUNE_RELEASE_COMMIT }}" "${{ runner.temp }}/runtime-assets"
+      - name: Upload tested Release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: artifacts-process-runtime-${{ matrix.target }}
+          path: ${{ runner.temp }}/runtime-assets/*
+          if-no-files-found: error
+      - name: Save build and execution observations
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-release-observations-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/runtime-build/logs/
+            ${{ runner.temp }}/runtime-smoke/logs/
+          if-no-files-found: warn
