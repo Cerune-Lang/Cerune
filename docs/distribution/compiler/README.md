@@ -15,7 +15,12 @@ flowchart LR
     I --> H
 ```
 
-`dist-workspace.toml` の `pr-run-mode = "upload"` によって、PRでもアーカイブ作成まで実行します。`global-artifacts-jobs` に指定した起動試験は、ビルドジョブがアップロードしたファイルを受け取ります。`host` はその試験に依存するため、失敗した配布物を公開しません。PRの実行ではReleaseへアップロードしません。
+`dist-workspace.toml` の `pr-run-mode = "upload"` によって、PRでもアーカイブ作成まで実行します。`global-artifacts-jobs` に指定した起動試験は、ビルドジョブがアップロードしたファイルを受け取ります。タグ実行時は、起動試験の成功を確認してから `host` が公開を進めます。
+
+| 実行のきっかけ | 成果物の保存先 |
+| --- | --- |
+| PRの作成・更新 | GitHub Actionsのartifact |
+| バージョンタグのpush | 試験成功後にGitHub Releaseへ公開 |
 
 ## 各アーカイブを実行する場所
 
@@ -27,7 +32,7 @@ flowchart LR
 | `x86_64-apple-darwin` | `macos-15-intel` | tar.xz |
 | `aarch64-apple-darwin` | `macos-15` | tar.xz |
 
-5対象を省略せずに実行します。試験スクリプトはplanにある対象数、runner、CPUを確認します。macOSのIntel版はIntel runner、ARM版はARM runnerで動かします。RosettaやQEMUには依存しません。この表はCIで試す環境を示しており、動作するOSの最低版を定めるものではありません。
+試験スクリプトはplanに5対象がそろっていることを確認し、runnerの指定を検査します。実行前にはOS・CPUも確認します。macOSのIntel版はIntel runner、ARM版はARM runnerで直接動かします。この表はCIで試す環境を示しています。最低対応OS版は公開準備で確定します。
 
 ## 成功と判断する条件
 
@@ -37,7 +42,7 @@ flowchart LR
 4. 展開した実行ファイルに `--help` を渡し、planに記録されたCerune版が表示されることを確認する。
 5. `print(7);` を書いたファイルを `cerune run` で実行し、終了コード0、標準出力 `7\n`、空の標準エラーを確認する。
 
-コンパイラの実行時はPATHを空にします。リポジトリ内でビルドした別の `cerune` を探す処理はありません。各コマンドには60秒の上限を設け、アーカイブ名・SHA-256・実行コマンド・終了状態・標準出力・標準エラーを `observations.json` に保存します。欠落や破損を検出したら、その理由を記録して失敗します。
+コンパイラの実行時はPATHを空にし、展開先の実行ファイルを絶対パスで指定します。各コマンドには60秒の上限を設け、アーカイブ名・SHA-256・実行コマンド・終了状態・標準出力・標準エラーを `observations.json` に保存します。欠落や破損を検出したら、その理由を記録して失敗します。
 
 ## 手元で試す
 
@@ -49,6 +54,6 @@ node -e "require('fs').writeFileSync('compiler-plan.json',require('child_process
 node scripts/compiler-archive-smoke.cjs compiler-plan.json x86_64-pc-windows-msvc target/distrib C:/Temp/cerune-compiler-smoke
 ```
 
-最後の出力先はまだ存在しないディレクトリを指定します。Linux/macOSでは、表から実行環境に合うtargetを選び、出力先も変更してください。保存先を変更した場合は、`dist build --output-format=json` が出力する `upload_files` でアーカイブの場所を確認し、そのディレクトリを渡します。
+最後の引数には新しく作成するディレクトリ名を指定します。Linux/macOSでは、表から実行環境に合うtargetを選び、出力先も変更してください。保存先を変更した場合は、`dist build --output-format=json` が出力する `upload_files` でアーカイブの場所を確認し、そのディレクトリを渡します。
 
 Releaseワークフローを変更するときは、cargo-distの設定を編集して `dist generate` を実行します。`dist generate --check` が成功することも確認します。子プロセス用runtimeの配布候補は[専用の説明](../process-runtime/README.md)に従って作成してください。

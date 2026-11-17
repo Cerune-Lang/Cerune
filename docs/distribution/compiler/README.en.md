@@ -15,7 +15,12 @@ flowchart LR
     I --> H
 ```
 
-`pr-run-mode = "upload"` in `dist-workspace.toml` enables archive builds on pull requests. The smoke workflow registered through `global-artifacts-jobs` consumes files uploaded by those build jobs. The `host` job depends on the tests, so failed archives are not published. Pull request runs do not upload to a GitHub Release.
+`pr-run-mode = "upload"` in `dist-workspace.toml` enables archive builds on pull requests. The smoke workflow registered through `global-artifacts-jobs` consumes files uploaded by those build jobs. On tag runs, `host` proceeds with publication after the smoke tests succeed.
+
+| Trigger | Artifact destination |
+| --- | --- |
+| Pull request creation or update | GitHub Actions artifacts |
+| Version tag push | GitHub Release after successful tests |
 
 ## Execution hosts
 
@@ -27,7 +32,7 @@ flowchart LR
 | `x86_64-apple-darwin` | `macos-15-intel` | tar.xz |
 | `aarch64-apple-darwin` | `macos-15` | tar.xz |
 
-All five targets are required. The test script validates the target count, runner mapping and CPU. macOS Intel archives execute on Intel runners, and ARM archives on ARM runners, without Rosetta or QEMU. This table describes CI test environments; it does not establish minimum supported OS versions.
+The script requires all five targets in the plan and checks their runner mappings. It also checks the executing OS and CPU. macOS Intel archives run directly on Intel runners, and ARM archives on ARM runners. The table describes CI test environments. Minimum supported OS versions will be established during publication preparation.
 
 ## Success criteria
 
@@ -37,7 +42,7 @@ All five targets are required. The test script validates the target count, runne
 4. Run the extracted executable with `--help` and confirm the Cerune version recorded in the plan.
 5. Write `print(7);` to a file and execute it with `cerune run`, requiring exit code 0, stdout `7\n` and empty stderr.
 
-Compiler commands execute with an empty PATH. The test never searches for another `cerune` built in the checkout. Each command has a 60-second timeout. `observations.json` records the archive name, SHA-256, commands, status, stdout and stderr. Missing or damaged artifacts produce a recorded failure.
+Compiler commands execute with an empty PATH using the absolute path of the extracted executable. Each command has a 60-second timeout. `observations.json` records the archive name, SHA-256, commands, status, stdout and stderr. Missing or damaged artifacts produce a recorded failure.
 
 ## Local execution
 
@@ -49,6 +54,6 @@ node -e "require('fs').writeFileSync('compiler-plan.json',require('child_process
 node scripts/compiler-archive-smoke.cjs compiler-plan.json x86_64-pc-windows-msvc target/distrib C:/Temp/cerune-compiler-smoke
 ```
 
-The final output directory must not exist. On Linux/macOS, choose the matching target from the table and change the output path. If output placement changes, inspect `upload_files` from `dist build --output-format=json` and pass the directory containing the archives.
+The final argument names a new directory to create. On Linux/macOS, choose the matching target from the table and change the output path. If output placement changes, inspect `upload_files` from `dist build --output-format=json` and pass the directory containing the archives.
 
 To change the Release workflow, edit cargo-dist configuration and run `dist generate`. Also require `dist generate --check` to pass. Follow the [runtime bundle instructions](../process-runtime/README.en.md) to build subprocess runtime candidates.
