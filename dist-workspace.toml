@@ -7,6 +7,9 @@ members = ["cargo:."]
 cargo-dist-version = "0.32.0"
 # CI backends to support
 ci = "github"
+# Build the actual compiler archives on PRs and test them before hosting.
+pr-run-mode = "upload"
+global-artifacts-jobs = ["./compiler-archive-smoke"]
 # The installers to generate for each app
 installers = ["shell", "powershell"]
 # Target platforms to build apps for (Rust target-triple syntax)
@@ -19,3 +22,6 @@ install-updater = false
 # Keep generated Release checkout steps aligned with the selected Actions version.
 [dist.github-action-commits]
 "actions/checkout" = "v7"
+
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"

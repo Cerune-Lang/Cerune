@@ -19,7 +19,7 @@ The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline.
 | --- | --- |
 | Subprocess execution | Four executors and generated C/LLVM/QBE/Native are implemented. Explicit runtime inputs/records for Native build/release are also implemented; generated WAT is also connected and compared through the reference-host CLI; official runtime/supervisor distribution follows |
 | Runtime/Linux supervisor distribution | [Versioned archive creation and verification](../distribution/process-runtime/README.en.md) are implemented. CI checks relocated linking/execution on both OSes; official attachment and minimum OS versions remain |
-| Compiler distribution tests | [#272](https://github.com/Cerune-Lang/Cerune/issues/272): unpack Windows/Linux/macOS archives, then start the actual binaries and execute a minimal source |
+| Compiler distribution tests | [#272](https://github.com/Cerune-Lang/Cerune/issues/272): [Compiler archive tests](../distribution/compiler/README.en.md) added: PRs build all five targets and execute on matching OS/CPU hosts. Windows/Linux x64 checked locally; the remaining three targets are checked in CI |
 | Published information | All CI checks pass; describe changes, unsupported features, compatibility changes, and supported OSes in both languages |
 
 The proposal is to finish the current subprocess work, then prepare publication. IR/VM Images, optimization, GPU, GUI, and other unimplemented features are not additional requirements for this release. Tagging and publication have not yet been decided.

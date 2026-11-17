@@ -1,0 +1,46 @@
+name: Compiler archive smoke
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  smoke:
+    name: Compiler archive / ${{ matrix.host }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.plan).ci.github.artifacts_matrix }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Save the release plan
+        env:
+          CERUNE_DIST_PLAN: ${{ inputs.plan }}
+        run: node -e "require('fs').writeFileSync('compiler-plan.json', process.env.CERUNE_DIST_PLAN)"
+      - name: Require all five native target/runner pairs
+        run: node scripts/compiler-archive-smoke.cjs compiler-plan.json validate-plan
+      - name: Download the compiler archives built in this workflow
+        uses: actions/download-artifact@v8
+        with:
+          name: artifacts-build-local-${{ join(matrix.targets, '_') }}
+          path: compiler-artifacts
+      - name: Check archive selection and failure handling
+        run: node --test scripts/compiler-archive-smoke.test.cjs
+      - name: Extract and run the packaged compiler
+        run: node scripts/compiler-archive-smoke.cjs compiler-plan.json ${{ matrix.host }} compiler-artifacts "${{ runner.temp }}/compiler-archive-smoke"
+      - name: Save command results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compiler-smoke-${{ matrix.host }}
+          path: ${{ runner.temp }}/compiler-archive-smoke/observations.json
+          if-no-files-found: warn
