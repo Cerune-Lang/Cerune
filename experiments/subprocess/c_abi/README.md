@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-**Rust共通runtimeを独立したCプログラムへ静的リンクする試作です。** [生成C](../../../docs/design/subprocess-c.ja.md)は接続済みです。[生成QBE](../../../docs/design/subprocess-qbe.ja.md)も接続済みです。[Nativeの言語操作](../../../docs/design/subprocess-native.ja.md)も接続済みです。Native build/releaseの明示archive入力・依存記録も実装済みです。WATとruntime・監督の公式配布は後続です。言語exampleは[process_execution](../../../examples/process_execution/README.md)に分けています。
+**Rust共通runtimeを独立したCプログラムへ静的リンクする試作です。** [生成C](../../../docs/design/subprocess-c.ja.md)は接続済みです。[生成QBE](../../../docs/design/subprocess-qbe.ja.md)も接続済みです。[Nativeの言語操作](../../../docs/design/subprocess-native.ja.md)も接続済みです。Native build/releaseの明示archive入力・依存記録も実装済みです。WAT参照hostも接続済みです。runtime・監督の公式配布は後続です。言語exampleは[process_execution](../../../examples/process_execution/README.md)に分けています。
 
 [LLVM ABI試験](../llvm_abi/README.md)でも同じarchiveとC側の期待値を使います。[生成LLVM](../../../docs/design/subprocess-llvm.ja.md)も接続済みです。generated.cjsに--llvmを渡すと、同じexampleと期待値をLLVM経路で検証します。
 
@@ -63,4 +63,4 @@ C側の独立したサイズ・offset・Report期待値で、要求コピー、�
 
 観測APIの読取りで実行を変えない検証は、共通runtimeの試験も継続します。全失敗分類の番号は既存codec試験で網羅し、OSで確実に起こせない障害をC試験で再現できたとは扱いません。無効な非NULLポインタやデータ競合を起こす試験は行いません。
 
-生成Cの要求変換・配列予約・Report変換・起動設定は実装済みです。[比較試験](generated.cjs)は同じarchiveを使用します。公開配布向けのarchive名・ABI互換性保証・manifest・Linux監督の配置は後続で確定します。
+生成Cの要求変換・配列予約・Report変換・起動設定は実装済みです。[比較試験](generated.cjs)は同じarchiveを使用します。[配布候補](../../../docs/distribution/process-runtime/README.md)は版・target・ハッシュ・ライセンス・Linux監督を記録して別途作成・検証します。公式公開と最低OS版の確定は後続です。

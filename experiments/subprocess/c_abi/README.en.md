@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-**This probe statically links the shared Rust runtime into an independent C program.** [Generated C](../../../docs/design/subprocess-c.en.md) is integrated. [Generated QBE](../../../docs/design/subprocess-qbe.en.md) is also integrated. [Native language operations](../../../docs/design/subprocess-native.en.md) are also connected. Native build/release also support explicit archive inputs and dependency records. WAT and official runtime/supervisor distribution follow. Language examples stay in [process_execution](../../../examples/process_execution/README.en.md).
+**This probe statically links the shared Rust runtime into an independent C program.** [Generated C](../../../docs/design/subprocess-c.en.md) is integrated. [Generated QBE](../../../docs/design/subprocess-qbe.en.md) is also integrated. [Native language operations](../../../docs/design/subprocess-native.en.md) are also connected. Native build/release also support explicit archive inputs and dependency records. The WAT reference host is also connected; official runtime/supervisor distribution follows. Language examples stay in [process_execution](../../../examples/process_execution/README.en.md).
 
 [The LLVM ABI probe](../llvm_abi/README.en.md) uses the same archive and C expectations. [Generated LLVM](../../../docs/design/subprocess-llvm.en.md) is also integrated. Pass --llvm to generated.cjs to test the same examples and expectations through LLVM.
 
@@ -63,4 +63,4 @@ Independent C expectations check sizes/offsets/Report fields, copied requests, o
 
 Shared-runtime tests continue verifying that observation does not change execution. Existing codec tests cover all failure numbers; the C probe does not claim to reproduce every OS fault. It does not exercise invalid non-null pointers or data races.
 
-Generated C request conversion, array reservation, Report conversion, and startup configuration are implemented. The [comparison probe](generated.cjs) uses the same archive. Distribution archive names, ABI compatibility guarantees, manifests, and Linux supervisor placement remain later work.
+Generated C request conversion, array reservation, Report conversion, and startup configuration are implemented. The [comparison probe](generated.cjs) uses the same archive. The separate [distribution candidate](../../../docs/distribution/process-runtime/README.en.md) records versions, targets, hashes, licenses and the Linux supervisor and is built/verified separately. Official publication and minimum OS versions remain later work.

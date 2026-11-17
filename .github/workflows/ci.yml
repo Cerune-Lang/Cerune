@@ -715,3 +715,53 @@ jobs:
             target/subprocess-qbe-abi/*.ssa
             target/subprocess-qbe-abi/*.s
           if-no-files-found: ignore
+
+  process-runtime-bundle:
+    name: Process runtime bundle / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: process-runtime.a
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: process-runtime.lib
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.98.0
+        with:
+          components: rust-docs
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Reject damaged bundles and incompatible metadata
+        run: node --test scripts/process-runtime-bundle.test.cjs
+      - name: Build runtime distribution candidate
+        run: node scripts/process-runtime-bundle.cjs build ${{ matrix.target }} "${{ runner.temp }}/process-runtime-bundle"
+      - name: Extract away from checkout, link and run the ABI probe
+        shell: bash
+        run: |
+          archive=("$RUNNER_TEMP"/process-runtime-bundle/*.tar.gz)
+          test "${#archive[@]}" = 1
+          test -f "${archive[0]}"
+          node scripts/process-runtime-smoke.cjs '${{ matrix.target }}' clang "${archive[0]}" "$RUNNER_TEMP/process-runtime-smoke"
+      - name: Build and release the Cerune example using the extracted runtime
+        env:
+          CERUNE_TEST_PROCESS_RUNTIME: ${{ runner.temp }}/process-runtime-smoke/runtime/lib/${{ matrix.archive }}
+          CERUNE_TEST_PROCESS_SUPERVISOR: ${{ runner.temp }}/process-runtime-smoke/runtime/bin/cerune-process-supervisor
+        run: cargo test --locked --test native_program process_runtime_build_release -- --include-ignored
+      - name: Save runtime candidates and command results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: process-runtime-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/process-runtime-bundle/*.tar.gz
+            ${{ runner.temp }}/process-runtime-bundle/*.sha256
+            ${{ runner.temp }}/process-runtime-bundle/logs/
+            ${{ runner.temp }}/process-runtime-smoke/logs/
+          if-no-files-found: error
