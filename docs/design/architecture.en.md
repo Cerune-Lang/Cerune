@@ -29,7 +29,7 @@ In particular:
 - optimizations should be introduced as explicit, observable passes that can be examined as part of an experiment;
 - generated observations should avoid incidental nondeterminism such as timestamps or random identifiers.
 
-Cerune v0.1 does not silently insert numeric conversions or hide transformations that are useful to observe.
+Cerune v0.2 does not silently insert numeric conversions or hide transformations that are useful to observe.
 
 ## Compiler architecture
 

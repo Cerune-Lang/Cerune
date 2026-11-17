@@ -2,7 +2,7 @@
 
 [日本語](cli.ja.md)
 
-This document defines the command-line interface of Cerune v0.1.
+This document defines the command-line interface of Cerune v0.2.
 
 [Native build](../design/native-build.en.md) and [Native release](../design/native-release.en.md) are implemented. IR/VM [build / release](../design/owned-routes.en.md), and [Lean output](../design/lean-verification.en.md), remain at the design/experiment stage.
 

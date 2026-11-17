@@ -2,7 +2,7 @@
 
 [日本語](release-readiness.ja.md)
 
-As of 2026-11-17, **v0.2.0** is the next candidate. The published version and Cargo.toml still say **v0.1.0**, and the test archives below also identify themselves as 0.1.0. The next version, included commit and publication date will be decided during final review.
+As of 2026-11-17, the source version for the distribution candidate is **v0.2.0**. The published version remains **v0.1.0**. The 0.1.0 archives below are historical records validating the distribution procedure. New 0.2.0 archives will be built and tested, with the included commit and publication date decided during final review.
 
 See the [v0.2.0 release notes draft](v0.2.0-notes.en.md) for included features and upgrade instructions.
 
@@ -65,7 +65,7 @@ The test passed for baseline and SSA Native build/release of `registered.ceru`, 
 | Order | Work | Completion condition |
 | --- | --- | --- |
 | 1 | Merge included PRs | Normal CI, CodeQL and Release tests pass for the selected commit |
-| 2 | Confirm the version | Update Cargo.toml, Cargo.lock and publication documents to the same version |
+| 2 | Update the version | Main package, experimental lockfiles and reference docs updated to 0.2.0; published 0.1.0 instructions retained |
 | 3 | Write Japanese and English release notes | Explain changes since v0.1.0, compatibility changes such as import names, tested OSes, required tools and unsupported features |
 | 4 | Test the updated version | Five compiler targets, two runtime targets and the catalog agree on version/commit and pass execution tests |
 | 5 | Review publication and create the tag | Confirm the commit/version, then rebuild, retest and publish from the tag |
