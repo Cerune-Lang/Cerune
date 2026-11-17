@@ -169,11 +169,21 @@ jobs:
             ${{ steps.cargo-dist.outputs.paths }}
             ${{ env.BUILD_MANIFEST_NAME }}
 
+  custom-process-runtime-release:
+    needs:
+      - plan
+    if: ${{ needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload' }}
+    uses: ./.github/workflows/process-runtime-release.yml
+    with:
+      plan: ${{ needs.plan.outputs.val }}
+    secrets: inherit
+
   # Build and package all the platform-agnostic(ish) things
   build-global-artifacts:
     needs:
       - plan
       - build-local-artifacts
+      - custom-process-runtime-release
     runs-on: "ubuntu-22.04"
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -220,7 +230,18 @@ jobs:
     needs:
       - plan
       - build-local-artifacts
+      - custom-process-runtime-release
     uses: ./.github/workflows/compiler-archive-smoke.yml
+    with:
+      plan: ${{ needs.plan.outputs.val }}
+    secrets: inherit
+
+  custom-process-runtime-catalog:
+    needs:
+      - plan
+      - build-local-artifacts
+      - custom-process-runtime-release
+    uses: ./.github/workflows/process-runtime-catalog.yml
     with:
       plan: ${{ needs.plan.outputs.val }}
     secrets: inherit
@@ -229,10 +250,12 @@ jobs:
     needs:
       - plan
       - build-local-artifacts
+      - custom-process-runtime-release
       - build-global-artifacts
       - custom-compiler-archive-smoke
+      - custom-process-runtime-catalog
     # Only run if we're "publishing", and only if plan, local and global didn't fail (skipped is fine)
-    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.custom-compiler-archive-smoke.result == 'skipped' || needs.custom-compiler-archive-smoke.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.custom-compiler-archive-smoke.result == 'skipped' || needs.custom-compiler-archive-smoke.result == 'success') && (needs.custom-process-runtime-catalog.result == 'skipped' || needs.custom-process-runtime-catalog.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') && (needs.custom-process-runtime-release.result == 'skipped' || needs.custom-process-runtime-release.result == 'success') }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     runs-on: "ubuntu-22.04"
