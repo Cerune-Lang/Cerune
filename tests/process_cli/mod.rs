@@ -307,7 +307,7 @@ fn os_connections_preserve_results_and_other_execution_resources() {
         .join("\n");
     let combined = format!(
         r#"import "std:process" as types;
-import "std:process/run" as process;
+import "std:process::run" as process;
 import "std:io" as io;
 import "std:env" as env;
 import "std:fs" as fs;

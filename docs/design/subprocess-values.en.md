@@ -2,7 +2,7 @@
 
 [日本語](subprocess-values.ja.md)
 
-`import "std:process" as process;` provides request/result types. Execution uses separate `std:process/run` imports, connected to [common IR and four executors](subprocess-execution.en.md). [CLI registration](subprocess-cli.en.md) is also connected; generated execution follows.
+`import "std:process" as process;` provides request/result types. Execution uses separate `std:process::run` imports, connected to [common IR and four executors](subprocess-execution.en.md). [CLI registration](subprocess-cli.en.md) is also connected; generated execution follows.
 
 ## Types and retained information
 

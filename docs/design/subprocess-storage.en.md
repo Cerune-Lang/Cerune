@@ -63,7 +63,7 @@ Layout mismatches are internal type-integration errors; allocation failures are 
 
 ## Connecting requests and Outcome
 
-The [internal value bridge](../../src/runtime/process/language_values.rs) calls the common runtime with a prepared request and returns Outcome using existing language values. **The common-IR operation from `std:process/run` uses it. [CLI configuration](subprocess-cli.en.md) is also implemented.**
+The [internal value bridge](../../src/runtime/process/language_values.rs) calls the common runtime with a prepared request and returns Outcome using existing language values. **The common-IR operation from `std:process::run` uses it. [CLI configuration](subprocess-cli.en.md) is also implemented.**
 
 | Order | Behavior and failure handling |
 | --- | --- |

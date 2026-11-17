@@ -2,11 +2,11 @@
 
 [日本語](subprocess-execution.ja.md)
 
-`run` from `std:process/run` is connected to HIR, MIR, SSA, and the Bytecode VM, using [existing types](subprocess-values.en.md) and the [common runtime](subprocesses.en.md).
+`run` from `std:process::run` is connected to HIR, MIR, SSA, and the Bytecode VM, using [existing types](subprocess-values.en.md) and the [common runtime](subprocesses.en.md).
 
 ## Public API and support
 
-Use `import "std:process" as types;` for types and `import "std:process/run" as process;` for `process::run(request)`. The result is the same `types::Outcome`.
+Use `import "std:process" as types;` for types and `import "std:process::run" as process;` for `process::run(request)`. The result is the same `types::Outcome`.
 
 | Component | Current behavior |
 | --- | --- |

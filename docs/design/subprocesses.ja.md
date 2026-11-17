@@ -60,7 +60,7 @@ cargo test --lib runtime::process
 
 ## 呼出しと接続
 
-仮想標準モジュール `std:process`のデータ型は実装済みで、実行操作は別の`std:process/run`の`run`から利用します。[既存の標準モジュール](standard-modules.ja.md)と同じ予約名・仮想ソース・SourceIdを使い、相対importや暗黙のファイル探索を変更しません。
+仮想標準モジュール `std:process`のデータ型は実装済みで、実行操作は別の`std:process::run`の`run`から利用します。[既存の標準モジュール](standard-modules.ja.md)と同じ予約名・仮想ソース・SourceIdを使い、相対importや暗黙のファイル探索を変更しません。
 
 要求は以下を[Request型](subprocess-values.ja.md)で表現します。runはRequestを受けOutcomeを返します。Rustの接続ではLimitsで受理範囲を明示し、[CLI](subprocess-cli.ja.md)でも全上限を明示し、数値の既定値は設けません。
 

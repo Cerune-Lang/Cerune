@@ -2,11 +2,11 @@
 
 [English](subprocess-execution.en.md)
 
-`std:process/run`の`run`をHIR・MIR・SSA・Bytecode VMへ接続しました。[既存の型](subprocess-values.ja.md)と[共通runtime](subprocesses.ja.md)を使います。
+`std:process::run`の`run`をHIR・MIR・SSA・Bytecode VMへ接続しました。[既存の型](subprocess-values.ja.md)と[共通runtime](subprocesses.ja.md)を使います。
 
 ## 公開APIと対応範囲
 
-`import "std:process" as types;`で型を、`import "std:process/run" as process;`で`process::run(request)`を利用します。返却型は同じ`types::Outcome`です。
+`import "std:process" as types;`で型を、`import "std:process::run" as process;`で`process::run(request)`を利用します。返却型は同じ`types::Outcome`です。
 
 | 対象 | 現在の動作 |
 | --- | --- |

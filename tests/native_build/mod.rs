@@ -414,7 +414,7 @@ fn subprocess_build_rejects_unrecorded_runtime_dependency_before_output() {
             error.contains("requires --process-runtime <archive>"),
             "{error}"
         );
-        assert!(error.contains("std:process/run"), "{error}");
+        assert!(error.contains("std:process::run"), "{error}");
         assert!(
             !dir.exists(),
             "must reject before producing a misleading completed build"

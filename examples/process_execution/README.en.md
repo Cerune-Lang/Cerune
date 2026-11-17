@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-`std:process` provides types; `std:process/run` provides execution. Failures return in `Outcome` so the caller can continue.
+`std:process` provides types; `std:process::run` provides execution. Failures return in `Outcome` so the caller can continue.
 
 | Example | Behavior | Connection |
 | --- | --- | --- |

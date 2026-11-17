@@ -3,7 +3,7 @@ use crate::{bytecode, ir_executor, mir, mir_executor, ssa_executor, vm};
 
 const REQUEST: &str = r#"
 import "std:process" as p;
-import "std:process/run" as process;
+import "std:process::run" as process;
 fn request() -> p::Request {
     print("request");
     return p::Request {

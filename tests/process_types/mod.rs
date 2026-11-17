@@ -86,7 +86,12 @@ fn run_and_private_intrinsics_are_not_pretended_to_exist() {
         let error = cerune_lang::compile_to_ir(&source).unwrap_err();
         assert!(error.message().contains("unknown function"), "{error:?}");
     }
-    for module in ["std:process.ceru", "std:Process", "std:process/../process"] {
+    for module in [
+        "std:process.ceru",
+        "std:Process",
+        "std:process/../process",
+        "std:process/run",
+    ] {
         let source = format!("import \"{module}\" as p;");
         assert!(
             modules::from_source(&source)
@@ -332,7 +337,7 @@ fn ordinary_result_types_lower_to_remaining_generated_routes() {
 const EXECUTION: &str = include_str!("../../examples/process_execution/unconfigured.ceru");
 #[test]
 fn explicit_run_module_preserves_type_identity_and_virtual_origins() {
-    let source = format!("import \"std:process/run\" as again; {EXECUTION}");
+    let source = format!("import \"std:process::run\" as again; {EXECUTION}");
     let c = modules::from_source(&source).unwrap();
     let p = c.to_ir().unwrap();
     let operation = p.first_process_span().unwrap();
@@ -340,7 +345,7 @@ fn explicit_run_module_preserves_type_identity_and_virtual_origins() {
     assert!(matches!(
         module.kind(),
         SourceKind::Standard {
-            identifier: "std:process/run",
+            identifier: "std:process::run",
             version: 1
         }
     ));
@@ -417,8 +422,8 @@ fn execution_module_uses_explicit_native_targets_and_versioned_wat_imports() {
 #[test]
 fn run_intrinsic_remains_private_and_arguments_are_checked() {
     for source in [
-        r#"import "std:process/run" as p; p::__cerune_process_run();"#,
-        r#"import "std:process/run" as p; __cerune_process_run();"#,
+        r#"import "std:process::run" as p; p::__cerune_process_run();"#,
+        r#"import "std:process::run" as p; __cerune_process_run();"#,
     ] {
         assert!(
             cerune_lang::compile_to_ir(source)
@@ -428,7 +433,7 @@ fn run_intrinsic_remains_private_and_arguments_are_checked() {
         );
     }
     for call in ["p::run()", "p::run(3)"] {
-        let source = format!("import \"std:process/run\" as p; {call};");
+        let source = format!("import \"std:process::run\" as p; {call};");
         assert!(cerune_lang::compile_to_ir(&source).is_err());
     }
 }
