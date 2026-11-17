@@ -1,4 +1,5 @@
 'use strict';
+const {archiveTool} = require('./archive-tool.cjs');
 // The archive must be produced locally by process-runtime-bundle.cjs, not supplied by an untrusted party.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -14,7 +15,7 @@ const checksum = fs.readFileSync(archive + '.sha256', 'utf8');
 assert.equal(checksum, hash(fs.readFileSync(archive)) + '  ' + path.basename(archive) + '\n');
 const unpacked = path.join(dir, 'runtime');
 fs.mkdirSync(unpacked);
-run('tar', ['-xzf', archive, '-C', unpacked]);
+run(archiveTool(), ['-xzf', archive, '-C', unpacked]);
 const m = verify(target, unpacked);
 if (m.supervisor) {
     assert.equal(run(path.join(unpacked, m.supervisor.path), ['--version']),

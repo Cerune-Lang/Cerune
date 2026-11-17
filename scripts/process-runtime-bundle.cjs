@@ -1,4 +1,5 @@
 'use strict';
+const {archiveTool} = require('./archive-tool.cjs');
 // Build inputs are explicit; this tool never reads subprocess registration/configuration.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -167,7 +168,7 @@ function build(target, output) {
     json(path.join(dir, 'manifest.json'), manifest);
     verify(target, dir);
     const name = `cerune-process-runtime-${version}-${target}.tar.gz`;
-    run('tar', ['-czf', path.join(out, name), '-C', dir, '.']);
+    run(archiveTool(), ['-czf', path.join(out, name), '-C', dir, '.']);
     fs.writeFileSync(path.join(out, name + '.sha256'), hash(fs.readFileSync(path.join(out, name))) + '  ' + name + '\n');
     return path.join(out, name);
 }

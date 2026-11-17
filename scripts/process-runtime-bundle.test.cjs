@@ -74,3 +74,11 @@ test('require executable permission for the Linux supervisor', {skip: process.pl
     fs.chmodSync(path.join(f.dir, f.m.supervisor.path), 0o644);
     assert.throws(() => verify(f.target, f.dir), /not executable/);
 });
+
+test('Windows tar selection ignores Git Bash PATH and rejects missing SystemRoot', () => {
+    const {archiveTool} = require('./archive-tool.cjs');
+    assert.equal(archiveTool('win32', {SystemRoot: 'D:\\Windows'}), 'D:\\Windows\\System32\\tar.exe');
+    assert.throws(() => archiveTool('win32', {}), /SystemRoot/);
+    assert.throws(() => archiveTool('win32', {SystemRoot: 'Windows'}), /SystemRoot/);
+    assert.equal(archiveTool('linux', {}), 'tar');
+});
