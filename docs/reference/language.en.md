@@ -2,7 +2,7 @@
 
 [日本語](language.ja.md)
 
-This document defines the syntax and semantics of Cerune v0.1.
+This document defines the syntax and semantics of Cerune v0.2.
 
 ## Grammar
 
@@ -668,7 +668,7 @@ Cerune IR assigns deterministic IDs to bindings so references remain unambiguous
 
 ## Types
 
-Cerune v0.1 has one boolean type, ten numeric types, a string type, fixed arrays, and user-defined named product types:
+Cerune v0.2 has one boolean type, ten numeric types, a string type, fixed arrays, and user-defined named product types:
 
 ```text
 bool
@@ -852,7 +852,7 @@ Integer `+`, `-`, `*`, and signed integer unary `-` stop execution when their re
 
 The Cerune VM diagnoses the failing operation kind, type, bytecode instruction index, and source location. Generated C, LLVM IR, QBE IR, WebAssembly Text, and Windows x86-64 assembly retain corresponding checks or traps, making the enforcement point observable.
 
-Cerune v0.1 performs no implicit numeric conversion.
+Cerune v0.2 performs no implicit numeric conversion.
 
 For example, the following expression is a type error because its operands are `i64` and `f64`:
 

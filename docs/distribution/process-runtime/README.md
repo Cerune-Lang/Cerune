@@ -62,7 +62,7 @@ node scripts/process-runtime-bundle.cjs verify x86_64-unknown-linux-gnu target/p
 作成したアーカイブの実行試験は次のコマンドで行います。展開後に内容を検証するので、自分で作成したものなど、信頼できるアーカイブを入力してください。
 
 ```text
-node scripts/process-runtime-smoke.cjs x86_64-unknown-linux-gnu /usr/bin/clang target/process-runtime-linux/cerune-process-runtime-0.1.0-x86_64-unknown-linux-gnu.tar.gz /tmp/cerune-runtime-smoke
+node scripts/process-runtime-smoke.cjs x86_64-unknown-linux-gnu /usr/bin/clang target/process-runtime-linux/cerune-process-runtime-0.2.0-x86_64-unknown-linux-gnu.tar.gz /tmp/cerune-runtime-smoke
 ```
 
 試験はcheckoutの外へ展開し、同梱ヘッダ・ライブラリだけでC ABI試験をリンクします。PATHを空にして実行し、任意バイト、出自、非0終了、失敗、時間切れ、回収を確認します。Release workflowでは、展開したruntimeで既存の `registered.ceru` をNative build/releaseし、移動後の出力と依存記録も検証します。

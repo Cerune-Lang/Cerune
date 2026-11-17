@@ -62,7 +62,7 @@ Development builds record uncommitted changes as `source.dirty: true`. Check the
 Run the following execution test on an archive you built. Extraction precedes content verification, so supply a trusted archive.
 
 ```text
-node scripts/process-runtime-smoke.cjs x86_64-unknown-linux-gnu /usr/bin/clang target/process-runtime-linux/cerune-process-runtime-0.1.0-x86_64-unknown-linux-gnu.tar.gz /tmp/cerune-runtime-smoke
+node scripts/process-runtime-smoke.cjs x86_64-unknown-linux-gnu /usr/bin/clang target/process-runtime-linux/cerune-process-runtime-0.2.0-x86_64-unknown-linux-gnu.tar.gz /tmp/cerune-runtime-smoke
 ```
 
 The test extracts outside the checkout and links the C ABI probe using only the bundled header and library. It runs with an empty PATH and checks arbitrary bytes, origins, nonzero exits, failures, timeout and cleanup. The Release workflow also builds/releases the existing `registered.ceru` example with the extracted runtime, checking relocated execution and dependency records.

@@ -2,7 +2,7 @@
 
 [English](cli.en.md)
 
-この文書では、Cerune v0.1のコマンドラインインターフェースを定義します。
+この文書では、Cerune v0.2のコマンドラインインターフェースを定義します。
 
 [Native build](../design/native-build.ja.md)と[Native release](../design/native-release.ja.md)は実装済みです。IR/VMの[build・release](../design/owned-routes.ja.md)、[Lean出力](../design/lean-verification.ja.md)は設計・検証段階です。
 

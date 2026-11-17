@@ -13,14 +13,14 @@ The [earlier audit](development-status.en.md) preserves the 2026-10-11 baseline.
 
 ## Next release candidate
 
-**v0.2.0 is the candidate** for the next compiler GitHub Release. No publication date is set; the version and included changes will be confirmed during release preparation. This is separate from the `release native` command for packaging user programs.
+**v0.2.0 is the candidate** for the next compiler GitHub Release; the package and lockfile versions are updated. Build and test archives at this version before confirming the included commit and publication date. This is separate from the `release native` command for packaging user programs.
 
 | Before publication | Current state |
 | --- | --- |
 | Subprocess execution | Four executors and generated C/LLVM/QBE/Native are implemented. Explicit runtime inputs/records for Native build/release are also implemented; generated WAT is also connected and compared through the reference-host CLI; runtime/supervisor Release integration is merged; publication tagging is pending |
 | Runtime/Linux supervisor distribution | [Versioned archive creation and verification](../distribution/process-runtime/README.en.md) are implemented. CI checks relocated linking/execution on both OSes; Release attachment and version/commit/content checks are merged. Candidate archives also passed on Windows 11 Home 10.0.26100, in addition to Server 2022 / Ubuntu 22.04 CI |
 | Compiler distribution tests | [#272](https://github.com/Cerune-Lang/Cerune/issues/272): [Compiler archive tests](../distribution/compiler/README.en.md) added: PRs build all five targets and execute on matching OS/CPU hosts. Extraction and execution passed in CI on all five targets |
-| Published information | [Test records and publication steps](../distribution/release-readiness.en.md) documented in both languages. [Release notes draft](../distribution/v0.2.0-notes.en.md) added. Next confirm the included commit/version and content, then retest that version |
+| Published information | [Test records and publication steps](../distribution/release-readiness.en.md) documented in both languages. [Release notes draft](../distribution/v0.2.0-notes.en.md) added. Source version updated to 0.2.0. Retest the archives before confirming the included commit and publication content |
 
 The proposal is to finish the current subprocess work, then prepare publication. IR/VM Images, optimization, GPU, GUI, and other unimplemented features are not additional requirements for this release. Tagging and publication have not yet been decided.
 
