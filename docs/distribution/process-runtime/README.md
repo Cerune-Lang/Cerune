@@ -97,4 +97,4 @@ node scripts/process-runtime-smoke.cjs x86_64-unknown-linux-gnu /usr/bin/clang t
 
 Releaseには各targetの `cerune-process-runtime-<version>-<target>.tar.gz`、`.tar.gz.sha256`、`.json` と、一覧の `cerune-process-runtime.json` を添付します。個別JSONにはmanifestと試験runner、一覧には版・commit・ハッシュ・ABI・リンク引数・ビルド時のシステムruntimeを記録します。ビルドログと実行記録はActionsの観測用artifactから確認できます。
 
-実行にはWindowsのシステムDLL、Linuxのglibc等が必要です。上表は配布物を作成して試験するOSです。Windowsデスクトップ版の対応範囲や、それより古いOSの対応可否は、対象OSでの実行試験を追加して確定します。タグ作成と公開版の決定は、このworkflowの実装後に行うリリース作業です。
+実行にはWindowsのシステムDLL、Linuxのglibc等が必要です。上表は配布物を作成して試験するOSです。Server 2022製の配布候補はWindows 11 Home 10.0.26100でも実行試験が成功しました（[試験記録](../release-readiness.ja.md)）。ほかのWindows版や古いOSの対応可否は、対象OSでの実行試験を追加して確定します。タグ作成と公開版の決定は、このworkflowの実装後に行うリリース作業です。

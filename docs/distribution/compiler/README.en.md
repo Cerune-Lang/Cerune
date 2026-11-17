@@ -32,7 +32,7 @@ flowchart LR
 | `x86_64-apple-darwin` | `macos-15-intel` | tar.xz |
 | `aarch64-apple-darwin` | `macos-15` | tar.xz |
 
-The script requires all five targets in the plan and checks their runner mappings. It also checks the executing OS and CPU. macOS Intel archives run directly on Intel runners, and ARM archives on ARM runners. The table describes CI test environments. Minimum supported OS versions will be established during publication preparation.
+The script requires all five targets in the plan and checks their runner mappings. It also checks the executing OS and CPU. macOS Intel archives run directly on Intel runners, and ARM archives on ARM runners. The table describes CI test environments. The Windows candidate archive also passed startup/execution on Windows 11 Home 10.0.26100 ([test record and publication steps](../release-readiness.en.md)). Minimum supported OS versions will be established during publication preparation.
 
 ## Success criteria
 
