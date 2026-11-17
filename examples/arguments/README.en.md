@@ -23,7 +23,7 @@ end
 
 No arguments print `0` and `end`. One empty argument prints `1`, `[""]`, `0`, and `end`. Follow your shell's rules for passing empty arguments.
 
-HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT/Native execution are supported. Integer parsing is unimplemented. See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
+HIR/MIR/SSA/VM, CLI and generated C/LLVM/QBE/WAT/Native execution are supported. Integer parsing is available through `std:num::parse_i64` (see the seed example below). See [contracts, limits and remaining work](../../docs/design/dogfooding-inputs.en.md).
 
 Compare the same output through generated C. On Linux/macOS:
 
@@ -56,7 +56,7 @@ clang -target x86_64-unknown-linux-gnu target/arguments.s -o target/arguments
 
 On Windows, use `x86_64-pc-windows-msvc` for Cerune and Clang, `-t amd64_win` for QBE, and `target/arguments.exe` for the executable. Set acquisition limits explicitly with options such as `emit-qbe --argument-count-limit 2 --argument-byte-limit 10`.
 
-For WAT, use WABT 1.0.39, Node.js 20 and the [test-host contract](../../docs/design/wat-arguments-host.en.md) to inject the same arguments explicitly.
+For WAT, use WABT 1.0.39, Node.js 24 and the [test-host contract](../../docs/design/wat-arguments-host.en.md) to inject the same arguments explicitly.
 
 ```sh
 cargo run -- emit-wat examples/arguments/list.ceru -o target/arguments.wat

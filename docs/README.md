@@ -104,6 +104,7 @@
 ### ビルド・配布
 
 - [次回リリースの準備と配布物の試験記録](distribution/release-readiness.ja.md)
+- [v0.2.0リリースノート案](distribution/v0.2.0-notes.ja.md)
 
 - [実行・配布の責務](design/owned-routes.ja.md)
 - [Native build](design/native-build.ja.md)
