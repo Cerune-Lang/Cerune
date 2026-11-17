@@ -2,7 +2,7 @@
 
 [English](language-roadmap.en.md)
 
-生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。[LIR](lir-observation.ja.md)への操作・型・出自の保持も実装しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続しました。Native build/releaseの明示runtime archive指定・記録の検証も実装済みです。[WAT host契約とABI試験](wat-process-host.ja.md)を追加しました。生成WATの接続とWindows/Linuxの実子比較も試験用hostで実装しました。参照host CLIの明示接続と、時間超過・回収失敗・他I/Oとの比較も実装しました。[runtime・監督の配布候補](../distribution/process-runtime/README.md)の作成・移動後検証を追加しました。処理系アーカイブは5対象で展開・実行試験が成功しました。runtimeはWindows Server 2022／Ubuntu 22.04で作成・試験し、版・commit・ハッシュを確認してReleaseへ渡す手順を追加しています。
+生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。[LIR](lir-observation.ja.md)への操作・型・出自の保持も実装しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続しました。Native build/releaseの明示runtime archive指定・記録の検証も実装済みです。[WAT host契約とABI試験](wat-process-host.ja.md)を追加しました。生成WATの接続とWindows/Linuxの実子比較も試験用hostで実装しました。参照host CLIの明示接続と、時間超過・回収失敗・他I/Oとの比較も実装しました。[runtime・監督の配布候補](../distribution/process-runtime/README.md)の作成・移動後検証を追加しました。処理系アーカイブは5対象で展開・実行試験が成功しました。runtimeはWindows Server 2022／Ubuntu 22.04での作成・実行試験と、版・commit・ハッシュの照合まで成功しました。次は[公開前の確認](../distribution/release-readiness.ja.md)へ進みます。
 
 QBEの要求変換・出力配列予約・Report変換・起動設定を実装し、既存exampleと異常系をWindows/Linux各76比較で確認しました。
 
@@ -17,10 +17,10 @@ QBEの要求変換・出力配列予約・Report変換・起動設定を実装�
 
 | 公開前に揃えるもの | 現在の状態 |
 | --- | --- |
-| 子プロセスの実行 | 4実行器と生成C/LLVM/QBE/Nativeは実装済み。Native build/releaseの明示runtime指定・記録も実装済み。生成WATも参照host CLIへ接続し比較済み。公式runtime・監督配布は後続 |
-| runtime・Linux監督の配布 | [版付きアーカイブの作成・検証](../distribution/process-runtime/README.md)を実装。両OSで展開後のリンクと実行をCIで確認。Releaseへの添付と版・commit・内容照合を追加中。作成・試験OSはWindows Server 2022／Ubuntu 22.04。Windowsデスクトップ版・古いOSの対応範囲は追加試験で確定 |
+| 子プロセスの実行 | 4実行器と生成C/LLVM/QBE/Nativeは実装済み。Native build/releaseの明示runtime指定・記録も実装済み。生成WATも参照host CLIへ接続し比較済み。runtime・監督のRelease添付手順も統合済み。公開タグは未作成 |
+| runtime・Linux監督の配布 | [版付きアーカイブの作成・検証](../distribution/process-runtime/README.md)を実装。両OSで展開後のリンクと実行をCIで確認。Releaseへの添付手順と版・commit・内容照合も統合済み。Server 2022／Ubuntu 22.04のCIに加え、Windows 11 Home 10.0.26100で配布候補の実行に成功 |
 | 処理系の配布試験 | [#272](https://github.com/Cerune-Lang/Cerune/issues/272)。[コンパイラ配布試験](../distribution/compiler/README.md)を追加。PRで5対象を作成し、同じOS・CPUで展開して起動する。5対象すべてCIで展開・起動に成功 |
-| 公開する内容 | 全CI成功、変更点・未対応項目・互換性変更・対応OSを日英で整理する |
+| 公開する内容 | [配布試験の記録と公開までの手順](../distribution/release-readiness.ja.md)を日英で整理。次は収録commit・版・リリースノートを確定し、その版で再試験する |
 
 現在の子プロセス対応を揃えてから公開準備へ移る案です。IR/VM Image、最適化、GPU、GUIなどの未実装項目をこのリリースの必須条件へ加えません。まだタグ作成や公開を決定したものではありません。
 

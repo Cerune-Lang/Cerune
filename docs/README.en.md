@@ -103,6 +103,8 @@ Each document links to its Japanese counterpart.
 
 ### Build and distribution
 
+- [Next release preparation and archive test records](distribution/release-readiness.en.md)
+
 - [Owned routes and build / release](design/owned-routes.en.md)
 - [Native build: executable and generation/link records](design/native-build.en.md)
 - [Native release: distribution, runtime requirements and checksums](design/native-release.en.md)

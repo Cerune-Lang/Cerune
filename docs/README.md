@@ -103,6 +103,8 @@
 
 ### ビルド・配布
 
+- [次回リリースの準備と配布物の試験記録](distribution/release-readiness.ja.md)
+
 - [実行・配布の責務](design/owned-routes.ja.md)
 - [Native build](design/native-build.ja.md)
 - [Native release：配布構成・runtime要求・内容確認](design/native-release.ja.md)

@@ -32,7 +32,7 @@ flowchart LR
 | `x86_64-apple-darwin` | `macos-15-intel` | tar.xz |
 | `aarch64-apple-darwin` | `macos-15` | tar.xz |
 
-試験スクリプトはplanに5対象がそろっていることを確認し、runnerの指定を検査します。実行前にはOS・CPUも確認します。macOSのIntel版はIntel runner、ARM版はARM runnerで直接動かします。この表はCIで試す環境を示しています。最低対応OS版は公開準備で確定します。
+試験スクリプトはplanに5対象がそろっていることを確認し、runnerの指定を検査します。実行前にはOS・CPUも確認します。macOSのIntel版はIntel runner、ARM版はARM runnerで直接動かします。この表はCIで試す環境を示しています。Windowsの配布候補はWindows 11 Home 10.0.26100でも起動・実行を確認しました（[試験記録と公開準備](../release-readiness.ja.md)）。最低対応OS版は公開準備で確定します。
 
 ## 成功と判断する条件
 
