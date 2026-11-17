@@ -299,7 +299,7 @@ fn timeout_returns_cleanup_and_preserves_connection_reuse_decision() {
     let t = Temp::new();
     let cfg = serde_json::to_vec(&child_config(&t)).unwrap();
     let config = t.put("config.json", &cfg);
-    let source = r#"import "std:process" as p; import "std:process/run" as run;
+    let source = r#"import "std:process" as p; import "std:process::run" as run;
 request:p::Request=p::Request {target:"tool",arguments:array_copy(["sleep"]),stdin:array_repeat::<u8>(u8(0),0),stdout_limit:32,stderr_limit:32,timeout_ms:100};
 print("before");result:p::Outcome=run::run(request);print(result.report.failure);print(result.report.cleanup);print(result.report.progress_known);print("continued");
 next:p::Outcome=run::run(p::Request {target:"tool",arguments:array_copy(["empty"]),stdin:array_repeat::<u8>(u8(0),0),stdout_limit:32,stderr_limit:32,timeout_ms:10000});
@@ -362,7 +362,7 @@ fn incomplete_cleanup_is_reported_and_disables_the_next_launch() {
     cfg["limits"]["cleanup_timeout_ms"] = serde_json::json!(10);
     let cfg = serde_json::to_vec(&cfg).unwrap();
     let config = t.put("config.json", &cfg);
-    let source = r#"import "std:process" as p; import "std:process/run" as run;
+    let source = r#"import "std:process" as p; import "std:process::run" as run;
 request:p::Request=p::Request {target:"tool",arguments:array_copy(["unused"]),stdin:array_repeat::<u8>(u8(0),0),stdout_limit:64,stderr_limit:64,timeout_ms:10000};
 print("before");result:p::Outcome=run::run(request);print(result.report.failure);print(result.report.cleanup);print(result.report.cleanup_reported);print("continued");
 next:p::Outcome=run::run(request);print(next.report.failure);print(next.report.started);print("done");"#;

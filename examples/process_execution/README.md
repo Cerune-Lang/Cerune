@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-`std:process`は型、`std:process/run`は実行操作です。失敗も`Outcome`として受け取り、呼出し元が後続処理を続けます。
+`std:process`は型、`std:process::run`は実行操作です。失敗も`Outcome`として受け取り、呼出し元が後続処理を続けます。
 
 | サンプル | 動作 | 接続 |
 | --- | --- | --- |

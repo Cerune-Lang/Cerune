@@ -241,7 +241,7 @@ fn request_evaluation_short_circuit_and_report_origin_match_four_executors() {
             .trim()
             .trim_end_matches(';');
         let source = format!(
-            r#"import "std:process" as types; import "std:process/run" as process;
+            r#"import "std:process" as types; import "std:process::run" as process;
         fn request()->types::Request {{print("request");return {declaration};}}
         fn skip()->bool {{print("unexpected"); result: types::Outcome=process::run(request());return true;}}
         print(false && skip()); print("before"); result:types::Outcome=process::run(request());

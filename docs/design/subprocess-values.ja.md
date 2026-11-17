@@ -2,7 +2,7 @@
 
 [English](subprocess-values.en.md)
 
-`import "std:process" as process;`で要求・結果の型を利用できます。実行は別の`std:process/run`から利用し、[共通IRと4実行器](subprocess-execution.ja.md)へ接続済みです。[CLI登録](subprocess-cli.ja.md)も接続済みです。生成経路の実行対応は後続です。
+`import "std:process" as process;`で要求・結果の型を利用できます。実行は別の`std:process::run`から利用し、[共通IRと4実行器](subprocess-execution.ja.md)へ接続済みです。[CLI登録](subprocess-cli.ja.md)も接続済みです。生成経路の実行対応は後続です。
 
 ## 型と保持する情報
 

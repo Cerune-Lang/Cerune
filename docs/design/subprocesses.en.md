@@ -60,7 +60,7 @@ The [Windows/Linux OS probe](../../experiments/subprocess/README.en.md) already 
 
 ## Calls and connections
 
-The virtual standard module `std:process` provides data types; the execution operation is `run` in the separate `std:process/run` module. Use the reserved names, virtual sources, and SourceIds of [existing standard modules](standard-modules.en.md), without changing relative imports or introducing implicit file search.
+The virtual standard module `std:process` provides data types; the execution operation is `run` in the separate `std:process::run` module. Use the reserved names, virtual sources, and SourceIds of [existing standard modules](standard-modules.en.md), without changing relative imports or introducing implicit file search.
 
 The [Request type](subprocess-values.en.md) represents the following information. run takes Request and returns Outcome. Rust connection Limits specify accepted ranges; [CLI configuration](subprocess-cli.en.md) also requires explicit limits without numeric defaults.
 

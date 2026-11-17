@@ -13,7 +13,7 @@ pub fn check<B: Backend>(
 ) -> io::Result<serde_json::Value> {
     let source = r#"
 import "std:process" as p;
-import "std:process/run" as process;
+import "std:process::run" as process;
 request:p::Request=p::Request {
     target:"fixture",arguments:array_copy(["--fixture","transport-echo"]),
     stdin:array_copy([u8(255),u8(0),u8(13),u8(10)]),

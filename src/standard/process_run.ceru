@@ -1,4 +1,4 @@
-// std:process/run contract version 1.
+// std:process::run contract version 1.
 import "std:process" as process;
 
 pub fn run(request: process::Request) -> process::Outcome {

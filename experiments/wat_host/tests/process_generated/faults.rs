@@ -145,7 +145,7 @@ fn transport_failures_and_copy_responses_are_not_silently_accepted() {
 fn no_process_imports_for_ordinary_programs_and_old_host_rejection_for_unused_calls() {
     let text = wat::emit_wat(&hir("print(1);")).unwrap();
     assert!(!text.contains("process_"));
-    let source = r#"import "std:process" as p; import "std:process/run" as r;
+    let source = r#"import "std:process" as p; import "std:process::run" as r;
         fn unused(request:p::Request)->p::Outcome { return r::run(request); } print(1);"#;
     let text = wat::emit_wat(&hir(source)).unwrap();
     let engine = Engine::default();

@@ -1,5 +1,5 @@
 import "std:process" as types;
-import "std:process/run" as process;
+import "std:process::run" as process;
 
 request: types::Request = types::Request {
     target: "tool",

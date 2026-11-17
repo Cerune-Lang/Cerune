@@ -63,7 +63,7 @@ HIR/MIR/SSAの共通値とVM値の2表現に対応します。型IDやRust enum�
 
 ## 要求とOutcomeの接続
 
-[内部の値接続](../../src/runtime/process/language_values.rs)は、準備済み要求から共通runtimeを呼び、既存の言語値でOutcomeを返します。**`std:process/run`の共通IR命令から使用します。[CLI接続設定](subprocess-cli.ja.md)も実装しました。**
+[内部の値接続](../../src/runtime/process/language_values.rs)は、準備済み要求から共通runtimeを呼び、既存の言語値でOutcomeを返します。**`std:process::run`の共通IR命令から使用します。[CLI接続設定](subprocess-cli.ja.md)も実装しました。**
 
 | 順番 | 処理と失敗時の扱い |
 | --- | --- |
