@@ -19,7 +19,7 @@ QBEの要求変換・出力配列予約・Report変換・起動設定を実装�
 | --- | --- |
 | 子プロセスの実行 | 4実行器と生成C/LLVM/QBE/Nativeは実装済み。Native build/releaseの明示runtime指定・記録も実装済み。生成WATも参照host CLIへ接続し比較済み。公式runtime・監督配布は後続 |
 | runtime・Linux監督の配布 | [版付きアーカイブの作成・検証](../distribution/process-runtime/README.md)を実装。両OSで展開後のリンクと実行をCIで確認。公式配布への添付・最低OS版の確定は後続 |
-| 処理系の配布試験 | [#272](https://github.com/Cerune-Lang/Cerune/issues/272)。Windows/Linux/macOS向けのアーカイブを展開し、実際のバイナリで起動・最小ソースの実行を確認する |
+| 処理系の配布試験 | [#272](https://github.com/Cerune-Lang/Cerune/issues/272)。[コンパイラ配布試験](../distribution/compiler/README.md)を追加。PRで5対象を作成し、同じOS・CPUで展開して起動する。Windows/Linux x64は手元で検証済み。残る3対象はCIで確認する |
 | 公開する内容 | 全CI成功、変更点・未対応項目・互換性変更・対応OSを日英で整理する |
 
 現在の子プロセス対応を揃えてから公開準備へ移る案です。IR/VM Image、最適化、GPU、GUIなどの未実装項目をこのリリースの必須条件へ加えません。まだタグ作成や公開を決定したものではありません。
