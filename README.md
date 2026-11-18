@@ -167,6 +167,30 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 - **入出力・モジュール：** ネットワークI/O、モジュールの再エクスポート、パッケージ管理。
 - **ビルド・配布：** IR/VMの`build`・`release`（Nativeの実行ファイル構築・配布ディレクトリ作成には対応）。
 
+### 付加可能な`let`（Optional let）
+
+Ceruneでは、変数束縛に`let`を付加できます。短いコードでは省いて簡潔に、長いコードでは付けて束縛を見つけやすくできます。`let`の有無によってプログラムの意味は変わりません。
+
+| スタイル | 例 | 特徴 |
+| --- | --- | --- |
+| **Minimal** | `value: i64 = 42;` | `let`を付けずに簡潔に書く |
+| **Classic** | `let value: i64 = 42;` | `let`で束縛を明示する |
+| **Freeform** | `let`あり・なしを混在 | 必要に応じて使い分ける |
+
+これらは便宜上のスタイル名であり、別の言語モードではありません。束縛の`:`は必須です。
+
+```sh
+cerune fmt example.ceru --let hide      # letを外す
+cerune fmt example.ceru --let show      # letを付ける
+cerune fmt example.ceru --let preserve  # 元の表記を保持（既定）
+```
+
+整形結果は既定で標準出力に表示され、元ファイルは変更されません。保存する場合は`--write`などを明示します。
+
+**Cerune doesn't settle the `let` debate. It compiles both sides.**
+
+詳しくは[Optional letとソース整形](docs/design/formatting.ja.md)を参照してください。
+
 ## サンプルと開発
 
 | 操作 | コマンド |
