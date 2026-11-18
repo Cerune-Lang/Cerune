@@ -169,15 +169,15 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 
 ### 任意の`let`（Optional let）
 
-Ceruneでは、変数束縛の`let`は任意です。短いコードでは省いて簡潔に、長いコードでは付けて束縛を見つけやすくできます。`let`の有無によってプログラムの意味は変わりません。
+束縛の`let`は任意です。短いコードでは省き、長いコードでは束縛の目印として付けられます。`let`の有無でプログラムの意味は変わりません。
 
 | スタイル | 例 | 特徴 |
 | --- | --- | --- |
-| **Minimal** | `value: i64 = 42;` | `let`を付けずに簡潔に書く |
-| **Classic** | `let value: i64 = 42;` | `let`で束縛を明示する |
-| **Freeform** | `let`あり・なしを混在 | 必要に応じて使い分ける |
+| **Minimal** | `value: i64 = 42;` | `let`なし |
+| **Classic** | `let value: i64 = 42;` | `let`を明示 |
+| **Freeform** | 両方を混在 | 必要に応じて使い分け |
 
-これらは便宜上のスタイル名であり、別の言語モードではありません。束縛の`:`は必須です。
+これらは表記スタイルの例であり、別の言語モードではありません。束縛の`:`は必須です。
 
 ```sh
 cerune fmt example.ceru --let hide      # letを外す
@@ -185,9 +185,7 @@ cerune fmt example.ceru --let show      # letを付ける
 cerune fmt example.ceru --let preserve  # 元の表記を保持（既定）
 ```
 
-整形結果は既定で標準出力に表示され、元ファイルは変更されません。保存する場合は`--write`などを明示します。
-
-**Cerune doesn't settle the `let` debate. It compiles both sides.**
+整形結果は標準出力に表示されます。保存には`--write`などを指定します。
 
 詳しくは[Optional letとソース整形](docs/design/formatting.ja.md)を参照してください。
 

@@ -169,15 +169,15 @@ Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT use
 
 ### Optional `let`: three styles
 
-Cerune allows `let` as an optional prefix for variable bindings. Omit it to keep short code concise, or add it to make bindings easier to spot in longer code. Its presence does not change program semantics.
+The `let` prefix is optional for bindings. Omit it in short code or add it to make bindings easier to spot in longer code. Both forms have the same semantics.
 
 | Style | Example | Description |
 | --- | --- | --- |
-| **Minimal** | `value: i64 = 42;` | Keep bindings concise without `let` |
-| **Classic** | `let value: i64 = 42;` | Make bindings explicit with `let` |
-| **Freeform** | Mix both forms | Choose based on context |
+| **Minimal** | `value: i64 = 42;` | Without `let` |
+| **Classic** | `let value: i64 = 42;` | Explicit `let` |
+| **Freeform** | Mix both forms | Choose as needed |
 
-These are informal style names, not separate language modes. The `:` in a binding is still required.
+These are writing styles, not separate language modes. The `:` in a binding is required.
 
 ```sh
 cerune fmt example.ceru --let hide      # Remove let prefixes
@@ -185,9 +185,7 @@ cerune fmt example.ceru --let show      # Add let prefixes
 cerune fmt example.ceru --let preserve  # Preserve existing usage (default)
 ```
 
-By default, formatting prints to standard output without modifying the source file. Use `--write` to save changes explicitly.
-
-**Cerune doesn't settle the `let` debate. It compiles both sides.**
+Formatting prints to standard output. Use `--write` or another explicit output option to save changes.
 
 See [Optional let and formatting](docs/design/formatting.en.md) for details.
 
