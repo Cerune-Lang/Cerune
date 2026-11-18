@@ -167,6 +167,28 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 - **入出力・モジュール：** ネットワークI/O、モジュールの再エクスポート、パッケージ管理。
 - **ビルド・配布：** IR/VMの`build`・`release`（Nativeの実行ファイル構築・配布ディレクトリ作成には対応）。
 
+### 任意の`let`（Optional let）
+
+束縛の`let`は任意です。短いコードでは省き、長いコードでは束縛の目印として付けられます。`let`の有無でプログラムの意味は変わりません。
+
+| スタイル | 例 | 特徴 |
+| --- | --- | --- |
+| **Minimal** | `value: i64 = 42;` | `let`なし |
+| **Classic** | `let value: i64 = 42;` | `let`を明示 |
+| **Freeform** | 両方を混在 | 必要に応じて使い分け |
+
+これらは表記スタイルの例であり、別の言語モードではありません。束縛の`:`は必須です。
+
+```sh
+cerune fmt example.ceru --let hide      # letを外す
+cerune fmt example.ceru --let show      # letを付ける
+cerune fmt example.ceru --let preserve  # 元の表記を保持（既定）
+```
+
+整形結果は標準出力に表示されます。保存には`--write`などを指定します。
+
+詳しくは[Optional letとソース整形](docs/design/formatting.ja.md)を参照してください。
+
 ## サンプルと開発
 
 | 操作 | コマンド |

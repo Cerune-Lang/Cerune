@@ -167,6 +167,28 @@ Text goes to stdout; use `-o` to save it. LLVM / QBE require `--target`. WAT use
 - **I/O and modules:** Network I/O APIs, module re-exports, and package management.
 - **Build and distribution:** IR/VM `build` and `release` (Native executable construction and distribution directories are supported).
 
+### Optional `let`: three styles
+
+The `let` prefix is optional for bindings. Omit it in short code or add it to make bindings easier to spot in longer code. Both forms have the same semantics.
+
+| Style | Example | Description |
+| --- | --- | --- |
+| **Minimal** | `value: i64 = 42;` | Without `let` |
+| **Classic** | `let value: i64 = 42;` | Explicit `let` |
+| **Freeform** | Mix both forms | Choose as needed |
+
+These are writing styles, not separate language modes. The `:` in a binding is required.
+
+```sh
+cerune fmt example.ceru --let hide      # Remove let prefixes
+cerune fmt example.ceru --let show      # Add let prefixes
+cerune fmt example.ceru --let preserve  # Preserve existing usage (default)
+```
+
+Formatting prints to standard output. Use `--write` or another explicit output option to save changes.
+
+See [Optional let and formatting](docs/design/formatting.en.md) for details.
+
 ## Examples and Development
 
 | Task | Command |
