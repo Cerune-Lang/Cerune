@@ -1,11 +1,18 @@
 [package]
 name = "cerune-lang"
+authors = ["Cerune-Lang"]
 version = "0.2.0"
 edition = "2024"
 repository = "https://github.com/Cerune-Lang/Cerune"
 description = "A small experimental programming language designed to keep the path from source code to generated code observable."
 publish = false
 license = "MIT OR Apache-2.0"
+
+[package.metadata.wix]
+upgrade-guid = "F8CA53DD-8041-53FB-8752-62F88DF5C2F3"
+path-guid = "5FC51C22-661F-561F-B478-1906A50F83D1"
+license = false
+eula = false
 
 [package.metadata.dist]
 dist = true
