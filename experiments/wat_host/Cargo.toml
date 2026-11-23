@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 cerune-lang = { path = "../.." }
-wasmi = "=2.0.0"
+wasmi = "=2.0.2"
 
 [dev-dependencies]
 serde_json = "1.0"
