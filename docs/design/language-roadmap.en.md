@@ -17,16 +17,19 @@ Compiler downloads cover Windows x64 and both x64 and ARM64 on Linux and macOS. 
 
 See the [generated-route design](subprocess-generated.en.md) for subprocess tests by route and the [October 11 inventory](development-status.en.md) for the earlier baseline.
 
-## Recommended next work
+## Completion criteria for v0.3.0
 
-The proposed order starts with the PR checks used to validate changes across routes, followed by execution traces, file I/O and program distribution.
+The [milestone](https://github.com/Cerune-Lang/Cerune/milestone/1) tracks three issues. Each feature PR records the bilingual specification, a runnable example, and comparisons using the same inputs.
 
-| Order | Work | First acceptance check |
+| Order | Work | Acceptance tests |
 | --- | --- | --- |
-| 1 | Merge checks [#262](https://github.com/Cerune-Lang/Cerune/issues/262) | List the jobs each PR needs. Test failures, cancellations and expected skips before requiring the combined result on `master`. |
-| 2 | Execution traces [#282](https://github.com/Cerune-Lang/Cerune/issues/282) | Trace calls, returns, branches and stops in one small example. Compare event order and source positions across routes, and check that enabling tracing preserves output and exit status. |
-| 3 | Binary file reads and exclusive creation [#243](https://github.com/Cerune-Lang/Cerune/issues/243) | Round-trip bytes containing NUL and invalid UTF-8 under the existing `std:fs` root and size limits. Compare results across routes for oversized input and an existing destination. |
-| 4 | IR and VM artifacts [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | Specify the saved format and loader checks. Compare output and stop locations before and after loading the same program. |
+| 1 | Merge checks [#262](https://github.com/Cerune-Lang/Cerune/issues/262) | Pass `ci-gate` when every CI job, including the Linux, Windows and macOS matrices, succeeds. Test failed, cancelled and skipped prerequisite jobs. OS-specific steps can be skipped within a successful job. Require the gate and Dependency Review on `master` and record the CodeQL decision. |
+| 2 | Execution traces [#282](https://github.com/Cerune-Lang/Cerune/issues/282) | Compare event order, NodeId and source locations for calls, branches, returns and stops in the same example across four executors and generated C, LLVM, QBE, WAT and Native. Compare output, exit status and external operation counts with tracing on and off. Test event and byte limits and a failed trace write. |
+| 3 | Binary file I/O [#243](https://github.com/Cerune-Lang/Cerune/issues/243) | Read bytes containing NUL and invalid UTF-8 under the configured root and compare the newly saved file byte for byte. Check empty input, the exact limit, oversized input, read failures and an existing destination across routes. Include a small example reading known fields from an ELF header. |
+
+**Publication**. Extract and run archives for five compiler targets and two child-process runtime targets at the candidate commit that passed the three checks above. Record changes, upgrade instructions and supported hosts in both languages. Verify the tag workflow and the version and SHA-256 of the published files before closing the milestone. [Previous distribution tests](../distribution/release-readiness.en.md)
+
+Tint-St tracks trace display and Symnexa tracks ELF linking. Record both repositories’ commits when testing them together. The next packaging feature is [saving and loading IR and VM images (#81)](https://github.com/Cerune-Lang/Cerune/issues/81).
 
 ## Properties Cerune should preserve
 

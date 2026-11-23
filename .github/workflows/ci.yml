@@ -27,7 +27,7 @@ jobs:
           node scripts/check-ci-windows-coverage.cjs
           node scripts/check-ci-linux-coverage.cjs
           node scripts/check-ci-macos-coverage.cjs
-          node --test scripts/check-docs.test.cjs scripts/check-ci-macos-coverage.test.cjs scripts/fetch-qbe.test.cjs
+          node --test scripts/check-docs.test.cjs scripts/check-ci-gate.test.cjs scripts/check-ci-macos-coverage.test.cjs scripts/fetch-qbe.test.cjs
       - name: Call-depth probe contract and shallow smoke test
         run: |
           node --test experiments/call_depth/probe.test.cjs experiments/call_depth/probe_c.test.cjs
@@ -765,3 +765,25 @@ jobs:
             ${{ runner.temp }}/process-runtime-bundle/logs/
             ${{ runner.temp }}/process-runtime-smoke/logs/
           if-no-files-found: error
+
+  ci-gate:
+    if: always()
+    needs:
+      - rust
+      - linux-backends
+      - lean-verification
+      - windows-backends
+      - macos-backends
+      - host-call-probe
+      - subprocess-os-probe
+      - process-runtime-bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check every required CI job result
+        env:
+          CI_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: node scripts/check-ci-gate.cjs
