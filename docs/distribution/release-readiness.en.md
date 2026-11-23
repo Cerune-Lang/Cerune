@@ -1,10 +1,10 @@
-# Preparing the next release
+# v0.2.0 distribution test record
 
 [日本語](release-readiness.ja.md)
 
-As of 2026-11-17, the source version for the distribution candidate is **v0.2.0**. The published version remains **v0.1.0**. The 0.1.0 archives below are historical records validating the distribution procedure. New 0.2.0 archives will be built and tested, with the included commit and publication date decided during final review.
+[Cerune v0.2.0](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.2.0) was published on 2026-11-17 from commit `481d325`. The [tagged workflow](https://github.com/Cerune-Lang/Cerune/actions/runs/44079560770) tested five compiler targets and two runtime targets.
 
-See the [v0.2.0 release notes draft](v0.2.0-notes.en.md) for included features and upgrade instructions.
+See the [v0.2.0 release notes](v0.2.0-notes.en.md) for included features and upgrade instructions.
 
 ## Completed distribution tests
 
@@ -18,7 +18,7 @@ Choose the commit to include
   → publish to GitHub Release
 ```
 
-The PR build and execution steps have been verified.
+On November 24 we downloaded the published Windows x64 compiler and runtime and checked their SHA-256 sums. The extracted compiler ran `print(7);`. The C ABI probe built with the bundled header and static library and passed its execution tests. The following tables record pre-release testing.
 
 | Item | Verified behavior | Evidence |
 | --- | --- | --- |
@@ -60,7 +60,7 @@ cargo test --locked --test native_program process_runtime_build_release -- --inc
 
 The test passed for baseline and SSA Native build/release of `registered.ceru`, dependency content records and relocated execution. Repeat these tests with the new archives when changing the published compiler/runtime version. Actions artifacts expire; this record retains the run number, commit and hashes.
 
-## Remaining publication steps
+## Publication checklist
 
 | Order | Work | Completion condition |
 | --- | --- | --- |

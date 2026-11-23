@@ -18,20 +18,20 @@ Ceruneは、静的型付け・IR直接実行・VM実行・複数形式へのコ�
 
 ## インストール
 
-Cerune v0.1.0は、Windows・Linux・macOS向けのビルド済みバイナリを[GitHub Releases](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.1.0)からインストールできます。
+Cerune v0.2.0は、Windows・Linux・macOS向けのビルド済みバイナリを[GitHub Releases](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.2.0)からインストールできます。
 
 ### リリース版
 
 **Windows（PowerShell）**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Cerune-Lang/Cerune/releases/download/v0.2.0/cerune-lang-installer.ps1 | iex"
 ```
 
 **Linux / macOS（Shell）**
 
 ```sh
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Cerune-Lang/Cerune/releases/download/v0.2.0/cerune-lang-installer.sh | sh
 ```
 
 ### 開発版をソースからビルド
@@ -95,7 +95,7 @@ cerune emit-ir examples/runtime_failures/hello_cerune.ceru
 
 | 用途 | 対応・推奨環境 |
 | --- | --- |
-| 配布版（v0.1.0） | Windows x64、Linux x64 / ARM64、macOS Intel（x64）/ Apple Silicon（ARM64）向けのバイナリを提供 |
+| 配布版（v0.2.0） | Windows x64、Linux x64 / ARM64、macOS Intel（x64）/ Apple Silicon（ARM64）向けのバイナリを提供 |
 | 基本的な実行（`run` / `run-mir` / `run-vm`） | 対応する配布版のCerune本体。Clang・Node.js・WABTは不要 |
 | ソースからのビルド・開発 | Git、Rust / Cargo。リポジトリは `rust-toolchain.toml` で Rust 1.98.0 を指定 |
 | コード生成結果のコンパイル・実行 | 経路に応じたClang / GCC、QBE 1.3、WABT、OSのリンカ・SDKなど（[外部ツール](#外部ツール)参照） |
