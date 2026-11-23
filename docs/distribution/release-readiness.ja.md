@@ -1,10 +1,10 @@
-# 次回リリースの準備
+# v0.2.0の配布試験記録
 
 [English](release-readiness.en.md)
 
-2026-11-17時点で、配布候補のソース版を **v0.2.0** へ更新しました。公開済みの版は **v0.1.0** です。以下の0.1.0アーカイブは配布手順を確認した過去の記録です。0.2.0のアーカイブを新たに作成・試験し、収録commitと公開日を最後の確認で決定します。
+[Cerune v0.2.0](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.2.0) を2026-11-17に公開しました。公開commitは `481d325` です。 [タグの配布試験](https://github.com/Cerune-Lang/Cerune/actions/runs/44079560770)でコンパイラ5対象とruntime 2対象を検証しました。
 
-収録内容と移行方法は [v0.2.0リリースノート案](v0.2.0-notes.ja.md)で確認できます。
+収録内容と移行方法は [v0.2.0リリースノート](v0.2.0-notes.ja.md)で確認できます。
 
 ## 完了した配布試験
 
@@ -18,7 +18,7 @@
   → GitHub Releaseへ公開
 ```
 
-現在は、PRで配布物を作成して試験する手順まで確認できています。
+11月24日にReleaseからWindows x64用のコンパイラとruntimeをダウンロードしてSHA-256を照合しました。展開したコンパイラで `print(7);` を実行し、同梱ヘッダと静的ライブラリでリンクしたC ABI試験も成功しました。以下は公開前の試験記録です。
 
 | 対象 | 確認したこと | 根拠 |
 | --- | --- | --- |
@@ -60,7 +60,7 @@ cargo test --locked --test native_program process_runtime_build_release -- --inc
 
 `registered.ceru` の通常／SSA経由のNative build/release、依存内容の記録、移動後の実行が成功しました。コンパイラ・runtimeの公開版を変更した際は、その版のアーカイブで再試験します。Actions artifactには保存期限があるため、この記録にはrun番号・commit・ハッシュも残しています。
 
-## 公開までに行うこと
+## 公開に使った手順
 
 | 順番 | 作業 | 完了条件 |
 | --- | --- | --- |

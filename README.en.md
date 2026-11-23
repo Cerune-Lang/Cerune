@@ -18,20 +18,20 @@ Cerune is an experimental programming language with static typing, direct IR exe
 
 ## Installation
 
-Prebuilt Cerune v0.1.0 binaries for Windows, Linux, and macOS are available from [GitHub Releases](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.1.0).
+Prebuilt Cerune v0.2.0 binaries for Windows, Linux, and macOS are available from [GitHub Releases](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.2.0).
 
 ### Release binaries
 
 **Windows (PowerShell)**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Cerune-Lang/Cerune/releases/download/v0.2.0/cerune-lang-installer.ps1 | iex"
 ```
 
 **Linux / macOS (Shell)**
 
 ```sh
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Cerune-Lang/Cerune/releases/download/v0.1.0/cerune-lang-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Cerune-Lang/Cerune/releases/download/v0.2.0/cerune-lang-installer.sh | sh
 ```
 
 ### Build from source (latest master)
@@ -95,7 +95,7 @@ During development, replace `cerune` with `cargo run --quiet --`.
 
 | Use case | Supported / recommended environment |
 | --- | --- |
-| Prebuilt release (v0.1.0) | Binaries for Windows x64, Linux x64 / ARM64, and macOS Intel (x64) / Apple Silicon (ARM64) |
+| Prebuilt release (v0.2.0) | Binaries for Windows x64, Linux x64 / ARM64, and macOS Intel (x64) / Apple Silicon (ARM64) |
 | Basic execution (`run` / `run-mir` / `run-vm`) | Cerune prebuilt binary for your platform; Clang, Node.js, and WABT are not required |
 | Building from source / development | Git and Rust / Cargo; this repository pins Rust 1.98.0 in `rust-toolchain.toml` |
 | Compiling / running generated code | Route-dependent tools such as Clang / GCC, QBE 1.3, WABT, or an OS linker / SDK (see [External Tools](#external-tools)) |

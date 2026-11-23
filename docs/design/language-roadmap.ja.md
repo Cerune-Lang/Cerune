@@ -2,7 +2,7 @@
 
 [English](language-roadmap.en.md)
 
-生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。[LIR](lir-observation.ja.md)への操作・型・出自の保持も実装しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続しました。Native build/releaseの明示runtime archive指定・記録の検証も実装済みです。[WAT host契約とABI試験](wat-process-host.ja.md)を追加しました。生成WATの接続とWindows/Linuxの実子比較も試験用hostで実装しました。参照host CLIの明示接続と、時間超過・回収失敗・他I/Oとの比較も実装しました。[runtime・監督の配布候補](../distribution/process-runtime/README.md)の作成・移動後検証を追加しました。処理系アーカイブは5対象で展開・実行試験が成功しました。runtimeはWindows Server 2022／Ubuntu 22.04での作成・実行試験と、版・commit・ハッシュの照合まで成功しました。次は[公開前の確認](../distribution/release-readiness.ja.md)へ進みます。
+生成経路への子プロセス接続は[契約書](subprocess-generated.ja.md)の順で進めます。共通runtimeのprepare/execute分離と固定Report v1 codecは実装済みです。C ABIアダプタと静的リンクも[Windows/Linuxの試作](../../experiments/subprocess/c_abi/README.md)で検証しました。[生成C](subprocess-c.ja.md)も接続しました。[生成LLVM](subprocess-llvm.ja.md)もWindows/Linuxで接続しました。[生成QBE](subprocess-qbe.ja.md)も接続済みです。[NativeのABI試験](../../experiments/subprocess/native_abi/README.md)では両OSのASM・自前Objectから共通runtimeを呼び出せました。[LIR](lir-observation.ja.md)への操作・型・出自の保持も実装しました。[NativeのASM・自前Object実行](subprocess-native.ja.md)も接続しました。Native build/releaseの明示runtime archive指定・記録の検証も実装済みです。[WAT host契約とABI試験](wat-process-host.ja.md)を追加しました。生成WATの接続とWindows/Linuxの実子比較も試験用hostで実装しました。参照host CLIの明示接続と、時間超過・回収失敗・他I/Oとの比較も実装しました。[runtime・監督の配布候補](../distribution/process-runtime/README.md)の作成・移動後検証を追加しました。処理系アーカイブは5対象で展開・実行試験が成功しました。runtimeはWindows Server 2022／Ubuntu 22.04での作成・実行試験と、版・commit・ハッシュの照合まで成功しました。
 
 QBEの要求変換・出力配列予約・Report変換・起動設定を実装し、既存exampleと異常系をWindows/Linux各76比較で確認しました。
 
@@ -11,18 +11,9 @@ QBEの要求変換・出力配列予約・Report変換・起動設定を実装�
 [以前の監査記録](development-status.ja.md)は2026-10-11時点の履歴です。現在の状態はこのページで管理します。
 
 
-## 次回リリースの候補
+## 公開済みの版
 
-処理系の次回GitHub Releaseは **v0.2.0を候補**とし、本体とlockfileの版を更新しました。この版の配布物を作成・試験し、収録commitと公開日を確定します。利用者のプログラムをまとめる `release native` コマンドとは別です。
-
-| 公開前に揃えるもの | 現在の状態 |
-| --- | --- |
-| 子プロセスの実行 | 4実行器と生成C/LLVM/QBE/Nativeは実装済み。Native build/releaseの明示runtime指定・記録も実装済み。生成WATも参照host CLIへ接続し比較済み。runtime・監督のRelease添付手順も統合済み。公開タグは未作成 |
-| runtime・Linux監督の配布 | [版付きアーカイブの作成・検証](../distribution/process-runtime/README.md)を実装。両OSで展開後のリンクと実行をCIで確認。Releaseへの添付手順と版・commit・内容照合も統合済み。Server 2022／Ubuntu 22.04のCIに加え、Windows 11 Home 10.0.26100で配布候補の実行に成功 |
-| 処理系の配布試験 | [#272](https://github.com/Cerune-Lang/Cerune/issues/272)。[コンパイラ配布試験](../distribution/compiler/README.md)を追加。PRで5対象を作成し、同じOS・CPUで展開して起動する。5対象すべてCIで展開・起動に成功 |
-| 公開する内容 | [配布試験の記録と公開までの手順](../distribution/release-readiness.ja.md)を日英で整理。[リリースノート案](../distribution/v0.2.0-notes.ja.md)を追加。ソース版を0.2.0へ更新済み。配布物の再試験後、収録commitと公開内容を確認する |
-
-現在の子プロセス対応を揃えてから公開準備へ移る案です。IR/VM Image、最適化、GPU、GUIなどの未実装項目をこのリリースの必須条件へ加えません。まだタグ作成や公開を決定したものではありません。
+[Cerune v0.2.0](https://github.com/Cerune-Lang/Cerune/releases/tag/v0.2.0) を2026-11-17に公開しました。公開commitは `481d325` です。 [v0.2.0リリースノート](../distribution/v0.2.0-notes.ja.md) · [v0.2.0の配布試験記録](../distribution/release-readiness.ja.md)
 
 ## 本体の開発順
 
@@ -36,7 +27,7 @@ QBEの要求変換・出力配列予約・Report変換・起動設定を実装�
 | 2の続き | [infer省略](infer-omission.ja.md)（#105） | `value: = expression;`。宣言の`:`と既存の型推論規則を維持し、fmtも対応 | 通常束縛・for初期化に実装済み。else ifも別変更で実装済み。配列反復のinfer省略・条件式は別途 |
 | 3 | [Native build・配布初版](https://github.com/Cerune-Lang/Cerune/issues/81) | 明示target・リンカで実行ファイルを構築し、依存物・実行条件・出自を含めて配布 | Native build・対象システムruntimeを要求するrelease初版を実装済み |
 | 4 | [再帰](recursion.ja.md) | 呼出しごとの領域、所有・解放、上限、停止診断、call stackと出自を全経路で揃える | WATの呼出し領域と4実行器の明示深さ上限APIを実装。物理stackを実測し、4実行器の明示frameを実装。C・LLVM・QBE・WAT・Nativeの明示上限・深さ診断も実装。CLI既定128・範囲1〜128と成果物への設定保存も実装済み。直接・相互再帰とgeneric具体化の再利用、全経路の実行比較・exampleも実装済み |
-| 5 | [限定的なファイル入出力](file-io.ja.md) → [子プロセス](subprocesses.ja.md)（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 読取り＋新規保存をstd:fs・4実行器で実装。Windows/Linux実接続とCLIも実装。生成C・LLVM・QBEの意味処理、Windows/Linux実接続・起動設定も実装。WATの意味処理・版付きhost接続も実装。Nativeの意味処理・Windows/Linux実接続・起動設定も検証済み。Native build/releaseの接続契約記録も実装済み。WATのWindows/Linux実OS参照hostも検証済み。置換は未実装。子プロセスは段階実装中で、共通runtimeと試験用接続を実装。回復可能な結果・部分出力・後始末を検証。独立したOS試作で両OSの9ケースを検証。[進行中転送・取消しの契約と状態管理](subprocess-transfers.ja.md)を追加。共通runtimeの起動・期限・終了監視・後始末へ統合し、同時通知と遅れた部分転送を検証。[実OS接続設計](subprocess-os.ja.md)、Linux監督隔離、[制御通信・非同期I/O取消し](../../experiments/subprocess/transport/README.md)を検証。起動・管理範囲と転送を接続し、継承制限、切断・終了時の孫とI/O回収まで確認。[Windows](subprocess-windows.ja.md)・[Linux実OS Backend](subprocess-linux.ja.md)を共通runtimeへ接続。登録・容量・未回収資源の所有を明示。[std:processの公開データ型](subprocess-values.ja.md)と値を扱うexampleを追加。[返却領域の起動前予約と配列の確定・取消し](subprocess-storage.ja.md)を実装。Reportの固定領域、Outcome全体と要求変換の内部接続を実装。[共通IRと4実行器](subprocess-execution.ja.md)と実行exampleを追加。[CLI登録・上限・監督パス](subprocess-cli.ja.md)も接続済み。[生成経路の契約案](subprocess-generated.ja.md)を整理。prepare/execute・固定Report・C ABI・[生成C](subprocess-c.ja.md)を実装。生成LLVM・QBEも接続済み。Native実行・明示runtimeによるbuild/releaseも実装済み。WAT参照hostまで接続済み。次は公式配布を揃える |
+| 5 | [限定的なファイル入出力](file-io.ja.md) → [子プロセス](subprocesses.ja.md)（[#89](https://github.com/Cerune-Lang/Cerune/issues/89) / [#173](https://github.com/Cerune-Lang/Cerune/issues/173)） | 保存・再読込みの後、shellを介さない明示実行と出力・終了状態の回収。対象・容量・時間上限・失敗を定義 | 読取り＋新規保存をstd:fs・4実行器で実装。Windows/Linux実接続とCLIも実装。生成C・LLVM・QBEの意味処理、Windows/Linux実接続・起動設定も実装。WATの意味処理・版付きhost接続も実装。Nativeの意味処理・Windows/Linux実接続・起動設定も検証済み。Native build/releaseの接続契約記録も実装済み。WATのWindows/Linux実OS参照hostも検証済み。置換は未実装。子プロセスは段階実装中で、共通runtimeと試験用接続を実装。回復可能な結果・部分出力・後始末を検証。独立したOS試作で両OSの9ケースを検証。[進行中転送・取消しの契約と状態管理](subprocess-transfers.ja.md)を追加。共通runtimeの起動・期限・終了監視・後始末へ統合し、同時通知と遅れた部分転送を検証。[実OS接続設計](subprocess-os.ja.md)、Linux監督隔離、[制御通信・非同期I/O取消し](../../experiments/subprocess/transport/README.md)を検証。起動・管理範囲と転送を接続し、継承制限、切断・終了時の孫とI/O回収まで確認。[Windows](subprocess-windows.ja.md)・[Linux実OS Backend](subprocess-linux.ja.md)を共通runtimeへ接続。登録・容量・未回収資源の所有を明示。[std:processの公開データ型](subprocess-values.ja.md)と値を扱うexampleを追加。[返却領域の起動前予約と配列の確定・取消し](subprocess-storage.ja.md)を実装。Reportの固定領域、Outcome全体と要求変換の内部接続を実装。[共通IRと4実行器](subprocess-execution.ja.md)と実行exampleを追加。[CLI登録・上限・監督パス](subprocess-cli.ja.md)も接続済み。[生成経路の契約案](subprocess-generated.ja.md)を整理。prepare/execute・固定Report・C ABI・[生成C](subprocess-c.ja.md)を実装。生成LLVM・QBEも接続済み。Native実行・明示runtimeによるbuild/releaseも実装済み。WAT参照hostまで接続済み。v0.2.0でWindows x64・Linux x64用runtimeを公開 |
 
 2026-10-20に合意した着手順です。1では引数取得の全経路対応後に純粋な整数読取りを追加し、引数指定のexampleまで完成させます。[設計案](dogfooding-inputs.ja.md)の公開名・上限・接続契約を確定し、小さな標準モジュールとして実装します。汎用Option/Resultやパッケージ管理は前提にしません。
 
