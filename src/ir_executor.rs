@@ -6,6 +6,7 @@ use crate::runtime::files;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::process::{self, access as process_access};
+use crate::runtime::trace::{Event, Site, Trace};
 use crate::runtime::value::{self, write_quoted};
 use crate::{
     ir::{self, Expr, ExprKind as E, Statement, StatementKind as S},
@@ -169,6 +170,39 @@ pub fn run(program: &ir::Program) -> std::result::Result<String, ExecutionError>
     run_sink(program, &mut Capture::default())
 }
 
+/// runと同じ条件で一度だけ実行し、成功・停止のどちらでも読み取り専用の記録を返します。
+///
+/// ```
+/// use cerune_lang::{compile_to_ir, ir_executor, runtime::trace::Event};
+/// let program = compile_to_ir("fn twice(n:i64)->i64 { return n + n; } print(twice(3));").unwrap();
+/// let (result, trace) = ir_executor::run_with_trace(&program, 2);
+/// assert_eq!(result.unwrap(), "6\n");
+/// assert!(matches!(trace.events(), [Event::Call { .. }, Event::Return { .. }]));
+/// assert_eq!(trace.incomplete(), None);
+/// ```
+pub fn run_with_trace(
+    program: &ir::Program,
+    max_events: usize,
+) -> (std::result::Result<String, ExecutionError>, Trace) {
+    let mut trace = Trace::new(max_events);
+    let result = executor_for_resources(
+        program,
+        &mut Capture::default(),
+        &mut input::unconfigured(),
+        &Arguments::unconfigured(),
+        &mut files::unconfigured(),
+        None,
+        None,
+    )
+    .run(Some(&mut trace));
+    if let Err(error) = &result
+        && let Some(stop) = error.runtime_failure()
+    {
+        trace.record(Event::Stop(stop));
+    }
+    (result, trace)
+}
+
 /// ソース関数の同時呼出し数を明示した上限で検査します。既定値は選びません。
 /// 物理stack・memory消費を制限するAPIではありません。
 pub fn run_with_call_limit(
@@ -257,7 +291,7 @@ pub fn run_with_io_files_processes_arguments_and_call_limit<
 ) -> std::result::Result<(), ExecutionError> {
     let processes =
         processes.map(|(access, available)| process_access::Connection { access, available });
-    run_process_resources(
+    executor_for_resources(
         program,
         output,
         input,
@@ -266,6 +300,7 @@ pub fn run_with_io_files_processes_arguments_and_call_limit<
         processes,
         Some(limit),
     )
+    .run(None)
     .map(|_| ())
 }
 
@@ -330,7 +365,7 @@ fn run_resources(
     files: &mut dyn files::Access,
     limit: Option<NonZeroU32>,
 ) -> std::result::Result<String, ExecutionError> {
-    run_process_resources(
+    executor_for_resources(
         program,
         output,
         input,
@@ -339,17 +374,18 @@ fn run_resources(
         None,
         limit,
     )
+    .run(None)
 }
-fn run_process_resources<'o>(
-    program: &ir::Program,
+fn executor_for_resources<'a, 'o>(
+    program: &'a ir::Program,
     output: &'o mut dyn Sink,
     input: &'o mut dyn Source,
     program_arguments: &'o Arguments,
     files: &'o mut dyn files::Access,
     processes: Option<process_access::Connection<'o, Value>>,
     limit: Option<NonZeroU32>,
-) -> std::result::Result<String, ExecutionError> {
-    let mut executor = Executor {
+) -> Executor<'a, 'o> {
+    Executor {
         calls: limit.map(call::Stack::new),
         program,
         output,
@@ -359,26 +395,25 @@ fn run_process_resources<'o>(
         processes,
         heap: StringHeap::new(program.string_heap_limit),
         arrays: ArrayHeap::new(program.array_heap_limit),
-    };
-    match executor.entry() {
-        Ok(()) => {
-            #[cfg(test)]
-            {
-                executor.heap.assert_empty();
-                executor.arrays.assert_empty();
-            }
-            Ok(executor.output.captured().to_owned())
-        }
-        Err(error) => Err(ExecutionError {
-            kind: error.kind,
-            origin: error.origin,
-            output: executor.output.captured().to_owned(),
-        }),
     }
 }
 impl Executor<'_, '_> {
-    fn entry(&mut self) -> Result<()> {
-        machine::execute(self)
+    fn run(&mut self, trace: Option<&mut Trace>) -> std::result::Result<String, ExecutionError> {
+        match machine::execute(self, trace) {
+            Ok(()) => {
+                #[cfg(test)]
+                {
+                    self.heap.assert_empty();
+                    self.arrays.assert_empty();
+                }
+                Ok(self.output.captured().to_owned())
+            }
+            Err(error) => Err(ExecutionError {
+                kind: error.kind,
+                origin: error.origin,
+                output: self.output.captured().to_owned(),
+            }),
+        }
     }
     fn apply_statement(
         &mut self,
@@ -884,7 +919,7 @@ pub fn run_with_processes<B: process::Backend>(
     processes: &mut process::Processes<B>,
     transfer_bytes: usize,
 ) -> std::result::Result<String, ExecutionError> {
-    run_process_resources(
+    executor_for_resources(
         program,
         &mut Capture::default(),
         &mut input::unconfigured(),
@@ -896,6 +931,7 @@ pub fn run_with_processes<B: process::Backend>(
         }),
         None,
     )
+    .run(None)
 }
 
 #[cfg(test)]
@@ -930,7 +966,7 @@ mod tests {
             arrays: ArrayHeap::new(program.array_heap_limit),
         };
         executor.heap.fail_next_allocation();
-        let error = executor.entry().unwrap_err();
+        let error = machine::execute(&mut executor, None).unwrap_err();
         assert_eq!(
             error.kind,
             ErrorKind::Runtime(FailureCode::AllocationFailed)
@@ -978,7 +1014,7 @@ mod tests {
             arrays: ArrayHeap::new(p.array_heap_limit),
         };
         executor.arrays.fail_next_allocation();
-        let e = executor.entry().unwrap_err();
+        let e = machine::execute(&mut executor, None).unwrap_err();
         assert_eq!(e.kind, ErrorKind::Runtime(FailureCode::AllocationFailed));
         assert_eq!(executor.output.captured(), "before\n");
         let origin = e.origin.unwrap();
