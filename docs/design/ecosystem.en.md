@@ -2,18 +2,20 @@
 
 [日本語](ecosystem.ja.md)
 
-Inventory of the [Organization](https://github.com/Cerune-Lang) on 2026-10-20. This repository owns language specifications and implementation status. Other repositories own their documents/code; this inventory does not modify them.
+The [Organization](https://github.com/Cerune-Lang) inventory was checked on 2026-11-24. The table lists project responsibilities. The implementation and documentation audit below records observations from October 2026.
 
 | Responsibility | Project | Current scope |
 | --- | --- | --- |
 | Language, semantics, execution | [Cerune](https://github.com/Cerune-Lang/Cerune) | Common IR, executors, generated routes, ownership/failure/observation contracts |
-| Instruction encoding / object generation | [SASHIMI](https://github.com/Cerune-Lang/SASHIMI) | Added 2026-10-23: pinned Rust connection in Cerune; typed input, origin-range API and porting to Cerune remain future work |
+| Instruction encoding / object generation | [SASHIMI](https://github.com/Cerune-Lang/SASHIMI) | Cerune passes typed instructions to a pinned version and obtains assembly and objects with source origins. [Native encoder design](native-encoder.en.md) |
 | Observation UI | [Tint-St](https://github.com/Cerune-Lang/Tint-St) | CLI-backed display/execution and browser Wasm experiment; no duplicated language semantics |
 | Editing | [Cerune-vscode](https://github.com/Cerune-Lang/Cerune-vscode) | Syntax highlighting/snippets, not a completed compiler or LSP |
 | Differential tests | [Parallax](https://github.com/Cerune-Lang/Parallax) | IR/MIR/VM, fixed seeds, bounded expression/control-flow/loop/array generation, expectations and stops |
 | Safety research | [Fracta](https://github.com/Cerune-Lang/Fracta) | Expected overflow/division/index/conversion stops, not assumed vulnerabilities |
 | General numerics | [Quantelia](https://github.com/Cerune-Lang/Quantelia) | Initial f32 Tensor representation; no shape-consistency guarantee yet |
 | Machine learning | [Nerune](https://github.com/Cerune-Lang/Nerune) | Initial Tensor code; learning features are future work |
+| Linker and OS | Symnexa / LiseOS | Object linking and OS execution. Compiler proposals cover [binary files](https://github.com/Cerune-Lang/Cerune/issues/243) and [hardware I/O](https://github.com/Cerune-Lang/Cerune/issues/244) |
+| Web and native application | Tarot | Runs a tarot application on Web/Wasm and Windows Native. [Export and testing requests](https://github.com/Cerune-Lang/Cerune/issues/258) |
 | Real uses | [Cisa](https://github.com/Cerune-Lang/Cisa) / [stelle](https://github.com/Cerune-Lang/stelle) | Virtual CPU / CLI RPG expose concrete missing capabilities |
 | Explanation and entry points | [website](https://github.com/Cerune-Lang/website) / [.github](https://github.com/Cerune-Lang/.github) | Reader-oriented explanations / Organization profile; Cerune docs remain authoritative |
 
@@ -42,6 +44,4 @@ Core [#131](https://github.com/Cerune-Lang/Cerune/issues/131) tracks generation/
 
 ## Next core work
 
-#171 merged WAT i32/f64 exports, JS/TS generation and HTML examples, completing the initial scope. Arguments are merged across routes. Prioritize [SASHIMI connection and assembler separation](native-encoder.en.md), then follow the [core roadmap](language-roadmap.en.md) through integer parsing, optional let + fmt, distribution and recursion. Native build can proceed independently and is not a prerequisite.
-
-Compiler release v0.1.0 differs from master. #163 rounding fixes, #164 input limits and #170/#171 library exports arrived after v0.1.0. Examples, sites and surrounding CI must distinguish their tested versions rather than describe master-only features as released.
+The [core roadmap](language-roadmap.en.md) lists candidate compiler work and the first checks for each issue. Record the Cerune tag or commit when reporting results from another project.
