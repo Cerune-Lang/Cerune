@@ -8,6 +8,21 @@ This document explains what Cerune records and displays to connect source statem
 
 Cerune provides information for examining compilation results, but it does not provide an observation API for changing type-checking results or generated instructions.
 
+## HIR execution traces (Rust API)
+
+`ir_executor::run_with_trace(&program, max_events)` runs the program once with the same I/O configuration as `ir_executor::run` and returns its result and trace. The [factorial example](../../examples/recursion/factorial.ceru) prints `120` and `1`. A limit of 18 captures all 18 events, from the first call to the last return.
+
+| Event | When it is recorded and what it points to |
+| --- | --- |
+| `Call` | After evaluating the arguments and entering the function. Points to the caller's expression or statement |
+| `Branch` | After evaluating a HIR `if` condition. Carries the condition's source position and selected boolean |
+| `Return` | After evaluating and transferring the result. Points to the return statement |
+| `Stop` | Carries the existing `runtime-v1` stop code, node and source position |
+
+The index in `trace.events()` gives the event order. Resolve function names using the same HIR's `FunctionId`. Implicit entry into main and fallthrough returns use the function declaration span with an absent NodeId. The trace omits entries, returns and branches inside compiler-generated helper functions.
+
+When one more event occurs after reaching the limit, the prefix is retained and `trace.incomplete()` reports `EventLimit`. A trace allocation failure reports `AllocationFailed`. Program execution continues in both cases. This API collects events in memory. CLI file output, tracing on other routes and serialized byte limits are tracked in [#282](https://github.com/Cerune-Lang/Cerune/issues/282).
+
 ## Separation of observation and control
 
 - Observation APIs return information about compiler types, IR, and instruction-selection results; they provide no operation for changing those results.

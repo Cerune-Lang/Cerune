@@ -1,4 +1,6 @@
 //! 同じ完成済みIRを独立した3経路で実行し、既知の期待値も照合します。
+#[path = "ir_executor/trace.rs"]
+mod trace;
 use string_cases::aggregate_cases;
 #[allow(dead_code)]
 #[path = "support/runtime_cases.rs"]

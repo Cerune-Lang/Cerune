@@ -8,6 +8,7 @@ pub(crate) mod numeric;
 pub mod output;
 pub mod process;
 pub(crate) mod string_heap;
+pub mod trace;
 pub(crate) mod value;
 
 // 出力経路をまたいで照合する、ソースに由来する実行時停止の契約です。

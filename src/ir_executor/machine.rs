@@ -21,6 +21,19 @@ fn expr_origin(e: &Expr) -> Origin {
     }
 }
 
+fn function_site(function: &ir::FunctionDefinition, origin: Option<Origin>) -> Site {
+    match origin {
+        Some(o) => Site {
+            node: Some(o.node_id),
+            span: o.span,
+        },
+        None => Site {
+            node: None,
+            span: function.span,
+        },
+    }
+}
+
 // 各frameは自分の式の途中値と制御位置だけを保持します。
 struct Activation<'a> {
     function: Option<&'a ir::FunctionDefinition>,
@@ -83,17 +96,19 @@ impl Task<'_> {
         }
     }
 }
-struct Machine<'a> {
+struct Machine<'a, 't> {
+    trace: Option<&'t mut Trace>,
     active: Vec<Activation<'a>>,
     #[cfg(test)]
     fail_frame_after: Option<usize>,
 }
-pub(super) fn execute(executor: &mut Executor<'_, '_>) -> Result<()> {
-    Machine::new().run(executor)
+pub(super) fn execute(executor: &mut Executor<'_, '_>, trace: Option<&mut Trace>) -> Result<()> {
+    Machine::new(trace).run(executor)
 }
-impl<'a> Machine<'a> {
-    fn new() -> Self {
+impl<'a, 't> Machine<'a, 't> {
+    fn new(trace: Option<&'t mut Trace>) -> Self {
         Self {
+            trace,
             active: vec![],
             #[cfg(test)]
             fail_frame_after: None,
@@ -140,10 +155,11 @@ impl<'a> Machine<'a> {
                     None => e,
                 })
             } else {
-                self.finish(executor, None).map_err(|e| match fallback {
-                    Some(o) => e.at(o.node_id, o.span),
-                    None => e,
-                })
+                self.finish(executor, None, None)
+                    .map_err(|e| match fallback {
+                        Some(o) => e.at(o.node_id, o.span),
+                        None => e,
+                    })
             };
             result?;
         }
@@ -253,9 +269,23 @@ impl<'a> Machine<'a> {
         if result.is_err() && counted {
             executor.calls.as_mut().unwrap().leave();
         }
+        if result.is_ok()
+            && function.lowering.is_none()
+            && let Some(trace) = &mut self.trace
+        {
+            trace.record(Event::Call {
+                function: id,
+                site: function_site(function, destination.origin()),
+            });
+        }
         result
     }
-    fn finish(&mut self, executor: &mut Executor<'a, '_>, value: Option<Value>) -> Result<()> {
+    fn finish(
+        &mut self,
+        executor: &mut Executor<'a, '_>,
+        value: Option<Value>,
+        returned_at: Option<Origin>,
+    ) -> Result<()> {
         let frame = self.frame();
         if let Some(f) = frame.function {
             match (&f.return_type, &value) {
@@ -268,7 +298,7 @@ impl<'a> Machine<'a> {
         if frame.counted {
             executor.calls.as_mut().unwrap().leave();
         }
-        match (frame.destination, value) {
+        let result = match (frame.destination, value) {
             (Destination::Entry | Destination::Void(_), None) => Ok(()),
             (Destination::Value(e), Some(value)) => {
                 value
@@ -281,7 +311,18 @@ impl<'a> Machine<'a> {
                 kind: ErrorKind::InvalidIr("call result does not match use"),
                 origin: destination.origin(),
             }),
+        };
+        if result.is_ok()
+            && let Some(f) = frame.function
+            && f.lowering.is_none()
+            && let Some(trace) = &mut self.trace
+        {
+            trace.record(Event::Return {
+                function: f.id,
+                site: function_site(f, returned_at),
+            });
         }
+        result
     }
     fn jump_loop(&mut self, continuing: bool) -> Result<()> {
         let pending = &mut self.frame().pending;
@@ -425,12 +466,27 @@ impl<'a> Machine<'a> {
                 let S::If {
                     then_body,
                     else_body,
-                    ..
+                    condition,
                 } = &s.kind
                 else {
                     unreachable!()
                 };
                 let yes = self.value()?.boolean()?;
+                if let Some(trace) = &mut self.trace
+                    && self
+                        .active
+                        .last()
+                        .and_then(|frame| frame.function)
+                        .is_none_or(|f| f.lowering.is_none())
+                {
+                    trace.record(Event::Branch {
+                        taken: yes,
+                        site: Site {
+                            node: Some(condition.id),
+                            span: condition.span,
+                        },
+                    });
+                }
                 self.task(Task::Block(if yes { then_body } else { else_body }))?;
             }
             Task::LoopTest(s) => {
@@ -459,9 +515,9 @@ impl<'a> Machine<'a> {
                 }
             }
             Task::ForClause(_) => {}
-            Task::Return(_, has_value) => {
+            Task::Return(s, has_value) => {
                 let value = if has_value { Some(self.value()?) } else { None };
-                self.finish(executor, value)?;
+                self.finish(executor, value, Some(origin(s)))?;
             }
             Task::AssignNext(s, next, path) => {
                 let S::Assignment { target, value } = &s.kind else {
@@ -650,7 +706,7 @@ mod tests {
                 heap: StringHeap::new(program.string_heap_limit),
                 arrays: ArrayHeap::new(program.array_heap_limit),
             };
-            let mut machine = Machine::new();
+            let mut machine = Machine::new(None);
             machine.fail_frame_after = Some(0);
             let failure = machine.run(&mut executor).unwrap_err();
             assert_eq!(
