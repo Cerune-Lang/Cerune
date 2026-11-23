@@ -1,4 +1,4 @@
-//! HIRの実行が終了してから、上限内に収まるJSON Linesを新規ファイルへ保存します。
+//! プログラムの実行が終了してから、上限内に収まるJSON Linesを新規ファイルへ保存します。
 use cerune_lang::{
     ir::Program,
     runtime::trace::{Event, Incomplete, Site, Trace},

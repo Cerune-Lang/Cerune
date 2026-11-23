@@ -118,6 +118,7 @@ impl Builder<'_> {
             terminator: mir::Terminator {
                 id,
                 origin,
+                if_condition: None,
                 kind: mir::TerminatorKind::Jump(target),
             },
         });
@@ -229,6 +230,7 @@ fn function(
             instructions,
             terminator: mir::Terminator {
                 id: t.original_instruction,
+                if_condition: original.blocks[b.original_block.0].terminator.if_condition,
                 origin: t.origin,
                 kind,
             },
@@ -268,6 +270,7 @@ fn function(
             terminator: mir::Terminator {
                 id,
                 origin,
+                if_condition: None,
                 kind: mir::TerminatorKind::Jump(target),
             },
         });

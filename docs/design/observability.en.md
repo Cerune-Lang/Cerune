@@ -8,7 +8,7 @@ This document explains what Cerune records and displays to connect source statem
 
 Cerune provides information for examining compilation results, but it does not provide an observation API for changing type-checking results or generated instructions.
 
-## HIR execution traces (Rust API)
+## Execution traces for HIR, MIR and SSA
 
 `ir_executor::run_with_trace(&program, max_events)` runs the program once with the same I/O configuration as `ir_executor::run` and returns its result and trace. The [factorial example](../../examples/recursion/factorial.ceru) prints `120` and `1`. A limit of 18 captures all 18 events, from the first call to the last return.
 
@@ -21,7 +21,7 @@ Cerune provides information for examining compilation results, but it does not p
 
 The index in `trace.events()` gives the event order. Resolve function names using the same HIR's `FunctionId`. Implicit entry into main and fallthrough returns use the function declaration span with an absent NodeId. The trace omits entries, returns and branches inside compiler-generated helper functions.
 
-When one more event occurs after reaching the limit, the prefix is retained and `trace.incomplete()` reports `EventLimit`. A trace allocation failure reports `AllocationFailed`. Program execution continues in both cases. The CLI saves the same events as [byte-limited JSON Lines](../reference/cli.en.md). Collection on other routes is tracked in [#282](https://github.com/Cerune-Lang/Cerune/issues/282).
+When one more event occurs after reaching the limit, the prefix is retained and `trace.incomplete()` reports `EventLimit`. A trace allocation failure reports `AllocationFailed`. Program execution continues in both cases. The CLI saves the same events as [byte-limited JSON Lines](../reference/cli.en.md). MIR records the HIR condition at each `if` branch. SSA finds that condition through its original MIR block. Each executor records the decision it actually took. Loop tests and short-circuit jumps contribute no extra events. VM and generated code are tracked in [#282](https://github.com/Cerune-Lang/Cerune/issues/282).
 
 ## Separation of observation and control
 

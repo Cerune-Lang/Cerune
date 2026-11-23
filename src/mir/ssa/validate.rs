@@ -347,6 +347,7 @@ fn function(
             instructions,
             terminator: mir::Terminator {
                 id: t.original_instruction,
+                if_condition: source.blocks[b.original_block.0].terminator.if_condition,
                 origin: t.origin,
                 kind,
             },

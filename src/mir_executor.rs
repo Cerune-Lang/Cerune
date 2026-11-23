@@ -4,6 +4,10 @@ use crate::runtime::arguments::{self, Arguments};
 use crate::runtime::call;
 use crate::runtime::files;
 use crate::runtime::process::{self, access as process_access};
+use crate::runtime::{
+    RunOptions,
+    trace::{Event, Trace},
+};
 use crate::{
     ir,
     mir::{self, TerminatorKind as T},
@@ -303,18 +307,49 @@ pub fn run_with_io_files_processes_arguments_and_call_limit<
     limit: NonZeroU32,
     processes: Option<(&mut crate::runtime::process::Processes<P>, usize)>,
 ) -> std::result::Result<(), ExecutionError> {
+    run_connected(
+        program,
+        input,
+        output,
+        files,
+        arguments,
+        processes,
+        RunOptions {
+            call_depth_limit: limit,
+            trace_event_limit: None,
+        },
+    )
+    .0
+}
+
+/// 指定した接続で一度実行し、指定した件数までの記録を返します。
+pub fn run_connected<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: files::Backend,
+    P: process::Backend,
+>(
+    program: &mir::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    files: &mut files::Files<B>,
+    arguments: &Arguments,
+    processes: Option<(&mut process::Processes<P>, usize)>,
+    options: RunOptions,
+) -> (std::result::Result<(), ExecutionError>, Option<Trace>) {
     let processes =
         processes.map(|(access, available)| process_access::Connection { access, available });
-    run_process_resources(
+    let executor = executor_for_resources(
         program,
         output,
         Some(input),
         Some(arguments),
         Some(files),
         processes,
-        Some(limit),
-    )
-    .map(|_| ())
+        Some(options.call_depth_limit),
+    );
+    let (result, trace) = executor.run(options.trace_event_limit);
+    (result.map(|_| ()), trace)
 }
 
 pub fn run_with_arguments(
@@ -367,26 +402,26 @@ fn run_resources<'o>(
     files: Option<&'o mut dyn files::Access>,
     limit: Option<NonZeroU32>,
 ) -> std::result::Result<String, ExecutionError> {
-    run_process_resources(program, output, input, arguments, files, None, limit)
+    executor_for_resources(program, output, input, arguments, files, None, limit)
+        .run(None)
+        .0
 }
-fn run_process_resources<'o>(
-    program: &mir::Program,
+fn executor_for_resources<'a, 'o>(
+    program: &'a mir::Program,
     output: &'o mut dyn Sink,
     input: Option<&'o mut dyn input::Source>,
     arguments: Option<&'o Arguments>,
     files: Option<&'o mut dyn files::Access>,
     processes: Option<process_access::Connection<'o, Value>>,
     limit: Option<NonZeroU32>,
-) -> std::result::Result<String, ExecutionError> {
-    mir::validate(program).map_err(validation_error)?;
+) -> Executor<'a, 'o> {
     let mut executor = Executor::new(program, output);
     executor.state.input = input;
     executor.state.files = files;
     executor.state.processes = processes;
     executor.state.arguments = arguments;
     executor.state.calls = limit.map(call::Stack::new);
-    let result = executor.entry();
-    finish(result, executor.state)
+    executor
 }
 pub(crate) fn validation_error(e: mir::Error) -> ExecutionError {
     ExecutionError {
@@ -395,6 +430,20 @@ pub(crate) fn validation_error(e: mir::Error) -> ExecutionError {
         location: None,
         output: String::new(),
     }
+}
+pub(crate) fn finish_recorded(
+    result: Result<()>,
+    mut state: State<'_>,
+) -> (std::result::Result<String, ExecutionError>, Option<Trace>) {
+    let mut trace = state.trace.take();
+    let result = finish(result, state);
+    if let Some(trace) = &mut trace
+        && let Err(error) = &result
+        && let Some(stop) = error.runtime_failure()
+    {
+        trace.record(Event::Stop(stop));
+    }
+    (result, trace)
 }
 pub(crate) fn finish(
     result: Result<()>,
@@ -411,6 +460,17 @@ pub(crate) fn finish(
     }
 }
 impl<'a, 'o> Executor<'a, 'o> {
+    fn run(
+        mut self,
+        event_limit: Option<usize>,
+    ) -> (std::result::Result<String, ExecutionError>, Option<Trace>) {
+        self.state.trace = event_limit.map(Trace::new);
+        if let Err(error) = mir::validate(self.program).map_err(validation_error) {
+            return (Err(error), self.state.trace);
+        }
+        let result = self.entry();
+        finish_recorded(result, self.state)
+    }
     fn new(program: &'a mir::Program, output: &'o mut dyn Sink) -> Self {
         Self {
             program,
@@ -455,6 +515,9 @@ impl<'a, 'o> Executor<'a, 'o> {
                             self.state.leave(callee.counted);
                             return Err(fault(e));
                         }
+                        if let Some(trace) = &mut self.state.trace {
+                            trace.mir_call(callee.function, instruction.origin);
+                        }
                         active.push(callee);
                     } else {
                         semantics::instruction(
@@ -486,6 +549,9 @@ impl<'a, 'o> Executor<'a, 'o> {
                             .get(*condition)
                             .and_then(|v| v.boolean().map_err(Into::into))
                             .map_err(fault)?;
+                        if let Some(trace) = &mut self.state.trace {
+                            trace.mir_branch(frame.function, terminator.if_condition, yes);
+                        }
                         frame.block = if yes { *then_block } else { *else_block };
                     }
                     T::Unreachable => {
@@ -507,6 +573,9 @@ impl<'a, 'o> Executor<'a, 'o> {
                         self.state.leave(finished.counted);
                         if let Some(return_to) = finished.return_to {
                             return_to.resume(&mut active.last_mut().unwrap().data, result)?;
+                        }
+                        if let Some(trace) = &mut self.state.trace {
+                            trace.mir_return(finished.function, terminator.origin);
                         }
                         continue;
                     }
@@ -593,7 +662,7 @@ pub fn run_with_processes<B: process::Backend>(
     processes: &mut process::Processes<B>,
     transfer_bytes: usize,
 ) -> std::result::Result<String, ExecutionError> {
-    run_process_resources(
+    executor_for_resources(
         program,
         &mut Capture::default(),
         None,
@@ -605,6 +674,8 @@ pub fn run_with_processes<B: process::Backend>(
         }),
         None,
     )
+    .run(None)
+    .0
 }
 
 #[cfg(test)]

@@ -8,7 +8,7 @@
 
 コンパイル結果を調べる情報は提供しますが、その情報を使って型検査結果や生成する命令を書き換える機能は提供しません。
 
-## HIR実行中のトレース（Rust API）
+## HIR・MIR・SSAの実行トレース
 
 `ir_executor::run_with_trace(&program, max_events)` は通常の `ir_executor::run` と同じ入出力設定で一度実行し、結果と記録を返します。例えば[階乗](../../examples/recursion/factorial.ceru)は `120`、`1` を表示します。上限18件なら、最初の呼出しから最後の復帰までの18件を順に読めます。
 
@@ -21,7 +21,7 @@
 
 記録順は `trace.events()` の添字で読み取ります。関数名は同じHIRの `FunctionId` から引けます。暗黙のmain呼出しと関数末尾での復帰には関数宣言のSpanを使い、NodeIdは空になります。コンパイラ生成補助関数の出入りと内部の分岐は省きます。
 
-上限の次の出来事が発生すると、先頭から上限件までを保持し、`trace.incomplete()` が `EventLimit` を返します。記録用メモリの確保失敗では `AllocationFailed` を返します。どちらでもプログラムは同じ処理を続けます。CLIでは同じイベントを[バイト上限付きJSON Lines](../reference/cli.ja.md)に保存できます。他経路での採取は [#282](https://github.com/Cerune-Lang/Cerune/issues/282) の後続作業です。
+上限の次の出来事が発生すると、先頭から上限件までを保持し、`trace.incomplete()` が `EventLimit` を返します。記録用メモリの確保失敗では `AllocationFailed` を返します。どちらでもプログラムは同じ処理を続けます。CLIでは同じイベントを[バイト上限付きJSON Lines](../reference/cli.ja.md)に保存できます。MIRは `if` の分岐命令に条件式のNodeIdとSpanを保持し、SSAは対応する元のMIRブロックからその位置を取得します。各実行器が実際に選んだ真偽値が記録されるので、ループの継続判定や短絡評価で作られたジャンプは件数に入りません。VM・生成コードの対応は [#282](https://github.com/Cerune-Lang/Cerune/issues/282) の後続作業です。
 
 ## 観測と制御の分離
 

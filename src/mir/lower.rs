@@ -65,6 +65,7 @@ impl<'a> Builder<'a> {
             hir,
             function: Function {
                 id: f.map(|f| f.id),
+                declaration: f.map(|f| f.span),
                 name: f.map_or("main", |f| f.name.as_str()).into(),
                 lowering: f.and_then(|f| f.lowering),
                 argument_ownership: f
@@ -118,8 +119,21 @@ impl<'a> Builder<'a> {
             .push(Instruction { id, origin, kind });
     }
     fn end(&mut self, kind: TerminatorKind, origin: Origin) {
+        self.end_with_condition(kind, origin, None);
+    }
+    fn end_with_condition(
+        &mut self,
+        kind: TerminatorKind,
+        origin: Origin,
+        if_condition: Option<SourceOrigin>,
+    ) {
         let id = self.id();
-        self.blocks[self.current.0].terminator = Some(Terminator { id, origin, kind });
+        self.blocks[self.current.0].terminator = Some(Terminator {
+            id,
+            origin,
+            kind,
+            if_condition,
+        });
     }
     fn jump(&mut self, block: BlockId, origin: Origin) {
         self.end(TerminatorKind::Jump(block), origin);
@@ -329,17 +343,22 @@ impl<'a> Builder<'a> {
                 then_body,
                 else_body,
             } => {
+                let site = SourceOrigin {
+                    node_id: condition.id,
+                    span: condition.span,
+                };
                 let condition = self.expr(condition)?;
                 let then_block = self.new_block(derived(o, "if-then"));
                 let else_block = self.new_block(derived(o, "if-else"));
                 let join = self.new_block(derived(o, "if-join"));
-                self.end(
+                self.end_with_condition(
                     TerminatorKind::Branch {
                         condition,
                         then_block,
                         else_block,
                     },
                     o,
+                    Some(site),
                 );
                 self.current = then_block;
                 self.statements(then_body)?;
