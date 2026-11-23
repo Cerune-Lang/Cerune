@@ -7,6 +7,8 @@ use std::{
 };
 #[path = "support/process.rs"]
 mod process;
+#[path = "execution_output_cli/trace.rs"]
+mod trace;
 
 struct ChildGuard(Child);
 impl Drop for ChildGuard {

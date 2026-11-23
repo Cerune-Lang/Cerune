@@ -21,7 +21,7 @@ Cerune provides information for examining compilation results, but it does not p
 
 The index in `trace.events()` gives the event order. Resolve function names using the same HIR's `FunctionId`. Implicit entry into main and fallthrough returns use the function declaration span with an absent NodeId. The trace omits entries, returns and branches inside compiler-generated helper functions.
 
-When one more event occurs after reaching the limit, the prefix is retained and `trace.incomplete()` reports `EventLimit`. A trace allocation failure reports `AllocationFailed`. Program execution continues in both cases. This API collects events in memory. CLI file output, tracing on other routes and serialized byte limits are tracked in [#282](https://github.com/Cerune-Lang/Cerune/issues/282).
+When one more event occurs after reaching the limit, the prefix is retained and `trace.incomplete()` reports `EventLimit`. A trace allocation failure reports `AllocationFailed`. Program execution continues in both cases. The CLI saves the same events as [byte-limited JSON Lines](../reference/cli.en.md). Collection on other routes is tracked in [#282](https://github.com/Cerune-Lang/Cerune/issues/282).
 
 ## Separation of observation and control
 
