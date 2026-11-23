@@ -56,7 +56,7 @@ cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
 cerune run <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
-cerune run-mir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-mir <file> [--ssa] [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-vm <file> [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune --version
 ```
@@ -160,13 +160,15 @@ Update scripts and performance measurements that used the previous VM behavior o
 
 Rust callers use `run_ir(source)` or `ir_executor::run(&program)` for completed IR. `IrRunError` distinguishes construction and execution failures; execution errors expose `output()`, `origin()`, and `runtime_failure()`. For imports, use `modules::load(path)?.to_ir()`. See [responsibilities and limits](../design/ir-executor.en.md).
 
-### Save a HIR execution trace
+### Save and compare execution traces
 
 ```sh
 cerune run examples/recursion/factorial.ceru --trace factorial.jsonl
+cerune run-mir examples/recursion/factorial.ceru --trace factorial-mir.jsonl
+cerune run-mir examples/recursion/factorial.ceru --ssa --trace factorial-ssa.jsonl
 ```
 
-The program prints `120` and `1`. After execution and the final stdout flush, the CLI saves 18 events and an end record to a new file. `run-ir` accepts the same options.
+The program prints `120` and `1`. After execution and the final stdout flush, the CLI saves 18 events and an end record to a new file. Each command runs the example once. All three files contain the same bytes. The HIR alias `run-ir` also accepts these options.
 
 | Option | Default | What it counts |
 | --- | --- | --- |

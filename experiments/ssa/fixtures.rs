@@ -109,6 +109,7 @@ fn fixture(locals: Vec<mir::Local>, mappings: &[usize], bodies: Vec<Body>) -> Pr
             terminator: mir::Terminator {
                 id,
                 origin,
+                if_condition: None,
                 kind: source_kind,
             },
         });
@@ -235,6 +236,7 @@ pub fn parallel_loop() -> Program {
             origin: Origin::Synthetic {
                 reason: "retained-example",
             },
+            if_condition: None,
             kind: mir::TerminatorKind::Unreachable,
         },
     });

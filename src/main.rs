@@ -30,7 +30,8 @@ fn run() -> Result<(), String> {
         .into_string()
         .map_err(|_| "invalid Unicode in Cerune command")?;
     let (compiler_args, user_args) = program_arguments::split(&command, args)?;
-    let (compiler_args, trace_config) = if matches!(command.as_str(), "run" | "run-ir") {
+    let (compiler_args, trace_config) = if matches!(command.as_str(), "run" | "run-ir" | "run-mir")
+    {
         trace_cli::parse(compiler_args)?
     } else {
         (compiler_args, None)
@@ -398,6 +399,10 @@ fn run() -> Result<(), String> {
             let stdout = std::io::stdout();
             let mut output = cerune_lang::runtime::output::Output::new(stdout.lock());
             let mut stdin = cerune_lang::runtime::input::stdin();
+            let options = cerune_lang::runtime::RunOptions {
+                call_depth_limit,
+                trace_event_limit: trace_config.as_ref().map(|c| c.events),
+            };
             let mut trace = None;
             let mut result = if command == "run-mir" {
                 let mir = render_compilation_result(
@@ -406,16 +411,17 @@ fn run() -> Result<(), String> {
                 )?;
                 if ssa {
                     let ssa = ssa_for(&mir, &source)?;
-                    cerune_lang::ssa_executor::run_with_io_files_processes_arguments_and_call_limit(
+                    let (outcome, recorded) = cerune_lang::ssa_executor::run_connected(
                         &ssa,
                         &mut stdin,
                         &mut output,
                         &mut files,
                         &program_arguments,
-                        call_depth_limit,
                         processes.as_mut().map(|(p, n)| (p, *n)),
-                    )
-                    .map_err(|error| {
+                        options,
+                    );
+                    trace = recorded;
+                    outcome.map_err(|error| {
                         if runtime_format
                             && let cerune_lang::ssa_executor::ErrorKind::Arguments(failure) =
                                 error.kind()
@@ -431,16 +437,17 @@ fn run() -> Result<(), String> {
                         source.render(&error.diagnostic())
                     })
                 } else {
-                    cerune_lang::mir_executor::run_with_io_files_processes_arguments_and_call_limit(
+                    let (outcome, recorded) = cerune_lang::mir_executor::run_connected(
                         &mir,
                         &mut stdin,
                         &mut output,
                         &mut files,
                         &program_arguments,
-                        call_depth_limit,
                         processes.as_mut().map(|(p, n)| (p, *n)),
-                    )
-                    .map_err(|error| {
+                        options,
+                    );
+                    trace = recorded;
+                    outcome.map_err(|error| {
                         if runtime_format
                             && let cerune_lang::mir_executor::ErrorKind::Arguments(failure) =
                                 error.kind()
@@ -464,10 +471,7 @@ fn run() -> Result<(), String> {
                     &mut files,
                     &program_arguments,
                     processes.as_mut().map(|(p, n)| (p, *n)),
-                    cerune_lang::ir_executor::RunOptions {
-                        call_depth_limit,
-                        trace_event_limit: trace_config.as_ref().map(|c| c.events),
-                    },
+                    options,
                 );
                 trace = recorded;
                 outcome.map_err(|error| {
@@ -804,7 +808,7 @@ fn print_help() {
            cerune emit-bytecode <file> [-o <output.cebc>]\n\
            cerune run <file> [--trace <new-file>] [--trace-event-limit <count>] [--trace-byte-limit <bytes>] [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
            cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <count>] [--trace-byte-limit <bytes>] [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
-           cerune run-mir <file> [--ssa] [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
+           cerune run-mir <file> [--ssa] [--trace <new-file>] [--trace-event-limit <count>] [--trace-byte-limit <bytes>] [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
            cerune run-vm <file> [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
            cerune --version\n\n\
          run / run-ir: direct Cerune IR execution; run-mir: HIR -> MIR execution; run-vm: Bytecode -> VM.\n\

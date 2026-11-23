@@ -48,6 +48,7 @@ pub struct TypeDefinition {
 pub struct Function {
     pub id: Option<ir::FunctionId>,
     pub name: String,
+    pub declaration: Option<Span>,
     pub lowering: Option<ir::LoweringKind>,
     pub argument_ownership: ir::ArgumentOwnership,
     pub parameters: Vec<LocalId>,
@@ -244,6 +245,8 @@ pub enum Operation<R = LocalId> {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Terminator {
+    /// HIR の if で評価した条件式。
+    pub if_condition: Option<SourceOrigin>,
     pub id: InstructionId,
     pub origin: Origin,
     pub kind: TerminatorKind,

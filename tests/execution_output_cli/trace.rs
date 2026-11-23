@@ -122,6 +122,47 @@ fn aliases_and_exact_jsonl_limits() {
 }
 
 #[test]
+fn mir_and_ssa_match_hir_events_output_and_stops() {
+    let dir = fresh("trace-routes");
+    let implicit = dir.join("main.ceru");
+    fs::write(&implicit, "fn main()->void { if true { print(7); } }").unwrap();
+    let factorial = Path::new("examples/recursion/factorial.ceru");
+    for (i, (src, extra, success)) in [
+        (factorial, &[][..], true),
+        (factorial, &["--trace-event-limit", "2"][..], true),
+        (factorial, &["--trace-byte-limit", "128"][..], true),
+        (factorial, &["--call-depth-limit", "3"][..], false),
+        (implicit.as_path(), &[][..], true),
+        (Path::new("examples/loop_control.ceru"), &[][..], true),
+        (Path::new("examples/short_circuit.ceru"), &[][..], true),
+        (
+            Path::new("examples/recursion/owned_generic.ceru"),
+            &[][..],
+            true,
+        ),
+        (Path::new("examples/modules/failure.ceru"), &[][..], false),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut flags = vec!["--diagnostic-format", "runtime-v1"];
+        flags.extend_from_slice(extra);
+        let hir_path = dir.join(format!("{i}-hir"));
+        let hir = run("run", src, Some(&hir_path), &flags);
+        assert_eq!(hir.status.success(), success, "{src:?}");
+        let expected = fs::read(hir_path).unwrap();
+        for ssa in [false, true] {
+            if ssa {
+                flags.push("--ssa");
+            }
+            let path = dir.join(format!("{i}-mir-{ssa}"));
+            same_run(&run("run-mir", src, Some(&path), &flags), &hir);
+            assert_eq!(fs::read(path).unwrap(), expected, "{src:?} ssa={ssa}");
+        }
+    }
+}
+
+#[test]
 fn stops_and_save_errors_preserve_execution_diagnostics() {
     let dir = fresh("trace-stop");
     let src = dir.join("bad.ceru");
@@ -224,7 +265,7 @@ fn malformed_options_and_other_routes_do_not_run_the_program() {
         ),
         ("run", vec!["--trace", "--call-depth-limit", "1", path_arg]),
         ("run-vm", vec!["--trace", path_arg]),
-        ("run-mir", vec!["--trace", path_arg]),
+        ("run-mir", vec!["--ssa", "--trace-event-limit", "1"]),
     ] {
         let out = run(route, src, None, &flags);
         assert!(!out.status.success(), "{route} {flags:?}");

@@ -56,7 +56,7 @@ cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
 cerune run <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
-cerune run-mir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-mir <file> [--ssa] [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-vm <file> [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune --version
 ```
@@ -160,13 +160,15 @@ cerune run-ir examples/modules/failure.ceru --diagnostic-format runtime-v1
 
 Rust APIは`run_ir(source)`、完成済みIRには`ir_executor::run(&program)`を使います。`IrRunError`は構築失敗と実行失敗を区別し、実行エラーから`output()`・`origin()`・`runtime_failure()`を取得できます。importには`modules::load(path)?.to_ir()`を使います。[責務・制限](../design/ir-executor.ja.md)も参照してください。
 
-### HIRトレースを保存する
+### 実行トレースを保存して比較する
 
 ```sh
 cerune run examples/recursion/factorial.ceru --trace factorial.jsonl
+cerune run-mir examples/recursion/factorial.ceru --trace factorial-mir.jsonl
+cerune run-mir examples/recursion/factorial.ceru --ssa --trace factorial-ssa.jsonl
 ```
 
-標準出力は `120` と `1` です。実行と標準出力のflushが終わると、CLIは新規ファイルに18件のイベントと終端行を保存します。`run-ir` でも同じオプションを使えます。
+標準出力は `120` と `1` です。実行と標準出力のflushが終わると、CLIは新規ファイルに18件のイベントと終端行を保存します。各コマンドは階乗の例を1回ずつ実行します。3ファイルの内容はバイト単位で一致します。HIRの別名 `run-ir` でも同じ指定が使えます。
 
 | オプション | 既定値 | 数え方 |
 | --- | --- | --- |

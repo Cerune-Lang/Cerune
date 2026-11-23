@@ -299,11 +299,7 @@ pub fn run_with_io_files_processes_arguments_and_call_limit<
     .0
 }
 
-/// 実行前に指定するソース関数の深さ上限と、任意の観測件数です。
-pub struct RunOptions {
-    pub call_depth_limit: NonZeroU32,
-    pub trace_event_limit: Option<usize>,
-}
+pub use crate::runtime::RunOptions;
 
 /// 接続を保ったまま一度実行し、要求された場合は停止時にもトレースを返します。
 pub fn run_connected<

@@ -5,6 +5,7 @@ use crate::runtime::call;
 use crate::runtime::files;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Sink};
+use crate::runtime::trace::{Event, Site, Trace};
 use crate::{
     ir,
     mir::{self, InstructionKind as I, Operation as O},
@@ -20,6 +21,7 @@ use crate::{
 
 pub(crate) struct State<'a> {
     pub calls: Option<call::Stack>,
+    pub trace: Option<Trace>,
     #[cfg(test)]
     pub fail_frame_after: Option<usize>,
     pub output: &'a mut dyn Sink,
@@ -34,6 +36,7 @@ impl<'a> State<'a> {
     pub fn new(string_limit: u64, array_limit: u64, output: &'a mut dyn Sink) -> Self {
         Self {
             calls: None,
+            trace: None,
             #[cfg(test)]
             fail_frame_after: None,
             output,
@@ -52,6 +55,52 @@ impl<'a> State<'a> {
             ))
         } else {
             Ok(())
+        }
+    }
+}
+fn source_site(origin: mir::SourceOrigin) -> Site {
+    Site {
+        node: Some(origin.node_id),
+        span: origin.span,
+    }
+}
+fn function_site(f: &mir::Function, origin: mir::Origin) -> Option<(ir::FunctionId, Site)> {
+    if f.lowering.is_some() {
+        return None;
+    }
+    let site = match origin.source() {
+        Some(source) => source_site(source),
+        None => Site {
+            node: None,
+            span: f.declaration?,
+        },
+    };
+    Some((f.id?, site))
+}
+impl Trace {
+    pub(crate) fn mir_call(&mut self, f: &mir::Function, origin: mir::Origin) {
+        if let Some((function, site)) = function_site(f, origin) {
+            self.record(Event::Call { function, site });
+        }
+    }
+    pub(crate) fn mir_return(&mut self, f: &mir::Function, origin: mir::Origin) {
+        if let Some((function, site)) = function_site(f, origin) {
+            self.record(Event::Return { function, site });
+        }
+    }
+    pub(crate) fn mir_branch(
+        &mut self,
+        f: &mir::Function,
+        condition: Option<mir::SourceOrigin>,
+        taken: bool,
+    ) {
+        if f.lowering.is_none()
+            && let Some(condition) = condition
+        {
+            self.record(Event::Branch {
+                taken,
+                site: source_site(condition),
+            });
         }
     }
 }

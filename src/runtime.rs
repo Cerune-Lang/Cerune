@@ -108,6 +108,12 @@ impl RuntimeFailure {
     }
 }
 
+/// 実行前に指定するソース関数の深さ上限と、任意の観測件数です。
+pub struct RunOptions {
+    pub call_depth_limit: std::num::NonZeroU32,
+    pub trace_event_limit: Option<usize>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
