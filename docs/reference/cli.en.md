@@ -54,8 +54,8 @@ cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
-cerune run <file> [--process-config <json>] [--diagnostic-format runtime-v1]
-cerune run-ir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-mir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-vm <file> [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune --version
@@ -159,6 +159,25 @@ Successful output goes to stdout. Failures preserve prior output, write a diagno
 Update scripts and performance measurements that used the previous VM behavior of `run` to use `run-vm`. Language output and failure records are shared, but only the VM route includes bytecode instruction indices in default diagnostics.
 
 Rust callers use `run_ir(source)` or `ir_executor::run(&program)` for completed IR. `IrRunError` distinguishes construction and execution failures; execution errors expose `output()`, `origin()`, and `runtime_failure()`. For imports, use `modules::load(path)?.to_ir()`. See [responsibilities and limits](../design/ir-executor.en.md).
+
+### Save a HIR execution trace
+
+```sh
+cerune run examples/recursion/factorial.ceru --trace factorial.jsonl
+```
+
+The program prints `120` and `1`. After execution and the final stdout flush, the CLI saves 18 events and an end record to a new file. `run-ir` accepts the same options.
+
+| Option | Default | What it counts |
+| --- | --- | --- |
+| `--trace-event-limit N` | 4096 events | Zero or more calls, branches, returns and stops in execution order |
+| `--trace-byte-limit N` | 1048576 bytes | At least 65. Counts each UTF-8 line, its LF, and the end record. The longest end record occupies 65 bytes |
+
+Use these limits with `--trace <new-file>`. Each JSON Lines event carries `schema: "trace-v1"`, a one-based `seq`, an `event`, the HIR `node`, the source ID `file`, and a UTF-8 byte range `[start, end)`. A `call` or `return` gives the function name, a `branch` gives the boolean decision, and a `stop` gives the `runtime-v1` code. An implicit site has a `null` node. [Event positions](../design/observability.en.md)
+
+The end record describes the trace. Its `status` is `complete` when all captured events fit, including any recorded runtime stop. An event cap yields `event-limit`, a file size cap yields `byte-limit`, and an allocation failure during event capture yields `allocation-failed`. A capped file retains the prefix of whole events that fits. The program continues normally.
+
+Choose an unused filename. An existing destination or a write failure produces a `trace-v1` diagnostic on stderr. The CLI preserves the program's exit status and its execution diagnostic. A write failure can leave a partial line, so readers should check for the end record.
 
 ## Cerune IR emission
 

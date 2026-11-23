@@ -54,8 +54,8 @@ cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
-cerune run <file> [--process-config <json>] [--diagnostic-format runtime-v1]
-cerune run-ir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-mir <file> [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-vm <file> [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune --version
@@ -159,6 +159,25 @@ cerune run-ir examples/modules/failure.ceru --diagnostic-format runtime-v1
 従来の`run`によるVM実行を使うスクリプトや性能測定は、`run-vm`へ変更してください。言語の出力・停止記録は共通ですが、既定診断のbytecode命令番号はVM経路だけにあります。
 
 Rust APIは`run_ir(source)`、完成済みIRには`ir_executor::run(&program)`を使います。`IrRunError`は構築失敗と実行失敗を区別し、実行エラーから`output()`・`origin()`・`runtime_failure()`を取得できます。importには`modules::load(path)?.to_ir()`を使います。[責務・制限](../design/ir-executor.ja.md)も参照してください。
+
+### HIRトレースを保存する
+
+```sh
+cerune run examples/recursion/factorial.ceru --trace factorial.jsonl
+```
+
+標準出力は `120` と `1` です。実行と標準出力のflushが終わると、CLIは新規ファイルに18件のイベントと終端行を保存します。`run-ir` でも同じオプションを使えます。
+
+| オプション | 既定値 | 数え方 |
+| --- | --- | --- |
+| `--trace-event-limit N` | 4096件 | 0以上。呼出し・分岐・復帰・停止を実行順に数える |
+| `--trace-byte-limit N` | 1048576バイト | 65以上。UTF-8の各行、LF、終端行を含む。65バイトは最長の終端行の長さ |
+
+上限は `--trace <新しいファイル名>` と一緒に指定します。JSON Linesの各イベントに `schema: "trace-v1"`、1からの `seq`、`event`、HIRの `node`、ソースID `file`、UTF-8バイト範囲 `[start, end)` が入ります。`call`・`return` は関数名、`branch` は条件の真偽、`stop` は `runtime-v1` の停止コードを持ちます。暗黙の位置では `node` が `null` になります。[実行中に記録する位置](../design/observability.ja.md)
+
+終端行の `status` は記録の状態を示します。`complete` は停止を含めて取得したイベントをすべて保存した状態です。件数上限は `event-limit`、ファイル長の上限は `byte-limit`、イベント収集用のメモリ確保失敗は `allocation-failed` です。上限に達した場合は先頭から収まる行まで保存し、プログラムは通常どおり実行します。
+
+保存には未使用のファイル名を指定してください。既存ファイルや書込み失敗は標準エラーの `trace-v1` 診断で確認できます。プログラムの終了コードと停止診断は保持します。途中で書込みが失敗したファイルには不完全な行が残ることがあるため、読込み側は終端行まで確認してください。
 
 ## Cerune IRの出力
 

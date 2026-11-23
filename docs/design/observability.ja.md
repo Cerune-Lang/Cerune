@@ -21,7 +21,7 @@
 
 記録順は `trace.events()` の添字で読み取ります。関数名は同じHIRの `FunctionId` から引けます。暗黙のmain呼出しと関数末尾での復帰には関数宣言のSpanを使い、NodeIdは空になります。コンパイラ生成補助関数の出入りと内部の分岐は省きます。
 
-上限の次の出来事が発生すると、先頭から上限件までを保持し、`trace.incomplete()` が `EventLimit` を返します。記録用メモリの確保失敗では `AllocationFailed` を返します。どちらでもプログラムは同じ処理を続けます。このAPIはメモリ内の記録を対象とします。CLIのファイル出力、他経路での採取、ファイルのバイト上限は [#282](https://github.com/Cerune-Lang/Cerune/issues/282) の後続作業です。
+上限の次の出来事が発生すると、先頭から上限件までを保持し、`trace.incomplete()` が `EventLimit` を返します。記録用メモリの確保失敗では `AllocationFailed` を返します。どちらでもプログラムは同じ処理を続けます。CLIでは同じイベントを[バイト上限付きJSON Lines](../reference/cli.ja.md)に保存できます。他経路での採取は [#282](https://github.com/Cerune-Lang/Cerune/issues/282) の後続作業です。
 
 ## 観測と制御の分離
 

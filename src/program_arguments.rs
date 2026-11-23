@@ -2,10 +2,10 @@
 use cerune_lang::runtime::arguments::{Arguments, Limits};
 use std::ffi::OsString;
 
-pub fn parse(
+pub fn split(
     command: &str,
     values: impl IntoIterator<Item = OsString>,
-) -> Result<(Vec<String>, Arguments, Limits), String> {
+) -> Result<(Vec<String>, Vec<String>), String> {
     let executable = matches!(command, "run" | "run-ir" | "run-mir" | "run-vm");
     let mut compiler = Vec::new();
     let mut program = Vec::new();
@@ -29,6 +29,15 @@ pub fn parse(
             );
         }
     }
+    Ok((compiler, program))
+}
+
+pub fn capture(
+    command: &str,
+    compiler: Vec<String>,
+    program: Vec<String>,
+) -> Result<(Vec<String>, Arguments, Limits), String> {
+    let executable = matches!(command, "run" | "run-ir" | "run-mir" | "run-vm");
     if !executable
         && !matches!(
             command,
@@ -76,6 +85,13 @@ pub fn parse(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn parse(
+        command: &str,
+        values: impl IntoIterator<Item = OsString>,
+    ) -> Result<(Vec<String>, Arguments, Limits), String> {
+        let (compiler, program) = split(command, values)?;
+        capture(command, compiler, program)
+    }
     #[test]
     fn only_the_first_delimiter_separates_options() {
         let values = [

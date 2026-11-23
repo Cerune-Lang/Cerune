@@ -9,13 +9,15 @@
 | [owned_generic.ceru](owned_generic.ceru) | 文字列・動的配列を持つ値の独立性、genericの同じ具体化への再帰 | 5 |
 
 ```sh
-cargo run --quiet -- run examples/recursion/factorial.ceru
+cargo run --quiet -- run examples/recursion/factorial.ceru --trace target/factorial.jsonl
 cargo run --quiet -- run-mir examples/recursion/mutual.ceru --ssa
 cargo run --quiet -- run-vm examples/recursion/owned_generic.ceru
 cargo run --quiet -- run examples/recursion/factorial.ceru --call-depth-limit 4 --diagnostic-format runtime-v1
 cargo run --quiet -- emit-ir examples/recursion/owned_generic.ceru
 cargo run --quiet -- emit-c examples/recursion/factorial.ceru --call-depth-limit 5 -o target/factorial.c
 ```
+
+最初の例では標準出力に `120` と `1`、新規のトレースファイルに呼出し・分岐・復帰が各6件記録されます。再実行時は新しい保存名を指定します。
 
 最後のrunは終了1となり、深さ超過のcall-v1・NodeId/Span・呼出し履歴を出します。上限5なら階乗は成功します。期待出力は各`.stdout`に保存しています。既定128・指定範囲1〜128は意味上の呼出し深さであり、物理stack／memoryの安全保証ではありません。
 

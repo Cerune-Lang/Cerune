@@ -195,11 +195,6 @@ pub fn run_with_trace(
         None,
     )
     .run(Some(&mut trace));
-    if let Err(error) = &result
-        && let Some(stop) = error.runtime_failure()
-    {
-        trace.record(Event::Stop(stop));
-    }
     (result, trace)
 }
 
@@ -289,19 +284,57 @@ pub fn run_with_io_files_processes_arguments_and_call_limit<
     limit: NonZeroU32,
     processes: Option<(&mut crate::runtime::process::Processes<P>, usize)>,
 ) -> std::result::Result<(), ExecutionError> {
+    run_connected(
+        program,
+        input,
+        output,
+        files,
+        arguments,
+        processes,
+        RunOptions {
+            call_depth_limit: limit,
+            trace_event_limit: None,
+        },
+    )
+    .0
+}
+
+/// 実行前に指定するソース関数の深さ上限と、任意の観測件数です。
+pub struct RunOptions {
+    pub call_depth_limit: NonZeroU32,
+    pub trace_event_limit: Option<usize>,
+}
+
+/// 接続を保ったまま一度実行し、要求された場合は停止時にもトレースを返します。
+pub fn run_connected<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: files::Backend,
+    P: process::Backend,
+>(
+    program: &ir::Program,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    files: &mut files::Files<B>,
+    arguments: &Arguments,
+    processes: Option<(&mut process::Processes<P>, usize)>,
+    options: RunOptions,
+) -> (std::result::Result<(), ExecutionError>, Option<Trace>) {
+    let mut trace = options.trace_event_limit.map(Trace::new);
     let processes =
         processes.map(|(access, available)| process_access::Connection { access, available });
-    executor_for_resources(
+    let result = executor_for_resources(
         program,
         output,
         input,
         arguments,
         files,
         processes,
-        Some(limit),
+        Some(options.call_depth_limit),
     )
-    .run(None)
-    .map(|_| ())
+    .run(trace.as_mut())
+    .map(|_| ());
+    (result, trace)
 }
 
 pub fn run_with_arguments(
@@ -398,8 +431,11 @@ fn executor_for_resources<'a, 'o>(
     }
 }
 impl Executor<'_, '_> {
-    fn run(&mut self, trace: Option<&mut Trace>) -> std::result::Result<String, ExecutionError> {
-        match machine::execute(self, trace) {
+    fn run(
+        &mut self,
+        mut trace: Option<&mut Trace>,
+    ) -> std::result::Result<String, ExecutionError> {
+        match machine::execute(self, trace.as_deref_mut()) {
             Ok(()) => {
                 #[cfg(test)]
                 {
@@ -408,11 +444,19 @@ impl Executor<'_, '_> {
                 }
                 Ok(self.output.captured().to_owned())
             }
-            Err(error) => Err(ExecutionError {
-                kind: error.kind,
-                origin: error.origin,
-                output: self.output.captured().to_owned(),
-            }),
+            Err(error) => {
+                let error = ExecutionError {
+                    kind: error.kind,
+                    origin: error.origin,
+                    output: self.output.captured().to_owned(),
+                };
+                if let Some(trace) = trace
+                    && let Some(stop) = error.runtime_failure()
+                {
+                    trace.record(Event::Stop(stop));
+                }
+                Err(error)
+            }
         }
     }
     fn apply_statement(
