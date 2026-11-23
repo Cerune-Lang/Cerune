@@ -17,16 +17,19 @@
 
 実行経路ごとの子プロセス試験は[生成経路の設計](subprocess-generated.ja.md)、以前の機能一覧は[10月11日の記録](development-status.ja.md)にあります。
 
-## 次に着手する候補
+## v0.3.0の完了条件
 
-以下は公開後の推奨順です。最初にPRの試験結果を確実に確認できるようにし、次に実行順の観測、言語から扱える入出力、プログラムの配布へ進みます。
+[マイルストーン](https://github.com/Cerune-Lang/Cerune/milestone/1)で次の3件を追跡します。日英の仕様、実行できるexample、同じ入力を使った比較結果を対応するPRに残します。
 
-| 順 | 作業 | 最初に確かめること |
+| 順 | 作業 | 完了を確かめる試験 |
 | --- | --- | --- |
-| 1 | マージ時のCI [#262](https://github.com/Cerune-Lang/Cerune/issues/262) | PRで必要なジョブを列挙し、失敗・取消し・予定したスキップの扱いを試す。集約結果を確認してから `master` の必須チェックに指定する。 |
-| 2 | 実行順の観測 [#282](https://github.com/Cerune-Lang/Cerune/issues/282) | 関数呼出し・戻り・条件分岐・停止を同じ小例で記録する。ソース位置と順番を照合し、記録の有無で出力・終了状態が一致することを試す。 |
-| 3 | バイナリファイルの読取り・新規保存 [#243](https://github.com/Cerune-Lang/Cerune/issues/243) | 既存の `std:fs` の作業ディレクトリと容量上限を使い、NULと不正UTF-8を含むバイト列が往復する例を作る。上限超過と同名保存の結果も経路間で比較する。 |
-| 4 | IR・VMの配布物 [#81](https://github.com/Cerune-Lang/Cerune/issues/81) | 保存形式と読込み時の検査を決める。同じプログラムを保存前後で実行し、出力・停止位置を比較する。 |
+| 1 | マージ時のCI [#262](https://github.com/Cerune-Lang/Cerune/issues/262) | Linux・Windows・macOSを含むCIの全ジョブが成功したときに `ci-gate` が通る。必須ジョブの失敗・取消し・スキップでゲートが通らないことを試す。対象OSなどの条件による個々のステップの省略はジョブの成否に従う。`master` の必須チェックにゲートとDependency Reviewを指定し、CodeQLの扱いを記録する。 |
+| 2 | 実行順の観測 [#282](https://github.com/Cerune-Lang/Cerune/issues/282) | 同じexampleの呼出し・分岐・戻り・停止について、4実行器と生成C・LLVM・QBE・WAT・Nativeで順番、NodeId、ソース位置を照合する。記録の有無で出力・終了状態・外部操作の回数が一致する。件数・バイト上限と記録先への書込み失敗も試す。 |
+| 3 | バイナリファイル入出力 [#243](https://github.com/Cerune-Lang/Cerune/issues/243) | 指定ディレクトリでNUL・不正UTF-8を含むバイト列を読み取り、新規保存した内容をバイト単位で照合する。空、上限ちょうど、超過、読取り失敗、同名保存も各経路で比較する。小さなELFのヘッダを読んで既知の値を照合する例を残す。 |
+
+**公開の判定**　3件の試験を通した候補コミットについて、コンパイラ5対象と子プロセスruntime 2対象のアーカイブを展開して実行する。日英の変更点・移行方法・対応環境を記録し、タグからの配布試験、公開したファイルの版・SHA-256を確認してマイルストーンを閉じる。[前版の配布試験](../distribution/release-readiness.ja.md)
+
+Tint-Stでトレースを表示する作業と、SymnexaでELFをリンクする作業は各プロジェクトで追跡します。本体との比較には使用した両方のコミットを記録します。次の配布機能は [IR・VM Imageの保存と読込み（#81）](https://github.com/Cerune-Lang/Cerune/issues/81)です。
 
 ## Ceruneが持つべき性質
 
