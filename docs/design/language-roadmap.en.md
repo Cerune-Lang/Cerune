@@ -39,7 +39,9 @@ Use the [Lean branch example](../../experiments/lean/branch.ceru) throughout. Th
 | --- | --- | --- |
 | 1 | Record VM execution alongside HIR, MIR and SSA. | Compare output, exit status and source events for short circuits, successful returns and overflow. Save these results for the two experiments. |
 | 2 | Translate the completed HIR of `choose` to terms for an independent K definition. Start with checked u8 addition, short circuits, branches and return. | Compare all 256 inputs against the Lean specification and the executors. Input 128 returns 130. Input 254 skips the right operand and stops in the addition in the else branch. Check the stop code, NodeId and source span. Record which rules had to be written and how a change to a rule is detected before expanding coverage. |
-| 3 | Translate Cerune SSA to CLIF and execute the saved CLIF with a separate Cranelift driver. Record the target, runtime ABI, tool version and correspondence with source nodes. | Repeat the same input sweep. Keep the emitted artifact and compare outcomes with the four executors. Use the results and the cost of maintaining the lowering and driver to decide whether to offer an optional `emit-clif`. |
+| 3 | Emit CLIF from completed HIR by default. With an explicit `--ssa`, follow HIR → MIR → Cerune SSA → CLIF. | Save both CLIF artifacts and run each with the same target, runtime ABI and tool version. Compare all 256 inputs against the four executors and trace branch and stop sites back to their source nodes. Use the maintenance cost of both translations and the driver to decide whether to offer an optional `emit-clif`. |
+
+Today `emit-c`, `emit-llvm`, `emit-qbe` and `emit-wat` take completed HIR. The Cranelift experiment uses that same default input and adds an explicit Cerune SSA path for comparison.
 
 Step 1 is implemented. Reproduce the four-executor comparison, including all 256 inputs to `choose`, with `cargo test --test execution_output_cli executors_match_hir_events_output_and_stops`.
 
