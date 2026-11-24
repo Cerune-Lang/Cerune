@@ -1,9 +1,14 @@
+use crate::bytecode::InstructionOrigin;
 use crate::runtime::arguments::{self, Arguments};
 use crate::runtime::call;
 use crate::runtime::files;
 use crate::runtime::input::{self, Source};
 use crate::runtime::output::{self, Capture, Sink};
 use crate::runtime::process::{self, access as process_access};
+use crate::runtime::{
+    RunOptions,
+    trace::{Event, Site, Trace},
+};
 use crate::runtime::{
     array_heap::{ArrayError, ArrayHeap, ArrayValue},
     float_output,
@@ -360,18 +365,47 @@ pub fn run_with_io_files_processes_arguments_and_call_limit<
     limit: NonZeroU32,
     processes: Option<(&mut crate::runtime::process::Processes<P>, usize)>,
 ) -> std::result::Result<(), VmError> {
+    run_connected(
+        program,
+        input,
+        output,
+        files,
+        arguments,
+        processes,
+        RunOptions {
+            call_depth_limit: limit,
+            trace_event_limit: None,
+        },
+    )
+    .0
+}
+
+pub(crate) fn run_connected<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: files::Backend,
+    P: process::Backend,
+>(
+    program: &BytecodeProgram,
+    input: &mut input::Input<R>,
+    output: &mut output::Output<W>,
+    files: &mut files::Files<B>,
+    arguments: &Arguments,
+    processes: Option<(&mut process::Processes<P>, usize)>,
+    options: RunOptions,
+) -> (Result<(), VmError>, Option<Trace>) {
     let processes =
         processes.map(|(access, available)| process_access::Connection { access, available });
-    run_process_resources(
-        program,
-        output,
+    let mut connection = ExecutionInput::new(
         input,
-        arguments,
         files,
         processes,
-        Some(limit),
-    )
-    .map(|_| ())
+        arguments,
+        Some(options.call_depth_limit),
+    );
+    connection.trace = options.trace_event_limit.map(Trace::new);
+    let result = execute_program(program, output, &mut connection);
+    (result.map(|_| ()), connection.trace)
 }
 
 pub fn run_with_arguments(
@@ -404,6 +438,7 @@ pub fn run_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
     run_connections(program, output, input, arguments).map(|_| ())
 }
 struct ExecutionInput<'a> {
+    trace: Option<Trace>,
     calls: Option<call::Stack>,
     #[cfg(test)]
     fail_frame_after: Option<usize>,
@@ -411,6 +446,26 @@ struct ExecutionInput<'a> {
     files: &'a mut dyn files::Access,
     processes: Option<process_access::Connection<'a, Value>>,
     arguments: &'a Arguments,
+}
+impl<'a> ExecutionInput<'a> {
+    fn new(
+        stdin: &'a mut dyn Source,
+        files: &'a mut dyn files::Access,
+        processes: Option<process_access::Connection<'a, Value>>,
+        arguments: &'a Arguments,
+        limit: Option<NonZeroU32>,
+    ) -> Self {
+        Self {
+            trace: None,
+            calls: limit.map(call::Stack::new),
+            #[cfg(test)]
+            fail_frame_after: None,
+            stdin,
+            files,
+            processes,
+            arguments,
+        }
+    }
 }
 fn run_connections(
     program: &BytecodeProgram,
@@ -455,6 +510,14 @@ fn run_process_resources<'o>(
     processes: Option<process_access::Connection<'o, Value>>,
     limit: Option<NonZeroU32>,
 ) -> Result<String, VmError> {
+    let mut connection = ExecutionInput::new(input, files, processes, arguments, limit);
+    execute_program(program, output, &mut connection)
+}
+fn execute_program(
+    program: &BytecodeProgram,
+    output: &mut dyn Sink,
+    connection: &mut ExecutionInput<'_>,
+) -> Result<String, VmError> {
     let mut heap = StringHeap::new(program.string_heap_limit);
     let mut arrays = ArrayHeap::new(program.array_heap_limit);
     if let Err(mut error) = execute_frame(
@@ -464,15 +527,7 @@ fn run_process_resources<'o>(
         output,
         &mut heap,
         &mut arrays,
-        &mut ExecutionInput {
-            calls: limit.map(call::Stack::new),
-            #[cfg(test)]
-            fail_frame_after: None,
-            stdin: input,
-            files,
-            processes,
-            arguments,
-        },
+        connection,
     ) {
         error.output = output.captured().into();
         return Err(error);
@@ -507,6 +562,7 @@ pub(crate) fn execute_function(
         &mut StringHeap::new(program.string_heap_limit),
         &mut ArrayHeap::new(program.array_heap_limit),
         &mut crate::vm::ExecutionInput {
+            trace: None,
             calls: None,
             #[cfg(test)]
             fail_frame_after: None,
@@ -627,7 +683,7 @@ enum FrameEvent {
         arguments: Vec<Value>,
         pc: usize,
     },
-    Return(Option<Value>),
+    Return(Option<Value>, InstructionOrigin),
 }
 fn execute_frame(
     program: &BytecodeProgram,
@@ -656,7 +712,8 @@ fn execute_frame(
                     pc,
                 } => {
                     let function = &program.functions[function_id];
-                    let origin = match current.instructions[pc].origin {
+                    let call_site = current.instructions[pc].origin;
+                    let origin = match call_site {
                         crate::bytecode::InstructionOrigin::Source { node_id, span } => {
                             Some(call::Origin { node_id, span })
                         }
@@ -705,6 +762,14 @@ fn execute_frame(
                         Ok(mut callee) => {
                             callee.counted = counted;
                             active.push(callee);
+                            if let Some(trace) = &mut input.trace
+                                && function.lowering.is_none()
+                            {
+                                trace.record(Event::Call {
+                                    function: crate::ir::FunctionId(function_id),
+                                    site: function_site(call_site, function),
+                                });
+                            }
                         }
                         Err(e) => {
                             if counted {
@@ -714,7 +779,7 @@ fn execute_frame(
                         }
                     }
                 }
-                FrameEvent::Return(value) => {
+                FrameEvent::Return(value, origin) => {
                     let finished = active.pop().unwrap();
                     if finished.counted {
                         input.calls.as_mut().unwrap().leave();
@@ -727,6 +792,15 @@ fn execute_frame(
                                     .at(VmError::new(VmErrorKind::AllocationFailed, parent.pc - 1))
                             })?;
                             parent.stack.push(value);
+                        }
+                        if let Some(trace) = &mut input.trace
+                            && let Frame::Function(id) = finished.frame
+                            && program.functions[id].lowering.is_none()
+                        {
+                            trace.record(Event::Return {
+                                function: crate::ir::FunctionId(id),
+                                site: function_site(origin, &program.functions[id]),
+                            });
                         }
                     } else {
                         return Ok(value);
@@ -741,6 +815,18 @@ fn execute_frame(
         }
     }
     result
+}
+fn function_site(origin: InstructionOrigin, function: &crate::bytecode::BytecodeFunction) -> Site {
+    match origin {
+        InstructionOrigin::Source { node_id, span } => Site {
+            node: Some(node_id),
+            span,
+        },
+        InstructionOrigin::Synthetic => Site {
+            node: None,
+            span: function.declaration,
+        },
+    }
 }
 fn execute_until_event(
     program: &BytecodeProgram,
@@ -1447,7 +1533,7 @@ fn execute_until_event(
                         pc,
                     ));
                 }
-                return Ok(FrameEvent::Return(value));
+                return Ok(FrameEvent::Return(value, instruction.origin));
             }
 
             InstructionKind::Add(ty) => {
@@ -1599,6 +1685,19 @@ fn execute_until_event(
             InstructionKind::JumpIfFalse(target) => {
                 let condition = at_instruction(pop_bool(stack), pc)?;
 
+                if let Some(trace) = &mut input.trace
+                    && let Some(node) = instruction.if_condition
+                    && let InstructionOrigin::Source { span, .. } = instruction.origin
+                    && !matches!(frame, Frame::Function(id) if program.functions[id].lowering.is_some())
+                {
+                    trace.record(Event::Branch {
+                        taken: condition,
+                        site: Site {
+                            node: Some(node),
+                            span,
+                        },
+                    });
+                }
                 if !condition {
                     pc = *target;
                     continue;
@@ -1628,7 +1727,7 @@ fn execute_until_event(
         ));
     }
 
-    Ok(FrameEvent::Return(None))
+    Ok(FrameEvent::Return(None, InstructionOrigin::Synthetic))
 }
 
 #[derive(Clone, Copy)]
@@ -2465,6 +2564,7 @@ mod tests {
             let mut stdin = crate::runtime::input::unconfigured();
             let arguments = crate::runtime::arguments::Arguments::unconfigured();
             let mut input = super::ExecutionInput {
+                trace: None,
                 calls: Some(crate::runtime::call::Stack::new(
                     std::num::NonZeroU32::new(limit).unwrap(),
                 )),
@@ -2530,6 +2630,7 @@ mod tests {
             &mut heap,
             &mut arrays,
             &mut crate::vm::ExecutionInput {
+                trace: None,
                 calls: None,
                 #[cfg(test)]
                 fail_frame_after: None,

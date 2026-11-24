@@ -44,6 +44,7 @@ pub struct BytecodeProgram {
 
 #[derive(Debug, Clone)]
 pub struct BytecodeFunction {
+    pub declaration: Span,
     /// 名前で推測せず、生成補助関数の区分を保持します。
     pub lowering: Option<ir::LoweringKind>,
     pub name: String,
@@ -83,6 +84,8 @@ pub struct Slot {
 pub struct Instruction {
     pub kind: InstructionKind,
     pub origin: InstructionOrigin,
+    /// HIR の if に対応するジャンプでは、評価した条件式のノードを保持します。
+    pub if_condition: Option<NodeId>,
 }
 
 impl Instruction {
@@ -91,6 +94,7 @@ impl Instruction {
         Self {
             kind,
             origin: InstructionOrigin::Source { node_id, span },
+            if_condition: None,
         }
     }
 
@@ -99,6 +103,7 @@ impl Instruction {
         Self {
             kind,
             origin: InstructionOrigin::Synthetic,
+            if_condition: None,
         }
     }
 }
@@ -307,6 +312,7 @@ pub fn lower(program: &Program) -> Result<BytecodeProgram, Diagnostic> {
                     }));
             }
             BytecodeFunction {
+                declaration: function.span,
                 lowering: function.lowering,
                 name: function.name.clone(),
                 parameter_count: function.parameters.len(),
@@ -684,6 +690,8 @@ impl Compiler {
                     statement.id,
                     condition.span,
                 );
+
+                self.instructions[false_jump].if_condition = Some(condition.id);
 
                 let then_terminates = self.emit_statements(then_body);
 

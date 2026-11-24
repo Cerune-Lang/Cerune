@@ -31,6 +31,20 @@ The [milestone](https://github.com/Cerune-Lang/Cerune/milestone/1) tracks three 
 
 Tint-St tracks trace display and Symnexa tracks ELF linking. Record both repositories’ commits when testing them together. The next packaging feature is [saving and loading IR and VM images (#81)](https://github.com/Cerune-Lang/Cerune/issues/81).
 
+## K and Cranelift experiments
+
+Use the [Lean branch example](../../experiments/lean/branch.ceru) throughout. The experiments inform a future adoption decision. The release criteria above govern v0.3.0.
+
+| Order | Work | Evidence for the next decision |
+| --- | --- | --- |
+| 1 | Record VM execution alongside HIR, MIR and SSA. | Compare output, exit status and source events for short circuits, successful returns and overflow. Save these results for the two experiments. |
+| 2 | Translate the completed HIR of `choose` to terms for an independent K definition. Start with checked u8 addition, short circuits, branches and return. | Compare all 256 inputs against the Lean specification and the executors. Input 128 returns 130. Input 254 skips the right operand and stops in the addition in the else branch. Check the stop code, NodeId and source span. Record which rules had to be written and how a change to a rule is detected before expanding coverage. |
+| 3 | Translate Cerune SSA to CLIF and execute the saved CLIF with a separate Cranelift driver. Record the target, runtime ABI, tool version and correspondence with source nodes. | Repeat the same input sweep. Keep the emitted artifact and compare outcomes with the four executors. Use the results and the cost of maintaining the lowering and driver to decide whether to offer an optional `emit-clif`. |
+
+Step 1 is implemented. Reproduce the four-executor comparison, including all 256 inputs to `choose`, with `cargo test --test execution_output_cli executors_match_hir_events_output_and_stops`.
+
+Lean continues to check properties of programs and correspondence between representations. A later self-hosting test can run a compiler written in Cerune via Native and Cranelift, then compare the IR each emits for the same source and the behavior of the resulting programs.
+
 ## Properties Cerune should preserve
 
 Cerune prioritizes explaining a computation's meaning and its transformation into executable representations. New features should preserve these properties:
