@@ -43,6 +43,8 @@ Use the [Lean branch example](../../experiments/lean/branch.ceru) throughout. Th
 
 Step 1 is implemented. Reproduce the four-executor comparison, including all 256 inputs to `choose`, with `cargo test --test execution_output_cli executors_match_hir_events_output_and_stops`.
 
+Step 2 is complete. K ran every input to `choose` and agreed with Lean and the four executors. Changing the short-circuit rule produced a difference at input 128. Next, #282 will record the branch taken and the return or stop site when generated C runs. [K experiment results](../../experiments/k/README.en.md)
+
 Lean continues to check properties of programs and correspondence between representations. A later self-hosting test can run a compiler written in Cerune via Native and Cranelift, then compare the IR each emits for the same source and the behavior of the resulting programs.
 
 ## Properties Cerune should preserve
