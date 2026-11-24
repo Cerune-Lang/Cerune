@@ -47,7 +47,7 @@ cerune emit-sources <file> [-o <sources.json>]
 cerune emit-ir <file> [-o <output.ceir>]
 cerune emit-mir <file> [-o <output.txt>]
 cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
-cerune emit-c <file> [-o <output.c>]
+cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [-o <output.ll>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
@@ -182,6 +182,18 @@ The end record describes the trace. Its `status` is `complete` when all captured
 
 Choose an unused filename. An existing destination or a write failure produces a `trace-v1` diagnostic on stderr. The CLI preserves the program's exit status and its execution diagnostic. A write failure can leave a partial line, so readers should check for the end record.
 
+### Recording the same execution in generated C
+
+`--with-trace` emits C that accepts a trace destination at launch. On Linux or macOS the example prints `120` and `1`. Its 18 events and end record are byte-for-byte identical to the file from `run --trace` on the same source.
+
+```sh
+cerune emit-c examples/recursion/factorial.ceru --with-trace -o factorial.c
+clang -std=c11 -O2 factorial.c -o factorial
+./factorial --cerune-runtime-v1 --trace factorial-c.jsonl --
+```
+
+On Windows, launch the compiled program as `.\factorial.exe`. A relative trace path starts in the program's working directory. Put the event and byte limits above and any supported `--file-root` or `--process-config` settings inside the same runtime marker. Arguments following `--` go to the program. The writer creates the trace file after execution. If the program has just created a file at that path, the writer preserves it and reports the save failure on stderr.
+
 ## Cerune IR emission
 
 ```text
@@ -214,7 +226,7 @@ Lower completed IR into unoptimized, non-SSA MIR, validate it, then emit observa
 ## Output artifact emission
 
 ```text
-cerune emit-c <file> [-o <output.c>]
+cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [-o <output.ll>]
 cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-wat <file> [-o <output.wat>]

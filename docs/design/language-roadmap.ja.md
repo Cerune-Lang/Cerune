@@ -43,7 +43,7 @@ Tint-Stでトレースを表示する作業と、SymnexaでELFをリンクする
 
 手順1は実装済みです。`cargo test --test execution_output_cli executors_match_hir_events_output_and_stops` で、`choose` の全256入力を含む4実行器の比較を再現できます。
 
-手順2も完了しました。Kで `choose` の全入力を実行し、Leanと4実行器に照合しました。短絡規則を変えると、入力128で差が出ます。次は #282 の生成Cで、実行時に選んだ分岐や復帰・停止の位置を記録します。[Kの実験結果](../../experiments/k/README.md)
+手順2も完了しました。Kで `choose` の全入力を実行し、Leanと4実行器に照合しました。短絡規則を変えると、入力128で差が出ます。生成Cでも同じ256入力を試し、分岐・復帰・停止を含む `trace-v1` がHIRとバイト単位で一致しました。次は #282 の生成LLVMで同じ例を照合します。[Kの実験結果](../../experiments/k/README.md)
 
 Leanでは引き続きプログラムの性質と変換前後の対応を証明します。将来Ceruneでコンパイラを書けたら、NativeとCraneliftの両方でそのコンパイラを動かし、同じソースから出力したIRと、そのIRを実行した結果を比較できます。
 

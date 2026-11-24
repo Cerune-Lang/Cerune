@@ -2,6 +2,24 @@ use super::ir::{BinaryOp, Expr, ExprKind, Module, PrintFormat, Statement, Type, 
 use std::fmt::Write;
 
 pub fn emit(module: &Module) -> String {
+    emit_with_trace(module, false)
+}
+
+struct Emission<'a> {
+    module: &'a Module,
+    trace: bool,
+}
+
+impl std::ops::Deref for Emission<'_> {
+    type Target = Module;
+    fn deref(&self) -> &Module {
+        self.module
+    }
+}
+
+pub(super) fn emit_with_trace(module: &Module, trace: bool) -> String {
+    let emission = Emission { module, trace };
+    let module = &emission;
     let mut output = String::new();
     let support = required_support(module);
     let files = support.files;
@@ -70,13 +88,17 @@ pub fn emit(module: &Module) -> String {
     // Keep this visible in the emitted artifact, not just the test flags.
     output.push_str("#if defined(__clang__)\n#pragma clang fp contract(off)\n#elif defined(__GNUC__)\n#pragma GCC optimize (\"fp-contract=off\")\n#endif\n");
     output.push('\n');
+    if module.trace {
+        output.push_str(super::trace::RUNTIME);
+    }
+    let runtime_start = output.len();
 
     if module.string_heap_limit.is_some()
         || !module.array_types.is_empty()
         || support.any_numeric()
         || module.call_limit.is_some()
     {
-        output.push_str(super::failure::SUPPORT);
+        super::failure::emit(module.trace, &mut output);
     }
     if let Some(limit) = module.call_limit {
         output.push_str(&super::call::support(limit));
@@ -168,6 +190,11 @@ pub fn emit(module: &Module) -> String {
     if processes {
         output.push_str(&super::process::support(module, &process_types));
     }
+    if module.trace {
+        // ここまでのruntimeテンプレートだけに停止時の保存を組み込みます。
+        let runtime = output.split_off(runtime_start);
+        output.push_str(&runtime.replace("_Exit(1);", "cerune_trace_exit();"));
+    }
     for function in &module.functions {
         emit_function_signature(function, module, &mut output);
         output.push_str(";\n");
@@ -182,12 +209,20 @@ pub fn emit(module: &Module) -> String {
         emit_temporaries(&function.temporaries, module, &mut output);
         emit_integer_scratch(&function.body, &mut output);
         for statement in &function.body {
-            emit_statement(statement, 1, module, &mut output);
+            emit_statement(statement, 1, module, Some(function), &mut output);
+        }
+        if module.trace && function.source_function && function.return_type.is_none() {
+            writeln!(
+                output,
+                "    {};",
+                super::trace::function_event("return", function, None)
+            )
+            .unwrap();
         }
         output.push_str("}\n\n");
     }
 
-    output.push_str(if arguments {
+    output.push_str(if arguments || module.trace {
         "static int cerune_program(void) {\n"
     } else {
         "int main(void) {\n"
@@ -200,7 +235,7 @@ pub fn emit(module: &Module) -> String {
     emit_integer_scratch(&module.statements, &mut output);
 
     for statement in &module.statements {
-        emit_statement(statement, 1, module, &mut output);
+        emit_statement(statement, 1, module, None, &mut output);
     }
 
     if let Some(function_id) = module.explicit_main {
@@ -209,6 +244,14 @@ pub fn emit(module: &Module) -> String {
             output.push_str("    ");
             super::call::enter(function.id, None, &mut output);
             output.push_str(";\n");
+        }
+        if module.trace && function.source_function {
+            writeln!(
+                output,
+                "    {};",
+                super::trace::function_event("call", function, None)
+            )
+            .unwrap();
         }
         output.push_str("    ");
         output.push_str(&function_name(function.id, &function.name));
@@ -224,12 +267,40 @@ pub fn emit(module: &Module) -> String {
     output.push_str("    return 0;\n");
     output.push_str("}\n");
 
-    if processes {
-        output.push_str(&super::process::entry(files));
-    } else if files {
-        output.push_str(&super::files::entry());
-    } else if arguments {
-        output.push_str(super::arguments::ENTRY);
+    if arguments {
+        let entry = if processes {
+            super::process::entry(files)
+        } else if files {
+            super::files::entry()
+        } else {
+            super::arguments::ENTRY.to_owned()
+        };
+        if module.trace {
+            output.push_str(
+                &entry
+                    .replace("int main(", "static int cerune_entry(")
+                    .replace("int wmain(", "static int cerune_entry("),
+            );
+        } else {
+            output.push_str(&entry);
+        }
+    }
+    if module.trace {
+        writeln!(
+            output,
+            "#define CERUNE_HAS_FILE_ROOT {}\n#define CERUNE_HAS_PROCESS_CONFIG {}",
+            u8::from(files),
+            u8::from(processes)
+        )
+        .unwrap();
+        output.push_str(&super::trace::ENTRY.replace(
+            "CERUNE_PROGRAM_ENTRY",
+            if arguments {
+                "cerune_entry(argc, argv)"
+            } else {
+                "cerune_program()"
+            },
+        ));
     }
     output
 }
@@ -269,7 +340,13 @@ fn emit_temporaries(types: &[Type], module: &Module, output: &mut String) {
     }
 }
 
-fn emit_statement(statement: &Statement, indent: usize, module: &Module, output: &mut String) {
+fn emit_statement(
+    statement: &Statement,
+    indent: usize,
+    module: &Emission<'_>,
+    function: Option<&super::ir::Function>,
+    output: &mut String,
+) {
     let prefix = "    ".repeat(indent);
 
     match statement {
@@ -432,7 +509,12 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
                     node_id: origin.node_id,
                     span: origin.span,
                 });
-            writeln!(output, "{prefix}{{\n{prefix}    int cerune_flush_status;\n#ifdef SIGPIPE\n{prefix}    void (*cerune_prior_sigpipe)(int) = signal(SIGPIPE, SIG_IGN);\n{prefix}    cerune_flush_status = cerune_prior_sigpipe == SIG_ERR ? EOF : fflush(stdout);\n{prefix}    if (cerune_flush_status == 0 && signal(SIGPIPE, cerune_prior_sigpipe) == SIG_ERR) cerune_flush_status = EOF;\n#else\n{prefix}    cerune_flush_status = fflush(stdout);\n#endif\n{prefix}    if (cerune_flush_status != 0) {{ fputs(\"cerune: {record}\\n\", stderr); fflush(stderr); _Exit(1); }}\n{prefix}}}").unwrap();
+            let stop = if module.trace {
+                "cerune_trace_exit()"
+            } else {
+                "_Exit(1)"
+            };
+            writeln!(output, "{prefix}{{\n{prefix}    int cerune_flush_status;\n#ifdef SIGPIPE\n{prefix}    void (*cerune_prior_sigpipe)(int) = signal(SIGPIPE, SIG_IGN);\n{prefix}    cerune_flush_status = cerune_prior_sigpipe == SIG_ERR ? EOF : fflush(stdout);\n{prefix}    if (cerune_flush_status == 0 && signal(SIGPIPE, cerune_prior_sigpipe) == SIG_ERR) cerune_flush_status = EOF;\n#else\n{prefix}    cerune_flush_status = fflush(stdout);\n#endif\n{prefix}    if (cerune_flush_status != 0) {{ fputs(\"cerune: {record}\\n\", stderr); fflush(stderr); {stop}; }}\n{prefix}}}").unwrap();
         }
         Statement::Print {
             format,
@@ -470,6 +552,19 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
                 output.push_str(";\n");
             }
             output.push_str(&prefix);
+            if module.trace && counted {
+                writeln!(
+                    output,
+                    "{};",
+                    super::trace::function_event(
+                        "call",
+                        &module.functions[*function_id],
+                        Some(*origin)
+                    )
+                )
+                .unwrap();
+                output.push_str(&prefix);
+            }
             emit_call(*function_id, function_name, arguments, module, output);
             output.push_str(";\n");
             if counted {
@@ -477,7 +572,25 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
             }
         }
 
-        Statement::Return { value, .. } => {
+        Statement::Return { origin, value } => {
+            if module.trace
+                && let Some(f) = function.filter(|f| f.source_function)
+            {
+                let event = super::trace::function_event("return", f, Some(*origin));
+                if let Some(value) = value {
+                    write!(
+                        output,
+                        "{prefix}{{ {} cerune_trace_result = ",
+                        c_type(&value.ty, module)
+                    )
+                    .unwrap();
+                    emit_expr(value, module, output);
+                    writeln!(output, "; {event}; return cerune_trace_result; }}").unwrap();
+                } else {
+                    writeln!(output, "{prefix}{event};\n{prefix}return;").unwrap();
+                }
+                return;
+            }
             output.push_str(&prefix);
             output.push_str("return");
             if let Some(value) = value {
@@ -494,11 +607,23 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
         } => {
             output.push_str(&prefix);
             output.push_str("if ");
-            emit_condition(condition, module, output);
+            if module.trace && function.is_none_or(|f| f.source_function) {
+                output.push_str("(cerune_trace_branch(");
+                emit_expr(condition, module, output);
+                write!(
+                    output,
+                    ", {}, {}))",
+                    super::trace::branch(condition.origin, true),
+                    super::trace::branch(condition.origin, false)
+                )
+                .unwrap();
+            } else {
+                emit_condition(condition, module, output);
+            }
             output.push_str(" {\n");
 
             for statement in then_body {
-                emit_statement(statement, indent + 1, module, output);
+                emit_statement(statement, indent + 1, module, function, output);
             }
 
             output.push_str(&prefix);
@@ -509,7 +634,7 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
             } else {
                 output.push_str(" else {\n");
                 for statement in else_body {
-                    emit_statement(statement, indent + 1, module, output);
+                    emit_statement(statement, indent + 1, module, function, output);
                 }
                 output.push_str(&prefix);
                 output.push_str("}\n");
@@ -523,7 +648,7 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
             output.push_str(" {\n");
 
             for statement in body {
-                emit_statement(statement, indent + 1, module, output);
+                emit_statement(statement, indent + 1, module, function, output);
             }
 
             output.push_str(&prefix);
@@ -541,7 +666,7 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
             let lifted = (module.string_heap_limit.is_some() || module.array_heap_limit.is_some())
                 && matches!(initializer.as_ref(), Statement::Binding { .. });
             if lifted {
-                emit_statement(initializer, indent, module, output);
+                emit_statement(initializer, indent, module, function, output);
             }
             output.push_str(&prefix);
             output.push_str("for (");
@@ -555,7 +680,7 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
             output.push_str(") {\n");
 
             for statement in body {
-                emit_statement(statement, indent + 1, module, output);
+                emit_statement(statement, indent + 1, module, function, output);
             }
 
             output.push_str(&prefix);
@@ -574,7 +699,7 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
     }
 }
 
-fn emit_for_clause(statement: &Statement, module: &Module, output: &mut String) {
+fn emit_for_clause(statement: &Statement, module: &Emission<'_>, output: &mut String) {
     match statement {
         Statement::Binding { name, ty, value } => {
             output.push_str(&c_type(ty, module));
@@ -621,7 +746,7 @@ fn emit_output(
     newline: bool,
     origin: super::ir::Origin,
     prefix: &str,
-    module: &Module,
+    module: &Emission<'_>,
     output: &mut String,
 ) {
     write!(output, "{prefix}cerune_output_{kind}(").unwrap();
@@ -631,7 +756,7 @@ fn emit_output(
     output.push_str(");\n");
 }
 
-fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
+fn emit_expr(expr: &Expr, module: &Emission<'_>, output: &mut String) {
     match &expr.kind {
         ExprKind::ArrayAllocate {
             length,
@@ -886,6 +1011,18 @@ fn emit_expr(expr: &Expr, module: &Module, output: &mut String) {
             if let Some(id) = result_temp {
                 output.push('(');
                 super::call::enter(*function_id, Some(expr.origin), output);
+                if module.trace {
+                    write!(
+                        output,
+                        ", {}",
+                        super::trace::function_event(
+                            "call",
+                            &module.functions[*function_id],
+                            Some(expr.origin)
+                        )
+                    )
+                    .unwrap();
+                }
                 write!(output, ", _cerune_eval_{id} = ").unwrap();
                 emit_call(*function_id, function_name, arguments, module, output);
                 write!(output, ", cerune_call_leave(), _cerune_eval_{id})").unwrap();
@@ -1347,7 +1484,7 @@ fn emit_call(
     function_id: usize,
     name: &str,
     arguments: &[Expr],
-    module: &Module,
+    module: &Emission<'_>,
     output: &mut String,
 ) {
     output.push_str(&function_name(function_id, name));
@@ -1361,7 +1498,7 @@ fn emit_call(
     output.push(')');
 }
 
-fn emit_condition(expr: &Expr, module: &Module, output: &mut String) {
+fn emit_condition(expr: &Expr, module: &Emission<'_>, output: &mut String) {
     if matches!(&expr.kind, ExprKind::Unary { .. } | ExprKind::Binary { .. }) {
         emit_expr(expr, module, output);
     } else {

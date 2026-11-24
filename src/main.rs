@@ -142,7 +142,7 @@ fn run() -> Result<(), String> {
         "emit-c" => {
             let input = required_path(args.next(), "missing input file")?;
 
-            let rest: Vec<String> = args.collect();
+            let (rest, with_trace) = parse_flag(args.collect(), "--with-trace")?;
 
             let (output, target, _) = parse_native_options(&rest, "emit-c", "c")?;
             let target = target
@@ -157,7 +157,13 @@ fn run() -> Result<(), String> {
             let c = render_compilation_result(
                 {
                     let program = ir_for(&source, string_heap_limit, array_heap_limit)?;
-                    if let Some(target) = target {
+                    if with_trace {
+                        cerune_lang::codegen::c::emit_c_with_trace(
+                            &program,
+                            target,
+                            call_depth_limit,
+                        )
+                    } else if let Some(target) = target {
                         cerune_lang::codegen::c::emit_c_with_target(
                             &program,
                             target,
@@ -797,7 +803,7 @@ fn print_help() {
            cerune fmt <file> [--let preserve|show|hide] [--check | --write | -o <file>]\n\
            cerune emit-sources <file> [-o <sources.json>]\n\
            cerune emit-ir <file> [-o <output.ceir>]\n\
-           cerune emit-c <file> [--target <triple>] [-o <output.c>]\n\
+           cerune emit-c <file> [--with-trace] [--target <triple>] [-o <output.c>]\n\
            cerune emit-llvm <file> --target <triple> [--annotate-origins] [-o <output.ll>]\n\
            cerune emit-wat <file> [-o <output.wat>]\n\
            cerune emit-qbe <file> --target <triple> [-o <output.ssa>]\n\
