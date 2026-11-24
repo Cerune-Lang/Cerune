@@ -51,7 +51,7 @@ cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-wat <file> [-o <output.wat>]
-cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
+cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
@@ -208,6 +208,20 @@ clang --target=x86_64-unknown-linux-gnu -O2 factorial.ll trace-runtime.c -o fact
 
 標準出力は `120` と `1`、記録はHIRと同じ18件と終端行です。Windows x64では両方のターゲット指定に `x86_64-pc-windows-msvc` を使います。生成Cと同じ起動引数で保存先・件数上限・バイト上限を指定できます。子プロセスを使うプログラムでは、そのターゲット用の子プロセスruntimeもリンクします。
 
+### 生成QBEで同じ実行を記録する
+
+Linux x86-64では、次の手順で階乗の例を動かせます。1行目で記録命令を含むQBE ILを保存し、QBE 1.3でアセンブリに変換します。LLVMと同じ記録用runtimeをリンクします。
+
+```sh
+cerune emit-qbe examples/recursion/factorial.ceru --target x86_64-unknown-linux-gnu --with-trace -o factorial.ssa
+qbe -t amd64_sysv -o factorial.s factorial.ssa
+cerune emit-trace-runtime -o trace-runtime.c
+clang --target=x86_64-unknown-linux-gnu -O2 factorial.s trace-runtime.c -o factorial
+./factorial --cerune-runtime-v1 --trace factorial-qbe.jsonl --
+```
+
+標準出力は `120` と `1`、記録はHIRと同じ18イベントと終端行です。Windows x64ではCeruneとClangに `x86_64-pc-windows-msvc`、QBEに `amd64_win` を指定します。記録先・件数上限・バイト上限は実行時に指定します。
+
 ## Cerune IRの出力
 
 ```text
@@ -243,7 +257,7 @@ cerune emit-mir examples/ir_stages/control_flow.ceru -o target/control_flow.mir.
 cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
-cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
+cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>

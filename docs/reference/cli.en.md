@@ -51,7 +51,7 @@ cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-wat <file> [-o <output.wat>]
-cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
+cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
@@ -208,6 +208,20 @@ clang --target=x86_64-unknown-linux-gnu -O2 factorial.ll trace-runtime.c -o fact
 
 The program prints `120` and `1` and records the same 18 events and end record as HIR. On x64 Windows use `x86_64-pc-windows-msvc` in both target options. Generated C and LLVM programs accept the same trace path, event cap and byte cap at launch. If the program uses subprocesses, also link the subprocess runtime for that target.
 
+### Recording the same execution in generated QBE IL
+
+On x86-64 Linux, emit the factorial example with its event calls and use QBE 1.3 to translate the IL to assembly. Link the assembly with the same trace runtime used by the LLVM route.
+
+```sh
+cerune emit-qbe examples/recursion/factorial.ceru --target x86_64-unknown-linux-gnu --with-trace -o factorial.ssa
+qbe -t amd64_sysv -o factorial.s factorial.ssa
+cerune emit-trace-runtime -o trace-runtime.c
+clang --target=x86_64-unknown-linux-gnu -O2 factorial.s trace-runtime.c -o factorial
+./factorial --cerune-runtime-v1 --trace factorial-qbe.jsonl --
+```
+
+The program prints `120` and `1` and writes the same 18 events and end record as HIR. On x64 Windows, select `x86_64-pc-windows-msvc` in Cerune and Clang and `amd64_win` in QBE. Supply the trace destination, event limit and byte limit when launching the executable.
+
 ## Cerune IR emission
 
 ```text
@@ -243,7 +257,7 @@ Lower completed IR into unoptimized, non-SSA MIR, validate it, then emit observa
 cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
-cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
+cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>

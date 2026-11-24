@@ -5,6 +5,11 @@ use super::ir::{
 };
 
 pub fn emit(module: &Module) -> String {
+    emit_configured(module, false)
+}
+
+pub(super) fn emit_configured(module: &Module, with_trace: bool) -> String {
+    let mut rows = with_trace.then(crate::codegen::trace::RowTable::default);
     let mut output = String::new();
     if let Some(target) = module.target {
         writeln!(
@@ -22,7 +27,7 @@ pub fn emit(module: &Module) -> String {
     super::files::emit(module, &mut output);
     super::process::support(module, &mut output);
     let i64_operations = i64_operations(module);
-    super::failure::emit(module, &mut output);
+    super::failure::emit(module, with_trace, &mut output);
     if module.uses_strings {
         super::string::emit(module, &mut output);
         if let Some(limit) = module.string_heap_limit {
@@ -45,12 +50,14 @@ pub fn emit(module: &Module) -> String {
     emit_i64_operation_support(i64_operations, &mut output);
 
     for function in &module.functions {
-        emit_function(function, module, &mut output);
+        emit_function(function, module, rows.as_mut(), &mut output);
         output.push('\n');
     }
 
     output.push_str(if super::arguments::used(module) {
         "function w $cerune_program() {\n"
+    } else if with_trace {
+        "export function w $cerune_trace_v1_program(w %argc, l %argv) {\n"
     } else {
         "export function w $main() {\n"
     });
@@ -65,11 +72,30 @@ pub fn emit(module: &Module) -> String {
     }
 
     for (index, instruction) in module.instructions.iter().enumerate() {
-        emit_instruction(instruction, &module.slots, module, index, &mut output);
+        emit_instruction(
+            instruction,
+            &module.slots,
+            module,
+            index,
+            None,
+            rows.as_mut(),
+            &mut output,
+        );
     }
 
     if let Some(function_id) = module.explicit_main {
         super::call::enter(module, function_id, None, &mut output);
+        if let Some(rows) = &mut rows
+            && module.source_functions[function_id]
+        {
+            super::trace::function(
+                rows,
+                "call",
+                &module.functions[function_id],
+                None,
+                &mut output,
+            );
+        }
         writeln!(
             output,
             "  call ${}()",
@@ -87,8 +113,11 @@ pub fn emit(module: &Module) -> String {
     output.push_str("  ret 0\n");
     output.push_str("}\n");
 
-    super::arguments::emit_entry(module, &mut output);
+    super::arguments::emit_entry(module, with_trace, &mut output);
     crate::codegen::output::qbe(module, &mut output);
+    if let Some(rows) = rows {
+        return super::trace::finish(module, rows, &output);
+    }
     output
 }
 
@@ -245,7 +274,12 @@ fn emit_i64_operation_support(operations: I64Operations, output: &mut String) {
     }
 }
 
-fn emit_function(function: &Function, module: &Module, output: &mut String) {
+fn emit_function(
+    function: &Function,
+    module: &Module,
+    mut rows: Option<&mut crate::codegen::trace::RowTable>,
+    output: &mut String,
+) {
     output.push_str("function ");
     if let Some(return_type) = function.return_type {
         write!(output, "{} ", type_name(return_type)).unwrap();
@@ -308,7 +342,15 @@ fn emit_function(function: &Function, module: &Module, output: &mut String) {
         }
     }
     for (index, instruction) in function.instructions.iter().enumerate() {
-        emit_instruction(instruction, &function.slots, module, index, output);
+        emit_instruction(
+            instruction,
+            &function.slots,
+            module,
+            index,
+            Some(function),
+            rows.as_deref_mut(),
+            output,
+        );
     }
     output.push_str("}\n");
 }
@@ -340,6 +382,8 @@ fn emit_instruction(
     slots: &[Slot],
     module: &Module,
     instruction_index: usize,
+    current: Option<&Function>,
+    rows: Option<&mut crate::codegen::trace::RowTable>,
     output: &mut String,
 ) {
     match instruction {
@@ -616,10 +660,16 @@ fn emit_instruction(
         }
 
         Instruction::Branch {
+            if_condition,
             condition,
             then_label,
             else_label,
         } => {
+            if let (Some(rows), Some(site)) = (rows, if_condition)
+                && current.is_none_or(|f| module.source_functions[f.id])
+            {
+                super::trace::branch(rows, *site, &operand(condition, slots), output);
+            }
             writeln!(
                 output,
                 "  jnz {}, @block{then_label}, @block{else_label}",
@@ -698,6 +748,17 @@ fn emit_instruction(
             arguments,
         } => {
             super::call::enter(module, *function_id, Some(*origin), output);
+            if let Some(rows) = rows
+                && module.source_functions[*function_id]
+            {
+                super::trace::function(
+                    rows,
+                    "call",
+                    &module.functions[*function_id],
+                    Some(*origin),
+                    output,
+                );
+            }
             for (index, (ty, argument)) in arguments.iter().enumerate() {
                 if let Some(bits) = stack_float_bits(module, index, *ty) {
                     writeln!(
@@ -732,12 +793,19 @@ fn emit_instruction(
             super::call::leave(module, *function_id, output);
         }
 
-        Instruction::Return { value } => match value {
-            Some((_, value)) => {
-                writeln!(output, "  ret {}", operand(value, slots)).unwrap();
+        Instruction::Return { origin, value } => {
+            if let (Some(rows), Some(f)) = (rows, current)
+                && module.source_functions[f.id]
+            {
+                super::trace::function(rows, "return", f, *origin, output);
             }
-            None => output.push_str("  ret\n"),
-        },
+            match value {
+                Some((_, value)) => {
+                    writeln!(output, "  ret {}", operand(value, slots)).unwrap();
+                }
+                None => output.push_str("  ret\n"),
+            }
+        }
 
         Instruction::Negate { dest, ty, value } => {
             writeln!(

@@ -60,8 +60,9 @@ pub(super) fn code_arguments(code: FailureCode) -> String {
     )
 }
 
+const CODE_PREFIX: &str = "cerune: runtime-v1 code=";
 fn prefix(code: FailureCode) -> String {
-    format!("cerune: runtime-v1 code={}", code.name())
+    format!("{CODE_PREFIX}{}", code.name())
 }
 
 pub(super) fn call(code: FailureCode, output: &mut String) {
@@ -78,7 +79,7 @@ pub(super) fn block(label: &str, code: FailureCode, output: &mut String) {
     call(code, output);
 }
 
-pub(super) fn emit(module: &Module, output: &mut String) {
+pub(super) fn emit(module: &Module, with_trace: bool, output: &mut String) {
     let mut origins = Vec::new();
     for item in module
         .instructions
@@ -95,7 +96,7 @@ pub(super) fn emit(module: &Module, output: &mut String) {
         return;
     }
     for origin in origins {
-        data(module, &symbol(origin), &suffix(origin), output);
+        data(module, &symbol(origin), &suffix(origin), with_trace, output);
     }
     use FailureCode::*;
     let mut codes = vec![
@@ -128,6 +129,7 @@ pub(super) fn emit(module: &Module, output: &mut String) {
             module,
             &format!("cerune_code_{}", code.name().replace('-', "_")),
             &prefix(code),
+            with_trace,
             output,
         );
         writeln!(
@@ -149,10 +151,13 @@ pub(super) fn emit(module: &Module, output: &mut String) {
     } else {
         output.push_str("  call $write(w 2, l %code, l %code_len)\n  call $write(w 2, l %origin, l %origin_len)\n");
     }
+    if with_trace {
+        writeln!(output, "  %trace_code =l add %code, {}\n  call $cerune_trace_v1_stop(l %trace_code, l %origin)", CODE_PREFIX.len()).unwrap();
+    }
     output.push_str("  call $abort()\n  hlt\n}\n\n");
 }
 
-fn data(module: &Module, name: &str, text: &str, output: &mut String) {
+pub(super) fn data(module: &Module, name: &str, text: &str, nul: bool, output: &mut String) {
     let section = module
         .target
         .unwrap_or(super::Target::X86_64UnknownLinuxGnu)
@@ -163,6 +168,9 @@ fn data(module: &Module, name: &str, text: &str, output: &mut String) {
             output.push_str(", ");
         }
         write!(output, "b {byte}").unwrap();
+    }
+    if nul {
+        output.push_str(", b 0");
     }
     output.push_str(" }\n");
 }

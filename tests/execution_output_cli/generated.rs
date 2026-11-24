@@ -16,6 +16,7 @@ fn execute(command: &mut Command, dir: &Path, name: &str) -> Output {
 pub(super) enum Route {
     C,
     Llvm,
+    Qbe,
 }
 
 impl Route {
@@ -23,17 +24,21 @@ impl Route {
         let (var, command, extension) = match self {
             Self::C => ("CERUNE_TEST_CC", "emit-c", "c"),
             Self::Llvm => ("CERUNE_TEST_LLVM_CLANG", "emit-llvm", "ll"),
+            Self::Qbe => ("CERUNE_TEST_QBE_CLANG", "emit-qbe", "ssa"),
         };
         let cc = std::env::var_os(var)?;
         let mut emit = Command::new(env!("CARGO_BIN_EXE_cerune"));
         emit.arg(command).arg(src);
-        if matches!(self, Self::Llvm) {
+        if !matches!(self, Self::C) {
             let target = match (std::env::consts::ARCH, std::env::consts::OS) {
                 ("x86_64", "windows") => "x86_64-pc-windows-msvc",
                 ("x86_64", "linux") => "x86_64-unknown-linux-gnu",
                 _ => return None,
             };
-            emit.args(["--target", target, "--annotate-origins"]);
+            emit.args(["--target", target]);
+            if matches!(self, Self::Llvm) {
+                emit.arg("--annotate-origins");
+            }
         }
         crash_dialogs::suppress();
         fs::create_dir_all(dir).unwrap();
@@ -53,8 +58,34 @@ impl Route {
             String::from_utf8_lossy(&emit.stderr)
         );
         let mut build = Command::new(cc);
-        build.args(["-std=c11", "-O2"]).arg(&artifact);
-        if matches!(self, Self::Llvm) {
+        build.args(["-std=c11", "-O2"]);
+        if matches!(self, Self::Qbe) {
+            let qbe = std::env::var_os("CERUNE_TEST_QBE")
+                .expect("CERUNE_TEST_QBE_CLANG requires CERUNE_TEST_QBE");
+            let asm = dir.join("program.s");
+            let target = if cfg!(windows) {
+                "amd64_win"
+            } else {
+                "amd64_sysv"
+            };
+            let assembly = execute(
+                Command::new(qbe)
+                    .args(["-t", target, "-o"])
+                    .arg(&asm)
+                    .arg(&artifact),
+                dir,
+                "trace/qbe",
+            );
+            assert!(
+                assembly.status.success(),
+                "{}",
+                String::from_utf8_lossy(&assembly.stderr)
+            );
+            build.arg(asm);
+        } else {
+            build.arg(&artifact);
+        }
+        if !matches!(self, Self::C) {
             let runtime = dir.join("trace-runtime.c");
             let source = execute(
                 Command::new(env!("CARGO_BIN_EXE_cerune"))

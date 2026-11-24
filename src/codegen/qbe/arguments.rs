@@ -398,7 +398,7 @@ function l $cerune_arguments_get(l %index, l %origin) {
   hlt
 }
 "#;
-pub(super) fn emit_entry(module: &Module, out: &mut String) {
+pub(super) fn emit_entry(module: &Module, with_trace: bool, out: &mut String) {
     if !used(module) {
         return;
     }
@@ -413,7 +413,16 @@ pub(super) fn emit_entry(module: &Module, out: &mut String) {
     };
     out.push_str(
         &entry
-            .replace("@ENTRY@", if windows { "wmain" } else { "main" })
+            .replace(
+                "@ENTRY@",
+                if with_trace {
+                    "cerune_trace_v1_program"
+                } else if windows {
+                    "wmain"
+                } else {
+                    "main"
+                },
+            )
             .replace(
                 "@TEMP_FREE@",
                 if windows {

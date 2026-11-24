@@ -149,12 +149,14 @@ fn lower_function(
     };
     let terminates = lowerer.lower_statements(&function.body);
     if !terminates {
-        lowerer
-            .instructions
-            .push(Instruction::Return { value: None });
+        lowerer.instructions.push(Instruction::Return {
+            origin: None,
+            value: None,
+        });
     }
 
     Function {
+        declaration: function.span,
         id: function.id.0,
         name: function.name.clone(),
         parameters,
@@ -415,11 +417,13 @@ impl Lowerer<'_> {
                 then_body,
                 else_body,
             } => {
+                let if_condition = Some(FailureOrigin::from(condition));
                 let condition = self.lower_scalar_expr(condition);
                 let then_label = self.next_label();
                 let else_label = self.next_label();
                 let end_label = self.next_label();
                 self.instructions.push(Instruction::Branch {
+                    if_condition,
                     condition: condition.1,
                     then_label,
                     else_label,
@@ -464,6 +468,7 @@ impl Lowerer<'_> {
                 });
                 let condition = self.lower_scalar_expr(condition);
                 self.instructions.push(Instruction::Branch {
+                    if_condition: None,
                     condition: condition.1,
                     then_label: body_label,
                     else_label: end_label,
@@ -510,6 +515,7 @@ impl Lowerer<'_> {
                 });
                 let condition = self.lower_scalar_expr(condition);
                 self.instructions.push(Instruction::Branch {
+                    if_condition: None,
                     condition: condition.1,
                     then_label: body_label,
                     else_label: end_label,
@@ -578,12 +584,12 @@ impl Lowerer<'_> {
                 false
             }
             cerune_ir::StatementKind::Return { value } => {
-                match value.as_ref().map(|value| (value, self.lower_expr(value))) {
-                    Some((_, Value::Scalar { ty, operand })) => {
-                        self.instructions.push(Instruction::Return {
-                            value: Some((ty, operand)),
-                        });
-                    }
+                let origin = Some(FailureOrigin {
+                    node: statement.id,
+                    span: statement.span,
+                });
+                let value = match value.as_ref().map(|value| (value, self.lower_expr(value))) {
+                    Some((_, Value::Scalar { ty, operand })) => Some((ty, operand)),
                     Some((
                         value,
                         Value::Aggregate { address, .. } | Value::Array { address, .. },
@@ -593,10 +599,12 @@ impl Lowerer<'_> {
                             destination: Operand::ReturnPointer,
                             size: type_size(self.program, &value.ty),
                         });
-                        self.instructions.push(Instruction::Return { value: None });
+                        None
                     }
-                    None => self.instructions.push(Instruction::Return { value: None }),
-                }
+                    None => None,
+                };
+                self.instructions
+                    .push(Instruction::Return { origin, value });
                 true
             }
         }
@@ -974,6 +982,7 @@ impl Lowerer<'_> {
                     cerune_ir::LogicalOp::Or => (end_label, rhs_label),
                 };
                 self.instructions.push(Instruction::Branch {
+                    if_condition: None,
                     condition: left,
                     then_label,
                     else_label,
@@ -1361,6 +1370,7 @@ impl Lowerer<'_> {
             right: Operand::Integer(0),
         });
         self.instructions.push(Instruction::Branch {
+            if_condition: None,
             condition: Operand::Temp(is_negative),
             then_label: out_of_bounds,
             else_label: non_negative,
@@ -1379,6 +1389,7 @@ impl Lowerer<'_> {
             right: Operand::Integer(length as i64),
         });
         self.instructions.push(Instruction::Branch {
+            if_condition: None,
             condition: Operand::Temp(is_too_large),
             then_label: out_of_bounds,
             else_label: in_bounds,

@@ -14,6 +14,7 @@ mod output;
 mod process;
 mod rounding;
 mod string;
+mod trace;
 mod unsigned;
 mod utf8;
 
@@ -74,7 +75,7 @@ pub fn emit_qbe_with_argument_limits(
     target: Option<Target>,
     limits: crate::runtime::arguments::Limits,
 ) -> Result<String, Diagnostic> {
-    emit_configured(program, target, limits, None)
+    emit_configured(program, target, limits, None, false)
 }
 /// ターゲットとソース関数の深さ上限を明示します。物理stackの安全範囲は保証しません。
 pub fn emit_qbe_with_call_limit(
@@ -82,7 +83,13 @@ pub fn emit_qbe_with_call_limit(
     target: Target,
     limit: std::num::NonZeroU32,
 ) -> Result<String, Diagnostic> {
-    emit_configured(program, Some(target), Default::default(), Some(limit))
+    emit_configured(
+        program,
+        Some(target),
+        Default::default(),
+        Some(limit),
+        false,
+    )
 }
 /// 引数と呼出し深さの制約を同時に指定します。既存APIの既定動作は維持します。
 pub fn emit_qbe_with_runtime_limits(
@@ -91,18 +98,30 @@ pub fn emit_qbe_with_runtime_limits(
     arguments: crate::runtime::arguments::Limits,
     calls: std::num::NonZeroU32,
 ) -> Result<String, Diagnostic> {
+    emit_qbe_for_execution(program, target, arguments, calls, false)
+}
+
+/// traceを有効にしたILは同じターゲット用のtrace-v1保存処理とリンクします。
+pub fn emit_qbe_for_execution(
+    program: &cerune_ir::Program,
+    target: Option<Target>,
+    arguments: crate::runtime::arguments::Limits,
+    calls: std::num::NonZeroU32,
+    with_trace: bool,
+) -> Result<String, Diagnostic> {
     if target.is_none() {
         return Err(Diagnostic::without_span(
             "QBE call depth checks require an explicit --target",
         ));
     }
-    emit_configured(program, target, arguments, Some(calls))
+    emit_configured(program, target, arguments, Some(calls), with_trace)
 }
 fn emit_configured(
     program: &cerune_ir::Program,
     target: Option<Target>,
     limits: crate::runtime::arguments::Limits,
     call_limit: Option<std::num::NonZeroU32>,
+    with_trace: bool,
 ) -> Result<String, Diagnostic> {
     if target.is_none()
         && let Some(span) = program.first_process_span()
@@ -184,7 +203,7 @@ fn emit_configured(
     module.target = target;
     module.argument_limits = limits;
 
-    Ok(emit(&module))
+    Ok(emit::emit_configured(&module, with_trace))
 }
 
 #[cfg(test)]
