@@ -1,18 +1,14 @@
 use super::ir::{Function, Origin};
 use crate::codegen::trace;
-use std::{collections::BTreeMap, fmt::Write};
+use std::fmt::Write;
 
 /// 各行を静的データに一度だけ置き、通過した命令からその行を指します。
 #[derive(Default)]
 pub(super) struct Rows {
-    symbols: BTreeMap<String, usize>,
+    symbols: trace::RowTable,
 }
 
 impl Rows {
-    fn symbol(&mut self, row: String) -> usize {
-        let next = self.symbols.len();
-        *self.symbols.entry(row).or_insert(next)
-    }
     pub(super) fn function(
         &mut self,
         event: &str,
@@ -24,7 +20,9 @@ impl Rows {
             Origin::Source { node_id, span } => (Some(node_id), span),
             Origin::Synthetic => (None, function.declaration),
         };
-        let id = self.symbol(trace::function_row(event, &function.name, node, span));
+        let id = self
+            .symbols
+            .intern(trace::function_row(event, &function.name, node, span));
         writeln!(
             out,
             "  call void @cerune_trace_v1_record(ptr @cerune.trace.row.{id})"
@@ -38,8 +36,8 @@ impl Rows {
         label: usize,
         out: &mut String,
     ) {
-        let yes = self.symbol(trace::branch_row(true, node, span));
-        let no = self.symbol(trace::branch_row(false, node, span));
+        let yes = self.symbols.intern(trace::branch_row(true, node, span));
+        let no = self.symbols.intern(trace::branch_row(false, node, span));
         writeln!(out, "  %trace.branch.{label} = select i1 {condition}, ptr @cerune.trace.row.{yes}, ptr @cerune.trace.row.{no}").unwrap();
         writeln!(
             out,
@@ -51,7 +49,7 @@ impl Rows {
         out.push_str(
             "declare void @cerune_trace_v1_record(ptr)\ndeclare void @cerune_trace_v1_save()\n",
         );
-        for (row, id) in &self.symbols {
+        for (row, id) in self.symbols.entries() {
             write!(
                 out,
                 "@cerune.trace.row.{id} = private unnamed_addr constant [{} x i8] c\"",

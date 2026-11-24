@@ -247,7 +247,7 @@ fn run() -> Result<(), String> {
         "emit-qbe" => {
             let input = required_path(args.next(), "missing input file")?;
 
-            let rest: Vec<String> = args.collect();
+            let (rest, with_trace) = parse_flag(args.collect(), "--with-trace")?;
 
             let (output, target, _) = parse_native_options(&rest, "emit-qbe", "ssa")?;
             let target = match target.as_deref() {
@@ -264,11 +264,12 @@ fn run() -> Result<(), String> {
             let source = read_source(&input)?;
 
             let qbe = render_compilation_result(
-                cerune_lang::codegen::qbe::emit_qbe_with_runtime_limits(
+                cerune_lang::codegen::qbe::emit_qbe_for_execution(
                     &ir_for(&source, string_heap_limit, array_heap_limit)?,
                     target,
                     argument_limits,
                     call_depth_limit,
+                    with_trace,
                 ),
                 &source,
             )?;
@@ -816,7 +817,7 @@ fn print_help() {
            cerune emit-trace-runtime [-o <runtime.c>]\n\
            cerune emit-llvm <file> [--with-trace] --target <triple> [--annotate-origins] [-o <output.ll>]\n\
            cerune emit-wat <file> [-o <output.wat>]\n\
-           cerune emit-qbe <file> --target <triple> [-o <output.ssa>]\n\
+           cerune emit-qbe <file> [--with-trace] --target <triple> [-o <output.ssa>]\n\
            cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]\n\
            cerune emit-asm <file> [--ssa] [--target <triple>] [--annotate-origins] [-o <output.s>]\n\
            cerune emit-obj <file> [--ssa] --target <triple> [--annotate-origins] -o <output.o>\n\

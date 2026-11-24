@@ -17,6 +17,7 @@ pub struct Module {
 
 #[derive(Debug, Clone)]
 pub struct Function {
+    pub declaration: crate::source::Span,
     pub id: usize,
     pub name: String,
     pub parameters: Vec<Parameter>,
@@ -223,6 +224,7 @@ pub enum Instruction {
         name: &'static str,
     },
     Branch {
+        if_condition: Option<FailureOrigin>,
         condition: Operand,
         then_label: usize,
         else_label: usize,
@@ -259,6 +261,7 @@ pub enum Instruction {
         arguments: Vec<(Type, Operand)>,
     },
     Return {
+        origin: Option<FailureOrigin>,
         value: Option<(Type, Operand)>,
     },
     Negate {

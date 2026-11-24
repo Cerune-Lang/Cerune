@@ -137,6 +137,12 @@ fn executors_match_hir_events_output_and_stops() {
     let values = choose("branch-values.ceru", &calls);
     let overflow = choose("branch-254.ceru", "print(choose(254));");
     let overflow_max = choose("branch-255.ceru", "print(choose(255));");
+    let bounds = dir.join("bounds.ceru");
+    fs::write(
+        &bounds,
+        "fn pair()->[i64; 2] { return [4,9]; } a:[i64; 2]=pair(); print(a[1]); print(a[2]);",
+    )
+    .unwrap();
     let implicit = dir.join("main.ceru");
     fs::write(&implicit, "fn main()->void { if true { print(7); } }").unwrap();
     let factorial = Path::new("examples/recursion/factorial.ceru");
@@ -146,6 +152,7 @@ fn executors_match_hir_events_output_and_stops() {
         (factorial, &["--trace-byte-limit", "128"][..], true),
         (factorial, &["--call-depth-limit", "3"][..], false),
         (implicit.as_path(), &[][..], true),
+        (bounds.as_path(), &[][..], false),
         (values.as_path(), &[][..], true),
         (overflow_max.as_path(), &[][..], false),
         (overflow.as_path(), &[][..], false),
@@ -167,7 +174,7 @@ fn executors_match_hir_events_output_and_stops() {
         assert_eq!(hir.status.success(), success, "{src:?}");
         let expected = fs::read(hir_path).unwrap();
         let depth_flag = extra.starts_with(&["--call-depth-limit"]);
-        for route in [Route::C, Route::Llvm] {
+        for route in [Route::C, Route::Llvm, Route::Qbe] {
             let Some(exe) = route.compile(
                 &dir.join(format!("{i}-{route:?}-build")),
                 src,
@@ -287,7 +294,7 @@ fn files_and_program_arguments_keep_their_meaning() {
 
 #[test]
 fn generated_routes_keep_arguments_trace_limits_and_file_creation_order() {
-    for route in [Route::C, Route::Llvm] {
+    for route in [Route::C, Route::Llvm, Route::Qbe] {
         check_generated_files(route);
     }
 }

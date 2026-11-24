@@ -4,6 +4,18 @@ use crate::{ir::NodeId, source::Span};
 pub(super) const RUNTIME: &str = include_str!("trace/runtime.c.inc");
 pub(super) const ENTRY: &str = include_str!("trace/entry.c.inc");
 
+#[derive(Default)]
+pub(super) struct RowTable(std::collections::BTreeMap<String, usize>);
+impl RowTable {
+    pub(super) fn intern(&mut self, row: String) -> usize {
+        let next = self.0.len();
+        *self.0.entry(row).or_insert(next)
+    }
+    pub(super) fn entries(&self) -> impl Iterator<Item = (&String, &usize)> {
+        self.0.iter()
+    }
+}
+
 fn row(event: &str, node: Option<NodeId>, span: Span) -> String {
     let node = node.map_or_else(|| "null".to_owned(), |n| n.0.to_string());
     format!(
@@ -37,7 +49,7 @@ pub(super) fn stop_row(code: crate::runtime::FailureCode, node: NodeId, span: Sp
     )
 }
 
-/// --with-traceを付けたLLVM IRと同じターゲットでコンパイルしてリンクするC11ソース。
+/// --with-traceを付けたLLVM IR・QBE ILと同じターゲットでリンクするC11ソース。
 pub fn runtime_c() -> String {
     let mut out = String::from("#include <stdint.h>\n#include <stdio.h>\n");
     out.push_str(RUNTIME);
@@ -45,6 +57,12 @@ pub fn runtime_c() -> String {
         r#"
 void cerune_trace_v1_record(const char *row) { cerune_trace_record(row); }
 void cerune_trace_v1_save(void) { cerune_trace_save(); }
+void cerune_trace_v1_branch(int taken, const char *yes, const char *no) {
+    cerune_trace_branch(taken, yes, no);
+}
+void cerune_trace_v1_stop(const char *code, const char *origin) {
+    cerune_trace_stop(code, origin);
+}
 extern const uint8_t cerune_trace_v1_files, cerune_trace_v1_processes;
 #define CERUNE_HAS_FILE_ROOT cerune_trace_v1_files
 #define CERUNE_HAS_PROCESS_CONFIG cerune_trace_v1_processes
