@@ -19,6 +19,8 @@ cargo run --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir 
 | 指定 | 意味 |
 | --- | --- |
 | 最初の引数 | 読み込む.watまたは.wasm |
+| `--trace <新規ファイル>` | `emit-wat --with-trace` で生成したモジュールの呼出し・分岐・復帰・停止を実行後に保存。[階乗の例](../../docs/reference/cli.ja.md) |
+| `--trace-event-limit <件数>` / `--trace-byte-limit <バイト数>` | 記録件数と保存サイズの上限。既定は4096件・1 MiB |
 | --file-root directory | 実行前に開く作業ディレクトリ。省略時は未設定 |
 | --process-target triple | 子プロセスimportを使う場合は必須。Windows MSVC / Linux GNUのx86-64を明示 |
 | --process-config json | 既存のcerune-process-v1接続JSON。target指定が必要。省略時はUnconfigured |

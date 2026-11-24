@@ -14,7 +14,12 @@ pub(super) fn type_name(ty: NumericType) -> &'static str {
     }
 }
 
-fn emit_truncation(conversion: NumericConversion, origin: Origin, name: &str, output: &mut String) {
+fn emit_truncation(
+    conversion: NumericConversion,
+    origin: Origin,
+    name: &str,
+    output: &mut super::trace::WatText,
+) {
     let NumericType::Integer(ty) = conversion.to else {
         unreachable!()
     };
@@ -52,7 +57,7 @@ pub(super) fn emit_support(
     conversion: NumericConversion,
     origin: Origin,
     name: &str,
-    output: &mut String,
+    output: &mut super::trace::WatText,
 ) {
     if conversion.mode.rounding().is_some() && !conversion.truncates() {
         return super::rounding::emit(conversion, origin, name, output);
@@ -129,7 +134,7 @@ pub(super) fn emit_float_integer(
     from: NumericType,
     ty: IntegerType,
     origin: Origin,
-    output: &mut String,
+    output: &mut super::trace::WatText,
 ) {
     output.push_str("    local.get $value\n");
     if from == NumericType::F32 {

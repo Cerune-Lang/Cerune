@@ -1,5 +1,6 @@
 mod files;
 mod options;
+mod trace;
 use options::options;
 #[cfg(all(
     target_arch = "x86_64",
@@ -18,6 +19,7 @@ use std::{
 use wasmi::{Caller, Engine, Error, Linker, Module, Store, TrapCode};
 
 struct State {
+    trace: Option<trace::Capture>,
     #[cfg(all(
         target_arch = "x86_64",
         any(
@@ -49,6 +51,16 @@ fn chunk(text: String, offset: i32) -> Result<(i64, i32), Error> {
     Ok((i64::from_le_bytes(bytes), text.len() as i32))
 }
 fn imports(linker: &mut Linker<State>) -> Result<(), Error> {
+    linker.func_wrap(
+        "cerune",
+        "trace_event_v1",
+        |mut c: Caller<'_, State>, id: i32| {
+            if let Some(trace) = &mut c.data_mut().trace {
+                trace.record(id)?;
+            }
+            Ok::<(), Error>(())
+        },
+    )?;
     linker.func_wrap("cerune", "files_status_v1", |c: Caller<'_, State>| {
         c.data().files.status().map_err(protocol)
     })?;
@@ -202,6 +214,7 @@ fn run() -> Result<(), String> {
             "expected only the generated main export; public memory is not supported".into(),
         );
     }
+    let trace = trace::Capture::open(&module, options.trace)?;
     let needs_process = module
         .imports()
         .any(|i| i.module() == "cerune" && i.name().starts_with("process_"));
@@ -242,6 +255,7 @@ fn run() -> Result<(), String> {
         .map_err(|e| e.record())?;
     let (output, error) = output_files().map_err(|_| "host stdout/stderr connection failed")?;
     let state = State {
+        trace,
         #[cfg(all(
             target_arch = "x86_64",
             any(
@@ -279,6 +293,11 @@ fn run() -> Result<(), String> {
         .map_err(|_| "invalid main signature")?;
     let result = main.call(&mut store, ());
     store.data_mut().files.shutdown();
+    if let Some(trace) = &store.data().trace
+        && let Err(error) = trace.save()
+    {
+        let _ = writeln!(io::stderr().lock(), "cerune-wat-host: {error}");
+    }
     if let Err(error) = result {
         return Err(
             if store.data().diagnostics

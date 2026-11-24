@@ -241,18 +241,19 @@ fn lower_function(
         );
     }
     context.lower_statements(&function.body, &mut instructions);
-    if !matches!(instructions.last(), Some(Instruction::Return)) {
+    if !matches!(instructions.last(), Some(Instruction::Return(_))) {
         // 全分岐がreturnしても、Wasmの型検証ではifの後は到達可能です。
         // 意味解析済みの値を返す関数に、末尾到達がないことを明示します。
         instructions.push(
             if matches!(function.return_type, cerune_ir::ReturnType::Void) {
-                Instruction::Return
+                Instruction::Return(None)
             } else {
                 Instruction::Unreachable
             },
         );
     }
     Function {
+        declaration: function.span,
         frame_size: context.next_address,
         id: function.id.0,
         name: function.name.clone(),
@@ -520,6 +521,10 @@ impl LoweringContext<'_> {
                 self.lower_statements(then_body, &mut then_instructions);
                 self.lower_statements(else_body, &mut else_instructions);
                 instructions.push(Instruction::If {
+                    condition: Some(Origin {
+                        node_id: condition.id,
+                        span: condition.span,
+                    }),
                     then_instructions,
                     else_instructions,
                 });
@@ -640,7 +645,10 @@ impl LoweringContext<'_> {
                         }
                     }
                 }
-                instructions.push(Instruction::Return);
+                instructions.push(Instruction::Return(Some(Origin {
+                    node_id: statement.id,
+                    span: statement.span,
+                })));
             }
         }
     }
@@ -761,6 +769,7 @@ impl LoweringContext<'_> {
         instructions.push(Instruction::I64Const(0));
         instructions.push(Instruction::I64LtS);
         instructions.push(Instruction::If {
+            condition: None,
             then_instructions: vec![array_failure(origin)],
             else_instructions: Vec::new(),
         });
@@ -769,6 +778,7 @@ impl LoweringContext<'_> {
         instructions.push(Instruction::I64Const(length as i64));
         instructions.push(Instruction::I64GeS);
         instructions.push(Instruction::If {
+            condition: None,
             then_instructions: vec![array_failure(origin)],
             else_instructions: Vec::new(),
         });
@@ -1202,6 +1212,7 @@ impl LoweringContext<'_> {
                 instructions.push(Instruction::I64Const(0));
                 instructions.push(Instruction::I64LtS);
                 instructions.push(Instruction::If {
+                    condition: None,
                     then_instructions: vec![array_failure(Origin {
                         node_id: expr.id,
                         span: expr.span,
@@ -1214,6 +1225,7 @@ impl LoweringContext<'_> {
                 instructions.push(Instruction::I64Const(length as i64));
                 instructions.push(Instruction::I64GeS);
                 instructions.push(Instruction::If {
+                    condition: None,
                     then_instructions: vec![array_failure(Origin {
                         node_id: expr.id,
                         span: expr.span,

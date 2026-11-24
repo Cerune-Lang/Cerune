@@ -6,7 +6,7 @@ use crate::{
 };
 use std::fmt::Write;
 
-pub(super) fn emit_binary(op: Op, origin: Origin, name: &str, output: &mut String) {
+pub(super) fn emit_binary(op: Op, origin: Origin, name: &str, output: &mut super::trace::WatText) {
     writeln!(
         output,
         "  (func ${name} (param $left i64) (param $right i64) (result i64)"
@@ -89,7 +89,7 @@ pub(super) fn emit_conversion(
     c: NumericConversion,
     origin: Origin,
     name: &str,
-    output: &mut String,
+    output: &mut super::trace::WatText,
 ) {
     let from = super::conversion::type_name(c.from);
     let to = super::conversion::type_name(c.to);

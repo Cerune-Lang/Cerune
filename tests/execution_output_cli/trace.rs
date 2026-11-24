@@ -14,6 +14,19 @@ fn run(route: &str, source: &Path, trace: Option<&Path>, extra: &[&str]) -> Outp
     }
     cmd.args(extra).output().unwrap()
 }
+fn emit_wat(src: &Path, wat: &Path, trace: bool, extra: &[&str]) {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_cerune"));
+    cmd.arg("emit-wat").arg(src).args(extra).arg("-o").arg(wat);
+    if trace {
+        cmd.arg("--with-trace");
+    }
+    let out = cmd.output().unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
 fn rows(path: &Path) -> Vec<Value> {
     let raw = fs::read_to_string(path).unwrap();
     assert!(raw.ends_with('\n'));
@@ -200,6 +213,37 @@ fn executors_match_hir_events_output_and_stops() {
             );
             assert_eq!(fs::read(path).unwrap(), expected, "{src:?} {route:?}");
         }
+        if let Some(host) = std::env::var_os("CERUNE_TEST_WAT_HOST") {
+            let wat = dir.join(format!("{i}.wat"));
+            emit_wat(src, &wat, true, if depth_flag { extra } else { &[] });
+            let path = dir.join(format!("{i}-wat"));
+            let invoke = |args: &[&str]| {
+                Command::new(&host)
+                    .arg(&wat)
+                    .args(args)
+                    .arg("--")
+                    .output()
+                    .unwrap()
+            };
+            let mut options = vec!["--trace", path.to_str().unwrap()];
+            if !depth_flag {
+                options.extend_from_slice(extra);
+            }
+            let actual = invoke(&options);
+            same_run(&actual, &invoke(&[]));
+            assert_eq!(
+                actual.status.success(),
+                success,
+                "{src:?}: {}",
+                String::from_utf8_lossy(&actual.stderr)
+            );
+            assert_eq!(actual.stdout, hir.stdout);
+            assert_eq!(
+                String::from_utf8_lossy(&actual.stderr).trim_start_matches("cerune: "),
+                String::from_utf8_lossy(&hir.stderr).trim_start_matches("cerune: ")
+            );
+            assert_eq!(fs::read(path).unwrap(), expected, "{src:?} WAT");
+        }
         for (name, command, options) in [
             ("mir", "run-mir", &[][..]),
             ("ssa", "run-mir", &["--ssa"][..]),
@@ -367,6 +411,154 @@ fn check_generated_files(route: Route) {
     assert!(actual.stdout.starts_with(b"true\n"));
     assert!(String::from_utf8_lossy(&actual.stderr).contains("trace-v1: could not save"));
     assert_eq!(fs::read(path).unwrap(), "日本語\0\r\né\n".as_bytes());
+}
+
+#[test]
+fn wat_trace_keeps_program_arguments_and_saves_after_file_operations() {
+    let Some(host) = std::env::var_os("CERUNE_TEST_WAT_HOST") else {
+        return;
+    };
+    let dir = fresh("wat-trace-host");
+    let module = dir.join("example.wat");
+    let invoke = |args: &[&str]| {
+        Command::new(&host)
+            .arg(&module)
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    let source = Path::new("examples/arguments/list.ceru");
+    let expected = dir.join("hir");
+    let reference = run(
+        "run",
+        source,
+        Some(&expected),
+        &["--", "--trace", "private-日本語"],
+    );
+    let bytes = fs::read(expected).unwrap();
+    let trace = dir.join("trace.jsonl");
+    let dest = trace.to_str().unwrap();
+    emit_wat(source, &module, false, &[]);
+    let plain = invoke(&["--", "--trace", "private-日本語"]);
+    same_run(&plain, &reference);
+    let unsupported = invoke(&["--trace", dest, "--"]);
+    assert!(!unsupported.status.success() && unsupported.stdout.is_empty() && !trace.exists());
+    assert!(String::from_utf8_lossy(&unsupported.stderr).contains("--with-trace"));
+    emit_wat(source, &module, true, &[]);
+    let input = fs::read_to_string(&module).unwrap();
+    fs::write(
+        &module,
+        input.replace("(@custom \"cerune.trace.v1\"", "(@custom \"removed\""),
+    )
+    .unwrap();
+    let stripped = invoke(&["--trace", dest, "--"]);
+    assert!(!stripped.status.success() && stripped.stdout.is_empty() && !trace.exists());
+    assert!(String::from_utf8_lossy(&stripped.stderr).contains("site table"));
+    fs::write(&module, input).unwrap();
+    for n in [bytes.len(), bytes.len() - 1] {
+        let actual = invoke(&[
+            "--trace-byte-limit",
+            &n.to_string(),
+            "--trace",
+            dest,
+            "--",
+            "--trace",
+            "private-日本語",
+        ]);
+        same_run(&actual, &plain);
+        if n == bytes.len() {
+            assert_eq!(fs::read(&trace).unwrap(), bytes);
+        } else {
+            assert_eq!(rows(&trace).last().unwrap()["status"], "byte-limit");
+        }
+        assert!(
+            !fs::read_to_string(&trace)
+                .unwrap()
+                .contains("private-日本語")
+        );
+        fs::remove_file(&trace).unwrap();
+    }
+    emit_wat(
+        Path::new("examples/files/roundtrip.ceru"),
+        &module,
+        true,
+        &[],
+    );
+    let file = dir.join("sample.txt");
+    let actual = invoke(&[
+        "--trace",
+        file.to_str().unwrap(),
+        "--file-root",
+        dir.to_str().unwrap(),
+        "--",
+    ]);
+    assert!(actual.status.success());
+    assert!(actual.stdout.starts_with(b"true\n"));
+    assert!(String::from_utf8_lossy(&actual.stderr).contains("trace-v1: could not save"));
+    assert_eq!(fs::read(file).unwrap(), "日本語\0\r\né\n".as_bytes());
+}
+
+#[test]
+fn wat_binary_preserves_sites_and_requires_an_observer_import() {
+    let (Some(host), Some(wabt)) = (
+        std::env::var_os("CERUNE_TEST_WAT_HOST"),
+        std::env::var_os("CERUNE_TEST_WAT2WASM_JS"),
+    ) else {
+        return;
+    };
+    let node = std::env::var_os("CERUNE_TEST_NODE").unwrap_or_else(|| "node".into());
+    let dir = fresh("wat-trace-binary");
+    let source = Path::new("examples/recursion/factorial.ceru");
+    let wat = dir.join("example.wat");
+    let wasm = dir.join("example.wasm");
+    emit_wat(source, &wat, true, &[]);
+    let compile = Command::new(&node)
+        .arg(wabt)
+        .arg("--enable-annotations")
+        .arg(&wat)
+        .arg("-o")
+        .arg(&wasm)
+        .output()
+        .unwrap();
+    assert!(
+        compile.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compile.stderr)
+    );
+    let before = dir.join("reference");
+    let after = dir.join("binary");
+    let hir = run("run", source, Some(&before), &[]);
+    let actual = Command::new(host)
+        .arg(&wasm)
+        .arg("--trace")
+        .arg(&after)
+        .arg("--")
+        .output()
+        .unwrap();
+    same_run(&actual, &hir);
+    assert_eq!(fs::read(before).unwrap(), fs::read(after).unwrap());
+    let js = r#"
+const assert = require('node:assert/strict');
+const m = new WebAssembly.Module(require('node:fs').readFileSync(process.argv[1]));
+assert.deepEqual(WebAssembly.Module.exports(m).map(e => e.name), ['main']);
+assert.equal(WebAssembly.Module.customSections(m, 'cerune.trace.v1').length, 1);
+const cerune = {};
+for (const i of WebAssembly.Module.imports(m)) {
+    if (i.name !== 'trace_event_v1') cerune[i.name] = () => 0;
+}
+assert.throws(() => new WebAssembly.Instance(m, {cerune}), /trace_event_v1/);
+"#;
+    let compatibility = Command::new(node)
+        .arg("-e")
+        .arg(js)
+        .arg(wasm)
+        .output()
+        .unwrap();
+    assert!(
+        compatibility.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compatibility.stderr)
+    );
 }
 
 #[test]

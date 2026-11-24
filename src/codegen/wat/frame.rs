@@ -22,7 +22,12 @@ pub(super) fn support(module: &Module, out: &mut String) {
     }
     out.push_str(SOURCE);
 }
-pub(super) fn allocate(size: usize, origin: Option<Origin>, prefix: &str, out: &mut String) {
+pub(super) fn allocate(
+    size: usize,
+    origin: Option<Origin>,
+    prefix: &str,
+    out: &mut super::trace::WatText,
+) {
     if size == 0 {
         writeln!(out, "{prefix}i32.const 0").unwrap();
         return;

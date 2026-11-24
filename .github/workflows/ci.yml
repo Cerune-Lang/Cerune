@@ -178,6 +178,7 @@ jobs:
           cargo clippy --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host --all-targets -- -D warnings
           cargo build --locked --example subprocess_linux_supervisor --example subprocess_linux_backend
           CERUNE_TEST_PROCESS_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_supervisor" CERUNE_TEST_PROCESS_FAULT_SUPERVISOR="$PWD/target/debug/examples/subprocess_linux_backend" timeout --kill-after=10s 5m cargo test --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host -- --include-ignored 2>&1 | tee target/linux-wat-os-files.log
+          CERUNE_TEST_WAT_HOST="$PWD/target/wat-host/debug/cerune-wat-host" cargo test --locked --test execution_output_cli trace::
       - name: Compare Native arguments, file semantics, and OS connections
         if: ${{ matrix.suite == 'native' }}
         shell: bash
@@ -395,6 +396,9 @@ jobs:
           cargo clippy --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host --all-targets -- -D warnings
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host 2>&1 | Tee-Object target/windows-wat-os-files.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:CERUNE_TEST_WAT_HOST = (Resolve-Path target/wat-host/debug/cerune-wat-host.exe).Path
+          cargo test --locked --test execution_output_cli trace::
           exit $LASTEXITCODE
       - name: Compare Native arguments, file semantics, and OS connections
         if: ${{ matrix.suite == 'native' }}

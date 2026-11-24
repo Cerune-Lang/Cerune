@@ -3,15 +3,23 @@ use std::fmt::Write;
 use super::ir::{Function, Instruction, LoopKind, Module, Origin, Type};
 
 pub fn emit(module: &Module) -> String {
-    emit_module(module, None)
+    emit_configured(module, false)
+}
+
+pub(super) fn emit_configured(module: &Module, trace: bool) -> String {
+    emit_module(module, None, trace)
 }
 
 pub(super) fn emit_library(module: &Module, exports: &[super::library::Export]) -> String {
-    emit_module(module, Some(exports))
+    emit_module(module, Some(exports), false)
 }
 
-fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> String {
-    let mut output = String::new();
+fn emit_module(
+    module: &Module,
+    exports: Option<&[super::library::Export]>,
+    with_trace: bool,
+) -> String {
+    let mut output = super::trace::WatText::new(with_trace);
     let mut helpers = std::collections::BTreeMap::new();
     let mut uses_failures = module.uses_flush || module.uses_write || super::frame::used(module);
     for instruction in module.instructions.iter().chain(
@@ -24,6 +32,11 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
     }
 
     writeln!(output, "(module").unwrap();
+    if with_trace {
+        output.push_str(
+            "  (import \"cerune\" \"trace_event_v1\" (func $trace_event_v1 (param i32)))\n",
+        );
+    }
     if !module.process_types.is_empty() {
         output.push_str(super::process::IMPORT);
     }
@@ -147,7 +160,7 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
             output.push_str("    local.set $cerune.frame.base\n");
         }
         for instruction in &module.instructions {
-            emit_instruction(instruction, 2, module, &mut output);
+            emit_instruction(instruction, 2, module, None, &mut output);
         }
 
         if let Some(function_id) = module.explicit_main {
@@ -158,6 +171,7 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
                 "    ",
                 &mut output,
             );
+            output.function("call", module, function_id, None, "    ");
             writeln!(
                 output,
                 "    call ${}",
@@ -175,12 +189,14 @@ fn emit_module(module: &Module, exports: Option<&[super::library::Export]>) -> S
         writeln!(output, "  (export \"main\" (func $main))").unwrap();
     }
 
-    writeln!(output, ")").unwrap();
-
-    output
+    output.finish()
 }
 
-fn emit_exports(module: &Module, exports: &[super::library::Export], output: &mut String) {
+fn emit_exports(
+    module: &Module,
+    exports: &[super::library::Export],
+    output: &mut super::trace::WatText,
+) {
     use super::library::ScalarType;
     for (index, export) in exports.iter().enumerate() {
         let function = module
@@ -266,6 +282,7 @@ fn collect_helpers<'a>(
         Instruction::If {
             then_instructions,
             else_instructions,
+            ..
         }
         | Instruction::IfBool {
             then_instructions,
@@ -298,7 +315,7 @@ fn emit_helper(
     origin: Origin,
     name: &str,
     module: &Module,
-    output: &mut String,
+    output: &mut super::trace::WatText,
 ) {
     match instruction {
         Instruction::Output { kind, newline, .. } => {
@@ -349,7 +366,7 @@ fn emit_helper(
     }
 }
 
-fn emit_function(function: &Function, module: &Module, output: &mut String) {
+fn emit_function(function: &Function, module: &Module, output: &mut super::trace::WatText) {
     write!(output, "  (func ${}", function_name(function)).unwrap();
     for parameter in &function.parameters {
         write!(
@@ -388,7 +405,7 @@ fn emit_function(function: &Function, module: &Module, output: &mut String) {
         writeln!(output).unwrap();
     }
     for instruction in &function.instructions {
-        emit_instruction(instruction, 2, module, output);
+        emit_instruction(instruction, 2, module, Some(function), output);
     }
     write!(output, "  )").unwrap();
 }
@@ -405,7 +422,8 @@ fn emit_instruction(
     instruction: &Instruction,
     indent: usize,
     module: &Module,
-    output: &mut String,
+    current: Option<&Function>,
+    output: &mut super::trace::WatText,
 ) {
     let prefix = "  ".repeat(indent);
 
@@ -543,6 +561,7 @@ fn emit_instruction(
         Instruction::If {
             then_instructions,
             else_instructions,
+            ..
         }
         | Instruction::IfBool {
             then_instructions,
@@ -553,14 +572,29 @@ fn emit_instruction(
             } else {
                 ""
             };
+            let site = match instruction {
+                Instruction::If { condition, .. }
+                    if output.tracing()
+                        && current.is_none_or(|f| module.source_functions[f.id]) =>
+                {
+                    *condition
+                }
+                _ => None,
+            };
             writeln!(output, "{prefix}if{result}").unwrap();
-            for instruction in then_instructions {
-                emit_instruction(instruction, indent + 1, module, output);
+            if let Some(site) = site {
+                output.branch(true, site, &prefix);
             }
-            if !else_instructions.is_empty() {
+            for instruction in then_instructions {
+                emit_instruction(instruction, indent + 1, module, current, output);
+            }
+            if !else_instructions.is_empty() || site.is_some() {
                 writeln!(output, "{prefix}else").unwrap();
+                if let Some(site) = site {
+                    output.branch(false, site, &prefix);
+                }
                 for instruction in else_instructions {
-                    emit_instruction(instruction, indent + 1, module, output);
+                    emit_instruction(instruction, indent + 1, module, current, output);
                 }
             }
             writeln!(output, "{prefix}end").unwrap();
@@ -577,17 +611,17 @@ fn emit_instruction(
             writeln!(output, "{prefix}block ${name}_end_{id}").unwrap();
             writeln!(output, "{prefix}  loop ${name}_condition_{id}").unwrap();
             for instruction in condition_instructions {
-                emit_instruction(instruction, indent + 2, module, output);
+                emit_instruction(instruction, indent + 2, module, current, output);
             }
             writeln!(output, "{prefix}    i32.eqz").unwrap();
             writeln!(output, "{prefix}    br_if ${name}_end_{id}").unwrap();
             writeln!(output, "{prefix}    block ${name}_continue_{id}").unwrap();
             for instruction in body_instructions {
-                emit_instruction(instruction, indent + 3, module, output);
+                emit_instruction(instruction, indent + 3, module, current, output);
             }
             writeln!(output, "{prefix}    end").unwrap();
             for instruction in update_instructions {
-                emit_instruction(instruction, indent + 2, module, output);
+                emit_instruction(instruction, indent + 2, module, current, output);
             }
             writeln!(output, "{prefix}    br ${name}_condition_{id}").unwrap();
             writeln!(output, "{prefix}  end").unwrap();
@@ -613,6 +647,7 @@ fn emit_instruction(
                 &prefix,
                 output,
             );
+            output.function("call", module, *function_id, Some(*origin), &prefix);
             writeln!(
                 output,
                 "{prefix}call ${}",
@@ -622,7 +657,10 @@ fn emit_instruction(
             super::call::leave(module, *function_id, &prefix, output);
         }
 
-        Instruction::Return => {
+        Instruction::Return(origin) => {
+            if let Some(f) = current {
+                output.function("return", module, f.id, *origin, &prefix);
+            }
             if super::frame::used(module) {
                 super::frame::release(&prefix, output);
             }

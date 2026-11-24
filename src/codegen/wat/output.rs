@@ -73,6 +73,7 @@ pub(super) fn float_kinds(module: &Module) -> std::collections::BTreeSet<&'stati
             Instruction::If {
                 then_instructions: a,
                 else_instructions: b,
+                ..
             }
             | Instruction::IfBool {
                 then_instructions: a,

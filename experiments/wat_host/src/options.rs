@@ -1,5 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 pub(super) struct Options {
+    pub(super) trace: Option<cerune_lang::runtime::trace::file::Config>,
     pub(super) source: PathBuf,
     pub(super) root: Option<PathBuf>,
     pub(super) process_target: Option<u64>,
@@ -10,9 +11,10 @@ pub(super) fn options(mut args: impl Iterator<Item = OsString>) -> Result<Option
     let usage = concat!(
         "usage: cerune-wat-host <module.wat|module.wasm> ",
         "[--file-root <directory>] [--process-target <triple>] ",
-        "[--process-config <json>] -- <program arguments>"
+        "[--process-config <json>] [--trace <new-file> [--trace-event-limit <n>] [--trace-byte-limit <n>]] -- <program arguments>"
     );
     let source = args.next().ok_or(usage)?.into();
+    let mut trace = cerune_lang::runtime::trace::file::Options::default();
     let mut root = None;
     let mut process_target = None;
     let mut process_config = None;
@@ -21,6 +23,17 @@ pub(super) fn options(mut args: impl Iterator<Item = OsString>) -> Result<Option
         if option == "--" {
             delimited = true;
             break;
+        }
+        if let Some(key @ ("--trace" | "--trace-event-limit" | "--trace-byte-limit")) =
+            option.to_str()
+        {
+            trace.set(
+                key,
+                &args
+                    .next()
+                    .ok_or_else(|| format!("missing value for {key}"))?,
+            )?;
+            continue;
         }
         let available = (option == "--file-root" && root.is_none())
             || (option == "--process-target" && process_target.is_none())
@@ -66,6 +79,7 @@ pub(super) fn options(mut args: impl Iterator<Item = OsString>) -> Result<Option
         .collect::<Result<_, _>>()?;
     Ok(Options {
         source,
+        trace: trace.finish()?,
         root,
         process_target,
         process_config,

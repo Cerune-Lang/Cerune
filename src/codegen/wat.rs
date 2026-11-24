@@ -18,6 +18,7 @@ mod output;
 mod process;
 mod rounding;
 mod string;
+mod trace;
 mod unsigned;
 
 pub use emit::emit;
@@ -32,14 +33,14 @@ pub fn emit_wat_with_argument_limits(
     program: &cerune_ir::Program,
     limits: crate::runtime::arguments::Limits,
 ) -> Result<String, Diagnostic> {
-    emit_configured(program, limits, None)
+    emit_configured(program, limits, None, false)
 }
 /// 非公開memoryに呼出し履歴を保持します。Wasmエンジンの物理stackは制限しません。
 pub fn emit_wat_with_call_limit(
     program: &cerune_ir::Program,
     limit: std::num::NonZeroU32,
 ) -> Result<String, Diagnostic> {
-    emit_configured(program, Default::default(), Some(limit))
+    emit_configured(program, Default::default(), Some(limit), false)
 }
 /// 引数と呼出し深さの制約を同時に指定します。既存APIの既定動作は維持します。
 pub fn emit_wat_with_runtime_limits(
@@ -47,12 +48,23 @@ pub fn emit_wat_with_runtime_limits(
     arguments: crate::runtime::arguments::Limits,
     calls: std::num::NonZeroU32,
 ) -> Result<String, Diagnostic> {
-    emit_configured(program, arguments, Some(calls))
+    emit_wat_for_execution(program, arguments, calls, false)
+}
+
+/// `with_trace` は実行箇所を通知するimportと、その番号を解決する表を生成します。
+pub fn emit_wat_for_execution(
+    program: &cerune_ir::Program,
+    arguments: crate::runtime::arguments::Limits,
+    calls: std::num::NonZeroU32,
+    with_trace: bool,
+) -> Result<String, Diagnostic> {
+    emit_configured(program, arguments, Some(calls), with_trace)
 }
 fn emit_configured(
     program: &cerune_ir::Program,
     limits: crate::runtime::arguments::Limits,
     call_limit: Option<std::num::NonZeroU32>,
+    with_trace: bool,
 ) -> Result<String, Diagnostic> {
     if let Some(span) = program.first_argument_span()
         && limits.max_count > i64::MAX as u64
@@ -72,7 +84,7 @@ fn emit_configured(
             .max(module.string_heap_start.div_ceil(65_536) as u32);
     }
 
-    Ok(emit(&module))
+    Ok(emit::emit_configured(&module, with_trace))
 }
 
 #[cfg(test)]

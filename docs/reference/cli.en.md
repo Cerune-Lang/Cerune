@@ -50,7 +50,7 @@ cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
 cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
-cerune emit-wat <file> [-o <output.wat>]
+cerune emit-wat <file> [--with-trace] [-o <output.wat>]
 cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
@@ -222,6 +222,17 @@ clang --target=x86_64-unknown-linux-gnu -O2 factorial.s trace-runtime.c -o facto
 
 The program prints `120` and `1` and writes the same 18 events and end record as HIR. On x64 Windows, select `x86_64-pc-windows-msvc` in Cerune and Clang and `amd64_win` in QBE. Supply the trace destination, event limit and byte limit when launching the executable.
 
+### Recording factorial calls in generated WAT
+
+Run these commands from the repository root. The reference host prints `120` and `1` and saves 18 events and an end record to a new file.
+
+~~~sh
+cerune emit-wat examples/recursion/factorial.ceru --with-trace -o factorial.wat
+cargo run --manifest-path experiments/wat_host/Cargo.toml --locked -- factorial.wat --trace factorial-wat.jsonl --
+~~~
+
+Pass `--trace-event-limit` and `--trace-byte-limit` before the host's `--`. To run the binary, convert it with `wat2wasm --enable-annotations factorial.wat -o factorial.wasm` and pass `factorial.wasm` to the host.
+
 ## Cerune IR emission
 
 ```text
@@ -258,7 +269,7 @@ cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
-cerune emit-wat <file> [-o <output.wat>]
+cerune emit-wat <file> [--with-trace] [-o <output.wat>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
