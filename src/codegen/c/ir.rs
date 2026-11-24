@@ -30,6 +30,8 @@ pub struct Module {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
+    /// 暗黙のmain呼出しと関数末尾の復帰が指す宣言位置。
+    pub declaration: crate::source::Span,
     pub source_function: bool,
     pub temporaries: Vec<Type>,
     pub id: usize,
@@ -114,7 +116,10 @@ pub enum Statement {
         function_name: String,
         arguments: Vec<Expr>,
     },
-    Return(Option<Expr>),
+    Return {
+        origin: Origin,
+        value: Option<Expr>,
+    },
     If {
         condition: Expr,
         then_body: Vec<Statement>,

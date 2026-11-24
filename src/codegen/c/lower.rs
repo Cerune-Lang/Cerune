@@ -34,6 +34,7 @@ pub(super) fn lower_with_call_limit(
             .function_definitions
             .iter()
             .map(|function| Function {
+                declaration: function.span,
                 source_function: function.lowering.is_none(),
                 temporaries: Vec::new(),
                 id: function.id.0,
@@ -312,9 +313,13 @@ fn lower_statement(statement: &cerune_ir::Statement) -> Statement {
             arguments: arguments.iter().map(lower_expr).collect(),
         },
 
-        cerune_ir::StatementKind::Return { value } => {
-            Statement::Return(value.as_ref().map(lower_expr))
-        }
+        cerune_ir::StatementKind::Return { value } => Statement::Return {
+            origin: super::ir::Origin {
+                node_id: statement.id,
+                span: statement.span,
+            },
+            value: value.as_ref().map(lower_expr),
+        },
 
         cerune_ir::StatementKind::If {
             condition,

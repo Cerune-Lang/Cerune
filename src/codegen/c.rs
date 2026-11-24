@@ -73,6 +73,62 @@ mod tests {
     };
 
     #[test]
+    fn keeps_call_branch_and_return_sites_after_sequencing() {
+        use crate::ir::{ExprKind as HExpr, StatementKind as HStmt};
+        let source = "fn leaf(x: bool)->bool { return x; }
+                      fn main()->void { if leaf(true) { return; } }";
+        let hir = compile_to_ir(source).unwrap();
+        let module = super::lower::lower_with_call_limit(&hir, std::num::NonZeroU32::new(8));
+        for (c, h) in module.functions.iter().zip(&hir.function_definitions) {
+            assert_eq!(c.declaration, h.span);
+        }
+        let leaf = &hir.function_definitions[0];
+        let Statement::Return {
+            origin,
+            value: Some(value),
+        } = &module.functions[0].body[0]
+        else {
+            panic!("leaf return")
+        };
+        assert_eq!(
+            (origin.node_id, origin.span),
+            (leaf.body[0].id, leaf.body[0].span)
+        );
+        assert_eq!(&source[origin.span.start()..origin.span.end()], "return x;");
+        assert_ne!(origin.node_id, value.origin.node_id);
+        let main = module.explicit_main.unwrap();
+        let HStmt::If {
+            condition,
+            then_body,
+            ..
+        } = &hir.function_definitions[main].body[0].kind
+        else {
+            panic!("HIR if")
+        };
+        assert!(matches!(condition.kind, HExpr::Call { .. }));
+        let Statement::If {
+            condition: c,
+            then_body: arm,
+            ..
+        } = &module.functions[main].body[0]
+        else {
+            panic!("C if")
+        };
+        assert_eq!(c.origin, condition.into());
+        let Statement::Return {
+            origin,
+            value: None,
+        } = &arm[0]
+        else {
+            panic!("void return")
+        };
+        assert_eq!(
+            (origin.node_id, origin.span),
+            (then_body[0].id, then_body[0].span)
+        );
+    }
+
+    #[test]
     fn lowers_binding_to_c_ir() {
         let program = compile_to_ir("x: f32 = 0.1 + 0.2;").unwrap();
         let module = lower(&program);

@@ -477,7 +477,7 @@ fn emit_statement(statement: &Statement, indent: usize, module: &Module, output:
             }
         }
 
-        Statement::Return(value) => {
+        Statement::Return { value, .. } => {
             output.push_str(&prefix);
             output.push_str("return");
             if let Some(value) = value {
@@ -1212,7 +1212,7 @@ impl RuntimeSupport {
                     self.include_expr(argument);
                 }
             }
-            Statement::Return(value) => {
+            Statement::Return { value, .. } => {
                 if let Some(value) = value {
                     self.include_expr(value);
                 }
@@ -1536,7 +1536,9 @@ fn statement_uses_bool(statement: &Statement) -> bool {
             *format == PrintFormat::Bool || value.ty == Type::Bool
         }
         Statement::Call { arguments, .. } => arguments.iter().any(|value| value.ty == Type::Bool),
-        Statement::Return(value) => value.as_ref().is_some_and(|value| value.ty == Type::Bool),
+        Statement::Return { value, .. } => {
+            value.as_ref().is_some_and(|value| value.ty == Type::Bool)
+        }
         Statement::If {
             condition,
             then_body,
