@@ -23,6 +23,8 @@ The index in `trace.events()` gives the event order. Resolve function names usin
 
 When one more event occurs after reaching the limit, the prefix is retained and `trace.incomplete()` reports `EventLimit`. A trace allocation failure reports `AllocationFailed`. Program execution continues in both cases. The CLI saves the same events as [byte-limited JSON Lines](../reference/cli.en.md). MIR records the HIR condition at each `if` branch. SSA finds that condition through its original MIR block. Each executor records the decision it actually took. Loop tests and short-circuit jumps contribute no extra events. The VM reads the condition node attached to the bytecode jump and records the boolean popped from its stack. Traces for generated code are tracked in [#282](https://github.com/Cerune-Lang/Cerune/issues/282).
 
+During C lowering, a source function carries its declaration span, and an explicit return carries the return statement’s NodeId and span. For example, in `return x;` the return event belongs to the whole statement, while an error evaluating a return expression belongs to that expression. The declaration identifies implicit entry into main and a fallthrough return.
+
 ## Separation of observation and control
 
 - Observation APIs return information about compiler types, IR, and instruction-selection results; they provide no operation for changing those results.

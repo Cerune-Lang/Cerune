@@ -65,7 +65,7 @@ fn statements(body: &mut [Statement], temporaries: &mut Vec<Type>, counted: &[bo
                     counted[*function_id],
                 );
             }
-            Statement::Return(value) => {
+            Statement::Return { value, .. } => {
                 if let Some(value) = value {
                     expression(value, temporaries, counted);
                 }
