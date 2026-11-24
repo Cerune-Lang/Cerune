@@ -179,11 +179,19 @@ fn run() -> Result<(), String> {
             write_or_print(output, c)
         }
 
+        "emit-trace-runtime" => {
+            let path = parse_output_option(
+                &args.collect::<Vec<_>>(),
+                "cerune emit-trace-runtime [-o <runtime.c>]",
+            )?;
+            write_or_print(path, cerune_lang::codegen::trace::runtime_c())
+        }
+
         // LLVM コード生成
         "emit-llvm" => {
             let input = required_path(args.next(), "missing input file")?;
 
-            let rest: Vec<String> = args.collect();
+            let (rest, with_trace) = parse_flag(args.collect(), "--with-trace")?;
 
             let (output, target, annotate_origins) =
                 parse_native_options(&rest, "emit-llvm", "ll")?;
@@ -197,7 +205,7 @@ fn run() -> Result<(), String> {
             let source = read_source(&input)?;
 
             let llvm = render_compilation_result(
-                cerune_lang::codegen::llvm::emit_llvm_with_runtime_limits(
+                cerune_lang::codegen::llvm::emit_llvm_for_execution(
                     &ir_for(&source, string_heap_limit, array_heap_limit)?,
                     cerune_lang::codegen::llvm::Options {
                         target,
@@ -205,6 +213,7 @@ fn run() -> Result<(), String> {
                     },
                     argument_limits,
                     call_depth_limit,
+                    with_trace,
                 ),
                 &source,
             )?;
@@ -804,7 +813,8 @@ fn print_help() {
            cerune emit-sources <file> [-o <sources.json>]\n\
            cerune emit-ir <file> [-o <output.ceir>]\n\
            cerune emit-c <file> [--with-trace] [--target <triple>] [-o <output.c>]\n\
-           cerune emit-llvm <file> --target <triple> [--annotate-origins] [-o <output.ll>]\n\
+           cerune emit-trace-runtime [-o <runtime.c>]\n\
+           cerune emit-llvm <file> [--with-trace] --target <triple> [--annotate-origins] [-o <output.ll>]\n\
            cerune emit-wat <file> [-o <output.wat>]\n\
            cerune emit-qbe <file> --target <triple> [-o <output.ssa>]\n\
            cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]\n\

@@ -1,3 +1,4 @@
+use super::generated::Route;
 use serde_json::Value;
 use std::{
     fs,
@@ -166,19 +167,22 @@ fn executors_match_hir_events_output_and_stops() {
         assert_eq!(hir.status.success(), success, "{src:?}");
         let expected = fs::read(hir_path).unwrap();
         let depth_flag = extra.starts_with(&["--call-depth-limit"]);
-        if let Some(exe) = super::generated_c::compile(
-            &dir.join(format!("{i}-build")),
-            src,
-            if depth_flag { extra } else { &[] },
-        ) {
-            let path = dir.join(format!("{i}-c"));
+        for route in [Route::C, Route::Llvm] {
+            let Some(exe) = route.compile(
+                &dir.join(format!("{i}-{route:?}-build")),
+                src,
+                if depth_flag { extra } else { &[] },
+            ) else {
+                continue;
+            };
+            let path = dir.join(format!("{i}-{route:?}"));
             let mut args = vec!["--cerune-runtime-v1", "--trace", path.to_str().unwrap()];
             if !depth_flag {
                 args.extend_from_slice(extra);
             }
             args.push("--");
-            let normal = super::generated_c::run(&exe, &[]);
-            let actual = super::generated_c::run(&exe, &args);
+            let normal = super::generated::run(&exe, &[]);
+            let actual = super::generated::run(&exe, &args);
             same_run(&actual, &normal);
             assert_eq!(actual.status.success(), success);
             assert_eq!(actual.stdout, hir.stdout);
@@ -187,7 +191,7 @@ fn executors_match_hir_events_output_and_stops() {
                 diagnostic(&actual).trim_start_matches("cerune: "),
                 diagnostic(&hir).trim_start_matches("cerune: ")
             );
-            assert_eq!(fs::read(path).unwrap(), expected, "{src:?} generated C");
+            assert_eq!(fs::read(path).unwrap(), expected, "{src:?} {route:?}");
         }
         for (name, command, options) in [
             ("mir", "run-mir", &[][..]),
@@ -282,10 +286,15 @@ fn files_and_program_arguments_keep_their_meaning() {
 }
 
 #[test]
-fn generated_c_keeps_arguments_trace_limits_and_file_creation_order() {
-    let dir = fresh("trace-c-arguments-files");
+fn generated_routes_keep_arguments_trace_limits_and_file_creation_order() {
+    for route in [Route::C, Route::Llvm] {
+        check_generated_files(route);
+    }
+}
+fn check_generated_files(route: Route) {
+    let dir = fresh(&format!("trace-{route:?}-arguments-files"));
     let src = Path::new("examples/arguments/list.ceru");
-    let Some(exe) = super::generated_c::compile(&dir.join("arguments"), src, &[]) else {
+    let Some(exe) = route.compile(&dir.join("arguments"), src, &[]) else {
         return;
     };
     let data = ["--cerune-runtime-v1", "--trace", "private-example-argument"];
@@ -305,7 +314,7 @@ fn generated_c_keeps_arguments_trace_limits_and_file_creation_order() {
             path.to_str().unwrap(),
             "--",
         ];
-        let actual = super::generated_c::run(&exe, &[&flags[..], &data].concat());
+        let actual = super::generated::run(&exe, &[&flags[..], &data].concat());
         same_run(&actual, &reference);
         let trace = fs::read(&path).unwrap();
         if want_full {
@@ -326,16 +335,17 @@ fn generated_c_keeps_arguments_trace_limits_and_file_creation_order() {
         vec!["--trace", "never", "--trace", "other", "--"],
         vec!["--trace", "never"],
     ] {
-        let actual = super::generated_c::run(&exe, &[&["--cerune-runtime-v1"][..], &bad].concat());
+        let actual = super::generated::run(&exe, &[&["--cerune-runtime-v1"][..], &bad].concat());
         assert!(!actual.status.success());
         assert!(actual.stdout.is_empty());
         assert!(String::from_utf8_lossy(&actual.stderr).contains("trace-v1: invalid"));
     }
     let root = dir.join("files");
-    let exe = super::generated_c::compile(&root, Path::new("examples/files/roundtrip.ceru"), &[])
+    let exe = route
+        .compile(&root, Path::new("examples/files/roundtrip.ceru"), &[])
         .unwrap();
     let path = root.join("sample.txt");
-    let actual = super::generated_c::run(
+    let actual = super::generated::run(
         &exe,
         &[
             "--cerune-runtime-v1",

@@ -10,6 +10,11 @@ pub fn emit(module: &Module) -> String {
 }
 
 pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
+    emit_configured(module, annotate_origins, false)
+}
+
+pub(super) fn emit_configured(module: &Module, annotate_origins: bool, with_trace: bool) -> String {
+    let mut rows = with_trace.then(super::trace::Rows::default);
     let mut output = String::new();
     if annotate_origins {
         output.push_str("; cerune-origins v1: UTF-8 byte ranges, end exclusive\n");
@@ -25,7 +30,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
         writeln!(output, "target triple = \"{}\"\n", target.triple()).unwrap();
     }
     if runtime_failures {
-        super::failure::emit_data(module, &mut output);
+        super::failure::emit_data(module, with_trace, &mut output);
     }
     if module.uses_strings {
         super::string::emit_data(module, &mut output);
@@ -75,7 +80,7 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     output.push('\n');
 
     if runtime_failures {
-        super::failure::emit_support(module, &mut output);
+        super::failure::emit_support(module, with_trace, &mut output);
     }
     emit_i64_operation_support(i64_operations, &mut output);
     if module.uses_strings {
@@ -116,13 +121,21 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     }
 
     for function in &module.functions {
-        emit_function(function, module, annotate_origins, &mut output);
+        emit_function(
+            function,
+            module,
+            annotate_origins,
+            rows.as_mut(),
+            &mut output,
+        );
         output.push('\n');
     }
 
     emit_origin(Origin::Synthetic, annotate_origins, &mut output);
     output.push_str(if super::arguments::used(module) {
         "define internal i32 @cerune.program() {\nentry:\n"
+    } else if with_trace {
+        "define i32 @cerune_trace_v1_program(i32 %argc, ptr %argv) {\nentry:\n"
     } else {
         "define i32 @main() {\nentry:\n"
     });
@@ -151,6 +164,8 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
             instruction.origin,
             &module.slots,
             module,
+            None,
+            rows.as_mut(),
             &mut output,
         );
     }
@@ -159,6 +174,11 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     if let Some(function_id) = module.explicit_main {
         let function = &module.functions[function_id];
         super::call::enter(module, function_id, Origin::Synthetic, &mut output);
+        if let Some(rows) = &mut rows
+            && module.source_functions[function_id]
+        {
+            rows.function("call", function, Origin::Synthetic, &mut output);
+        }
         writeln!(output, "  call void @{}()", function_name(function)).unwrap();
         super::call::leave(module, function_id, &mut output);
     }
@@ -169,9 +189,20 @@ pub fn emit_with_origins(module: &Module, annotate_origins: bool) -> String {
     output.push_str("  ret i32 0\n");
     output.push_str("}\n");
 
-    super::arguments::emit_entry(module, &mut output);
+    super::arguments::emit_entry(module, with_trace, &mut output);
     crate::codegen::output::llvm(module, &mut output);
     super::call::support(module, &mut output);
+    if let Some(rows) = rows {
+        writeln!(
+            output,
+            "@cerune_trace_v1_files = constant i8 {}\n@cerune_trace_v1_processes = constant i8 {}",
+            u8::from(super::files::used(module)),
+            u8::from(super::process::used(module))
+        )
+        .unwrap();
+        rows.emit(&mut output);
+        return super::trace::save_before_immediate_exits(&output);
+    }
     output
 }
 
@@ -179,6 +210,7 @@ fn emit_function(
     function: &Function,
     module: &Module,
     annotate_origins: bool,
+    mut rows: Option<&mut super::trace::Rows>,
     output: &mut String,
 ) {
     emit_origin(Origin::Synthetic, annotate_origins, output);
@@ -225,6 +257,8 @@ fn emit_function(
             instruction.origin,
             &function.slots,
             module,
+            Some(function),
+            rows.as_deref_mut(),
             output,
         );
     }
@@ -236,6 +270,8 @@ fn emit_instruction(
     origin: Origin,
     slots: &[Slot],
     module: &Module,
+    current: Option<&Function>,
+    rows: Option<&mut super::trace::Rows>,
     output: &mut String,
 ) {
     let failure = super::failure::argument(instruction, origin);
@@ -472,10 +508,16 @@ fn emit_instruction(
         }
 
         Instruction::Branch {
+            if_condition,
             condition,
             then_label,
             else_label,
         } => {
+            if let (Some(rows), Some(site)) = (rows, if_condition)
+                && current.is_none_or(|f| module.source_functions[f.id])
+            {
+                rows.branch(*site, &operand(*condition), then_label.0, output);
+            }
             writeln!(
                 output,
                 "  br i1 {}, label %{}, label %{}",
@@ -602,6 +644,11 @@ fn emit_instruction(
             arguments,
         } => {
             super::call::enter(module, *function_id, origin, output);
+            if let Some(rows) = rows
+                && module.source_functions[*function_id]
+            {
+                rows.function("call", &module.functions[*function_id], origin, output);
+            }
             output.push_str("  ");
             if let Some(dest) = dest {
                 write!(output, "{} = ", temp(*dest)).unwrap();
@@ -626,18 +673,25 @@ fn emit_instruction(
             super::call::leave(module, *function_id, output);
         }
 
-        Instruction::Return { value } => match value {
-            Some((ty, value)) => {
-                writeln!(
-                    output,
-                    "  ret {} {}",
-                    type_name(ty, module),
-                    operand(*value)
-                )
-                .unwrap();
+        Instruction::Return { value } => {
+            if let (Some(rows), Some(function)) = (rows, current)
+                && module.source_functions[function.id]
+            {
+                rows.function("return", function, origin, output);
             }
-            None => output.push_str("  ret void\n"),
-        },
+            match value {
+                Some((ty, value)) => {
+                    writeln!(
+                        output,
+                        "  ret {} {}",
+                        type_name(ty, module),
+                        operand(*value)
+                    )
+                    .unwrap();
+                }
+                None => output.push_str("  ret void\n"),
+            }
+        }
 
         Instruction::Binary {
             dest,

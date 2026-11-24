@@ -89,7 +89,8 @@ pub(super) fn emit_with_trace(module: &Module, trace: bool) -> String {
     output.push_str("#if defined(__clang__)\n#pragma clang fp contract(off)\n#elif defined(__GNUC__)\n#pragma GCC optimize (\"fp-contract=off\")\n#endif\n");
     output.push('\n');
     if module.trace {
-        output.push_str(super::trace::RUNTIME);
+        output.push_str(crate::codegen::trace::RUNTIME);
+        output.push_str(include_str!("trace/helpers.c.inc"));
     }
     let runtime_start = output.len();
 
@@ -293,7 +294,7 @@ pub(super) fn emit_with_trace(module: &Module, trace: bool) -> String {
             u8::from(processes)
         )
         .unwrap();
-        output.push_str(&super::trace::ENTRY.replace(
+        output.push_str(&crate::codegen::trace::ENTRY.replace(
             "CERUNE_PROGRAM_ENTRY",
             if arguments {
                 "cerune_entry(argc, argv)"

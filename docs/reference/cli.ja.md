@@ -48,7 +48,8 @@ cerune emit-ir <file> [-o <output.ceir>]
 cerune emit-mir <file> [-o <output.txt>]
 cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
 cerune emit-c <file> [--with-trace] [-o <output.c>]
-cerune emit-llvm <file> --target <triple> [-o <output.ll>]
+cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
+cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
@@ -194,6 +195,19 @@ clang -std=c11 -O2 factorial.c -o factorial
 
 Windowsでは生成した実行ファイルを `.\factorial.exe` で起動します。記録先は実行時の作業ディレクトリから指定します。上の件数・バイト上限と `--file-root`・`--process-config` は、利用する接続に応じて同じ専用マーカー内に書けます。`--` の後ろはプログラムの引数です。記録先の新規作成は実行後に行います。先にプログラムが同名のファイルを作った場合はその内容を保ち、標準エラーに保存失敗を表示します。
 
+### 生成LLVMで同じ実行を記録する
+
+次の例はLinux x86-64用です。1行目は記録命令を含むLLVM IRを出力し、2行目は記録の保存に使うC11ソースを出力します。Clangに両方を渡して実行ファイルを作ります。
+
+```sh
+cerune emit-llvm examples/recursion/factorial.ceru --target x86_64-unknown-linux-gnu --with-trace -o factorial.ll
+cerune emit-trace-runtime -o trace-runtime.c
+clang --target=x86_64-unknown-linux-gnu -O2 factorial.ll trace-runtime.c -o factorial
+./factorial --cerune-runtime-v1 --trace factorial-llvm.jsonl --
+```
+
+標準出力は `120` と `1`、記録はHIRと同じ18件と終端行です。Windows x64では両方のターゲット指定に `x86_64-pc-windows-msvc` を使います。生成Cと同じ起動引数で保存先・件数上限・バイト上限を指定できます。子プロセスを使うプログラムでは、そのターゲット用の子プロセスruntimeもリンクします。
+
 ## Cerune IRの出力
 
 ```text
@@ -227,7 +241,8 @@ cerune emit-mir examples/ir_stages/control_flow.ceru -o target/control_flow.mir.
 
 ```text
 cerune emit-c <file> [--with-trace] [-o <output.c>]
-cerune emit-llvm <file> --target <triple> [-o <output.ll>]
+cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
+cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]

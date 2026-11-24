@@ -14,6 +14,7 @@ mod output;
 mod process;
 mod rounding;
 mod string;
+mod trace;
 mod unsigned;
 mod utf8;
 
@@ -83,7 +84,7 @@ pub fn emit_llvm_with_argument_limits(
     options: Options,
     limits: crate::runtime::arguments::Limits,
 ) -> Result<String, Diagnostic> {
-    emit_configured(program, options, limits, None)
+    emit_configured(program, options, limits, None, false)
 }
 /// 明示ターゲット上でソース関数の呼出し深さを検査します。
 pub fn emit_llvm_with_call_limit(
@@ -99,6 +100,7 @@ pub fn emit_llvm_with_call_limit(
         },
         Default::default(),
         Some(limit),
+        false,
     )
 }
 /// 引数と呼出し深さの制約を同時に指定します。既存APIの既定動作は維持します。
@@ -108,18 +110,30 @@ pub fn emit_llvm_with_runtime_limits(
     arguments: crate::runtime::arguments::Limits,
     calls: std::num::NonZeroU32,
 ) -> Result<String, Diagnostic> {
+    emit_llvm_for_execution(program, options, arguments, calls, false)
+}
+
+/// traceを有効にした生成物は同じターゲットでコンパイルしたtrace-v1の保存処理とリンクします。
+pub fn emit_llvm_for_execution(
+    program: &cerune_ir::Program,
+    options: Options,
+    arguments: crate::runtime::arguments::Limits,
+    calls: std::num::NonZeroU32,
+    with_trace: bool,
+) -> Result<String, Diagnostic> {
     if options.target.is_none() {
         return Err(Diagnostic::without_span(
             "LLVM call depth checks require an explicit --target",
         ));
     }
-    emit_configured(program, options, arguments, Some(calls))
+    emit_configured(program, options, arguments, Some(calls), with_trace)
 }
 fn emit_configured(
     program: &cerune_ir::Program,
     options: Options,
     limits: crate::runtime::arguments::Limits,
     call_limit: Option<std::num::NonZeroU32>,
+    with_trace: bool,
 ) -> Result<String, Diagnostic> {
     if options.target.is_none()
         && let Some(span) = program.first_process_span()
@@ -211,7 +225,11 @@ fn emit_configured(
     module.argument_limits = limits;
     module.uses_strings = string_span.is_some();
 
-    Ok(emit::emit_with_origins(&module, options.annotate_origins))
+    Ok(emit::emit_configured(
+        &module,
+        options.annotate_origins,
+        with_trace,
+    ))
 }
 
 #[cfg(test)]
