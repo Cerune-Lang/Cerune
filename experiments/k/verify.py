@@ -25,17 +25,26 @@ def k_execution(directory, program, definition):
     execute(["kompile", "choose.k", "--backend", "llvm"], cwd=directory)
     raw = execute(["krun", program, "--definition", "choose-kompiled", "--output", "json"], cwd=directory).stdout
     (directory / "result.json").write_text(raw, encoding="utf8")
-    pending = [json.loads(raw)["term"]]
+    return read_events(raw)
+
+
+def read_events(raw):
+    result = json.loads(raw)
+    assert (result["format"], result["version"]) == ("KAST", 4)
+    state, = [x for x in result["term"]["args"] if x["label"]["name"] == "<state>"]
+    cells = {cell["label"]["name"]: cell["args"][0] for cell in state["args"]}
+    assert cells["<input>"]["token"] == "256" and cells["<k>"]["items"] == []
+    pending = [cells["<events>"]]
     observations = [[] for _ in range(256)]
     while pending:
         term = pending.pop()
         args = term.get("args", [])
-        label = term.get("label")
+        label = term["label"]["name"]
         if label in ("returned", "decided", "integerOverflow"):
             i = int(args[0]["token"])
             assert 0 <= i < 256
             pos = args[-1]
-            assert pos["label"] == "site"
+            assert pos["label"]["name"] == "site"
             site = tuple(int(x["token"]) for x in pos["args"])
             if label == "returned":
                 event = ("return", int(args[1]["token"]), site)
@@ -46,6 +55,7 @@ def k_execution(directory, program, definition):
                 event = ("stop", "integer-overflow", site)
             observations[i].append(event)
         else:
+            assert label in ("_List_", ".List", "ListItem"), label
             pending.extend(reversed(args))
     return observations
 
