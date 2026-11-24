@@ -47,7 +47,7 @@ cerune emit-sources <file> [-o <sources.json>]
 cerune emit-ir <file> [-o <output.ceir>]
 cerune emit-mir <file> [-o <output.txt>]
 cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
-cerune emit-c <file> [-o <output.c>]
+cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [-o <output.ll>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
@@ -182,6 +182,18 @@ cerune run-vm examples/recursion/factorial.ceru --trace factorial-vm.jsonl
 
 保存には未使用のファイル名を指定してください。既存ファイルや書込み失敗は標準エラーの `trace-v1` 診断で確認できます。プログラムの終了コードと停止診断は保持します。途中で書込みが失敗したファイルには不完全な行が残ることがあるため、読込み側は終端行まで確認してください。
 
+### 生成Cで同じ実行を記録する
+
+`--with-trace` を付けると、記録先を起動時に指定できるCを生成します。次の例をLinuxまたはmacOSで実行すると、標準出力に `120` と `1` が出ます。生成Cの18件のイベントと終端行は、同じソースを `run --trace` で実行したファイルとバイト単位で一致します。
+
+```sh
+cerune emit-c examples/recursion/factorial.ceru --with-trace -o factorial.c
+clang -std=c11 -O2 factorial.c -o factorial
+./factorial --cerune-runtime-v1 --trace factorial-c.jsonl --
+```
+
+Windowsでは生成した実行ファイルを `.\factorial.exe` で起動します。記録先は実行時の作業ディレクトリから指定します。上の件数・バイト上限と `--file-root`・`--process-config` は、利用する接続に応じて同じ専用マーカー内に書けます。`--` の後ろはプログラムの引数です。記録先の新規作成は実行後に行います。先にプログラムが同名のファイルを作った場合はその内容を保ち、標準エラーに保存失敗を表示します。
+
 ## Cerune IRの出力
 
 ```text
@@ -214,7 +226,7 @@ cerune emit-mir examples/ir_stages/control_flow.ceru -o target/control_flow.mir.
 ## 出力成果物の生成
 
 ```text
-cerune emit-c <file> [-o <output.c>]
+cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [-o <output.ll>]
 cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-wat <file> [-o <output.wat>]

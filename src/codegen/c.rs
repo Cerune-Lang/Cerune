@@ -16,24 +16,16 @@ pub use super::x86_64::Target;
 mod rounding;
 mod sequence;
 mod string;
+mod trace;
 mod unsigned;
 mod utf8;
 
 pub use emit::emit;
-use lower::lower;
 
 use crate::{diagnostic::Diagnostic, ir as cerune_ir};
 
 pub fn emit_c(program: &cerune_ir::Program) -> Result<String, Diagnostic> {
-    if let Some(span) = program.first_process_span() {
-        return Err(Diagnostic::new(
-            "C subprocess execution requires an explicit --target and runtime archive".to_owned(),
-            span,
-        ));
-    }
-    let module = lower(program);
-
-    Ok(emit(&module))
+    configured(program, None, None, false)
 }
 
 /// 呼出し深さを明示したCを生成します。物理stackの安全範囲を保証しません。
@@ -42,13 +34,7 @@ pub fn emit_c_with_call_limit(
     program: &cerune_ir::Program,
     limit: std::num::NonZeroU32,
 ) -> Result<String, Diagnostic> {
-    if let Some(span) = program.first_process_span() {
-        return Err(Diagnostic::new(
-            "C subprocess execution requires an explicit --target and runtime archive".to_owned(),
-            span,
-        ));
-    }
-    Ok(emit(&lower::lower_with_call_limit(program, Some(limit))))
+    configured(program, None, Some(limit), false)
 }
 
 /// 子プロセスABIのtargetを明示してCを生成します。リンクは呼出し側が行います。
@@ -57,9 +43,35 @@ pub fn emit_c_with_target(
     target: Target,
     limit: Option<std::num::NonZeroU32>,
 ) -> Result<String, Diagnostic> {
+    configured(program, Some(target), limit, false)
+}
+
+/// 実行時に明示された記録先へtrace-v1を保存できるCを生成します。
+pub fn emit_c_with_trace(
+    program: &cerune_ir::Program,
+    target: Option<Target>,
+    limit: std::num::NonZeroU32,
+) -> Result<String, Diagnostic> {
+    configured(program, target, Some(limit), true)
+}
+
+fn configured(
+    program: &cerune_ir::Program,
+    target: Option<Target>,
+    limit: Option<std::num::NonZeroU32>,
+    trace: bool,
+) -> Result<String, Diagnostic> {
+    if target.is_none()
+        && let Some(span) = program.first_process_span()
+    {
+        return Err(Diagnostic::new(
+            "C subprocess execution requires an explicit --target and runtime archive".to_owned(),
+            span,
+        ));
+    }
     let mut module = lower::lower_with_call_limit(program, limit);
-    module.process_target = Some(target);
-    Ok(emit(&module))
+    module.process_target = target;
+    Ok(emit::emit_with_trace(&module, trace))
 }
 
 #[cfg(test)]
@@ -131,7 +143,7 @@ mod tests {
     #[test]
     fn lowers_binding_to_c_ir() {
         let program = compile_to_ir("x: f32 = 0.1 + 0.2;").unwrap();
-        let module = lower(&program);
+        let module = lower::lower_with_call_limit(&program, None);
 
         assert!(matches!(
             &module.statements[0],
@@ -235,7 +247,7 @@ mod tests {
     #[test]
     fn keeps_checked_i64_arithmetic_visible_in_c_ir() {
         let program = compile_to_ir("x: i64 = 1 + 2;").unwrap();
-        let module = lower(&program);
+        let module = lower::lower_with_call_limit(&program, None);
 
         assert!(matches!(
             &module.statements[0],

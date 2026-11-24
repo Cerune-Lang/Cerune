@@ -20,13 +20,18 @@ pub(super) fn literal(origin: Origin, output: &mut String) {
 }
 
 // C標準ライブラリのstderrを使うため、生成時にOSのFILE構造やABIを推測しません。
-pub(super) const SUPPORT: &str = r#"static void cerune_runtime_fail(const char *code, const char *origin) {
+pub(super) fn emit(trace: bool, output: &mut String) {
+    output.push_str(
+        r#"static void cerune_runtime_fail(const char *code, const char *origin) {
     fflush(stdout);
     fputs("cerune: runtime-v1 code=", stderr);
     fputs(code, stderr);
     fputs(origin, stderr);
     fflush(stderr);
-    abort();
+"#,
+    );
+    if trace {
+        output.push_str("    cerune_trace_stop(code, origin);\n");
+    }
+    output.push_str("    abort();\n}\n\n");
 }
-
-"#;

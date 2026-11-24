@@ -165,6 +165,30 @@ fn executors_match_hir_events_output_and_stops() {
         let hir = run("run", src, Some(&hir_path), &flags);
         assert_eq!(hir.status.success(), success, "{src:?}");
         let expected = fs::read(hir_path).unwrap();
+        let depth_flag = extra.starts_with(&["--call-depth-limit"]);
+        if let Some(exe) = super::generated_c::compile(
+            &dir.join(format!("{i}-build")),
+            src,
+            if depth_flag { extra } else { &[] },
+        ) {
+            let path = dir.join(format!("{i}-c"));
+            let mut args = vec!["--cerune-runtime-v1", "--trace", path.to_str().unwrap()];
+            if !depth_flag {
+                args.extend_from_slice(extra);
+            }
+            args.push("--");
+            let normal = super::generated_c::run(&exe, &[]);
+            let actual = super::generated_c::run(&exe, &args);
+            same_run(&actual, &normal);
+            assert_eq!(actual.status.success(), success);
+            assert_eq!(actual.stdout, hir.stdout);
+            let diagnostic = |r: &Output| String::from_utf8_lossy(&r.stderr).replace("\r\n", "\n");
+            assert_eq!(
+                diagnostic(&actual).trim_start_matches("cerune: "),
+                diagnostic(&hir).trim_start_matches("cerune: ")
+            );
+            assert_eq!(fs::read(path).unwrap(), expected, "{src:?} generated C");
+        }
         for (name, command, options) in [
             ("mir", "run-mir", &[][..]),
             ("ssa", "run-mir", &["--ssa"][..]),
@@ -255,6 +279,77 @@ fn files_and_program_arguments_keep_their_meaning() {
             .unwrap()
             .contains("private-example-argument")
     );
+}
+
+#[test]
+fn generated_c_keeps_arguments_trace_limits_and_file_creation_order() {
+    let dir = fresh("trace-c-arguments-files");
+    let src = Path::new("examples/arguments/list.ceru");
+    let Some(exe) = super::generated_c::compile(&dir.join("arguments"), src, &[]) else {
+        return;
+    };
+    let data = ["--cerune-runtime-v1", "--trace", "private-example-argument"];
+    let hir_trace = dir.join("hir");
+    let reference = run("run", src, Some(&hir_trace), &[&["--"][..], &data].concat());
+    let expected = fs::read(hir_trace).unwrap();
+    for (name, limit, want_full) in [
+        ("exact", expected.len(), true),
+        ("one-short", expected.len() - 1, false),
+    ] {
+        let path = dir.join(name);
+        let flags = [
+            "--cerune-runtime-v1",
+            "--trace-byte-limit",
+            &limit.to_string(),
+            "--trace",
+            path.to_str().unwrap(),
+            "--",
+        ];
+        let actual = super::generated_c::run(&exe, &[&flags[..], &data].concat());
+        same_run(&actual, &reference);
+        let trace = fs::read(&path).unwrap();
+        if want_full {
+            assert_eq!(trace, expected);
+        } else {
+            assert!(trace.len() <= limit);
+            assert_eq!(rows(&path).last().unwrap()["status"], "byte-limit");
+        }
+        assert!(
+            !String::from_utf8(trace)
+                .unwrap()
+                .contains("private-example-argument")
+        );
+    }
+    for bad in [
+        vec!["--trace-event-limit", "1", "--"],
+        vec!["--trace", "never", "--trace-byte-limit", "64", "--"],
+        vec!["--trace", "never", "--trace", "other", "--"],
+        vec!["--trace", "never"],
+    ] {
+        let actual = super::generated_c::run(&exe, &[&["--cerune-runtime-v1"][..], &bad].concat());
+        assert!(!actual.status.success());
+        assert!(actual.stdout.is_empty());
+        assert!(String::from_utf8_lossy(&actual.stderr).contains("trace-v1: invalid"));
+    }
+    let root = dir.join("files");
+    let exe = super::generated_c::compile(&root, Path::new("examples/files/roundtrip.ceru"), &[])
+        .unwrap();
+    let path = root.join("sample.txt");
+    let actual = super::generated_c::run(
+        &exe,
+        &[
+            "--cerune-runtime-v1",
+            "--file-root",
+            root.to_str().unwrap(),
+            "--trace",
+            path.to_str().unwrap(),
+            "--",
+        ],
+    );
+    assert!(actual.status.success());
+    assert!(actual.stdout.starts_with(b"true\n"));
+    assert!(String::from_utf8_lossy(&actual.stderr).contains("trace-v1: could not save"));
+    assert_eq!(fs::read(path).unwrap(), "日本語\0\r\né\n".as_bytes());
 }
 
 #[test]

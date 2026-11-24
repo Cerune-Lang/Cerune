@@ -5,9 +5,6 @@ use super::ir::{
     Function, Module, Parameter, PrintFormat, Statement, Type, TypeDefinition, UnaryOp,
 };
 
-pub fn lower(program: &cerune_ir::Program) -> Module {
-    lower_with_call_limit(program, None)
-}
 pub(super) fn lower_with_call_limit(
     program: &cerune_ir::Program,
     call_limit: Option<std::num::NonZeroU32>,

@@ -25,6 +25,8 @@ When one more event occurs after reaching the limit, the prefix is retained and 
 
 During C lowering, a source function carries its declaration span, and an explicit return carries the return statement’s NodeId and span. For example, in `return x;` the return event belongs to the whole statement, while an error evaluating a return expression belongs to that expression. The declaration identifies implicit entry into main and a fallthrough return.
 
+With `emit-c --with-trace`, the caller records a call after argument evaluation and the depth check. An `if` records the evaluated boolean and branches on that value. A return records its site after its result has been computed. For example, the last event in `return 1 / 0;` points to the failing division. The program buffers events as it executes and saves `trace-v1` on normal completion or a diagnosed Cerune stop. [Running the generated C example](../reference/cli.en.md)
+
 ## Separation of observation and control
 
 - Observation APIs return information about compiler types, IR, and instruction-selection results; they provide no operation for changing those results.
