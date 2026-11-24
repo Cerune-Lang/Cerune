@@ -15,6 +15,8 @@ scripts/*.cjs text eol=lf -linguist-detectable
 # 検証用言語・補助ツール・出力比較用fixtureは言語集計から外します。
 # linguist-generatedは使わず、観測結果と証明のdiffを表示したままにします。
 experiments/lean/** -linguist-detectable
+experiments/k/** -linguist-detectable
+experiments/k/*.k text eol=lf -linguist-detectable
 tests/**/*.cjs -linguist-detectable
 tests/**/*.lean -linguist-detectable
 tests/fixtures/observation/**/expected/** -linguist-detectable

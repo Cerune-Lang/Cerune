@@ -1,0 +1,44 @@
+name: K choose experiment
+on:
+  pull_request:
+    paths:
+      - 'experiments/k/**'
+      - 'experiments/lean/branch.ceru'
+      - 'experiments/lean/BranchProperties.lean'
+      - '.github/workflows/k-choose.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.98.0
+      - name: Install pinned K and Lean
+        run: |
+          mkdir -p target
+          curl -fLsS --retry 3 https://github.com/runtimeverification/k/releases/download/v7.1.337/kframework_7.1.337_amd64_ubuntu_noble.deb -o target/k.deb
+          echo '3692997e6bfa4be490d24bd9201289d4a05872889c9da725dda21e99d03d6990  target/k.deb' | sha256sum -c -
+          sudo apt-get update -qq
+          sudo apt-get install -y ./target/k.deb
+          curl -fLsS --retry 3 https://github.com/leanprover/lean4/releases/download/v4.34.1/lean-4.34.1-linux.tar.zst -o target/lean.tar.zst
+          echo '47bf4bbd78f70c2e9670598ab7124d92b6efb7330ff33e5fbb4030f6fd72e4e4  target/lean.tar.zst' | sha256sum -c -
+          tar --zstd -xf target/lean.tar.zst -C target
+      - name: Compare K rules, Lean table and four Cerune executors
+        run: python3 experiments/k/verify.py
+        env:
+          CERUNE_TEST_LEAN: ${{ github.workspace }}/target/lean-4.34.1-linux/bin/lean
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: k-choose-evidence
+          path: |
+            target/k-choose-*/*.term
+            target/k-choose-*/*.txt
+            target/k-choose-*/*.jsonl
+            target/k-choose-*/*/result.json
+          if-no-files-found: ignore

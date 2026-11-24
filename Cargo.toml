@@ -19,6 +19,10 @@ name = "lean_verification"
 path = "experiments/lean/main.rs"
 
 [[example]]
+name = "k_choose"
+path = "experiments/k/main.rs"
+
+[[example]]
 name = "ssa_model"
 path = "experiments/ssa/main.rs"
 
