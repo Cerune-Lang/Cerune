@@ -17,6 +17,12 @@ Run the [branch fixture](../lean/branch.ceru)'s `choose(value: u8)` on every u8 
 3. The [comparison](verify.py) checks values or stop codes and sites against the evaluated [Lean specification](../lean/BranchProperties.lean). HIR, MIR, SSA and VM run the same function. The comparison reads their stdout and matches their `trace-v1` branch, return and stop sites with K.
 4. A second run changes a copy of the short-circuit rule to evaluate the right operand when the left operand is false. At 128 this produces overflow at `value + 128`.
 
+## Results and use
+
+For all 256 inputs, K matched Lean on the return value or stop reason and site. Branch and return or stop events matched all four executors. Changing the short-circuit rule replaced the expected return of 130 at input 128 with an overflow in the right operand, which the comparison detected. [Linux verification run](https://github.com/Cerune-Lang/Cerune/actions/runs/45371871146)
+
+Use K as a reference for examples where evaluation order or early termination matters. This experiment covers every input to `choose`. Extending it to another function or language feature starts with choosing a property and an example that exercises it.
+
 ## Reproduce
 
 Use K 7.1.337, Lean 4.34.1, the project's Rust toolchain and Python 3.10 or later on Linux. Run from the repository root. Set `CERUNE_TEST_LEAN` to select a particular Lean executable.
