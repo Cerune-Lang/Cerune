@@ -48,7 +48,8 @@ cerune emit-ir <file> [-o <output.ceir>]
 cerune emit-mir <file> [-o <output.txt>]
 cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
 cerune emit-c <file> [--with-trace] [-o <output.c>]
-cerune emit-llvm <file> --target <triple> [-o <output.ll>]
+cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
+cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
@@ -194,6 +195,19 @@ clang -std=c11 -O2 factorial.c -o factorial
 
 On Windows, launch the compiled program as `.\factorial.exe`. A relative trace path starts in the program's working directory. Put the event and byte limits above and any supported `--file-root` or `--process-config` settings inside the same runtime marker. Arguments following `--` go to the program. The writer creates the trace file after execution. If the program has just created a file at that path, the writer preserves it and reports the save failure on stderr.
 
+### Recording the same execution in generated LLVM IR
+
+This example targets x86-64 Linux. The first command emits LLVM IR containing the event calls. The second writes the C11 source that saves the trace. Pass both files to Clang to build the executable.
+
+```sh
+cerune emit-llvm examples/recursion/factorial.ceru --target x86_64-unknown-linux-gnu --with-trace -o factorial.ll
+cerune emit-trace-runtime -o trace-runtime.c
+clang --target=x86_64-unknown-linux-gnu -O2 factorial.ll trace-runtime.c -o factorial
+./factorial --cerune-runtime-v1 --trace factorial-llvm.jsonl --
+```
+
+The program prints `120` and `1` and records the same 18 events and end record as HIR. On x64 Windows use `x86_64-pc-windows-msvc` in both target options. Generated C and LLVM programs accept the same trace path, event cap and byte cap at launch. If the program uses subprocesses, also link the subprocess runtime for that target.
+
 ## Cerune IR emission
 
 ```text
@@ -227,7 +241,8 @@ Lower completed IR into unoptimized, non-SSA MIR, validate it, then emit observa
 
 ```text
 cerune emit-c <file> [--with-trace] [-o <output.c>]
-cerune emit-llvm <file> --target <triple> [-o <output.ll>]
+cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
+cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-qbe <file> --target <triple> [-o <output.ssa>]
 cerune emit-wat <file> [-o <output.wat>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]

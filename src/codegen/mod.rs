@@ -16,6 +16,7 @@ mod test_file_reference;
 #[cfg(test)]
 #[path = "../../tests/support/process.rs"]
 mod test_process;
+pub mod trace;
 pub mod wat;
 pub mod x86_64;
 pub mod x86_64_win;

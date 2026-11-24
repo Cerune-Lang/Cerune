@@ -5,8 +5,8 @@ use std::{
     sync::mpsc,
     time::Duration,
 };
-#[path = "execution_output_cli/generated_c.rs"]
-mod generated_c;
+#[path = "execution_output_cli/generated.rs"]
+mod generated;
 #[path = "support/process.rs"]
 mod process;
 #[path = "execution_output_cli/trace.rs"]

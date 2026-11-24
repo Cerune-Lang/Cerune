@@ -125,7 +125,7 @@ fn table_name(origin: Origin) -> String {
     )
 }
 
-pub(super) fn emit_data(module: &Module, output: &mut String) {
+pub(super) fn emit_data(module: &Module, with_trace: bool, output: &mut String) {
     let mut sites: Vec<(Origin, Vec<Code>)> = Vec::new();
     for item in module
         .instructions
@@ -165,7 +165,7 @@ pub(super) fn emit_data(module: &Module, output: &mut String) {
         let mut lengths = vec![0; count];
         for code in required {
             let id = index(code);
-            let record = format!(
+            let mut record = format!(
                 "cerune: {}\n",
                 RuntimeFailure {
                     code,
@@ -175,6 +175,11 @@ pub(super) fn emit_data(module: &Module, output: &mut String) {
                 .record()
             );
             lengths[id] = record.len();
+            // stderrは診断の長さだけ書く。直後に保存したJSON行はトレースが読む。
+            if with_trace {
+                record.push_str(&crate::codegen::trace::stop_row(code, node_id, span));
+                record.push('\0');
+            }
             write!(
                 output,
                 "{name}.{id} = private unnamed_addr constant [{} x i8] c\"",
@@ -205,7 +210,7 @@ pub(super) fn emit_data(module: &Module, output: &mut String) {
     }
 }
 
-pub(super) fn emit_support(module: &Module, output: &mut String) {
+pub(super) fn emit_support(module: &Module, with_trace: bool, output: &mut String) {
     output.push_str("declare i32 @fflush(ptr)\n");
     match module
         .target
@@ -222,6 +227,9 @@ pub(super) fn emit_support(module: &Module, output: &mut String) {
     match module.target.unwrap() {
         super::Target::X86_64UnknownLinuxGnu => output.push_str("  call i64 @write(i32 2, ptr %data, i64 %length)\n"),
         super::Target::X86_64PcWindowsMsvc => output.push_str("  %count = trunc i64 %length to i32\n  call i32 @_write(i32 2, ptr %data, i32 %count)\n"),
+    }
+    if with_trace {
+        output.push_str("  %trace.row = getelementptr i8, ptr %data, i64 %length\n  call void @cerune_trace_v1_record(ptr %trace.row)\n");
     }
     output.push_str("  call void @llvm.trap()\n  unreachable\n}\n\n");
 }

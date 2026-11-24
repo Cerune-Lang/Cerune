@@ -128,6 +128,7 @@ fn lower_function(function: &cerune_ir::FunctionDefinition, strings: &mut Vec<St
     }
 
     Function {
+        declaration: function.span,
         id: function.id.0,
         name: function.name.clone(),
         parameters,
@@ -391,12 +392,14 @@ impl Lowerer<'_> {
                 then_body,
                 else_body,
             } => {
+                let if_condition = Some((condition.id, condition.span));
                 let condition = self.lower_expr(condition);
                 let then_label = self.next_label();
                 let else_label = self.next_label();
                 let end_label = self.next_label();
 
                 self.push(Instruction::Branch {
+                    if_condition,
                     condition: condition.operand,
                     then_label,
                     else_label: if else_body.is_empty() {
@@ -457,6 +460,7 @@ impl Lowerer<'_> {
 
                 let condition = self.lower_expr(condition);
                 self.push(Instruction::Branch {
+                    if_condition: None,
                     condition: condition.operand,
                     then_label: body_label,
                     else_label: end_label,
@@ -507,6 +511,7 @@ impl Lowerer<'_> {
                 });
                 let condition = self.lower_expr(condition);
                 self.push(Instruction::Branch {
+                    if_condition: None,
                     condition: condition.operand,
                     then_label: body_label,
                     else_label: end_label,
@@ -981,6 +986,7 @@ impl Lowerer<'_> {
                     cerune_ir::LogicalOp::Or => (end_label, rhs_label),
                 };
                 self.push(Instruction::Branch {
+                    if_condition: None,
                     condition: left.operand,
                     then_label,
                     else_label,

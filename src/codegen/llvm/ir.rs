@@ -29,6 +29,7 @@ pub struct Module {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
+    pub declaration: crate::source::Span,
     pub id: usize,
     pub name: String,
     pub parameters: Vec<Parameter>,
@@ -199,6 +200,8 @@ pub enum Instruction {
         name: &'static str,
     },
     Branch {
+        /// ソースのif条件。ループと短絡評価による分岐はNone。
+        if_condition: Option<(crate::ir::NodeId, crate::source::Span)>,
         condition: Operand,
         then_label: Label,
         else_label: Label,
