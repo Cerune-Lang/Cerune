@@ -57,7 +57,7 @@ cerune emit-bytecode <file> [-o <output.cebc>]
 cerune run <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-mir <file> [--ssa] [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
-cerune run-vm <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-vm <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune --version
 ```
 
@@ -166,9 +166,10 @@ Rust APIは`run_ir(source)`、完成済みIRには`ir_executor::run(&program)`�
 cerune run examples/recursion/factorial.ceru --trace factorial.jsonl
 cerune run-mir examples/recursion/factorial.ceru --trace factorial-mir.jsonl
 cerune run-mir examples/recursion/factorial.ceru --ssa --trace factorial-ssa.jsonl
+cerune run-vm examples/recursion/factorial.ceru --trace factorial-vm.jsonl
 ```
 
-標準出力は `120` と `1` です。実行と標準出力のflushが終わると、CLIは新規ファイルに18件のイベントと終端行を保存します。各コマンドは階乗の例を1回ずつ実行します。3ファイルの内容はバイト単位で一致します。HIRの別名 `run-ir` でも同じ指定が使えます。
+標準出力は `120` と `1` です。実行と標準出力のflushが終わると、CLIは新規ファイルに18件のイベントと終端行を保存します。各コマンドは階乗の例を1回ずつ実行します。4ファイルの内容はバイト単位で一致します。HIRの別名 `run-ir` でも同じ指定が使えます。
 
 | オプション | 既定値 | 数え方 |
 | --- | --- | --- |

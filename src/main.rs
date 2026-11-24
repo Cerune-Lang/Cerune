@@ -30,12 +30,12 @@ fn run() -> Result<(), String> {
         .into_string()
         .map_err(|_| "invalid Unicode in Cerune command")?;
     let (compiler_args, user_args) = program_arguments::split(&command, args)?;
-    let (compiler_args, trace_config) = if matches!(command.as_str(), "run" | "run-ir" | "run-mir")
-    {
-        trace_cli::parse(compiler_args)?
-    } else {
-        (compiler_args, None)
-    };
+    let (compiler_args, trace_config) =
+        if matches!(command.as_str(), "run" | "run-ir" | "run-mir" | "run-vm") {
+            trace_cli::parse(compiler_args)?
+        } else {
+            (compiler_args, None)
+        };
     let (compiler_args, program_arguments, argument_limits) =
         program_arguments::capture(&command, compiler_args, user_args)?;
     let (rest, string_heap_limit, array_heap_limit) = parse_heap_limits(compiler_args, &command)?;
@@ -403,7 +403,7 @@ fn run() -> Result<(), String> {
                 call_depth_limit,
                 trace_event_limit: trace_config.as_ref().map(|c| c.events),
             };
-            let mut trace = None;
+            let trace;
             let mut result = if command == "run-mir" {
                 let mir = render_compilation_result(
                     cerune_lang::mir::lower(&ir).map_err(|e| e.diagnostic()),
@@ -492,16 +492,17 @@ fn run() -> Result<(), String> {
             } else {
                 let bytecode =
                     render_compilation_result(cerune_lang::bytecode::lower(&ir), &source)?;
-                cerune_lang::run_bytecode_with_io_files_processes_arguments_and_call_limit(
+                let (outcome, recorded) = cerune_lang::run_bytecode_connected(
                     &bytecode,
                     &mut stdin,
                     &mut output,
                     &mut files,
                     &program_arguments,
-                    call_depth_limit,
                     processes.as_mut().map(|(p, n)| (p, *n)),
-                )
-                .map_err(|error| {
+                    options,
+                );
+                trace = recorded;
+                outcome.map_err(|error| {
                     if runtime_format
                         && let cerune_lang::vm::VmErrorKind::Arguments(failure) =
                             error.vm_error().kind()
@@ -809,7 +810,7 @@ fn print_help() {
            cerune run <file> [--trace <new-file>] [--trace-event-limit <count>] [--trace-byte-limit <bytes>] [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
            cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <count>] [--trace-byte-limit <bytes>] [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
            cerune run-mir <file> [--ssa] [--trace <new-file>] [--trace-event-limit <count>] [--trace-byte-limit <bytes>] [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
-           cerune run-vm <file> [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
+           cerune run-vm <file> [--trace <new-file>] [--trace-event-limit <count>] [--trace-byte-limit <bytes>] [--file-root <directory>] [--process-config <json>] [--diagnostic-format runtime-v1] [-- <arguments...>]\n\
            cerune --version\n\n\
          run / run-ir: direct Cerune IR execution; run-mir: HIR -> MIR execution; run-vm: Bytecode -> VM.\n\
          run / run-ir / run-mir / run-vm / observe / emit-* (except emit-sources): --string-heap-limit <bytes> / --array-heap-limit <bytes>\n\

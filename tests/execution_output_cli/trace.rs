@@ -122,8 +122,20 @@ fn aliases_and_exact_jsonl_limits() {
 }
 
 #[test]
-fn mir_and_ssa_match_hir_events_output_and_stops() {
+fn executors_match_hir_events_output_and_stops() {
     let dir = fresh("trace-routes");
+    let branch = fs::read_to_string("experiments/lean/branch.ceru").unwrap();
+    let choose = |name: &str, calls: &str| {
+        let path = dir.join(name);
+        fs::write(&path, format!("{branch}\n{calls}")).unwrap();
+        path
+    };
+    let calls = (0..=253)
+        .map(|i| format!("print(choose({i}));\n"))
+        .collect::<String>();
+    let values = choose("branch-values.ceru", &calls);
+    let overflow = choose("branch-254.ceru", "print(choose(254));");
+    let overflow_max = choose("branch-255.ceru", "print(choose(255));");
     let implicit = dir.join("main.ceru");
     fs::write(&implicit, "fn main()->void { if true { print(7); } }").unwrap();
     let factorial = Path::new("examples/recursion/factorial.ceru");
@@ -133,6 +145,9 @@ fn mir_and_ssa_match_hir_events_output_and_stops() {
         (factorial, &["--trace-byte-limit", "128"][..], true),
         (factorial, &["--call-depth-limit", "3"][..], false),
         (implicit.as_path(), &[][..], true),
+        (values.as_path(), &[][..], true),
+        (overflow_max.as_path(), &[][..], false),
+        (overflow.as_path(), &[][..], false),
         (Path::new("examples/loop_control.ceru"), &[][..], true),
         (Path::new("examples/short_circuit.ceru"), &[][..], true),
         (
@@ -145,19 +160,20 @@ fn mir_and_ssa_match_hir_events_output_and_stops() {
     .into_iter()
     .enumerate()
     {
-        let mut flags = vec!["--diagnostic-format", "runtime-v1"];
-        flags.extend_from_slice(extra);
+        let flags = [&["--diagnostic-format", "runtime-v1"][..], extra].concat();
         let hir_path = dir.join(format!("{i}-hir"));
         let hir = run("run", src, Some(&hir_path), &flags);
         assert_eq!(hir.status.success(), success, "{src:?}");
         let expected = fs::read(hir_path).unwrap();
-        for ssa in [false, true] {
-            if ssa {
-                flags.push("--ssa");
-            }
-            let path = dir.join(format!("{i}-mir-{ssa}"));
-            same_run(&run("run-mir", src, Some(&path), &flags), &hir);
-            assert_eq!(fs::read(path).unwrap(), expected, "{src:?} ssa={ssa}");
+        for (name, command, options) in [
+            ("mir", "run-mir", &[][..]),
+            ("ssa", "run-mir", &["--ssa"][..]),
+            ("vm", "run-vm", &[][..]),
+        ] {
+            let route_flags = [flags.as_slice(), options].concat();
+            let path = dir.join(format!("{i}-{name}"));
+            same_run(&run(command, src, Some(&path), &route_flags), &hir);
+            assert_eq!(fs::read(path).unwrap(), expected, "{src:?} {name}");
         }
     }
 }
@@ -208,17 +224,21 @@ fn stops_and_save_errors_preserve_execution_diagnostics() {
 #[test]
 fn files_and_program_arguments_keep_their_meaning() {
     let dir = fresh("trace-resources");
-    let path = dir.join("sample.txt");
-    let out = run(
-        "run-ir",
-        Path::new("examples/files/roundtrip.ceru"),
-        Some(&path),
-        &["--file-root", dir.to_str().unwrap()],
-    );
-    assert!(out.status.success());
-    assert!(out.stdout.starts_with(b"true\n"));
-    assert!(String::from_utf8_lossy(&out.stderr).contains("trace-v1: could not save"));
-    assert_eq!(fs::read(path).unwrap(), "日本語\0\r\né\n".as_bytes());
+    for route in ["run-ir", "run-vm"] {
+        let root = dir.join(route);
+        fs::create_dir(&root).unwrap();
+        let path = root.join("sample.txt");
+        let out = run(
+            route,
+            Path::new("examples/files/roundtrip.ceru"),
+            Some(&path),
+            &["--file-root", root.to_str().unwrap()],
+        );
+        assert!(out.status.success());
+        assert!(out.stdout.starts_with(b"true\n"));
+        assert!(String::from_utf8_lossy(&out.stderr).contains("trace-v1: could not save"));
+        assert_eq!(fs::read(path).unwrap(), "日本語\0\r\né\n".as_bytes());
+    }
     let src = Path::new("examples/arguments/list.ceru");
     let args = [
         "--",
@@ -238,7 +258,7 @@ fn files_and_program_arguments_keep_their_meaning() {
 }
 
 #[test]
-fn malformed_options_and_other_routes_do_not_run_the_program() {
+fn malformed_trace_options_do_not_run_the_program() {
     let dir = fresh("trace-options");
     let path = dir.join("output");
     let path_arg = path.to_str().unwrap();
@@ -264,7 +284,10 @@ fn malformed_options_and_other_routes_do_not_run_the_program() {
             ],
         ),
         ("run", vec!["--trace", "--call-depth-limit", "1", path_arg]),
-        ("run-vm", vec!["--trace", path_arg]),
+        (
+            "run-vm",
+            vec!["--trace", path_arg, "--trace-byte-limit", "0"],
+        ),
         ("run-mir", vec!["--ssa", "--trace-event-limit", "1"]),
     ] {
         let out = run(route, src, None, &flags);

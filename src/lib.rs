@@ -312,6 +312,34 @@ pub fn run_bytecode_with_io_files_processes_arguments_and_call_limit<
     )
     .map_err(|vm_error| ExecutionError::from_vm_error(bytecode, vm_error))
 }
+/// 接続したVMを一度実行し、結果とソース位置付きのトレースを返します。
+pub fn run_bytecode_connected<
+    R: std::io::Read,
+    W: std::io::Write,
+    B: runtime::files::Backend,
+    P: runtime::process::Backend,
+>(
+    bytecode: &bytecode::BytecodeProgram,
+    input: &mut runtime::input::Input<R>,
+    output: &mut runtime::output::Output<W>,
+    files: &mut runtime::files::Files<B>,
+    arguments: &runtime::arguments::Arguments,
+    processes: Option<(&mut runtime::process::Processes<P>, usize)>,
+    options: runtime::RunOptions,
+) -> (Result<(), ExecutionError>, Option<runtime::trace::Trace>) {
+    let (result, mut trace) = vm::run_connected(
+        bytecode, input, output, files, arguments, processes, options,
+    );
+    let result = result.map_err(|err| ExecutionError::from_vm_error(bytecode, err));
+    if let Some(trace) = &mut trace
+        && let Err(error) = &result
+        && let Some(stop) = error.runtime_failure()
+    {
+        trace.record(runtime::trace::Event::Stop(stop));
+    }
+    (result, trace)
+}
+
 pub fn run_bytecode_with_io_and_arguments<R: std::io::Read, W: std::io::Write>(
     bytecode: &bytecode::BytecodeProgram,
     input: &mut runtime::input::Input<R>,

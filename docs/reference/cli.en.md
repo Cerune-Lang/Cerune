@@ -57,7 +57,7 @@ cerune emit-bytecode <file> [-o <output.cebc>]
 cerune run <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-mir <file> [--ssa] [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
-cerune run-vm <file> [--process-config <json>] [--diagnostic-format runtime-v1]
+cerune run-vm <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune --version
 ```
 
@@ -166,9 +166,10 @@ Rust callers use `run_ir(source)` or `ir_executor::run(&program)` for completed 
 cerune run examples/recursion/factorial.ceru --trace factorial.jsonl
 cerune run-mir examples/recursion/factorial.ceru --trace factorial-mir.jsonl
 cerune run-mir examples/recursion/factorial.ceru --ssa --trace factorial-ssa.jsonl
+cerune run-vm examples/recursion/factorial.ceru --trace factorial-vm.jsonl
 ```
 
-The program prints `120` and `1`. After execution and the final stdout flush, the CLI saves 18 events and an end record to a new file. Each command runs the example once. All three files contain the same bytes. The HIR alias `run-ir` also accepts these options.
+The program prints `120` and `1`. After execution and the final stdout flush, the CLI saves 18 events and an end record to a new file. Each command runs the example once. All four files contain the same bytes. The HIR alias `run-ir` also accepts these options.
 
 | Option | Default | What it counts |
 | --- | --- | --- |
