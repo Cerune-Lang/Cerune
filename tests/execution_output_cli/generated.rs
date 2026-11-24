@@ -17,18 +17,34 @@ pub(super) enum Route {
     C,
     Llvm,
     Qbe,
+    Native,
+    NativeSsa,
 }
 
 impl Route {
     pub(super) fn compile(self, dir: &Path, src: &Path, flags: &[&str]) -> Option<PathBuf> {
+        self.compile_mode(dir, src, flags, true)
+    }
+
+    pub(super) fn compile_mode(
+        self,
+        dir: &Path,
+        src: &Path,
+        flags: &[&str],
+        traced: bool,
+    ) -> Option<PathBuf> {
         let (var, command, extension) = match self {
             Self::C => ("CERUNE_TEST_CC", "emit-c", "c"),
             Self::Llvm => ("CERUNE_TEST_LLVM_CLANG", "emit-llvm", "ll"),
             Self::Qbe => ("CERUNE_TEST_QBE_CLANG", "emit-qbe", "ssa"),
+            Self::Native | Self::NativeSsa => ("CERUNE_TEST_NATIVE_CLANG", "emit-obj", "o"),
         };
         let cc = std::env::var_os(var)?;
         let mut emit = Command::new(env!("CARGO_BIN_EXE_cerune"));
         emit.arg(command).arg(src);
+        if matches!(self, Self::NativeSsa) {
+            emit.arg("--ssa");
+        }
         if !matches!(self, Self::C) {
             let target = match (std::env::consts::ARCH, std::env::consts::OS) {
                 ("x86_64", "windows") => "x86_64-pc-windows-msvc",
@@ -44,14 +60,10 @@ impl Route {
         fs::create_dir_all(dir).unwrap();
         let artifact = dir.join(format!("program.{extension}"));
         let exe = dir.join(format!("program{}", std::env::consts::EXE_SUFFIX));
-        let emit = execute(
-            emit.arg("--with-trace")
-                .args(flags)
-                .arg("-o")
-                .arg(&artifact),
-            dir,
-            "trace/emit",
-        );
+        if traced {
+            emit.arg("--with-trace");
+        }
+        let emit = execute(emit.args(flags).arg("-o").arg(&artifact), dir, "trace/emit");
         assert!(
             emit.status.success(),
             "{}",
@@ -85,7 +97,7 @@ impl Route {
         } else {
             build.arg(&artifact);
         }
-        if !matches!(self, Self::C) {
+        if traced && !matches!(self, Self::C) {
             let runtime = dir.join("trace-runtime.c");
             let source = execute(
                 Command::new(env!("CARGO_BIN_EXE_cerune"))
@@ -101,6 +113,9 @@ impl Route {
                 String::from_utf8_lossy(&source.stderr)
             );
             build.arg(runtime);
+        }
+        if cfg!(target_os = "linux") && matches!(self, Self::Native | Self::NativeSsa) {
+            build.arg("-lm");
         }
         let build = execute(build.arg("-o").arg(&exe), dir, "trace/compile");
         assert!(

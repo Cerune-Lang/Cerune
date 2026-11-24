@@ -20,6 +20,7 @@ pub struct NativeProgram {
     origins: Vec<Origin>,
     comments: std::collections::BTreeMap<usize, String>,
     preamble: String,
+    pub(super) trace_rows: Option<crate::codegen::trace::RowTable>,
     provenance: Provenance,
 }
 impl NativeProgram {
@@ -29,6 +30,7 @@ impl NativeProgram {
             origins: vec![],
             comments: Default::default(),
             preamble: String::new(),
+            trace_rows: None,
             provenance: Provenance::synthetic(),
         }
     }

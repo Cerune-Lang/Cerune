@@ -56,6 +56,7 @@ fn keeps_process_operands_types_and_origin_for_baseline_and_ssa() {
                 &p.main,
                 &Function {
                     id: 0,
+                    declaration: None,
                     name: "main".into(),
                     frame_size: m.frame_size,
                     origins: m.origins.clone(),

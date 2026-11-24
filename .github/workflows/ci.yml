@@ -184,6 +184,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          CERUNE_TEST_NATIVE_CLANG=clang cargo test --locked --test execution_output_cli trace::
           timeout --kill-after=10s 5m cargo test --test standard_input program_arguments::native 2>&1 | tee target/linux-native-arguments.log
           timeout --kill-after=10s 5m cargo test --lib native_files 2>&1 | tee target/linux-native-files.log
           timeout --kill-after=10s 5m cargo test --test standard_input file_io::generated::native 2>&1 | tee target/linux-native-files-os.log
@@ -404,6 +405,9 @@ jobs:
         if: ${{ matrix.suite == 'native' }}
         shell: pwsh
         run: |
+          $env:CERUNE_TEST_NATIVE_CLANG = 'clang'
+          cargo test --locked --test execution_output_cli trace::
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --test standard_input program_arguments::native 2>&1 | Tee-Object target/windows-native-arguments.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --lib native_files 2>&1 | Tee-Object target/windows-native-files.log

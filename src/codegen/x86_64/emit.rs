@@ -1,3 +1,4 @@
+use super::abi::integer_argument_register;
 use super::failure::Reporter;
 use super::ir::{
     Argument, ArgumentLocation, BinaryOp, CompareOp, Function, Instruction, Module, Type,
@@ -8,23 +9,22 @@ use crate::runtime::FailureCode as Failure;
 
 #[cfg(test)]
 pub fn emit_with_origins(module: &Module, annotate: bool) -> String {
-    build(module, annotate)
+    build_configured(module, annotate, true, false)
         .render_asm()
         .expect("compiler-generated Native Program")
 }
-pub(super) fn build(module: &Module, annotate: bool) -> NativeProgram {
-    build_with_file_connection(module, annotate, true)
-}
-pub(super) fn build_with_file_connection(
+pub(super) fn build_configured(
     module: &Module,
     annotate: bool,
     file_connection: bool,
+    trace: bool,
 ) -> NativeProgram {
     let files = super::files::used(module) && file_connection;
     let process = super::process::used(module);
     let arguments = super::arguments::used(module) || files || process;
     let mut reporter = Reporter::new(module.target);
     let mut output = NativeProgram::new(module.target);
+    output.trace_rows = trace.then(Default::default);
     if annotate {
         output.comment("cerune-asm-origins v1: UTF-8 byte ranges, end exclusive");
         output.comment("cerune-origin: synthetic");
@@ -160,6 +160,9 @@ pub(super) fn build_with_file_connection(
                 .push(EntryKind::Label(symbol), provenance.clone());
             output.program.push(EntryKind::CString(value), provenance);
         }
+    }
+    if trace {
+        super::trace::finish(&mut output, arguments, files, process);
     }
     output
 }
@@ -661,6 +664,7 @@ fn emit_instruction(
         }
 
         Instruction::JumpIfZero(label) => {
+            super::trace::branch(module, output);
             output.emit(Opcode::Test64, [r64(0), r64(0)]);
 
             let symbol = output.symbol(
@@ -1069,6 +1073,7 @@ fn emit_instruction(
             aggregate_result_offset,
         } => {
             super::call::enter(module, *function_id, reporter.origin, output);
+            super::trace::function("call", module, *function_id, reporter.origin, output);
             let mut locations = super::abi::Arguments::new(module.target);
             for argument in arguments {
                 let location = locations.next(matches!(
@@ -1123,7 +1128,14 @@ fn emit_instruction(
         Instruction::Unreachable => {
             output.emit(Opcode::Undefined, []);
         }
-        Instruction::Return => emit_epilogue(frame_size, false, output),
+        Instruction::Return => {
+            if output.trace_rows.is_some()
+                && let Some(id) = output.origins().last().and_then(|o| o.function)
+            {
+                super::trace::function("return", module, id, reporter.origin, output);
+            }
+            emit_epilogue(frame_size, false, output);
+        }
 
         Instruction::LoadF32Constant(id) => {
             let symbol = output.symbol(&format!(".Lcerune_f32_{id}"), Linkage::Local);
@@ -1398,14 +1410,6 @@ fn emit_stack_argument_copy(
     };
     output.emit(instruction, [source, register.clone()]);
     output.emit(instruction, [register, destination]);
-}
-
-fn integer_argument_register(index: usize, target: super::Target) -> u8 {
-    if target.is_linux() {
-        [7, 6, 2, 1, 8, 9][index]
-    } else {
-        [1, 2, 8, 9][index]
-    }
 }
 
 fn compare_setcc(op: CompareOp) -> Opcode {

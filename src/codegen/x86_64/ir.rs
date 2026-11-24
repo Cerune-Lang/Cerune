@@ -33,6 +33,8 @@ pub struct Module {
     /// Resolved MIR declarations; IDs, field types and enum tags are preserved.
     pub types: Vec<crate::mir::TypeDefinition>,
     pub call_limit: Option<std::num::NonZeroU32>,
+    /// ソースのif条件。キーは関数（トップレベルはNone）とMIRブロック番号。
+    pub if_conditions: std::collections::BTreeMap<(Option<usize>, usize), crate::mir::SourceOrigin>,
     pub source_functions: Vec<bool>,
     pub argument_limits: crate::runtime::arguments::Limits,
     pub string_heap_limit: Option<u64>,
@@ -66,6 +68,7 @@ impl Module {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
+    pub declaration: Option<crate::source::Span>,
     pub origins: Vec<Origin>,
     pub mir_origins: Vec<Option<MirOrigin>>,
     pub id: usize,

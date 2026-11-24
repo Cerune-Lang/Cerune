@@ -21,7 +21,7 @@ fn artifact(p: &crate::ir::Program, t: Target) -> NativeProgram {
     let mir = crate::mir::lower(p).unwrap();
     let module = lower::lower(&mir, t).unwrap();
     super::super::lir::validate(&module).unwrap();
-    let mut native = super::super::emit::build_with_file_connection(&module, true, false);
+    let mut native = super::super::emit::build_configured(&module, true, false, false);
     // 試験用mainから、Ceruneの処理終了時に所有領域が回収済みか確認します。
     for s in &mut native.program.symbols {
         match s.name.as_str() {

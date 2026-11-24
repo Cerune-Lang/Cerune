@@ -28,6 +28,7 @@ mod object_reference;
 mod output;
 mod rounding;
 mod string;
+mod trace;
 #[cfg(test)]
 use super::test_process;
 mod unsigned;
@@ -130,8 +131,22 @@ pub fn build_program_from_lir(
     module: &ir::Module,
     annotate_origins: bool,
 ) -> Result<NativeProgram, Diagnostic> {
+    build_program_for_execution(module, annotate_origins, false)
+}
+
+/// ソースの分岐と呼出しに記録用の命令を追加した同じProgramからASMとObjectを生成します。
+pub fn build_program_for_execution(
+    module: &ir::Module,
+    annotate_origins: bool,
+    trace: bool,
+) -> Result<NativeProgram, Diagnostic> {
     lir::validate(module)?;
-    Ok(emit::build(module, annotate_origins))
+    Ok(emit::build_configured(
+        module,
+        annotate_origins,
+        true,
+        trace,
+    ))
 }
 
 /// 同じ型付きProgramから、ASM文字列を経由せずObjectを生成します。

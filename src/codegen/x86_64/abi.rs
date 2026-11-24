@@ -49,3 +49,11 @@ impl Arguments {
         (if self.target.is_linux() { 0 } else { 32 }) + 8 * self.stack
     }
 }
+
+pub(super) fn integer_argument_register(index: usize, target: super::Target) -> u8 {
+    if target.is_linux() {
+        [7, 6, 2, 1, 8, 9][index]
+    } else {
+        [1, 2, 8, 9][index]
+    }
+}
