@@ -6,6 +6,8 @@ A catalog of idea, dogfooding projects, and research topics that could be intere
 
 This document is not a roadmap. Items listed here are not implementation commitments or compatibility promises. They are ideas that may be worth exploring with Cerune now or in the future.
 
+Using the master documentation and examples as of 2026-11-26, distinguish experiments that can start with current facilities from those requiring future features. This is not a list of implemented or successful experiments. See the [roadmap](../design/language-roadmap.en.md) for current capabilities and priorities, and the design documents for execution conditions.
+
 ## CPU / ISA
 
 - **RV32I interpreter** — Implement registers, PC, memory, and instruction decoding entirely in Cerune.
@@ -74,7 +76,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Reducer / delta debugger** — Automatically minimize programs that expose backend differences.
 - **Metamorphic testing** — Apply meaning-preserving transformations and check that results remain equal.
 - **Random program generator** — Generate small programs using a deterministic PRNG.
-- **Differential compiler tester** — Treat IR/MIR/VM/C/LLVM/QBE/WAT/Native as a family of oracles.
+- **Differential compiler tester** — Compare HIR/MIR/SSA/VM/C/LLVM/QBE/WAT/Native results and include independently specified expected results. Agreement between routes alone does not guarantee correctness.
 - **Abstract interpreter** — Start with constant and interval domains.
 - **Interval analysis** — Useful for overflow and bounds reasoning.
 - **Symbolic executor** — Restrict the domain to small integers to keep it tractable.
@@ -341,9 +343,17 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Source→machine provenance explorer** — Trace final machine operations back to source expressions.
 - **Self-hosting countdown** — Move lexer → parser → type checker → IR emitter into Cerune one stage at a time.
 
+- **Cross-route trace-v1 comparison** — Compare the order, NodeId, and source locations of Call/Branch/Return/Stop across the four executors and generated C/LLVM/QBE/WAT/Native. Include an independently specified expected trace.
+- **Observation-budget noninterference experiment** — Vary trace event and byte limits and compare output, stops, and external-operation counts. Distinguish incomplete records from program failures.
+- **Source-branch coverage from traces** — Count the outcomes of executed source-level if conditions. Current Branch events exclude loop continuation, short-circuit jumps, and internal checks; this is not general CFG coverage.
+- **SSA round-trip provenance audit** — Read the mappings between original MIR, SSA, and lowered MIR; compare joins, parallel copies, and unreachable blocks. Structural agreement is not a proof of semantic preservation.
+- **LIR-to-machine-code provenance exploration** — Compare LIR, annotated ASM, and separately emitted Objects for the same target using SASHIMI provenance and disassembly. Distinguish zero-byte entries, synthetic instructions, and relocations.
+
+See the [observability contract](../design/observability.en.md), [observation bundles](../design/observation-bundle.en.md), and [LIR observation](../design/lir-observation.en.md) for trace and artifact formats. NodeId identifies a node within a single compilation; the same number after an edit or across versions does not imply node identity.
+
 ## AI × Compiler
 
-- **Differential verification of AI-generated programs** — Let AI generate Cerune programs and use all backends as an automated consistency oracle.
+- **Differential verification of AI-generated programs** — Let AI generate Cerune programs; test route agreement and independent expected results. Investigate shared errors that agreement may miss.
 - **Verification of AI-generated optimization rules** — Exhaustively verify proposed rewrites over small bit widths.
 - **AI search for bug-inducing programs** — Combine AI generation with compiler fuzzing.
 - **Compare AI explanations of IR with actual traces** — Ask whether AI correctly explains a lowering step.
@@ -356,7 +366,7 @@ This document is not a roadmap. Items listed here are not implementation commitm
 
 ## Research
 
-- **HIR/MIR semantic-distance measurement** — Count instructions, basic blocks, and branches before and after lowering.
+- **HIR/MIR semantic-distance measurement** — Count instructions, basic blocks, and branches before and after lowering. These are structural-difference metrics, not by themselves a measure of semantic difference.
 - **Backend semantic-drift classification** — Classify what kinds of semantic differences arise and where.
 - **Provenance-retention cost measurement** — Measure the code-size and performance cost of carrying `NodeId`/span information.
 - **Observability vs. optimization tradeoff** — Study how much optimization can be done while retaining useful observability.
@@ -369,6 +379,16 @@ This document is not a roadmap. Items listed here are not implementation commitm
 - **Reproducible-build toy** — Verify artifact identity from source/hash/target inputs.
 - **"A compiler that stays explainable after optimization"** — Treat optimization provenance as a first-class output.
 
+- **Mutation checks for finite semantic models** — Start from the [finite Lean examples](../design/lean-verification.en.md); deliberately alter branch targets, stop provenance, or fuel and test which errors the correspondence theorems reject. This is not a proof of the entire language.
+- **Trace observation cost** — Measure execution time, record size, and diagnostic information with tracing disabled, enabled, and truncated under the same input, target, and toolchain.
+- **Shared runtime versus independent oracle detection power** — Use small test implementations with separate mutations in shared arithmetic/I/O and backend-specific behavior; examine which discrepancies cross-route comparison and independent expected results each detect.
+
+### Future research proposals (include unimplemented features)
+
+- **Search-budget comparison for provenance-aware Object optimization** — Starting from [#325](https://github.com/Cerune-Lang/Cerune/issues/325), compare fixed order, greedy selection, random selection, and UCB1 on a small candidate set with equal evaluation budgets. An external model is sufficient initially; real Object rewriting and semantic/ABI/relocation validation need separate implementations.
+- **Multi-generation route-selection model** — Starting from [#235](https://github.com/Cerune-Lang/Cerune/issues/235) and [#249](https://github.com/Cerune-Lang/Cerune/issues/249), simulate finite generation histories and compare exhaustive, pairwise, and failure-history-prioritized selection for detection power and cost. Do not assume multi-route self-hosting already exists.
+- **Editable semantic IR for a small MLP** — Test the hypothesis in [Nerune #1](https://github.com/Cerune-Lang/Nerune/issues/1) first in an established environment such as Python. Predefine inputs expected to change and inputs expected to remain unchanged, then test both after translating the edit back into weights. Do not assume general weight semantics or Cerune training support.
+
 ## Experiments with Distributed Artifacts
 
 Besides comparing computations, test whether **a built executable or future IR/VM Image can be moved to another directory, checked, and run**. Unlike comparing freshly generated program outputs, these tests also examine the files, runtimes, and version compatibility required after distribution.
@@ -379,6 +399,9 @@ The first Native build / release implementation is available; IR/VM Image format
 
 - **Release relocation test** — Move the release directory away from the build environment and check launch behavior under the target and system-runtime conditions recorded in its manifest.
 - **Distribution provenance checker** — Audit the released executable's SHA-256, direct runtime requirements, and build provenance against its manifest.
+
+- **Native distribution runtime-requirement matrix** — Compare releases with/without subprocess support, Windows/Linux targets, and source inclusion choices; inspect direct runtime requirements, link inputs, and hashes. Verify deployment separately.
+- **Missing or modified distribution artifacts** — Remove or modify prescribed files in experimental copies and detect inconsistencies against the manifest. Hash verification is not a signature or authenticity guarantee.
 
 ### Once IR/VM Images and Loaders Exist
 
@@ -394,12 +417,25 @@ The first Native build / release implementation is available; IR/VM Image format
 
 ## Running Programs from Browsers and GUIs; Managing Subprocesses
 
-These ideas build on functions generated from WAT that JavaScript/TypeScript can call, Native executables, and the shared runtime used to launch and monitor subprocesses on Windows and Linux. Calling subprocesses from generated C is connected, but LLVM/QBE/Native/WAT support is still being added. Not every experiment below can run today. See the [subprocess roadmap](../design/language-roadmap.en.md) and [design for subprocess calls from generated programs](../design/subprocess-generated.en.md).
+These ideas build on functions generated from WAT that JavaScript/TypeScript can call, Native executables, and the shared runtime used to launch and monitor subprocesses on Windows and Linux. Subprocess connections for the four executors, generated C/LLVM/QBE/Native, and the WAT reference host are implemented and compared. Route-specific conditions apply, including explicit registration on Windows/Linux, target-compatible runtime archives, the Linux supervisor, and the reference host as appropriate. This does not imply that a browser can launch arbitrary OS subprocesses. See the [subprocess roadmap](../design/language-roadmap.en.md) and [design for subprocess calls from generated programs](../design/subprocess-generated.en.md).
 
 - **Compare browser Wasm with a Native executable launched by a GUI** — Run the same Cerune program in browser Wasm and as a Native executable launched by a GUI. Compare output, exit status, and how failures are displayed and collected.
 - **Record subprocess launch, exit, and cleanup** — Log launch, standard I/O, exit codes, timeouts, cancellation, and cleanup of remaining processes and I/O in order; check which steps differ on Windows and Linux.
-- **Compare subprocess calls in IR/MIR/VM and generated C** — Run the same command and compare exit codes, errors, and output collected before termination. Add LLVM/QBE/Native/WAT once they can invoke subprocesses.
+- **Compare subprocess calls across supported routes** — Invoke the same registered child from HIR/MIR/SSA/VM, generated C/LLVM/QBE/Native, and the WAT reference host; compare exit codes, failures, and partial output.
 - **Request and response format for browsers, GUIs, CLIs, and executed programs** — Define small messages for requested operations, arguments, results, and errors. Replay out-of-order messages, invalid values, and interrupted communication without network I/O.
+
+- **Registered-tool batch runner** — Send a finite set of arguments and inputs to a registered child and save each Outcome and partial output. No shell, arbitrary command execution, or concurrent launches are needed.
+- **Recovery after subprocess failures** — Distinguish missing configuration, nonzero exit, timeout, and output limits; compare caller continuation and results. Treat real OS timing differences separately.
+- **Pre-launch reservation boundary tests** — Vary heap and stdout/stderr budgets; use a test child or test connection to check that reservation failure prevents launch.
+- **Fixtures for external-side-effect comparison** — Use a separate working directory and deterministic registered child for each route; compare external-operation counts, output, and stops. General record/replay is not implemented ([#104](https://github.com/Cerune-Lang/Cerune/issues/104)).
+
+### Typed host-function experiments
+
+[VM embedding](../design/vm-embedding.en.md) supports f64 arguments and f64/void results through a Rust API; the [WAT library JS/TS API](../design/wat-js-bindings.en.md) supports i32/f64 public arguments and results. Assemble WAT externally and use the wrapper from the same generation. A dedicated CLI, general aggregate values, and IR/VM JavaScript exports are not implemented.
+
+- **Repeated-call benchmark** — Compare VM embedding and generated Wasm for a shared f64 computation, measuring preparation, compilation/instantiation, and repeated execution separately.
+- **Typed-boundary rejection matrix** — Pass out-of-range i32 values, extra arguments, values requiring implicit coercion, NaN, and negative zero to generated JS; distinguish rejection from valid special values.
+- **Host reuse after failure** — Distinguish argument-validation failure from execution-time stops in the WAT wrapper; test handle reuse and recreation. Compare with the separate per-invocation VM state contract.
 
 ## I/O Experiments (Current Facilities and Future Extensions)
 
@@ -417,6 +453,10 @@ Line input via `std:io`, limited file reading and creation via `std:fs`, and arg
 - **Network packet analyzer** — Byte parsing plus protocol state.
 - **REPL** — Makes Cerune immediately feel more like an interactive language.
 - **Cerune compiler frontend in Cerune** — A major step toward self-hosting.
+
+- **Text fixture creation and readback** — Save and reload inputs and results in separate working directories; compare empty content, Japanese text, newlines, and exact size limits. Do not assume overwrite or append support.
+- **File-I/O failure gallery** — Test invalid names, exceeded limits, and exclusive creation of an existing file; compare stop reasons, provenance, and preceding output. Use only test directories.
+- **Line-input and flush interaction** — Flush a prompt before the host sends a fixed response; compare output order, EOF, and limit failures. Explicitly select supported stdin/host connections; this is not general interactive-terminal support.
 
 ## Future: GPU
 
@@ -453,6 +493,6 @@ The following ideas make especially good use of Cerune's current direction:
 
 In many languages, these projects are simply things that can be built. In Cerune, the transformation itself can become part of the experiment:
 
-`source → HIR → MIR → VM / C / LLVM / QBE / WAT / Native`
+`source → HIR → { HIR execution, bytecode → VM, MIR → { MIR execution, SSA → SSA execution / lowered MIR, LIR → Native }, C / LLVM / QBE / WAT }`
 
 The interesting question is not only whether the program runs, but how its representation changes across those routes and whether its meaning remains the same.
