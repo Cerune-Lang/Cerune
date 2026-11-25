@@ -225,17 +225,20 @@ fn run() -> Result<(), String> {
         "emit-wat" => {
             let input = required_path(args.next(), "missing input file")?;
 
-            let rest: Vec<String> = args.collect();
-
-            let output = parse_output_option(&rest, "cerune emit-wat <file> [-o <output.wat>]")?;
+            let (rest, with_trace) = parse_flag(args.collect(), "--with-trace")?;
+            let output = parse_output_option(
+                &rest,
+                "cerune emit-wat <file> [--with-trace] [-o <output.wat>]",
+            )?;
 
             let source = read_source(&input)?;
 
             let wat = render_compilation_result(
-                cerune_lang::codegen::wat::emit_wat_with_runtime_limits(
+                cerune_lang::codegen::wat::emit_wat_for_execution(
                     &ir_for(&source, string_heap_limit, array_heap_limit)?,
                     argument_limits,
                     call_depth_limit,
+                    with_trace,
                 ),
                 &source,
             )?;
@@ -816,7 +819,7 @@ fn print_help() {
            cerune emit-c <file> [--with-trace] [--target <triple>] [-o <output.c>]\n\
            cerune emit-trace-runtime [-o <runtime.c>]\n\
            cerune emit-llvm <file> [--with-trace] --target <triple> [--annotate-origins] [-o <output.ll>]\n\
-           cerune emit-wat <file> [-o <output.wat>]\n\
+           cerune emit-wat <file> [--with-trace] [-o <output.wat>]\n\
            cerune emit-qbe <file> [--with-trace] --target <triple> [-o <output.ssa>]\n\
            cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]\n\
            cerune emit-asm <file> [--ssa] [--target <triple>] [--annotate-origins] [-o <output.s>]\n\

@@ -43,9 +43,14 @@ pub(super) fn helper_name(instruction: &Instruction, origin: Origin) -> String {
     )
 }
 
-/// レコードを命令内の定数として持ち、ホストには出力バイトだけを渡します。
-/// 線形メモリ、現在位置の可変変数、診断用の公開状態は追加しません。
-pub(super) fn emit(record: RuntimeFailure, prefix: &str, output: &mut String) {
+/// 停止した式の位置と理由から、診断に出力するバイト列とトレースの記録を生成します。
+pub(super) fn emit(record: RuntimeFailure, prefix: &str, output: &mut super::trace::WatText) {
+    if output.tracing() {
+        output.event(
+            crate::codegen::trace::stop_row(record.code, record.node_id, record.span),
+            prefix,
+        );
+    }
     // バイト定数を手で復号せず、生成物から理由とソース位置を読めるようにします。
     writeln!(output, "{prefix};; cerune: {}", record.record()).unwrap();
     for byte in format!("cerune: {}\n", record.record()).bytes() {
@@ -58,7 +63,12 @@ pub(super) fn emit(record: RuntimeFailure, prefix: &str, output: &mut String) {
     writeln!(output, "{prefix}unreachable").unwrap();
 }
 
-pub(super) fn emit_if(condition: &str, code: FailureCode, origin: Origin, output: &mut String) {
+pub(super) fn emit_if(
+    condition: &str,
+    code: FailureCode,
+    origin: Origin,
+    output: &mut super::trace::WatText,
+) {
     output.push_str(condition);
     output.push_str("    if\n");
     emit(

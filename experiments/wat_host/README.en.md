@@ -19,6 +19,8 @@ Expected output is true and 16. sample.txt retains 16 bytes including Japanese, 
 | Argument | Meaning |
 | --- | --- |
 | First argument | .wat or .wasm module |
+| `--trace <new-file>` | Save calls, branches, returns and stops after running a module built with `emit-wat --with-trace`. [Factorial example](../../docs/reference/cli.en.md) |
+| `--trace-event-limit <count>` / `--trace-byte-limit <bytes>` | Limit recorded events and file size. Defaults to 4096 events and 1 MiB |
 | --file-root directory | Working directory opened before execution; omitted means unconfigured |
 | --process-target triple | Required for subprocess imports: explicit x86-64 Windows MSVC or Linux GNU |
 | --process-config json | Existing cerune-process-v1 connection JSON; requires target. Omitted means Unconfigured |

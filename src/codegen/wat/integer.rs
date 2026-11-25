@@ -10,7 +10,7 @@ pub(super) fn emit_support(
     ty: IntegerType,
     origin: Origin,
     name: &str,
-    output: &mut String,
+    output: &mut super::trace::WatText,
 ) {
     if ty == IntegerType::U64 {
         return super::unsigned::emit_binary(op, origin, name, output);
@@ -76,7 +76,7 @@ pub(super) fn emit_signed(
     instruction: &Instruction,
     origin: Origin,
     name: &str,
-    output: &mut String,
+    output: &mut super::trace::WatText,
 ) {
     writeln!(
         output,

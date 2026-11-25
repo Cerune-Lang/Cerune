@@ -1,4 +1,5 @@
 //! 実行中に通った箇所を順番に保持します。
+pub mod file;
 use crate::{
     ir::{FunctionId, NodeId},
     runtime::RuntimeFailure,
@@ -28,26 +29,44 @@ pub enum Incomplete {
 
 /// events()[0]が最初の出来事。関数名は同じコンパイルのFunctionIdから取得します。
 #[derive(Debug)]
-pub struct Trace {
-    events: Vec<Event>,
+pub struct Trace(BoundedEvents<Event>);
+impl Trace {
+    pub(crate) fn new(limit: usize) -> Self {
+        Self(BoundedEvents::new(limit))
+    }
+    pub(crate) fn record(&mut self, event: Event) {
+        self.0.record(event);
+    }
+    pub fn events(&self) -> &[Event] {
+        self.0.events()
+    }
+    pub fn incomplete(&self) -> Option<Incomplete> {
+        self.0.incomplete()
+    }
+}
+
+/// 実行器はEvent、WATホストは記録箇所の番号を実行順に保持します。
+#[derive(Debug)]
+pub struct BoundedEvents<T> {
+    events: Vec<T>,
     limit: usize,
     incomplete: Option<Incomplete>,
 }
-impl Trace {
-    pub(crate) fn new(limit: usize) -> Self {
+impl<T> BoundedEvents<T> {
+    pub fn new(limit: usize) -> Self {
         Self {
             events: Vec::new(),
             limit,
             incomplete: None,
         }
     }
-    pub fn events(&self) -> &[Event] {
+    pub fn events(&self) -> &[T] {
         &self.events
     }
     pub fn incomplete(&self) -> Option<Incomplete> {
         self.incomplete
     }
-    pub(crate) fn record(&mut self, event: Event) {
+    pub fn record(&mut self, event: T) {
         if self.incomplete.is_some() {
             return;
         }

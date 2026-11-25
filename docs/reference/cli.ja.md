@@ -50,7 +50,7 @@ cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]
 cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
-cerune emit-wat <file> [-o <output.wat>]
+cerune emit-wat <file> [--with-trace] [-o <output.wat>]
 cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
@@ -222,6 +222,17 @@ clang --target=x86_64-unknown-linux-gnu -O2 factorial.s trace-runtime.c -o facto
 
 標準出力は `120` と `1`、記録はHIRと同じ18イベントと終端行です。Windows x64ではCeruneとClangに `x86_64-pc-windows-msvc`、QBEに `amd64_win` を指定します。記録先・件数上限・バイト上限は実行時に指定します。
 
+### 生成WATで階乗の呼出しを記録する
+
+リポジトリ直下で次を実行すると、参照ホストが `120` と `1` を表示し、18件のイベントと終端行を新規ファイルに保存します。
+
+~~~sh
+cerune emit-wat examples/recursion/factorial.ceru --with-trace -o factorial.wat
+cargo run --manifest-path experiments/wat_host/Cargo.toml --locked -- factorial.wat --trace factorial-wat.jsonl --
+~~~
+
+`--trace-event-limit` と `--trace-byte-limit` はホストの `--` より前に指定します。WABTでバイナリへ変換する場合は `wat2wasm --enable-annotations factorial.wat -o factorial.wasm` とし、ホストへ `factorial.wasm` を渡します。
+
 ## Cerune IRの出力
 
 ```text
@@ -258,7 +269,7 @@ cerune emit-c <file> [--with-trace] [-o <output.c>]
 cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
-cerune emit-wat <file> [-o <output.wat>]
+cerune emit-wat <file> [--with-trace] [-o <output.wat>]
 cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
 cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]

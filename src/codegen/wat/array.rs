@@ -14,7 +14,12 @@ pub(super) fn support(limit: u64, start: usize, owns_cursor: bool) -> String {
     cursor + &SOURCE.replace("@LIMIT@", &limit.to_string())
 }
 
-pub(super) fn checked(instruction: &Instruction, origin: Origin, name: &str, out: &mut String) {
+pub(super) fn checked(
+    instruction: &Instruction,
+    origin: Origin,
+    name: &str,
+    out: &mut super::trace::WatText,
+) {
     match instruction {
         Instruction::ArrayAllocate { width, stride } => {
             writeln!(out, "  (func \u{24}{name} (param $length i64) (result i32)\n    (local $value i32) (local $error i32)").unwrap();

@@ -23,6 +23,7 @@ fn sites(m: &Module) -> Vec<Site> {
                 Instruction::If {
                     then_instructions,
                     else_instructions,
+                    ..
                 }
                 | Instruction::IfBool {
                     then_instructions,

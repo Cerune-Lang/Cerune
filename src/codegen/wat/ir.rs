@@ -39,6 +39,7 @@ pub struct Module {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
+    pub declaration: crate::source::Span,
     pub frame_size: usize,
     pub id: usize,
     pub name: String,
@@ -160,6 +161,7 @@ pub enum Instruction {
     Unreachable,
 
     If {
+        condition: Option<Origin>,
         then_instructions: Vec<Instruction>,
         else_instructions: Vec<Instruction>,
     },
@@ -187,7 +189,7 @@ pub enum Instruction {
         function_id: usize,
         origin: Origin,
     },
-    Return,
+    Return(Option<Origin>),
 
     CheckedI64Add,
     CheckedI64Sub,

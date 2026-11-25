@@ -234,7 +234,7 @@ fn cli_composes_child_execution_arguments_stdin_files_and_flush() {
     let t = Temp::new();
     let cfg = serde_json::to_vec(&child_config(&t)).unwrap();
     let config = t.put("config.json", &cfg);
-    let (example, _) = t.program(EXAMPLE);
+    let (example, program) = t.program(EXAMPLE);
     let actual = t.run(
         &example,
         &[
@@ -251,6 +251,36 @@ fn cli_composes_child_execution_arguments_stdin_files_and_flush() {
         actual.stdout,
         include_bytes!("../../../examples/process_execution/registered.stdout")
     );
+    let instrumented = t.put(
+        "traced.wat",
+        wat::emit_wat_for_execution(
+            &program,
+            Default::default(),
+            std::num::NonZeroU32::new(128).unwrap(),
+            true,
+        )
+        .unwrap(),
+    );
+    let path = t.0.join("child.jsonl");
+    let traced = t.run(
+        &instrumented,
+        &[
+            "--process-target".as_ref(),
+            target().as_ref(),
+            "--process-config".as_ref(),
+            config.as_os_str(),
+            "--trace".as_ref(),
+            path.as_os_str(),
+            "--".as_ref(),
+        ],
+        &[],
+    );
+    assert_eq!(traced.status, actual.status);
+    assert_eq!(traced.stdout, actual.stdout);
+    assert_eq!(traced.stderr, actual.stderr);
+    let events = fs::read_to_string(path).unwrap();
+    assert!(events.contains("\"event\":\"call\"") && events.contains("\"status\":\"complete\""));
+    assert!(!events.contains("CERUNE_CHILD_VALUE"));
     let source = format!(
         r#"import "std:env" as env; import "std:io" as io; import "std:fs" as fs;
 {EXAMPLE}

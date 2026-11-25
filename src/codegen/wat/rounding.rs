@@ -6,7 +6,12 @@ use crate::{
 };
 use std::fmt::Write;
 
-pub(super) fn emit(c: NumericConversion, origin: Origin, name: &str, output: &mut String) {
+pub(super) fn emit(
+    c: NumericConversion,
+    origin: Origin,
+    name: &str,
+    output: &mut super::trace::WatText,
+) {
     let NumericType::Integer(ty) = c.to else {
         unreachable!()
     };

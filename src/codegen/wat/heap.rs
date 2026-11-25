@@ -8,7 +8,7 @@ pub(super) fn support(limit: u64, start: usize) -> String {
         .replace("@START@", &start.to_string())
         .replace("@EMPTY@", &(start - 8).to_string())
 }
-pub(super) fn concat(origin: Origin, name: &str, output: &mut String) {
+pub(super) fn concat(origin: Origin, name: &str, output: &mut super::trace::WatText) {
     writeln!(output, "  (func \u{24}{name} (param \u{24}left i32) (param \u{24}right i32) (result i32)\n    (local \u{24}length i64) (local \u{24}value i32) (local \u{24}error i32)").unwrap();
     output.push_str("    local.get $left\n    i64.load\n    local.get $right\n    i64.load\n    i64.add\n    local.tee $length\n    call $cerune_string_allocate\n    local.set $error\n    local.set $value\n");
     for (number, code) in [
