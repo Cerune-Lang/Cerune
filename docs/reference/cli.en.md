@@ -52,8 +52,8 @@ cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-wat <file> [--with-trace] [-o <output.wat>]
 cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
-cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
-cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
+cerune emit-asm <file> [--with-trace] [--target <triple>] [--annotate-origins] [-o <output.s>]
+cerune emit-obj <file> [--with-trace] --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
 cerune run <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
@@ -233,6 +233,21 @@ cargo run --manifest-path experiments/wat_host/Cargo.toml --locked -- factorial.
 
 Pass `--trace-event-limit` and `--trace-byte-limit` before the host's `--`. To run the binary, convert it with `wat2wasm --enable-annotations factorial.wat -o factorial.wasm` and pass `factorial.wasm` to the host.
 
+### Comparing factorial traces from the Native Object
+
+On x86-64 Linux, link the Cerune object with the trace writer. Both programs print `120` and `1`. The final command compares the 18 events and end record.
+
+~~~sh
+cerune run examples/recursion/factorial.ceru --trace factorial-hir.jsonl
+cerune emit-obj examples/recursion/factorial.ceru --target x86_64-unknown-linux-gnu --with-trace -o factorial.o
+cerune emit-trace-runtime -o trace-runtime.c
+clang --target=x86_64-unknown-linux-gnu factorial.o trace-runtime.c -lm -o factorial
+./factorial --cerune-runtime-v1 --trace factorial-native.jsonl --
+cmp factorial-hir.jsonl factorial-native.jsonl
+~~~
+
+On x64 Windows use `x86_64-pc-windows-msvc` for both targets, omit `-lm` and link `factorial.exe`. Add `--ssa` to `emit-obj` to compare the path through SSA. Use `emit-asm --with-trace` to inspect the same instructions as assembly.
+
 ## Cerune IR emission
 
 ```text
@@ -270,8 +285,8 @@ cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
 cerune emit-wat <file> [--with-trace] [-o <output.wat>]
-cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
-cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
+cerune emit-asm <file> [--with-trace] [--target <triple>] [--annotate-origins] [-o <output.s>]
+cerune emit-obj <file> [--with-trace] --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
 ```
 

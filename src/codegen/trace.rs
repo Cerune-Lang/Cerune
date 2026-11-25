@@ -4,7 +4,7 @@ use crate::{ir::NodeId, source::Span};
 pub(super) const RUNTIME: &str = include_str!("trace/runtime.c.inc");
 pub(super) const ENTRY: &str = include_str!("trace/entry.c.inc");
 
-#[derive(Default)]
+#[derive(Default, Clone, Debug)]
 pub(super) struct RowTable(std::collections::BTreeMap<String, usize>);
 impl RowTable {
     pub(super) fn intern(&mut self, row: String) -> usize {
@@ -49,13 +49,14 @@ pub(super) fn stop_row(code: crate::runtime::FailureCode, node: NodeId, span: Sp
     )
 }
 
-/// --with-traceを付けたLLVM IR・QBE ILと同じターゲットでリンクするC11ソース。
+/// LLVM IR・QBE IL・Nativeのトレース付き生成物にリンクするC11ソース。
 pub fn runtime_c() -> String {
     let mut out = String::from("#include <stdint.h>\n#include <stdio.h>\n");
     out.push_str(RUNTIME);
     out.push_str(
         r#"
 void cerune_trace_v1_record(const char *row) { cerune_trace_record(row); }
+void cerune_trace_v1_exit(int code) { cerune_trace_save(); _Exit(code); }
 void cerune_trace_v1_save(void) { cerune_trace_save(); }
 void cerune_trace_v1_branch(int taken, const char *yes, const char *no) {
     cerune_trace_branch(taken, yes, no);

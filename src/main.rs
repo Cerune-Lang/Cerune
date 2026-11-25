@@ -312,6 +312,7 @@ fn run() -> Result<(), String> {
             let rest: Vec<String> = args.collect();
 
             let (rest, ssa) = parse_ssa_option(rest)?;
+            let (rest, trace) = parse_flag(rest, "--with-trace")?;
             let (output, target, annotate_origins) = parse_native_options(&rest, "emit-asm", "s")?;
             let target = match target.as_deref() {
                 None => cerune_lang::codegen::x86_64::Target::X86_64PcWindowsMsvc,
@@ -330,7 +331,12 @@ fn run() -> Result<(), String> {
                     call_depth_limit,
                 )
                 .and_then(|lir| {
-                    cerune_lang::codegen::x86_64::emit_asm_from_lir(&lir, annotate_origins)
+                    cerune_lang::codegen::x86_64::build_program_for_execution(
+                        &lir,
+                        annotate_origins,
+                        trace,
+                    )?
+                    .render_asm()
                 }),
                 &source,
             )?;
@@ -343,6 +349,7 @@ fn run() -> Result<(), String> {
             let input = required_path(args.next(), "missing input file")?;
             let rest: Vec<String> = args.collect();
             let (rest, ssa) = parse_ssa_option(rest)?;
+            let (rest, trace) = parse_flag(rest, "--with-trace")?;
             let (output, target, origins) = parse_native_options(&rest, "emit-obj", "o")?;
             let output = output.ok_or("emit-obj requires -o <output.o>")?;
             let target = target.ok_or("emit-obj requires an explicit --target")?;
@@ -358,7 +365,13 @@ fn run() -> Result<(), String> {
                     argument_limits,
                     call_depth_limit,
                 )
-                .and_then(|lir| cerune_lang::codegen::x86_64::emit_object_from_lir(&lir, origins)),
+                .and_then(|lir| {
+                    Ok(cerune_lang::codegen::x86_64::build_program_for_execution(
+                        &lir, origins, trace,
+                    )?
+                    .assemble()?
+                    .object)
+                }),
                 &source,
             )?;
             fs::write(&output, bytes)
@@ -822,8 +835,8 @@ fn print_help() {
            cerune emit-wat <file> [--with-trace] [-o <output.wat>]\n\
            cerune emit-qbe <file> [--with-trace] --target <triple> [-o <output.ssa>]\n\
            cerune emit-lir <file> [--ssa] --target <triple> [-o <output.lir.txt>]\n\
-           cerune emit-asm <file> [--ssa] [--target <triple>] [--annotate-origins] [-o <output.s>]\n\
-           cerune emit-obj <file> [--ssa] --target <triple> [--annotate-origins] -o <output.o>\n\
+           cerune emit-asm <file> [--with-trace] [--ssa] [--target <triple>] [--annotate-origins] [-o <output.s>]\n\
+           cerune emit-obj <file> [--with-trace] [--ssa] --target <triple> [--annotate-origins] -o <output.o>\n\
            cerune observe <file> [--ssa] [--lir] --target <triple> -o <new-directory>\n\
            cerune emit-mir <file> [--ssa] [-o <output.txt>]\n\
            cerune emit-bytecode <file> [-o <output.cebc>]\n\

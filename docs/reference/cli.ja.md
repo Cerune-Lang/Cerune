@@ -52,8 +52,8 @@ cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-wat <file> [--with-trace] [-o <output.wat>]
 cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
-cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
-cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
+cerune emit-asm <file> [--with-trace] [--target <triple>] [--annotate-origins] [-o <output.s>]
+cerune emit-obj <file> [--with-trace] --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
 cerune run <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
 cerune run-ir <file> [--trace <new-file>] [--trace-event-limit <N>] [--trace-byte-limit <N>] [--process-config <json>] [--diagnostic-format runtime-v1]
@@ -233,6 +233,21 @@ cargo run --manifest-path experiments/wat_host/Cargo.toml --locked -- factorial.
 
 `--trace-event-limit` と `--trace-byte-limit` はホストの `--` より前に指定します。WABTでバイナリへ変換する場合は `wat2wasm --enable-annotations factorial.wat -o factorial.wasm` とし、ホストへ `factorial.wasm` を渡します。
 
+### 自前Objectで階乗の実行順を照合する
+
+x86-64 Linuxでは、次の手順で自前Objectと記録用のCソースをリンクします。HIRとNativeが出力する `120` と `1` に加え、最後のコマンドで18件のイベントと終端行も比較できます。
+
+~~~sh
+cerune run examples/recursion/factorial.ceru --trace factorial-hir.jsonl
+cerune emit-obj examples/recursion/factorial.ceru --target x86_64-unknown-linux-gnu --with-trace -o factorial.o
+cerune emit-trace-runtime -o trace-runtime.c
+clang --target=x86_64-unknown-linux-gnu factorial.o trace-runtime.c -lm -o factorial
+./factorial --cerune-runtime-v1 --trace factorial-native.jsonl --
+cmp factorial-hir.jsonl factorial-native.jsonl
+~~~
+
+Windows x64では両方のターゲットに `x86_64-pc-windows-msvc` を指定し、`-lm` を外して `factorial.exe` をリンクします。`--ssa` を `emit-obj` に加えるとSSAを経たObjectで試せます。同じ命令をアセンブリで読むには `emit-asm --with-trace` を使います。
+
 ## Cerune IRの出力
 
 ```text
@@ -270,8 +285,8 @@ cerune emit-llvm <file> --target <triple> [--with-trace] [-o <output.ll>]
 cerune emit-trace-runtime [-o <runtime.c>]
 cerune emit-qbe <file> --target <triple> [--with-trace] [-o <output.ssa>]
 cerune emit-wat <file> [--with-trace] [-o <output.wat>]
-cerune emit-asm <file> [--target <triple>] [--annotate-origins] [-o <output.s>]
-cerune emit-obj <file> --target <triple> [--annotate-origins] -o <output.o>
+cerune emit-asm <file> [--with-trace] [--target <triple>] [--annotate-origins] [-o <output.s>]
+cerune emit-obj <file> [--with-trace] --target <triple> [--annotate-origins] -o <output.o>
 cerune emit-bytecode <file> [-o <output.cebc>]
 ```
 

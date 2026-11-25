@@ -21,7 +21,7 @@
 
 記録順は `trace.events()` の添字で読み取ります。関数名は同じHIRの `FunctionId` から引けます。暗黙のmain呼出しと関数末尾での復帰には関数宣言のSpanを使い、NodeIdは空になります。コンパイラ生成補助関数の出入りと内部の分岐は省きます。
 
-上限の次の出来事が発生すると、先頭から上限件までを保持し、`trace.incomplete()` が `EventLimit` を返します。記録用メモリの確保失敗では `AllocationFailed` を返します。どちらでもプログラムは同じ処理を続けます。CLIでは同じイベントを[バイト上限付きJSON Lines](../reference/cli.ja.md)に保存できます。MIRは `if` の分岐命令に条件式のNodeIdとSpanを保持し、SSAは対応する元のMIRブロックからその位置を取得します。各実行器が実際に選んだ真偽値が記録されるので、ループの継続判定や短絡評価で作られたジャンプは件数に入りません。VMはジャンプ命令に付いた条件式のNodeIdと、スタックから取り出した真偽値を記録します。生成C・LLVM・QBE・WATで同じ記録を照合しています。残るNativeの進捗は [#282](https://github.com/Cerune-Lang/Cerune/issues/282) で追跡します。
+上限の次の出来事が発生すると、先頭から上限件までを保持し、`trace.incomplete()` が `EventLimit` を返します。記録用メモリの確保失敗では `AllocationFailed` を返します。どちらでもプログラムは同じ処理を続けます。CLIでは同じイベントを[バイト上限付きJSON Lines](../reference/cli.ja.md)に保存できます。MIRは `if` の分岐命令に条件式のNodeIdとSpanを保持し、SSAは対応する元のMIRブロックからその位置を取得します。各実行器が実際に選んだ真偽値が記録されるので、ループの継続判定や短絡評価で作られたジャンプは件数に入りません。VMはジャンプ命令に付いた条件式のNodeIdと、スタックから取り出した真偽値を記録します。生成C・LLVM・QBE・WAT・Nativeでも同じ記録を照合しています。[経路ごとの試験項目](https://github.com/Cerune-Lang/Cerune/issues/282)
 
 Cへの変換では、ソース関数に宣言のSpanを、明示した復帰に `return` 文のNodeIdとSpanを保持します。例えば `return x;` なら復帰は文全体を指し、返す式の評価で失敗した場合はその式を指します。暗黙のmain呼出しと関数末尾の復帰に使う位置は関数宣言です。
 
@@ -32,6 +32,8 @@ LLVMでは、ソースの `if` を変換した分岐命令に条件式のNodeId�
 QBEでは、ソースの `if` に対応する `jnz` と記録用の呼出しに同じ条件値を渡します。配列の範囲検査で生成した分岐は `branch` の件数に入りません。範囲外で停止したときは添字式の位置を `stop` に記録します。[QBEの実行例](../reference/cli.ja.md)
 
 生成WATはソースの `if` で実際に選んだ `then` または `else` の先頭から `cerune.trace_event_v1(i32)` を呼びます。引数は `cerune.trace.v1` カスタムセクション内の行番号（0始まり）です。各行はイベント・NodeId・ファイル番号・バイト位置を持つUTF-8のJSONです。ホストは番号を実行順に保存し、終了時に対応する行を引いて `trace-v1` を書き出します。ゲストが公開するのは `main` 関数だけです。トレース付きのWasmを読むホストにはこのimportが必要です。[階乗での実行例](../reference/cli.ja.md)
+
+NativeはMIRに残った `if` 条件のNodeIdとSpanを使います。条件を一度計算し、記録用の呼出しから戻ると保存していた真偽値で分岐します。関数の復帰時には整数・浮動小数点の戻り値を保存してから記録します。`choose(254)` と `choose(255)` では、`else` 側の加算を指す `stop` が最後のイベントです。Linuxではその後 `SIGILL`、Windowsではfast-failで終了します。[Objectの生成と実行](../reference/cli.ja.md)
 
 ## 観測と制御の分離
 

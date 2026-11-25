@@ -187,7 +187,13 @@ fn executors_match_hir_events_output_and_stops() {
         assert_eq!(hir.status.success(), success, "{src:?}");
         let expected = fs::read(hir_path).unwrap();
         let depth_flag = extra.starts_with(&["--call-depth-limit"]);
-        for route in [Route::C, Route::Llvm, Route::Qbe] {
+        for route in [
+            Route::C,
+            Route::Llvm,
+            Route::Qbe,
+            Route::Native,
+            Route::NativeSsa,
+        ] {
             let Some(exe) = route.compile(
                 &dir.join(format!("{i}-{route:?}-build")),
                 src,
@@ -204,6 +210,17 @@ fn executors_match_hir_events_output_and_stops() {
             let normal = super::generated::run(&exe, &[]);
             let actual = super::generated::run(&exe, &args);
             same_run(&actual, &normal);
+            if matches!(route, Route::Native | Route::NativeSsa) {
+                let plain = route
+                    .compile_mode(
+                        &dir.join(format!("{i}-{route:?}-plain")),
+                        src,
+                        if depth_flag { extra } else { &[] },
+                        false,
+                    )
+                    .unwrap();
+                same_run(&actual, &super::generated::run(&plain, &[]));
+            }
             assert_eq!(actual.status.success(), success);
             assert_eq!(actual.stdout, hir.stdout);
             let diagnostic = |r: &Output| String::from_utf8_lossy(&r.stderr).replace("\r\n", "\n");
@@ -253,6 +270,42 @@ fn executors_match_hir_events_output_and_stops() {
             let path = dir.join(format!("{i}-{name}"));
             same_run(&run(command, src, Some(&path), &route_flags), &hir);
             assert_eq!(fs::read(path).unwrap(), expected, "{src:?} {name}");
+        }
+    }
+}
+
+#[test]
+fn native_trace_preserves_float_results_and_stack_arguments() {
+    let dir = fresh("native-trace-abi");
+    let floats = dir.join("returns.ceru");
+    fs::write(&floats,"fn single(x:f32)->f32{return x;} fn double(x:f64)->f64{return x;} print(single(1.25)); print(double(-2.75));").unwrap();
+    for src in [
+        floats.as_path(),
+        Path::new("examples/function_arguments.ceru"),
+    ] {
+        for route in [Route::Native, Route::NativeSsa] {
+            let case = dir.join(format!(
+                "{}-{route:?}",
+                src.file_stem().unwrap().to_str().unwrap()
+            ));
+            let Some(exe) = route.compile(&case, src, &[]) else {
+                return;
+            };
+            let hir = case.join("hir.jsonl");
+            let path = case.join("native.jsonl");
+            let reference = run("run", src, Some(&hir), &[]);
+            assert!(reference.status.success());
+            let actual = super::generated::run(
+                &exe,
+                &[
+                    "--cerune-runtime-v1",
+                    "--trace",
+                    path.to_str().unwrap(),
+                    "--",
+                ],
+            );
+            same_run(&actual, &reference);
+            assert_eq!(fs::read(hir).unwrap(), fs::read(path).unwrap());
         }
     }
 }
@@ -338,7 +391,13 @@ fn files_and_program_arguments_keep_their_meaning() {
 
 #[test]
 fn generated_routes_keep_arguments_trace_limits_and_file_creation_order() {
-    for route in [Route::C, Route::Llvm, Route::Qbe] {
+    for route in [
+        Route::C,
+        Route::Llvm,
+        Route::Qbe,
+        Route::Native,
+        Route::NativeSsa,
+    ] {
         check_generated_files(route);
     }
 }

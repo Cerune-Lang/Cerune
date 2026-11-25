@@ -321,6 +321,7 @@ impl Reporter {
             let symbol = output.symbol("_write", Linkage::External);
             output.emit(Opcode::Call, [Operand::Symbol(symbol)]);
         }
+        super::trace::stop(code, node_id, span, self.target, output);
         if self.target.is_linux() {
             output.emit(Opcode::Undefined, []);
         } else {

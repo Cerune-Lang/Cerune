@@ -34,6 +34,7 @@ pub fn lower_with_argument_limits(
     let mut module = Module {
         types: program.types.clone(),
         call_limit: None,
+        if_conditions: Default::default(),
         source_functions: program
             .functions
             .iter()
@@ -64,7 +65,14 @@ pub fn lower_with_argument_limits(
                 module.array_heap_limit = Some(program.array_heap_limit);
             }
         }
-        for b in &f.blocks {
+        for (index, b) in f.blocks.iter().enumerate() {
+            if f.lowering.is_none()
+                && let Some(site) = b.terminator.if_condition
+            {
+                module
+                    .if_conditions
+                    .insert((f.id.map(|id| id.0), index), site);
+            }
             for i in &b.instructions {
                 match &i.kind {
                     Kind::Assign {
@@ -96,6 +104,7 @@ pub fn lower_with_argument_limits(
         if let Some(id) = f.id {
             module.functions.push(Function {
                 id: id.0,
+                declaration: f.declaration,
                 name: f.name.clone(),
                 frame_size: body.frame_size,
                 origins: body.origins,
