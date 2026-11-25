@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use Cerune in your research, please cite it using the metadata below."
+title: "Cerune"
+type: software
+authors:
+  - family-names: "Hokutaka"
+repository-code: "https://github.com/Cerune-Lang/Cerune"
+abstract: "A small experimental programming language designed to keep the path from source code to generated code observable."
+license:
+  - MIT
+  - Apache-2.0
+keywords:
+  - compiler
+  - programming-language
+  - compiler-observability
+  - differential-testing
+  - intermediate-representation
