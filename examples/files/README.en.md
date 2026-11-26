@@ -36,6 +36,18 @@ clang --target=x86_64-unknown-linux-gnu -O2 elf-llvm/reader.ll -lm -o elf-llvm/r
 cmp elf-llvm/input.o elf-llvm/copy.o
 ```
 
+QBE 1.3 translates the `.ssa` file to assembly. Select `amd64_sysv` on Linux x86-64 or `amd64_win` on Windows x86-64. On Linux, run the following commands.
+
+```sh
+mkdir elf-qbe
+cp elf-sample/input.o elf-qbe/input.o
+cargo run --quiet -- emit-qbe examples/files/elf_header.ceru --target x86_64-unknown-linux-gnu -o elf-qbe/reader.ssa
+qbe -t amd64_sysv -o elf-qbe/reader.s elf-qbe/reader.ssa
+clang --target=x86_64-unknown-linux-gnu elf-qbe/reader.s -lm -o elf-qbe/reader
+./elf-qbe/reader --cerune-runtime-v1 --file-root elf-qbe --
+cmp elf-qbe/input.o elf-qbe/copy.o
+```
+
 On Linux x86-64, compile and run the same example through Native. An exit status of zero from `cmp` confirms that every byte matches.
 
 ```sh

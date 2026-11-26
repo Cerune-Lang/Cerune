@@ -569,6 +569,14 @@ mod c_tests {
 }
 mod qbe_tests {
     cases!(super::Route::Qbe);
+    #[test]
+    fn binary_eof_probe_and_array_lifetime() {
+        super::binary_eof_probe_and_array_lifetime(super::Route::Qbe);
+    }
+    #[test]
+    fn binary_elf_and_array_budget() {
+        super::binary_elf_and_array_budget_match_the_executors(super::Route::Qbe);
+    }
 }
 mod llvm_tests {
     cases!(super::Route::Llvm);

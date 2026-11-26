@@ -53,7 +53,7 @@ Cerune ソースでは `import "std:fs::bytes" as fs;` と書き、`fs::read_byt
 
 読取りはファイルを開く前に、上限の要素数だけ動的配列を予約します。各 `u8` が配列の使用量に占めるのは8バイトです。たとえば上限4で1バイトを読んだ場合、配列長は1、予約した使用量は32バイトで、配列の解放時に戻ります。残量不足なら `phase=reserve code=budget-exceeded` で停止します。保存時は長さと上限を検査し、バイト列を用意してから新規作成します。
 
-HIR・MIR・SSA・VM、生成C、LLVM、Native は [ELFヘッダの実行例](../../examples/files/README.md) に対応しています。Native は Windows/Linux x86-64 向けに同じ MIR から ASM または Object を生成します。OS との転送には連続したバイトを使い、読取りと close の成功後、各バイトを配列の8バイト要素に格納します。保存時は各要素を1バイトに詰めてからファイルを作成します。生成CとLLVMも同じ順序で転送します。読取り時は予約済みの配列へ直接読み込み、末尾から順に各バイトを8バイト幅へ広げます。LLVMでは `--target` で Windows または Linux の x86-64 を指定します。QBE・WAT のバイナリ入出力は実装予定です。これらの生成先でバイナリ用モジュールを使うと、コンパイラが標準ソースの該当位置を示します。[#243](https://github.com/Cerune-Lang/Cerune/issues/243)
+HIR・MIR・SSA・VM、生成C、LLVM、QBE、Native は [ELFヘッダの実行例](../../examples/files/README.md) に対応しています。Native は Windows/Linux x86-64 向けに同じ MIR から ASM または Object を生成します。OS との転送には連続したバイトを使い、読取りと close の成功後、各バイトを配列の8バイト要素に格納します。保存時は各要素を1バイトに詰めてからファイルを作成します。生成C、LLVM、QBEも同じ順序で転送します。読取り時は予約済みの配列へ直接読み込み、末尾から順に各バイトを8バイト幅へ広げます。LLVMとQBEでは `--target` で Windows または Linux の x86-64 を指定します。WAT のバイナリ入出力は実装予定です。WATでバイナリ用モジュールを使うと、コンパイラが標準ソースの該当位置を示します。[#243](https://github.com/Cerune-Lang/Cerune/issues/243)
 
 ## 公開APIと実行器への接続
 

@@ -1,4 +1,5 @@
 //! ファイルの意味処理をQBE ILへ直接展開します。明示ターゲットのOS接続と意味処理を分離します。
+mod bytes;
 mod connection;
 pub(super) mod entry;
 mod names;
@@ -11,17 +12,22 @@ use super::{
 };
 use std::fmt::Write;
 
-pub(super) fn used(module: &Module) -> bool {
+fn file_operations(module: &Module) -> impl Iterator<Item = (&FailureOrigin, bool)> {
     module
         .instructions
         .iter()
         .chain(module.functions.iter().flat_map(|f| &f.instructions))
-        .any(|i| {
-            matches!(
-                i,
-                Instruction::FileReadText { .. } | Instruction::FileWriteNew { .. }
-            )
+        .filter_map(|i| match i {
+            Instruction::FileReadText { origin, .. } | Instruction::FileWriteNew { origin, .. } => {
+                Some((origin, false))
+            }
+            Instruction::FileReadBytes { origin, .. }
+            | Instruction::FileWriteBytesNew { origin, .. } => Some((origin, true)),
+            _ => None,
         })
+}
+pub(super) fn used(module: &Module) -> bool {
+    file_operations(module).next().is_some()
 }
 pub(super) fn origin_name(origin: FailureOrigin) -> String {
     format!(
@@ -43,15 +49,10 @@ fn data(out: &mut String, section: &str, name: &str, text: &str) {
 }
 pub(super) fn emit(module: &Module, out: &mut String) {
     let mut origins = Vec::new();
-    for item in module
-        .instructions
-        .iter()
-        .chain(module.functions.iter().flat_map(|f| &f.instructions))
-    {
-        if let Instruction::FileReadText { origin, .. } | Instruction::FileWriteNew { origin, .. } =
-            item
-            && !origins.contains(origin)
-        {
+    let mut binary = false;
+    for (origin, is_binary) in file_operations(module) {
+        binary |= is_binary;
+        if !origins.contains(origin) {
             origins.push(*origin);
         }
     }
@@ -76,6 +77,8 @@ pub(super) fn emit(module: &Module, out: &mut String) {
         );
     }
     for word in [
+        "read-bytes",
+        "write-bytes-new",
         "read-text",
         "write-new",
         "validate",
@@ -148,6 +151,17 @@ pub(super) fn emit(module: &Module, out: &mut String) {
         "@LIMIT@",
         &module.string_heap_limit.expect("file heap").to_string(),
     ));
+    if binary {
+        out.push_str(
+            &bytes::SOURCE.replace(
+                "@ARRAY_LIMIT@",
+                &module
+                    .array_heap_limit
+                    .expect("binary file array heap")
+                    .to_string(),
+            ),
+        );
+    }
 }
 const FAILURE: &str = r#"
 function $cerune_files_fail(l %operation, l %phase, l %code, l %limit, w %requested_known, l %requested, l %transferred, w %known, l %created, l %cleanup, l %origin) {
