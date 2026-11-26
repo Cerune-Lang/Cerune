@@ -6,6 +6,8 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 
 この文書はロードマップではありません。ここにある項目は実装予定や互換性の約束ではなく、現在または将来のCeruneで試せそうな題材を集めたものです。
 
+2026-11-26のmasterの文書・exampleを基準に、現行の機能で試せる部分と将来の機能が必要な部分を区別します。各題材の実装・成功を確認した一覧ではありません。現在の機能・優先順位は[ロードマップ](../design/language-roadmap.ja.md)、実行条件は各設計文書を参照してください。
+
 ## CPU / ISA
 
 - **RV32Iインタプリタ** — レジスタ・PC・メモリ・decodeを全部Ceruneで。
@@ -74,7 +76,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **reducer / delta debugger** — backend差分を起こす最小プログラム探索。
 - **metamorphic testing** — 意味保存変換後に結果一致を見る。
 - **random program generator** — deterministic PRNGで小プログラム生成。
-- **differential compiler tester** — IR/MIR/VM/C/LLVM/QBE/WAT/native全部をoracle群にする。
+- **differential compiler tester** — HIR/MIR/SSA/VM/C/LLVM/QBE/WAT/Nativeの結果を比較し、独立した期待値も用意する。経路間の一致だけでは正しさを保証しない。
 - **abstract interpreter** — constant / interval domain。
 - **interval analysis** — overflowやbounds解析にもつながる。
 - **symbolic executor** — 小さい整数領域限定なら面白い。
@@ -341,9 +343,17 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **source→machine provenance explorer** — 最終命令がどのsource expression由来か辿る。
 - **self-hosting countdown** — lexer→parser→typechecker→IR emitterを順番にCerune化。
 
+- **trace-v1の経路横断比較** — Call/Branch/Return/Stopの順序・NodeId・ソース位置を4実行器と生成C/LLVM/QBE/WAT/Nativeで照合する。独立した期待traceも用意する。
+- **観測予算の不干渉実験** — traceの件数・バイト上限を変え、出力・停止・外部操作回数が変わらないか比較する。記録の欠落とプログラムの失敗を区別する。
+- **traceからのソース分岐coverage** — 実際に選んだifの真偽を集計する。loop継続・短絡用jump・内部検査は現行Branchの対象外であり、一般のCFG coverageとは区別する。
+- **SSA往復の出自監査** — 元MIR・SSA・変換後MIRの対応表を読み、合流・並列copy・未到達blockを比較する。構造の一致を意味保存の証明としない。
+- **LIRから機械語への出自探索** — 同じtargetのLIR・注釈ASM・個別emitしたObjectの位置を、SASHIMIの出自情報や逆アセンブル結果と照合する。0バイトの要素・合成命令・再配置も区別する。
+
+実行トレースと保存形式は[可観測性の契約](../design/observability.ja.md)・[観測bundle](../design/observation-bundle.ja.md)・[LIRの観測](../design/lir-observation.ja.md)を参照する。NodeIdは一回のコンパイル内の識別子であり、編集後・別版の同じ番号を同一ノードと仮定しない。
+
 ## AI × Compiler
 
-- **AI生成programのdifferential検証** — AIにCeruneを書く側を任せ、全backend一致を自動oracleにする。
+- **AI生成programのdifferential検証** — AIにCeruneを書く側を任せ、経路間の一致と独立した期待値で検査する。共通の誤りを見逃す可能性も調べる。
 - **AI生成optimization ruleの検証** — AIが出したrewriteを小bitwidthで全数検証。
 - **AIにbug-inducing programを探索させる** — compiler fuzzingと相性がいい。
 - **AIによるIR説明と実際のtraceの比較** — 「AIはこのloweringを正しく説明できるか」。
@@ -356,7 +366,7 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 
 ## Research
 
-- **HIR/MIR semantic distance測定** — lowering前後の命令数・基本ブロック数・分岐数を数えて比較する。
+- **HIR/MIR semantic distance測定** — lowering前後の命令数・基本ブロック数・分岐数を数えて比較する。これは構造差の指標であり、それだけで意味差を測るものではない。
 - **backend semantic drift分類** — どの種類の意味差がどこで発生するか。
 - **provenance保持コスト測定** — NodeId/span追跡がコード量・速度に与える影響。
 - **observability vs optimization tradeoff** — 観測可能性を残すとどこまで最適化できるか。
@@ -369,6 +379,16 @@ Ceruneで試すと面白そうな実験・dogfooding・アイデアのカタロ�
 - **reproducible build toy** — source/hash/targetから成果物同一性を検証。
 - **「最適化しても説明できるコンパイラ」** — optimization provenanceを第一級の出力にする。
 
+- **有限意味モデルの変異検証** — [Leanの有限例](../design/lean-verification.ja.md)を基点に、分岐先・停止出自・fuelを意図的に変え、どの誤りを対応定理が拒否するか調べる。全言語の証明とは区別する。
+- **観測traceの比較コスト** — 同じ入力・target・toolchainでtraceなし／あり／上限到達を計測し、実行時間・記録量・診断の情報量を比較する。
+- **共通runtimeと独立オラクルの検出力** — 共有された演算・I/O処理とbackend固有処理に別々の変異を加える小さな試験用実装を用意し、経路間比較と独立期待値がそれぞれ検出する差を調べる。
+
+### 将来の研究構想（未実装の機能を含む）
+
+- **出自を用いたObject最適化の探索予算比較** — [#325](https://github.com/Cerune-Lang/Cerune/issues/325)を基に、小さな候補集合で固定順・貪欲・ランダム・UCB1を同一評価予算で比較する。まず外部の模型でもよい。実Objectの書換え・意味／ABI／再配置の検証器は別途必要。
+- **多世代生成経路の選択模型** — [#235](https://github.com/Cerune-Lang/Cerune/issues/235)・[#249](https://github.com/Cerune-Lang/Cerune/issues/249)を基に、有限の生成履歴を模擬し、全探索・pairwise・失敗履歴優先の検出力と費用を比較する。現行の多経路セルフホストを前提にしない。
+- **小規模MLPの編集可能な意味IR** — [Nerune #1](https://github.com/Cerune-Lang/Nerune/issues/1)の仮説を、まずPython等の既存環境で検証する。編集で変化するはずの入力と変化しないはずの入力を事前に分け、重みへの反映後に両方を検査する。汎用の重み意味論やCeruneでの学習機能を前提にしない。
+
 ## 配布された成果物を題材にする
 
 Ceruneで書いた計算内容の比較だけでなく、**完成した実行ファイルや将来のIR/VM Imageを、ビルドしたディレクトリから別の場所へ移し、検証して起動できるか**を試す。生成直後の実行結果を比べるテストとは異なり、配布先で必要なファイル・runtime・互換性も調べる。
@@ -379,6 +399,9 @@ Ceruneで書いた計算内容の比較だけでなく、**完成した実行フ
 
 - **release持ち出しテスト** — 配布ディレクトリをbuild環境から切り離し、manifestに記録されたtarget・system runtimeの条件下で起動できるか確認。
 - **配布証跡checker** — 配布された実行ファイルのSHA-256、直接runtime要件、build出自とmanifestの整合性を監査。
+
+- **Native配布のruntime要求行列** — 子プロセスあり／なし、Windows/Linux target、本文あり／なしのreleaseを比較し、直接runtime要求・リンク入力・ハッシュを確認する。配布先での動作は別に検証する。
+- **配布物の欠落・改変検出** — 実験用コピーの規定ファイルを欠落・変更させ、manifestとの不一致を検出する。ハッシュ照合を署名・真正性の保証と混同しない。
 
 ### IR/VM Imageとloaderができたら
 
@@ -394,12 +417,25 @@ Ceruneで書いた計算内容の比較だけでなく、**完成した実行フ
 
 ## ブラウザ・GUIからの実行と子プロセス管理を試す
 
-現在のWATから生成した関数をJavaScript/TypeScriptで呼ぶ機能、Native実行ファイル、Windows/Linuxで子プロセスを起動・監視する共通runtimeを使った実験案。生成Cから子プロセスを呼ぶ処理は接続済みだが、LLVM/QBE/Native/WATから呼ぶ処理は順次対応する段階であり、以下の実験がすべて実行可能という意味ではない。現状は[子プロセスのロードマップ](../design/language-roadmap.ja.md)と[生成経路からの子プロセス呼出し設計](../design/subprocess-generated.ja.md)を参照する。
+現在のWATから生成した関数をJavaScript/TypeScriptで呼ぶ機能、Native実行ファイル、Windows/Linuxで子プロセスを起動・監視する共通runtimeを使った実験案。4実行器と生成C・LLVM・QBE・Native・WAT参照hostの子プロセス接続は実装・比較済み。Windows/Linuxの明示登録、targetに合うruntime archive・Linux監督や参照hostなど、経路別の実行条件が必要であり、ブラウザ内で任意のOS子プロセスを起動できるという意味ではない。現状は[子プロセスのロードマップ](../design/language-roadmap.ja.md)と[生成経路からの子プロセス呼出し設計](../design/subprocess-generated.ja.md)を参照する。
 
 - **ブラウザWasmとGUI起動のNative実行ファイルを比較** — 同じCeruneプログラムをブラウザ内のWasmとGUIから起動した実行ファイルで動かし、出力・終了状態・失敗時の表示と回収方法を比較する。
 - **子プロセスの起動から終了後の回収まで記録** — 起動、標準入出力、終了コード、タイムアウト、取消し、残ったプロセス・入出力の回収を時系列で記録し、WindowsとLinuxで違う箇所を確認する。
-- **子プロセス呼出しをIR/MIR/VM・生成Cで比較** — 同じコマンドの終了コード・エラー・終了前に得た出力を比較する。LLVM/QBE/Native/WATも子プロセスを呼べるようになったら対象に加える。
+- **子プロセス呼出しを全対応経路で比較** — 同じ登録済みの子をHIR/MIR/SSA/VM・生成C/LLVM/QBE/Native・WAT参照hostから呼び、終了コード・失敗・部分出力を比較する。
 - **ブラウザ・GUI・CLIと実行プログラムの要求・応答形式** — 実行する処理・引数・結果・エラーを渡す小さなメッセージ形式を定義し、順序違い、不正な値、途中切断を再現する。ネットワークI/Oは不要。
+
+- **登録済みツールのバッチ実行器** — 有限個の引数・入力を登録済みの子へ送り、各Outcomeと部分出力を保存する。shell・任意コマンド実行・並行起動は不要。
+- **子プロセス失敗からの継続比較** — 未接続・非0終了・期限超過・出力上限を区別し、呼出し元の後続処理と結果を比較する。実OSの時間差は別に扱う。
+- **起動前の予約境界テスト** — heap・stdout/stderr予算を変え、予約失敗時に子が起動しないことを検証用の子や試験接続で確認する。
+- **外部副作用の比較用fixture** — 経路ごとに独立した作業ディレクトリと登録済みの決定的な子を用意し、外部操作の回数・出力・停止を比較する。一般のrecord/replayは未実装（[#104](https://github.com/Cerune-Lang/Cerune/issues/104)）。
+
+### 型付きホスト関数の実験
+
+[VM埋め込み](../design/vm-embedding.ja.md)はRust APIのf64引数・f64/void戻り値、[WATライブラリのJS/TS API](../design/wat-js-bindings.ja.md)はi32/f64の公開引数・結果に対応する。WATは外部でWasm化し、同じ生成から得たwrapperと組にして使う。専用CLI・一般の複合値・IR/VMのJS公開は未実装。
+
+- **反復呼出しベンチマーク** — 共通のf64計算関数についてVM埋め込みと生成Wasmを比較し、準備・compile/instantiate・反復実行の費用を分ける。
+- **型付き境界の拒否行列** — 生成JSに範囲外i32、余分な引数、暗黙変換を要する値、NaN・負のゼロ等を渡し、拒否と正常な特殊値を区別する。
+- **停止後のホスト再利用比較** — WAT wrapperの引数検査失敗と実行時停止を区別し、ハンドルの再利用・再生成を検査する。VMの呼出しごとの状態とは別契約として比較する。
 
 ## I/Oを使う題材（現行機能と将来の拡張）
 
@@ -417,6 +453,10 @@ Ceruneで書いた計算内容の比較だけでなく、**完成した実行フ
 - **network packet analyzer** — byte parsing＋protocol state。
 - **REPL** — 言語処理系として一気に“使ってる感”が出る。
 - **CeruneでCerune compiler frontend** — self-hostingの本格化。
+
+- **テキストfixtureの新規保存・再読込み** — 独立した作業ディレクトリで入力・結果を保存し、空・日本語・改行・上限ちょうどを比較する。上書きや追記を前提にしない。
+- **ファイルI/Oの失敗ギャラリー** — 不正な名前・上限超過・既存ファイルへの新規保存を小さな例で試し、停止理由・出自・先行出力を比較する。試験用ディレクトリだけを使う。
+- **行入力とflushの対話実験** — 質問をflushしてからホストが固定応答を送り、出力順・EOF・上限超過を比較する。対応するstdin/hostを明示し、一般の対話端末対応とは区別する。
 
 ## 将来: GPU
 
@@ -453,6 +493,6 @@ Ceruneの現在の特徴を最も活かしやすい候補を抜き出すと、�
 
 普通の言語では「作れる」で終わる題材も、Ceruneでは同じプログラムが
 
-`source → HIR → MIR → VM / C / LLVM / QBE / WAT / Native`
+`source → HIR → { HIR実行, bytecode → VM, MIR → { MIR実行, SSA → SSA実行／MIRへ戻す, LIR → Native }, C / LLVM / QBE / WAT }`
 
 へどう変換され、それでも意味が一致するかを観測できること自体が実験テーマになる。
