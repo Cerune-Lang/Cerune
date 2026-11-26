@@ -48,6 +48,16 @@ clang --target=x86_64-unknown-linux-gnu elf-qbe/reader.s -lm -o elf-qbe/reader
 cmp elf-qbe/input.o elf-qbe/copy.o
 ```
 
+To run generated WAT with the [reference host](../../experiments/wat_host/README.en.md), point `--file-root` at the directory containing `input.o`. On Linux, compare every byte of the copy with these commands.
+
+```sh
+mkdir elf-wat
+cp elf-sample/input.o elf-wat/input.o
+cargo run --quiet -- emit-wat examples/files/elf_header.ceru -o elf-wat/reader.wat
+cargo run --quiet --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host -- elf-wat/reader.wat --file-root elf-wat --
+cmp elf-wat/input.o elf-wat/copy.o
+```
+
 On Linux x86-64, compile and run the same example through Native. An exit status of zero from `cmp` confirms that every byte matches.
 
 ```sh

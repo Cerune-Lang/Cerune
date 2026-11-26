@@ -53,7 +53,7 @@ Cerune ソースでは `import "std:fs::bytes" as fs;` と書き、`fs::read_byt
 
 読取りはファイルを開く前に、上限の要素数だけ動的配列を予約します。各 `u8` が配列の使用量に占めるのは8バイトです。たとえば上限4で1バイトを読んだ場合、配列長は1、予約した使用量は32バイトで、配列の解放時に戻ります。残量不足なら `phase=reserve code=budget-exceeded` で停止します。保存時は長さと上限を検査し、バイト列を用意してから新規作成します。
 
-HIR・MIR・SSA・VM、生成C、LLVM、QBE、Native は [ELFヘッダの実行例](../../examples/files/README.md) に対応しています。Native は Windows/Linux x86-64 向けに同じ MIR から ASM または Object を生成します。OS との転送には連続したバイトを使い、読取りと close の成功後、各バイトを配列の8バイト要素に格納します。保存時は各要素を1バイトに詰めてからファイルを作成します。生成C、LLVM、QBEも同じ順序で転送します。読取り時は予約済みの配列へ直接読み込み、末尾から順に各バイトを8バイト幅へ広げます。LLVMとQBEでは `--target` で Windows または Linux の x86-64 を指定します。WAT のバイナリ入出力は実装予定です。WATでバイナリ用モジュールを使うと、コンパイラが標準ソースの該当位置を示します。[#243](https://github.com/Cerune-Lang/Cerune/issues/243)
+[ELFヘッダの例](../../examples/files/README.md)はHIR・MIR・SSA・VM、生成C・LLVM・QBE・WAT・Nativeで実行できます。生成コードは読取り前に配列を予約し、close が成功した後、末尾から順に各バイトを8バイト幅の要素に格納します。保存時は配列を連続したバイトに詰めてからファイルを新規作成します。LLVM・QBE・NativeではWindowsまたはLinuxのx86-64を指定します。WATでは[ファイルホスト](wat-file-host.ja.md)が1回に最大8バイトを受け渡します。
 
 ## 公開APIと実行器への接続
 

@@ -83,6 +83,12 @@ fn generated(program: &ir::Program) -> String {
     assert!(text.contains("file_open_v1"));
     // Test-only inspection of ownership after the whole source program has returned.
     let end = text.rfind("\n  )\n").unwrap();
+    if text.contains("(global $cerune_array_live ") {
+        text.insert_str(
+            end,
+            "\n    (if (i64.ne (global.get $cerune_array_live) (i64.const 0)) (then unreachable))",
+        );
+    }
     text.insert_str(
         end,
         "\n    (if (i64.ne (global.get $cerune_heap_live) (i64.const 0)) (then unreachable))",
@@ -197,6 +203,107 @@ fn wat_example_transfers_and_failures_match_four_executors() {
         }
     }
 }
+#[test]
+fn wat_binary_files_preserve_bytes_progress_and_array_ownership() {
+    let copy = r#"import "std:fs::bytes" as fs; print(7);
+        data:[u8]=fs::read_bytes("input",16);
+        fs::write_bytes_new("out",data,16); print(array_len(data));"#;
+    let p = hir(copy);
+    let bytes = [0, 255, 13, 10, 128, 7, 8, 9, 254, 255, 0, 0, 0, 0, 1, 255];
+    for input in [&bytes[..0], &bytes[..1], &bytes[..8], &bytes[..]] {
+        compare(&p, json!({"files":[["input",input]],"inspect":["out"]}));
+    }
+    compare(
+        &p,
+        json!({"files":[["input",vec![255;17]]],"inspect":["out"]}),
+    );
+    compare(
+        &p,
+        json!({"files":[["input",bytes],["out",[255,0]]],"inspect":["out"]}),
+    );
+    for (key, steps, close_error) in [
+        ("reads", json!([-2, 3, -2, 5]), false),
+        ("writes", json!([-2, 3, -2, 5]), false),
+        ("reads", json!([3, -1]), true),
+        ("writes", json!([3, -1]), false),
+        ("writes", json!([3, 0]), false),
+        ("reads", json!([3, "invalid"]), false),
+        ("writes", json!([3, "invalid"]), false),
+        ("reads", json!([]), true),
+    ] {
+        let mut cfg = json!({"files":[["input",bytes]],"inspect":["out"],"closeError":close_error});
+        cfg[key] = steps;
+        compare(&p, cfg);
+    }
+    let zero =
+        hir(r#"import "std:fs::bytes" as fs; fs::write_bytes_new("out",fs::read_bytes("x",0),0);"#);
+    for bytes in [&[][..], &[255][..]] {
+        compare(&zero, json!({"files":[["x",bytes]],"inspect":["out"]}));
+    }
+    let mut limited = hir(copy);
+    limited.array_heap_limit = 127;
+    compare(&limited, json!({"inspect":["out"]}));
+    let mut p = hir(r#"import "std:fs::bytes" as fs;
+        for(mut i:i64=0;i<8;i=i+1) {
+            data:[u8]=fs::read_bytes("x",4);
+            mut copy:[u8]=data; copy[0]=55; print(data[0]);
+        }"#);
+    p.array_heap_limit = 64;
+    compare(&p, json!({"files":[["x",[255]]],"inspect":[]}));
+}
+
+#[test]
+fn wat_binary_reservation_precedes_open_on_wasm32() {
+    use cerune_lang::runtime::files::{Code, Phase};
+    // At the default array limit the allowance fails first; with 8 GiB allowed,
+    // a 1 GiB input limit would require 8 GiB of slots in Wasm32 memory.
+    let mut p =
+        hir(r#"import "std:fs::bytes" as fs; print(7); print(fs::read_bytes("x",1073741824));"#);
+    compare(&p, json!({"inspect":[]}));
+    p.array_heap_limit = 8u64 << 30;
+    let (mut expected, _) = execute(0, &p, &mut Files::<Memory>::unconfigured()).unwrap_err();
+    expected.code = Code::AllocationFailed;
+    expected.details.phase = Phase::Reserve;
+    let Some((dir, mut cmd)) = build(&generated(&p)) else {
+        return;
+    };
+    let (actual, trace) = run(&dir, &mut cmd, &json!({"inspect":[]}));
+    assert_eq!(actual.status.code(), Some(1));
+    assert_eq!(actual.stdout, b"7\n");
+    assert_eq!(
+        String::from_utf8_lossy(&actual.stderr).replace("\r\n", "\n"),
+        format!("cerune: {}\n", expected.record())
+    );
+    assert_eq!(trace["events"], json!([]));
+}
+
+#[test]
+fn wat_binary_write_reserves_packed_bytes_before_creating_the_file() {
+    use cerune_lang::runtime::files::{Code, Phase};
+
+    // The source array and its argument copy fit in one page. Packing needs additional space.
+    let p = hir(r#"import "std:fs::bytes" as fs;
+        data:[u8]=array_repeat::<u8>(u8(255),3950); print(array_len(data));
+        fs::write_bytes_new("out",data,3950);"#);
+    let text = generated(&p).replace("(memory 1)", "(memory 1 1)");
+    assert!(text.contains("(memory 1 1)"));
+    let (mut expected, prior) = execute(0, &p, &mut Files::<Memory>::unconfigured()).unwrap_err();
+    expected.code = Code::AllocationFailed;
+    expected.details.phase = Phase::Reserve;
+    let Some((dir, mut cmd)) = build(&text) else {
+        return;
+    };
+    let (actual, trace) = run(&dir, &mut cmd, &json!({"inspect":["out"]}));
+    assert_eq!(actual.status.code(), Some(1));
+    assert_eq!(actual.stdout, prior.as_bytes());
+    assert_eq!(
+        String::from_utf8_lossy(&actual.stderr).replace("\r\n", "\n"),
+        format!("cerune: {}\n", expected.record())
+    );
+    assert_eq!(trace["events"], json!([]));
+    assert_eq!(trace["contents"]["out"], Value::Null);
+}
+
 #[test]
 fn wat_names_limits_empty_eof_and_utf8_match_four_executors() {
     for name in [

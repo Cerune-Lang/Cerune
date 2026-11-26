@@ -331,7 +331,10 @@ fn emit_helper(
             super::process::located(module, *request, *outcome, origin, name, output)
         }
         Instruction::ReadLine => super::input::located(origin, name, output),
-        Instruction::FileReadText | Instruction::FileWriteNew => {
+        Instruction::FileReadText
+        | Instruction::FileWriteNew
+        | Instruction::FileReadBytes
+        | Instruction::FileWriteBytesNew => {
             super::files::located(instruction, origin, name, output)
         }
         Instruction::StringByteAt => super::string::byte_at(name, output),
@@ -486,7 +489,10 @@ fn emit_instruction(
         }
         Instruction::ProcessRun { .. } => unreachable!("process carries source origin"),
         Instruction::ReadLine => unreachable!("input carries its source origin"),
-        Instruction::FileReadText | Instruction::FileWriteNew => {
+        Instruction::FileReadText
+        | Instruction::FileWriteNew
+        | Instruction::FileReadBytes
+        | Instruction::FileWriteBytesNew => {
             unreachable!("files carry their source origin")
         }
         Instruction::StringByteAt => unreachable!("byte access carries its source origin"),

@@ -20,6 +20,8 @@ pub(super) fn helper_name(instruction: &Instruction, origin: Origin) -> String {
             format!("cerune_process_run_{request}_{outcome}")
         }
         Instruction::ReadLine => "cerune_input_read_line".into(),
+        Instruction::FileReadBytes => "cerune_file_read_bytes".into(),
+        Instruction::FileWriteBytesNew => "cerune_file_write_bytes_new".into(),
         Instruction::FileReadText => "cerune_file_read_text".into(),
         Instruction::FileWriteNew => "cerune_file_write_new".into(),
         Instruction::StringByteAt => "cerune_string_byte_at".into(),

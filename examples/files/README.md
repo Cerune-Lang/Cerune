@@ -48,6 +48,16 @@ clang --target=x86_64-unknown-linux-gnu elf-qbe/reader.s -lm -o elf-qbe/reader
 cmp elf-qbe/input.o elf-qbe/copy.o
 ```
 
+生成WATを[参照ホスト](../../experiments/wat_host/README.md)で実行するときは、`--file-root` に `input.o` を置いたディレクトリを指定します。Linuxでは次のコマンドでコピーの全バイトを照合できます。
+
+```sh
+mkdir elf-wat
+cp elf-sample/input.o elf-wat/input.o
+cargo run --quiet -- emit-wat examples/files/elf_header.ceru -o elf-wat/reader.wat
+cargo run --quiet --manifest-path experiments/wat_host/Cargo.toml --locked --target-dir target/wat-host -- elf-wat/reader.wat --file-root elf-wat --
+cmp elf-wat/input.o elf-wat/copy.o
+```
+
 Linux x86-64 で同じ例を Native 実行するには、次のコマンドを使います。`cmp` の終了コード0は全バイトの一致を表します。
 
 ```sh

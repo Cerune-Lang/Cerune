@@ -2,7 +2,7 @@
 
 [日本語](wat-file-host.ja.md)
 
-**Status: std:fs in emit-wat and versioned host support are implemented. The Windows/Linux real-OS reference host is also verified.**
+**Status: `std:fs` and `std:fs::bytes` in emit-wat and versioned host support are implemented. The Windows/Linux real-OS reference host is also verified.**
 Connect reads and new-file creation under the [common file contract](file-io.en.md). Keep the common IR, filename rules, UTF-8, usage limits, and stopping policy. Generated WAT semantics are compared against four executors using independent in-memory connections. OS connections are validated through an independent reference host.
 
 ## Responsibilities and rationale
@@ -31,7 +31,7 @@ Programs containing file operations, including unused functions, require these s
 | file_write_v1 | (i32 handle, i64 bits, i32 count) → i32 | Supply 1–8 bytes and return acceptance or failure |
 | file_close_v1 | (i32 handle) → i32 | Consume the handle once. 0=success; any nonzero value=close failure |
 
-Use low-order bytes first. Preserve the 64-bit pattern rather than interpreting the sign of i64 as character data. Ignore unused trailing bits. Preserve split UTF-8, NUL, CR/LF, combining characters, and invalid UTF-8 as bytes without host normalization or replacement. Generated WAT validates content UTF-8.
+Use low-order bytes first. Preserve the 64-bit pattern rather than interpreting the sign of i64 as character data. Ignore unused trailing bits. Preserve split UTF-8, NUL, CR/LF, combining characters, and invalid UTF-8 as bytes without host normalization or replacement. Generated WAT validates UTF-8 for `read_text`. For `read_bytes` each byte becomes an element of the returned `[u8]`.
 
 ### Name preparation and open
 
@@ -83,7 +83,7 @@ Differential tests must not depend solely on failing the Nth call. Inject short 
 
 ## Stopping, observation, and compatibility
 
-Retain FileReadText/FileWriteNew, name/limit checks, transfers, ownership, and NodeId/SourceId/Span in generated WAT. On failure, pass prior output through existing flush_stdout_v1, deliver file-v1 through write_error_byte, then stop with unreachable. Do not include bodies, names, or OS error text. Diagnostic delivery is best effort; secondary failures do not replace the primary diagnosis.
+Retain `FileReadText`, `FileWriteNew`, `FileReadBytes` and `FileWriteBytesNew`, name/limit checks, transfers, ownership, and NodeId/SourceId/Span in generated WAT. On failure, pass prior output through existing flush_stdout_v1, deliver file-v1 through write_error_byte, then stop with unreachable. Do not include bodies, names, or OS error text. Diagnostic delivery is best effort; secondary failures do not replace the primary diagnosis.
 
 This change adds no common observation API for successful generated operations. The test host returns copies from events; recording availability and capacity do not alter transfers. Response injection is separate test control copied before execution.
 
@@ -98,7 +98,9 @@ Keep the existing WAT library restrictions for pure public functions. This does 
 
 ## Implementation, verification, and remaining work
 
-The [emitter](../../src/codegen/wat/files.rs) directly expands common IR FileReadText/FileWriteNew into WAT. It shares existing string allocation and UTF-8 validation. Reads reserve their limit before opening, release on failure/empty content, and adjust usage and length to actual bytes before returning ownership. Reject a second main invocation before recapturing arguments or accessing files.
+The [emitter](../../src/codegen/wat/files.rs) directly expands common IR `FileReadText`, `FileWriteNew`, `FileReadBytes` and `FileWriteBytesNew` into WAT. Text reads use the string allocator and UTF-8 validator. They reserve their limit before opening, release on failure/empty content, and adjust usage and length to actual bytes before returning ownership. Reject a second main invocation before recapturing arguments or accessing files.
+
+`read_bytes` reserves eight bytes of array capacity per allowed element before opening the file. After reading and closing successfully it sets the length to the number of bytes read. Releasing the array returns the reserved capacity. `write_bytes_new` packs one byte per element into temporary storage before creating the file. Both operations use the seven imports above.
 
 The [comparisons](../../tests/file_io/wat.rs) use independent in-memory connections to compare output, complete file-v1 records, residual content, and close counts against four executors. Cases include names, empty/zero/exact/+1 limits, transfers over 4096 bytes, invalid UTF-8, partial transfers, interruptions, zero progress, invalid responses, combined transfer/close failure, usage limits, evaluation order, short circuits, recursion, copying, and release after iteration. A test-only memory maximum forces physical memory.grow failure and verifies allocation-failed before open, separately from usage exhaustion. Tests also cover stdin/arguments/flush composition, missing required imports on old hosts, and imports required by unused functions.
 
@@ -113,7 +115,7 @@ Node and WABT are required. Windows/Linux/macOS WAT CI jobs require both through
 
 ## Real-OS reference host
 
-[experiments/wat_host](../../experiments/wat_host/README.en.md) is an independent Rust crate. It uses Wasmi 2.0.0 only in that crate, sharing Windows/Linux scope, exclusive creation, and link rejection through runtime::files::Directory. It does not substitute ordinary Node path-based open for the OS contract. WAT remains emit-only.
+[experiments/wat_host](../../experiments/wat_host/README.en.md) is an independent Rust crate. It uses Wasmi 2.0.2 only in that crate, sharing Windows/Linux scope, exclusive creation, and link rejection through runtime::files::Directory. It does not substitute ordinary Node path-based open for the OS contract. WAT remains emit-only.
 
 The host opens --file-root before execution and passes arguments after -- to the program. Host settings are execution control, not observation APIs. File transport uses at most eight bytes as values; checks, ownership, retries, UTF-8, and file-v1 remain in generated WAT. Existing stdin, argument, scalar/aggregate output, and flush imports are connected. Float formatting shares the executors' pure functions.
 

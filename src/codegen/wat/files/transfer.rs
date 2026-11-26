@@ -87,19 +87,8 @@ pub(super) const SOURCE: &str = r#"
     (if (i32.eqz (global.get $cerune_file_code)) (then
       (global.set $cerune_file_phase (i32.const 5))
       (if (local.get $status) (then (global.set $cerune_file_code (i32.const 12)))))))
-  (func $cerune_file_read (param $name i32) (param $limit i64) (result i32)
-    (local $value i32) (local $allocation i32) (local $handle i32)
-    (local $length i32) (local $request i32) (local $count i32) (local $bits i64) (local $i i32)
-    (call $cerune_file_reset (i64.const -1))
-    (if (i32.eqz (call $cerune_file_validate (local.get $name) (local.get $limit)))
-      (then (return (i32.const @EMPTY@))))
-    (global.set $cerune_file_phase (i32.const 1))
-    (call $cerune_string_allocate (local.get $limit))
-    local.set $allocation
-    local.set $value
-    (if (local.get $allocation) (then
-      (global.set $cerune_file_code (select (i32.const 4) (i32.const 5) (i32.eq (local.get $allocation) (i32.const 2))))
-      (return (i32.const @EMPTY@))))
+  (func $cerune_file_read_into (param $name i32) (param $data i32) (param $limit i64) (result i32)
+    (local $handle i32) (local $length i32) (local $request i32) (local $count i32) (local $bits i64) (local $i i32)
     (local.set $handle (call $cerune_file_open (local.get $name) (i32.const 0)))
     (if (local.get $handle) (then
       (global.set $cerune_file_phase (i32.const 3))
@@ -122,13 +111,29 @@ pub(super) const SOURCE: &str = r#"
           (global.set $cerune_file_code (i32.const 16)) (br $done)))
         (local.set $i (i32.const 0))
         (loop $copy
-          (i32.store8 (i32.add (i32.add (local.get $value) (i32.const 8)) (local.get $length)) (i32.wrap_i64 (local.get $bits)))
+          (i32.store8 (i32.add (local.get $data) (local.get $length)) (i32.wrap_i64 (local.get $bits)))
           (local.set $bits (i64.shr_u (local.get $bits) (i64.const 8)))
           (local.set $length (i32.add (local.get $length) (i32.const 1)))
           (local.set $i (i32.add (local.get $i) (i32.const 1)))
           (br_if $copy (i32.lt_u (local.get $i) (local.get $count))))
         (br $read)))
       (call $cerune_file_close (local.get $handle))))
+    (local.get $length))
+  (func $cerune_file_read (param $name i32) (param $limit i64) (result i32)
+    (local $value i32) (local $allocation i32)
+    (local $length i32)
+    (call $cerune_file_reset (i64.const -1))
+    (if (i32.eqz (call $cerune_file_validate (local.get $name) (local.get $limit)))
+      (then (return (i32.const @EMPTY@))))
+    (global.set $cerune_file_phase (i32.const 1))
+    (call $cerune_string_allocate (local.get $limit))
+    local.set $allocation
+    local.set $value
+    (if (local.get $allocation) (then
+      (global.set $cerune_file_code (select (i32.const 4) (i32.const 5) (i32.eq (local.get $allocation) (i32.const 2))))
+      (return (i32.const @EMPTY@))))
+    (local.set $length (call $cerune_file_read_into (local.get $name)
+      (i32.add (local.get $value) (i32.const 8)) (local.get $limit)))
     (if (i32.eqz (global.get $cerune_file_code)) (then
       (global.set $cerune_file_phase (i32.const 6))
       (if (i32.eqz (call $cerune_utf8 (i32.add (local.get $value) (i32.const 8)) (local.get $length))) (then
@@ -139,13 +144,14 @@ pub(super) const SOURCE: &str = r#"
     (global.set $cerune_heap_live (i64.add (i64.sub (global.get $cerune_heap_live) (local.get $limit)) (i64.extend_i32_u (local.get $length))))
     (i64.store (local.get $value) (i64.extend_i32_u (local.get $length)))
     (local.get $value))
-  (func $cerune_file_write (param $name i32) (param $text i32) (param $limit i64)
-    (local $length i64) (local $handle i32) (local $count i32) (local $accepted i32) (local $offset i32)
-    (local.set $length (i64.load (local.get $text)))
+  (func $cerune_file_validate_write (param $name i32) (param $length i64) (param $limit i64) (result i32)
     (call $cerune_file_reset (local.get $length))
-    (if (i32.eqz (call $cerune_file_validate (local.get $name) (local.get $limit))) (then (return)))
+    (if (i32.eqz (call $cerune_file_validate (local.get $name) (local.get $limit))) (then (return (i32.const 0))))
     (if (i64.gt_u (local.get $length) (local.get $limit)) (then
-      (global.set $cerune_file_code (i32.const 16)) (return)))
+      (global.set $cerune_file_code (i32.const 16)) (return (i32.const 0))))
+    (i32.const 1))
+  (func $cerune_file_write_from (param $name i32) (param $data i32) (param $length i64)
+    (local $handle i32) (local $count i32) (local $accepted i32) (local $offset i32)
     (local.set $handle (call $cerune_file_open (local.get $name) (i32.const 1)))
     (if (i32.eqz (local.get $handle)) (then (return)))
     (global.set $cerune_file_phase (i32.const 4))
@@ -155,7 +161,7 @@ pub(super) const SOURCE: &str = r#"
       (local.set $count (i32.sub (i32.wrap_i64 (local.get $length)) (local.get $offset)))
       (local.set $count (select (i32.const 8) (local.get $count) (i32.gt_u (local.get $count) (i32.const 8))))
       (local.set $accepted (call $file_write_v1 (local.get $handle)
-        (call $cerune_file_pack (i32.add (i32.add (local.get $text) (i32.const 8)) (local.get $offset)) (local.get $count))
+        (call $cerune_file_pack (i32.add (local.get $data) (local.get $offset)) (local.get $count))
         (local.get $count)))
       (br_if $write (i32.eq (local.get $accepted) (i32.const -2)))
       (if (i32.eq (local.get $accepted) (i32.const -1)) (then
@@ -167,4 +173,9 @@ pub(super) const SOURCE: &str = r#"
       (global.set $cerune_file_transferred (i64.add (global.get $cerune_file_transferred) (i64.extend_i32_u (local.get $accepted))))
       (br $write)))
     (call $cerune_file_close (local.get $handle)))
+  (func $cerune_file_write (param $name i32) (param $text i32) (param $limit i64)
+    (local $length i64)
+    (local.set $length (i64.load (local.get $text)))
+    (if (call $cerune_file_validate_write (local.get $name) (local.get $length) (local.get $limit)) (then
+      (call $cerune_file_write_from (local.get $name) (i32.add (local.get $text) (i32.const 8)) (local.get $length)))))
 "#;
