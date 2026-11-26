@@ -69,6 +69,24 @@ clang elf-native/reader.o -o elf-native/reader
 cmp elf-native/input.o elf-native/copy.o
 ```
 
+## ELF64の再配置からシンボルをたどる
+
+[elf_relocation.ceru](elf_relocation.ceru) は、上で作った `elf-sample/input.o` から最初の空でない `SHT_RELA` セクションを探し、先頭の再配置を1件読みます。`sh_info` が指すのは書換え対象のセクション、`sh_link` が指すのはシンボル表です。シンボル表から文字列表を引くと、参照先の名前が分かります。
+
+```sh
+cargo run --quiet -- run examples/files/elf_relocation.ceru --file-root elf-sample
+readelf -W -S -s -r elf-sample/input.o
+```
+
+| 出力の例 | `readelf` と照合する値 |
+| --- | --- |
+| `[3, 1, 4]` | 再配置セクション `.rela.text`、対象 `.text`、シンボル表 `.symtab` の番号 |
+| `[18, 2, 127]` | 対象内のオフセット `0x12`、種類 `R_X86_64_PC32`、シンボル番号127 |
+| `-4` | アドレス計算で加える符号付きの値 |
+| `[115, 116, 100, 101, 114, 114]` | シンボル名 `stderr` の6バイト |
+
+対象は64 KiBまでのリトルエンディアンx86-64 `ET_REL` で、通常のセクション番号と `SHT_SYMTAB` を使うものです。入力によって番号や名前は変わります。表がファイルの外を指した場合や名前の終端が欠けた場合は、該当箇所を示すメッセージを表示します。
+
 ## テキストを保存して読み戻す
 
 [roundtrip.ceru](roundtrip.ceru)は日本語・NUL・CR/LF・結合文字を保存し、読戻し結果の一致とバイト数を表示します。期待する出力はtrue、16です。

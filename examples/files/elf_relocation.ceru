@@ -1,0 +1,92 @@
+import "std:fs::bytes" as fs;
+
+fn le(data: [u8], offset: i64, width: i64) -> u64 {
+    mut value: u64 = 0;
+    for (mut i: i64 = width; i > 0; i = i - 1) {
+        value = (value << 8) | u64(data[offset + i - 1]);
+    }
+    return value;
+}
+
+// Subtract only after checking the offset, even for a field containing UINT64_MAX.
+fn fits(offset: u64, size: u64, end: u64) -> bool {
+    return offset <= end && size <= end - offset;
+}
+
+fn signed_addend(bits: u64) -> i64 {
+    if (bits >> 63) != 0 { return -1 - i64(18446744073709551615u64 - bits); }
+    return i64(bits);
+}
+
+fn main() -> void {
+    data: [u8] = fs::read_bytes("input.o", 65536);
+    end: u64 = u64(array_len(data));
+    if end < 64 || data[0] != 127 || data[1] != 69 || data[2] != 76 || data[3] != 70 || data[4] != 2 || data[5] != 1
+        || le(data, 16, 2) != 1 || le(data, 18, 2) != 62 {
+        print("expected a little-endian x86-64 ELF64 relocatable object");
+        return;
+    }
+
+    table: u64 = le(data, 40, 8); // e_shoff
+    count: u64 = le(data, 60, 2); // e_shnum
+    if table < 64 || count == 0 || le(data, 58, 2) != 64 || !fits(table, count * 64, end) {
+        print("expected a complete section header table");
+        return;
+    }
+
+    for (mut index: u64 = 1; index < count; index = index + 1) {
+        header: i64 = i64(table + index * 64);
+        if le(data, header + 4, 4) != 4 { continue; } // SHT_RELA
+        offset: u64 = le(data, header + 24, 8);
+        size: u64 = le(data, header + 32, 8);
+        if le(data, header + 56, 8) != 24 || size % 24 != 0 || !fits(offset, size, end) {
+            print("invalid RELA table");
+            return;
+        }
+        if size == 0 { continue; }
+        target: u64 = le(data, header + 44, 4); // sh_info
+        symtab: u64 = le(data, header + 40, 4); // sh_link
+        if target == 0 || target >= count || symtab == 0 || symtab >= count {
+            print("invalid RELA section index");
+            return;
+        }
+
+        rela: i64 = i64(offset);
+        info: u64 = le(data, rela + 8, 8);
+        symbol: u64 = info >> 32;
+        symbols: i64 = i64(table + symtab * 64);
+        sym_offset: u64 = le(data, symbols + 24, 8);
+        sym_size: u64 = le(data, symbols + 32, 8);
+        if le(data, symbols + 4, 4) != 2 || le(data, symbols + 56, 8) != 24
+            || !fits(sym_offset, sym_size, end) || sym_size % 24 != 0 || symbol >= sym_size / 24 {
+            print("invalid symbol table or symbol index");
+            return;
+        }
+
+        strtab: u64 = le(data, symbols + 40, 4);
+        if strtab == 0 || strtab >= count { print("invalid string table index"); return; }
+        strings: i64 = i64(table + strtab * 64);
+        str_offset: u64 = le(data, strings + 24, 8);
+        str_size: u64 = le(data, strings + 32, 8);
+        entry: i64 = i64(sym_offset + symbol * 24);
+        name: u64 = le(data, entry, 4); // st_name
+        if le(data, strings + 4, 4) != 3 || !fits(str_offset, str_size, end) || name >= str_size {
+            print("invalid symbol name offset");
+            return;
+        }
+        mut stop: u64 = name;
+        while stop < str_size && data[i64(str_offset + stop)] != 0 { stop = stop + 1; }
+        if stop == str_size { print("unterminated symbol name"); return; }
+        mut name_bytes: [u8] = array_repeat::<u8>(u8(0), i64(stop - name));
+        for (mut i: u64 = name; i < stop; i = i + 1) {
+            name_bytes[i64(i - name)] = data[i64(str_offset + i)];
+        }
+
+        print([index, target, symtab]); // section indices
+        print([le(data, rela, 8), info & 4294967295u64, symbol]); // offset, type, symbol
+        print(signed_addend(le(data, rela + 16, 8)));
+        print(name_bytes);
+        return;
+    }
+    print("no nonempty RELA section");
+}

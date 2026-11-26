@@ -151,6 +151,68 @@ fn binary_operations_are_visible_in_ir_bytecode_and_generated_wat() {
 }
 
 #[test]
+fn elf_relocation_example_follows_the_linked_tables() {
+    use goblin::elf::Elf;
+    let object = sashimi_assembler::assemble(
+        ".text\n.globl start\nstart:\ncallq external\nretq\n",
+        sashimi_assembler::Target::X86_64UnknownLinuxGnu,
+    )
+    .unwrap();
+    let elf = Elf::parse(&object).unwrap();
+    let (index, relocs) = elf.shdr_relocs.iter().find(|(_, r)| !r.is_empty()).unwrap();
+    let rela = relocs.get(0).unwrap();
+    let header = &elf.section_headers[*index];
+    let sym = elf.syms.get(rela.r_sym).unwrap();
+    let name = elf.strtab.get_at(sym.st_name).unwrap();
+    assert_eq!(name, "external");
+    let expected = format!(
+        "[{}, {}, {}]\n[{}, {}, {}]\n{}\n{:?}\n",
+        index,
+        header.sh_info,
+        header.sh_link,
+        rela.r_offset,
+        rela.r_type,
+        rela.r_sym,
+        rela.r_addend.unwrap(),
+        name.as_bytes()
+    );
+
+    let p = hir(include_str!("../../examples/files/elf_relocation.ceru"));
+    let check = |bytes: &[u8], expected: &str| {
+        for route in 0..4 {
+            let memory = Memory::default();
+            memory
+                .0
+                .borrow_mut()
+                .files
+                .insert("input.o".into(), bytes.to_vec());
+            assert_eq!(
+                execute(route, &p, &mut Files::new(memory)).unwrap(),
+                expected,
+                "route {route}"
+            );
+        }
+    };
+    check(&object, &expected);
+
+    // Offsets and indices taken from the independent ELF reader identify the fields to change.
+    let mut bad = object.clone();
+    bad[40..48].fill(0xff);
+    check(&bad, "expected a complete section header table\n");
+    let mut bad = object.clone();
+    let info = header.sh_offset as usize + 8;
+    bad[info + 4..info + 8].fill(0xff);
+    check(&bad, "invalid symbol table or symbol index\n");
+    let mut bad = object.clone();
+    let strings =
+        &elf.section_headers[elf.section_headers[header.sh_link as usize].sh_link as usize];
+    let first = strings.sh_offset as usize + sym.st_name;
+    let end = (strings.sh_offset + strings.sh_size) as usize;
+    bad[first..end].fill(b'x');
+    check(&bad, "unterminated symbol name\n");
+}
+
+#[test]
 fn repeated_reads_release_owned_storage_and_copies_can_be_edited() {
     let mut p = hir(r#"import "std:fs::bytes" as fs;
         mut i: i64 = 0;
