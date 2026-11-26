@@ -367,8 +367,24 @@ impl Lowerer<'_> {
                 });
                 false
             }
-            cerune_ir::StatementKind::FileWriteBytesNew { .. } => {
-                unreachable!("binary file I/O checked before lowering")
+            cerune_ir::StatementKind::FileWriteBytesNew {
+                name,
+                bytes,
+                max_bytes,
+            } => {
+                let (_, name) = self.lower_scalar_expr(name);
+                let (_, bytes) = self.lower_scalar_expr(bytes);
+                let (_, max_bytes) = self.lower_scalar_expr(max_bytes);
+                self.instructions.push(Instruction::FileWriteBytesNew {
+                    name,
+                    bytes,
+                    max_bytes,
+                    origin: FailureOrigin {
+                        node: statement.id,
+                        span: statement.span,
+                    },
+                });
+                false
             }
             cerune_ir::StatementKind::FileWriteNew {
                 name,
@@ -787,8 +803,20 @@ impl Lowerer<'_> {
                     address: Operand::Slot(slot),
                 }
             }
-            cerune_ir::ExprKind::FileReadBytes { .. } => {
-                unreachable!("binary file I/O checked before lowering")
+            cerune_ir::ExprKind::FileReadBytes { name, max_bytes } => {
+                let (_, name) = self.lower_scalar_expr(name);
+                let (_, max_bytes) = self.lower_scalar_expr(max_bytes);
+                let dest = self.next_temp();
+                self.instructions.push(Instruction::FileReadBytes {
+                    dest,
+                    name,
+                    max_bytes,
+                    origin: expr.into(),
+                });
+                Value::Scalar {
+                    ty: Type::DynamicArray,
+                    operand: Operand::Temp(dest),
+                }
             }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 let (_, name) = self.lower_scalar_expr(name);

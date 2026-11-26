@@ -168,9 +168,21 @@ pub enum Instruction {
         max_bytes: Operand,
         origin: FailureOrigin,
     },
+    FileReadBytes {
+        dest: Temp,
+        name: Operand,
+        max_bytes: Operand,
+        origin: FailureOrigin,
+    },
     FileWriteNew {
         name: Operand,
         text: Operand,
+        max_bytes: Operand,
+        origin: FailureOrigin,
+    },
+    FileWriteBytesNew {
+        name: Operand,
+        bytes: Operand,
         max_bytes: Operand,
         origin: FailureOrigin,
     },

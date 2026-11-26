@@ -529,6 +529,22 @@ fn emit_instruction(
             )
             .unwrap();
         }
+        Instruction::FileReadBytes {
+            dest,
+            name,
+            max_bytes,
+            origin,
+        } => {
+            writeln!(
+                output,
+                "  {} =l call $cerune_files_read_bytes(l {}, l {}, l ${})",
+                temp(*dest),
+                operand(name, slots),
+                operand(max_bytes, slots),
+                super::files::origin_name(*origin)
+            )
+            .unwrap();
+        }
         Instruction::FileWriteNew {
             name,
             text,
@@ -540,6 +556,22 @@ fn emit_instruction(
                 "  call $cerune_files_write_new(l {}, l {}, l {}, l ${})",
                 operand(name, slots),
                 operand(text, slots),
+                operand(max_bytes, slots),
+                super::files::origin_name(*origin)
+            )
+            .unwrap();
+        }
+        Instruction::FileWriteBytesNew {
+            name,
+            bytes,
+            max_bytes,
+            origin,
+        } => {
+            writeln!(
+                output,
+                "  call $cerune_files_write_bytes_new(l {}, l {}, l {}, l ${})",
+                operand(name, slots),
+                operand(bytes, slots),
                 operand(max_bytes, slots),
                 super::files::origin_name(*origin)
             )

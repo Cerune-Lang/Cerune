@@ -505,7 +505,7 @@ Existing embedding APIs never read OS arguments implicitly and report unconfigur
 
 Import `"std:fs" as fs` to use `fs::read_text(name, max_bytes) -> string` and `fs::write_new(name, text, max_bytes) -> void`. Whole-file UTF-8 limits range from 0 to 2147483647 bytes. Existing files are never overwritten. Preserve NUL, CR/LF, and combining characters, and stop with source diagnostics on errors.
 
-For binary files, `import "std:fs::bytes" as fs;` provides `fs::read_bytes(name, max_bytes) -> [u8]` and `fs::write_bytes_new(name, bytes, max_bytes) -> void`. HIR, MIR, SSA, VM, generated C on Windows/Linux and x86-64 LLVM and Native on Windows/Linux can read and save every byte of an object file. [ELF header example](../../examples/files/README.en.md)
+For binary files, `import "std:fs::bytes" as fs;` provides `fs::read_bytes(name, max_bytes) -> [u8]` and `fs::write_bytes_new(name, bytes, max_bytes) -> void`. HIR, MIR, SSA, VM, generated C on Windows/Linux and the x86-64 LLVM, QBE and Native routes on Windows/Linux can read and save every byte of an object file. [ELF header example](../../examples/files/README.en.md)
 
 **HIR/MIR/SSA/VM support explicit Rust API connections and Windows/Linux CLI `--file-root <directory>`. Generated C/LLVM/QBE/Native also support Windows/Linux. WAT supports versioned host connections; a Windows/Linux [real-OS reference host](../../experiments/wat_host/README.en.md) is also available.** Unconfigured access stops with `unconfigured`. See the [contract and connection APIs](../design/file-io.en.md) and [example](../../examples/files/README.en.md).
 

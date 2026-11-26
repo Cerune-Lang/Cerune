@@ -1191,6 +1191,23 @@ function l $cerune_array_allocate(l %length, l %width, l %stride, l %origin, l %
 @return_zero
   ret 0
 @owner
+  %p =l call $cerune_array_try_storage(l %length, l %stride, l %bytes, l %physical, l %live)
+  %has_owner =w cnel %p, 0
+  jnz %has_owner, @success, @allocation_fail
+@success
+  ret %p
+@length_fail
+  call $cerune_fail_array_length_out_of_range(l %origin, l %origin_len)
+  hlt
+@limit_fail
+  call $cerune_fail_allocation_limit_exceeded(l %origin, l %origin_len)
+  hlt
+@allocation_fail
+  call $cerune_fail_allocation_failed(l %origin, l %origin_len)
+  hlt
+}
+function l $cerune_array_try_storage(l %length, l %stride, l %bytes, l %physical, l %live) {
+@start
   %p =l call $malloc(l 48)
   %owner_failed =w ceql %p, 0
   jnz %owner_failed, @allocation_fail, @physical_size
@@ -1224,15 +1241,8 @@ function l $cerune_array_allocate(l %length, l %width, l %stride, l %origin, l %
   %total =l add %live, %bytes
   storel %total, $cerune_array_live
   ret %p
-@length_fail
-  call $cerune_fail_array_length_out_of_range(l %origin, l %origin_len)
-  hlt
-@limit_fail
-  call $cerune_fail_allocation_limit_exceeded(l %origin, l %origin_len)
-  hlt
 @allocation_fail
-  call $cerune_fail_allocation_failed(l %origin, l %origin_len)
-  hlt
+  ret 0
 }
 function l $cerune_array_length(l %p) {
 @start

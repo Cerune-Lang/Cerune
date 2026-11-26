@@ -36,6 +36,18 @@ clang --target=x86_64-unknown-linux-gnu -O2 elf-llvm/reader.ll -lm -o elf-llvm/r
 cmp elf-llvm/input.o elf-llvm/copy.o
 ```
 
+QBE 1.3では `.ssa` からアセンブリを生成します。Linux x86-64 には `amd64_sysv`、Windows x86-64 には `amd64_win` を指定します。Linuxでの手順を示します。
+
+```sh
+mkdir elf-qbe
+cp elf-sample/input.o elf-qbe/input.o
+cargo run --quiet -- emit-qbe examples/files/elf_header.ceru --target x86_64-unknown-linux-gnu -o elf-qbe/reader.ssa
+qbe -t amd64_sysv -o elf-qbe/reader.s elf-qbe/reader.ssa
+clang --target=x86_64-unknown-linux-gnu elf-qbe/reader.s -lm -o elf-qbe/reader
+./elf-qbe/reader --cerune-runtime-v1 --file-root elf-qbe --
+cmp elf-qbe/input.o elf-qbe/copy.o
+```
+
 Linux x86-64 で同じ例を Native 実行するには、次のコマンドを使います。`cmp` の終了コード0は全バイトの一致を表します。
 
 ```sh
