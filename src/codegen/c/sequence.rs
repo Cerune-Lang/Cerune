@@ -16,7 +16,13 @@ pub(super) fn lower(module: &mut Module) {
 fn statements(body: &mut [Statement], temporaries: &mut Vec<Type>, counted: &[bool]) {
     for statement in body {
         match statement {
-            Statement::FileWriteNew {
+            Statement::FileWriteBytesNew {
+                name,
+                bytes: text,
+                max_bytes,
+                ..
+            }
+            | Statement::FileWriteNew {
                 name,
                 text,
                 max_bytes,
@@ -118,7 +124,11 @@ fn expression(expr: &mut Expr, temporaries: &mut Vec<Type>, counted: &[bool]) {
     }
     let guarded = matches!(&expr.kind,ExprKind::Call {function_id,..} if counted[*function_id]);
     let mut children: Vec<&mut Expr> = match &mut expr.kind {
-        ExprKind::FileReadText {
+        ExprKind::FileReadBytes {
+            name: left,
+            max_bytes: right,
+        }
+        | ExprKind::FileReadText {
             name: left,
             max_bytes: right,
         }
@@ -223,6 +233,7 @@ fn observable(expr: &Expr) -> bool {
         | ExprKind::StringConcat { .. }
         | ExprKind::ArgumentCount
         | ExprKind::ArgumentGet { .. }
+        | ExprKind::FileReadBytes { .. }
         | ExprKind::FileReadText { .. }
         | ExprKind::ProcessRun { .. }
         | ExprKind::ReadLine { .. }

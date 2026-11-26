@@ -14,6 +14,17 @@ cargo run --quiet -- run examples/files/elf_header.ceru --file-root elf-sample
 
 The output gives the object type (1 = ET_REL), version (1) and entry address (0). An input shorter than 64 bytes prints a message and returns. To compare routes, place the same input in a fresh directory for each run.
 
+To try generated C on Linux, use the same input and compare the complete files with `cmp`.
+
+```sh
+mkdir elf-c
+cp elf-sample/input.o elf-c/input.o
+cargo run --quiet -- emit-c examples/files/elf_header.ceru -o elf-c/reader.c
+clang -std=c11 -O2 elf-c/reader.c -lm -o elf-c/reader
+./elf-c/reader --cerune-runtime-v1 --file-root elf-c --
+cmp elf-c/input.o elf-c/copy.o
+```
+
 On Linux x86-64, compile and run the same example through Native. An exit status of zero from `cmp` confirms that every byte matches.
 
 ```sh

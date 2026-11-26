@@ -14,6 +14,17 @@ cargo run --quiet -- run examples/files/elf_header.ceru --file-root elf-sample
 
 結果は順に、オブジェクトの種類（1 = ET_REL）、版（1）、入口アドレス（0）です。64バイトに満たない入力ではメッセージを表示して終了します。経路を比較するときは、各ディレクトリに同じ `input.o` を置いてください。
 
+生成Cでも同じ入力を使えます。次の Linux の例では、`cmp` で元のオブジェクトと保存したファイルの全バイトを照合します。
+
+```sh
+mkdir elf-c
+cp elf-sample/input.o elf-c/input.o
+cargo run --quiet -- emit-c examples/files/elf_header.ceru -o elf-c/reader.c
+clang -std=c11 -O2 elf-c/reader.c -lm -o elf-c/reader
+./elf-c/reader --cerune-runtime-v1 --file-root elf-c --
+cmp elf-c/input.o elf-c/copy.o
+```
+
 Linux x86-64 で同じ例を Native 実行するには、次のコマンドを使います。`cmp` の終了コード0は全バイトの一致を表します。
 
 ```sh

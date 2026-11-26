@@ -6,10 +6,23 @@ use std::fs;
 
 #[test]
 fn generated_c_injected_transfers_and_close_failures_match_common_runtime() {
+    compare_transfers(false);
+}
+
+#[test]
+fn generated_c_binary_transfers_and_close_failures_match_common_runtime() {
+    compare_transfers(true);
+}
+
+fn compare_transfers(binary: bool) {
     use super::{Memory, Step};
     use cerune_lang::runtime::files::OpenError;
     for writing in [false, true] {
-        let source = if writing {
+        let source = if binary && writing {
+            r#"import "std:fs::bytes" as fs; print("before"); fs::write_bytes_new("x",array_copy([255u8,0u8,128u8]),3); print("after");"#
+        } else if binary {
+            r#"import "std:fs::bytes" as fs; print("before"); print(fs::read_bytes("x",3)); print("after");"#
+        } else if writing {
             r#"import "std:fs" as fs; print("before"); fs::write_new("x","abc",3); print("after");"#
         } else {
             r#"import "std:fs" as fs; print("before"); print(fs::read_text("x",3)); print("after");"#
@@ -22,7 +35,7 @@ fn generated_c_injected_transfers_and_close_failures_match_common_runtime() {
         let text = format!(
             "#define CERUNE_FILE_TEST_CONNECTION\n{}\n{}",
             &generated[..end],
-            TRANSFER_HOST
+            TRANSFER_HOST.replace("@PAYLOAD@", if binary { "255,0,128" } else { "97,98,99" })
         );
         for opt in ["-O0", "-O2"] {
             let Some((dir, exe)) = build(&text, opt, &[]) else {
@@ -35,7 +48,8 @@ fn generated_c_injected_transfers_and_close_failures_match_common_runtime() {
                     {
                         let mut state = memory.0.borrow_mut();
                         if !writing {
-                            state.files.insert("x".into(), b"abc".to_vec());
+                            let payload = if binary { &[255, 0, 128] } else { b"abc" };
+                            state.files.insert("x".into(), payload.to_vec());
                         }
                         let steps = if writing {
                             &mut state.writes
@@ -105,7 +119,8 @@ static int64_t transfer(size_t request, int writing) {
 static int64_t cerune_file_read(intptr_t handle,unsigned char *data,size_t length) {
     if (handle!=42) abort();
     int64_t count=transfer(length,0);
-    if (count==1) { *data=((const unsigned char *)"abc")[transferred++]; }
+    static const unsigned char payload[] = {@PAYLOAD@};
+    if (count==1) *data=payload[transferred++];
     return count;
 }
 static int64_t cerune_file_write(intptr_t handle,const unsigned char *data,size_t length) {
