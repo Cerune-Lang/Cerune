@@ -207,6 +207,11 @@ pub enum StatementKind {
         text: Expr,
         max_bytes: Expr,
     },
+    FileWriteBytesNew {
+        name: Expr,
+        bytes: Expr,
+        max_bytes: Expr,
+    },
     Flush,
     Print {
         value: Expr,
@@ -299,6 +304,10 @@ pub enum ExprKind {
         request: Box<Expr>,
     },
     FileReadText {
+        name: Box<Expr>,
+        max_bytes: Box<Expr>,
+    },
+    FileReadBytes {
         name: Box<Expr>,
         max_bytes: Box<Expr>,
     },
@@ -511,18 +520,30 @@ impl Program {
         );
         span
     }
+    pub(crate) fn first_binary_file_span(&self) -> Option<Span> {
+        self.file_span(false)
+    }
     pub(crate) fn first_file_span(&self) -> Option<Span> {
+        self.file_span(true)
+    }
+    fn file_span(&self, include_text: bool) -> Option<Span> {
         let mut read = None;
         let mut write = None;
         input::visit_program(
             self,
             &mut |e| {
-                if read.is_none() && matches!(e.kind, ExprKind::FileReadText { .. }) {
+                if read.is_none()
+                    && (matches!(e.kind, ExprKind::FileReadBytes { .. })
+                        || include_text && matches!(e.kind, ExprKind::FileReadText { .. }))
+                {
                     read = Some(e.span);
                 }
             },
             &mut |s| {
-                if write.is_none() && matches!(s.kind, StatementKind::FileWriteNew { .. }) {
+                if write.is_none()
+                    && (matches!(s.kind, StatementKind::FileWriteBytesNew { .. })
+                        || include_text && matches!(s.kind, StatementKind::FileWriteNew { .. }))
+                {
                     write = Some(s.span);
                 }
             },

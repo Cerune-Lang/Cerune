@@ -1013,6 +1013,46 @@ fn execute_until_event(
                 });
                 stack.push(at_instruction(value, pc)?);
             }
+            InstructionKind::FileReadBytes | InstructionKind::FileWriteBytesNew => {
+                let limit = at_instruction(pop_integer(stack, IntegerType::I64), pc)? as i64;
+                let payload = if matches!(instruction.kind, InstructionKind::FileWriteBytesNew) {
+                    Some(at_instruction(pop_value(stack), pc)?)
+                } else {
+                    None
+                };
+                let name = at_instruction(string_heap::pop(stack), pc)?;
+                let crate::bytecode::InstructionOrigin::Source { node_id, span } =
+                    instruction.origin
+                else {
+                    return Err(VmError::new(VmErrorKind::FileOriginMissing, pc));
+                };
+                let origin = files::Origin { node_id, span };
+                if let Some(value) = payload {
+                    let bytes = files::byte_storage(&value).ok_or_else(|| {
+                        VmError::new(
+                            VmErrorKind::TypeMismatch {
+                                expected: Type::DynamicArray {
+                                    element: Box::new(Type::Integer(IntegerType::U8)),
+                                },
+                                actual: value.ty(),
+                            },
+                            pc,
+                        )
+                    })?;
+                    at_instruction(
+                        files::write_array(input.files, &name.borrow_text(), bytes, limit, origin)
+                            .map_err(|e| VmErrorKind::Files(Box::new(e))),
+                        pc,
+                    )?;
+                } else {
+                    let value = at_instruction(
+                        files::read_array(input.files, arrays, &name.borrow_text(), limit, origin)
+                            .map_err(|e| VmErrorKind::Files(Box::new(e))),
+                        pc,
+                    )?;
+                    stack.push(value);
+                }
+            }
             InstructionKind::FileReadText | InstructionKind::FileWriteNew => {
                 let limit = at_instruction(pop_integer(stack, IntegerType::I64), pc)? as i64;
                 let write = matches!(instruction.kind, InstructionKind::FileWriteNew);

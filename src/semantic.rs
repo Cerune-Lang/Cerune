@@ -1830,10 +1830,24 @@ fn check_call(
         }
         return Ok(ReturnType::Value(outcome.clone()));
     }
-    if matches!(name, "$file_read_text" | "$file_write_new") {
-        let write = name == "$file_write_new";
+    if matches!(
+        name,
+        "$file_read_text" | "$file_read_bytes" | "$file_write_new" | "$file_write_bytes_new"
+    ) {
+        let write = matches!(name, "$file_write_new" | "$file_write_bytes_new");
+        let payload = if matches!(name, "$file_read_bytes" | "$file_write_bytes_new") {
+            Type::DynamicArray {
+                element: Box::new(Type::Integer(IntegerType::U8)),
+            }
+        } else {
+            Type::String
+        };
         let types = if write {
-            vec![Type::String, Type::String, Type::Integer(IntegerType::I64)]
+            vec![
+                Type::String,
+                payload.clone(),
+                Type::Integer(IntegerType::I64),
+            ]
         } else {
             vec![Type::String, Type::Integer(IntegerType::I64)]
         };
@@ -1855,7 +1869,7 @@ fn check_call(
         return Ok(if write {
             ReturnType::Void
         } else {
-            ReturnType::Value(Type::String)
+            ReturnType::Value(payload)
         });
     }
     if name == "$read_line" {

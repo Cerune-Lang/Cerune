@@ -76,6 +76,17 @@ pub fn lower_with_argument_limits(
             for i in &b.instructions {
                 match &i.kind {
                     Kind::Assign {
+                        value: Op::FileReadBytes { .. },
+                        ..
+                    }
+                    | Kind::FileWriteBytesNew { .. } => {
+                        let message = "Native binary file I/O is not supported yet";
+                        return Err(match i.origin.source() {
+                            Some(o) => crate::diagnostic::Diagnostic::new(message, o.span),
+                            None => crate::diagnostic::Diagnostic::without_span(message),
+                        });
+                    }
+                    Kind::Assign {
                         value: Op::ArgumentCount | Op::ArgumentGet(_) | Op::ProcessRun { .. },
                         ..
                     } => {
@@ -450,6 +461,9 @@ impl Lowerer<'_> {
     }
     fn instruction(&mut self, k: &Kind) {
         match k {
+            Kind::FileWriteBytesNew { .. } => {
+                unreachable!("binary file I/O checked before lowering")
+            }
             Kind::FileWriteNew {
                 name,
                 text,
@@ -736,6 +750,7 @@ impl Lowerer<'_> {
                 });
                 return;
             }
+            Op::FileReadBytes { .. } => unreachable!("binary file I/O checked before lowering"),
             Op::FileReadText { name, max_bytes } => {
                 self.load(*max_bytes);
                 self.push(Instruction::FileReadText {

@@ -152,6 +152,8 @@ pub enum InstructionKind {
         outcome_type: usize,
     },
     FileReadText,
+    FileReadBytes,
+    FileWriteBytesNew,
     FileWriteNew,
     ReadLine,
     StringByteAt,
@@ -630,6 +632,21 @@ impl Compiler {
                 self.emit_source(InstructionKind::FileWriteNew, statement.id, statement.span);
                 false
             }
+            StatementKind::FileWriteBytesNew {
+                name,
+                bytes,
+                max_bytes,
+            } => {
+                self.emit_expr(name);
+                self.emit_expr(bytes);
+                self.emit_expr(max_bytes);
+                self.emit_source(
+                    InstructionKind::FileWriteBytesNew,
+                    statement.id,
+                    statement.span,
+                );
+                false
+            }
             StatementKind::Flush => {
                 self.emit_source(InstructionKind::Flush, statement.id, statement.span);
                 false
@@ -914,6 +931,11 @@ impl Compiler {
                 self.emit_expr(name);
                 self.emit_expr(max_bytes);
                 self.emit_source(InstructionKind::FileReadText, expr.id, expr.span);
+            }
+            ExprKind::FileReadBytes { name, max_bytes } => {
+                self.emit_expr(name);
+                self.emit_expr(max_bytes);
+                self.emit_source(InstructionKind::FileReadBytes, expr.id, expr.span);
             }
             ExprKind::ReadLine { max_bytes } => {
                 self.emit_expr(max_bytes);
@@ -1294,6 +1316,7 @@ fn collect_slots(
             | StatementKind::StringManage { .. }
             | StatementKind::Write { .. }
             | StatementKind::FileWriteNew { .. }
+            | StatementKind::FileWriteBytesNew { .. }
             | StatementKind::Flush
             | StatementKind::Print { .. }
             | StatementKind::Call { .. }
@@ -1409,8 +1432,14 @@ fn format_instruction(
         InstructionKind::FileReadText => {
             writeln!(output, "file.read_text.utf8").unwrap();
         }
+        InstructionKind::FileReadBytes => {
+            writeln!(output, "file.read_bytes").unwrap();
+        }
         InstructionKind::FileWriteNew => {
             writeln!(output, "file.write_new.utf8").unwrap();
+        }
+        InstructionKind::FileWriteBytesNew => {
+            writeln!(output, "file.write_bytes_new").unwrap();
         }
         InstructionKind::ReadLine => {
             writeln!(output, "input.read_line.utf8").unwrap();

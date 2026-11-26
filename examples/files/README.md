@@ -2,6 +2,20 @@
 
 [English](README.en.md)
 
+## ELF64 ヘッダを読む
+
+[elf_header.ceru](elf_header.ceru) は `std:fs::bytes` で `input.o` を読み、先頭64バイトが揃っていることと ELF の識別子・ビット幅・バイト順を確認します。次に16・32・64ビットのリトルエンディアンのフィールドを整数に変換し、`copy.o` に全バイトを保存します。
+
+```sh
+mkdir elf-sample
+cargo run --quiet -- emit-obj examples/recursion/factorial.ceru --target x86_64-unknown-linux-gnu -o elf-sample/input.o
+cargo run --quiet -- run examples/files/elf_header.ceru --file-root elf-sample
+```
+
+結果は順に、オブジェクトの種類（1 = ET_REL）、版（1）、入口アドレス（0）です。64バイトに満たない入力ではメッセージを表示して終了します。経路を比較するときは、各ディレクトリに同じ `input.o` を置いてください。
+
+## テキストを保存して読み戻す
+
 [roundtrip.ceru](roundtrip.ceru)は日本語・NUL・CR/LF・結合文字を保存し、読戻し結果の一致とバイト数を表示します。期待する出力はtrue、16です。
 
 Windows/Linuxで空のディレクトリを用意して実行します。

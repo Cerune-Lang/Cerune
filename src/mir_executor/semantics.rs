@@ -192,6 +192,39 @@ pub(crate) fn instruction<'a, R: Copy>(
                     location: None,
                 })?;
         }
+        I::FileWriteBytesNew {
+            name,
+            bytes,
+            max_bytes,
+        } => {
+            let name = frame.get(*name)?.string()?;
+            let bytes = frame.get(*bytes)?;
+            let limit = frame.get(*max_bytes)?.integer(IntegerType::I64)? as i64;
+            let o = origin
+                .source()
+                .ok_or_else(|| Fault::invalid("file operation lacks source origin"))?;
+            let mut missing = files::unconfigured();
+            files::write_array(
+                executor
+                    .state()
+                    .files
+                    .as_deref_mut()
+                    .unwrap_or(&mut missing),
+                &name.borrow_text(),
+                files::byte_storage(&bytes)
+                    .ok_or_else(|| Fault::invalid("file write expects [u8]"))?,
+                limit,
+                files::Origin {
+                    node_id: o.node_id,
+                    span: o.span,
+                },
+            )
+            .map_err(|f| Fault {
+                kind: super::ErrorKind::Files(Box::new(f)),
+                origin: Some(o),
+                location: None,
+            })?;
+        }
         I::Flush => {
             let origin = origin.source().map(|o| output::Origin {
                 node_id: o.node_id,
@@ -355,6 +388,30 @@ fn operation<'a, R: Copy>(
                     location: None,
                 })?;
             Value::String(value)
+        }
+        O::FileReadBytes { name, max_bytes } => {
+            let name = frame.get(*name)?.string()?;
+            let limit = frame.get(*max_bytes)?.integer(IntegerType::I64)? as i64;
+            let o = origin
+                .source()
+                .ok_or_else(|| Fault::invalid("file operation lacks source origin"))?;
+            let mut missing = files::unconfigured();
+            let state = executor.state();
+            files::read_array(
+                state.files.as_deref_mut().unwrap_or(&mut missing),
+                &mut state.arrays,
+                &name.borrow_text(),
+                limit,
+                files::Origin {
+                    node_id: o.node_id,
+                    span: o.span,
+                },
+            )
+            .map_err(|f| Fault {
+                kind: super::ErrorKind::Files(Box::new(f)),
+                origin: Some(o),
+                location: None,
+            })?
         }
         O::ReadLine(value) => {
             let limit = frame.get(*value)?.integer(IntegerType::I64)? as i64;

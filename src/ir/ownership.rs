@@ -16,6 +16,7 @@ pub(super) fn lower(program: &mut Program) {
                         | ExprKind::ReadLine { .. }
                         | ExprKind::ProcessRun { .. }
                         | ExprKind::FileReadText { .. }
+                        | ExprKind::FileReadBytes { .. }
                 );
             },
             &mut |_| {},
@@ -31,6 +32,7 @@ pub(super) fn lower(program: &mut Program) {
                     | ExprKind::ReadLine { .. }
                     | ExprKind::ProcessRun { .. }
                     | ExprKind::FileReadText { .. }
+                    | ExprKind::FileReadBytes { .. }
             );
         },
         &mut |_| {},
@@ -654,6 +656,7 @@ impl Lowerer {
                 | ExprKind::ReadLine { .. }
                 | ExprKind::ProcessRun { .. }
                 | ExprKind::FileReadText { .. }
+                | ExprKind::FileReadBytes { .. }
                 | ExprKind::Array(_)
                 | ExprKind::Construct { base: None, .. }
         );
@@ -692,6 +695,10 @@ impl Lowerer {
                 index: right,
             }
             | ExprKind::FileReadText {
+                name: left,
+                max_bytes: right,
+            }
+            | ExprKind::FileReadBytes {
                 name: left,
                 max_bytes: right,
             }
@@ -848,6 +855,11 @@ impl Lowerer {
             StatementKind::FileWriteNew {
                 name,
                 text,
+                max_bytes,
+            }
+            | StatementKind::FileWriteBytesNew {
+                name,
+                bytes: text,
                 max_bytes,
             } => {
                 let mut owners = vec![];

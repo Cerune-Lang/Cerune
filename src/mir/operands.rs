@@ -79,6 +79,10 @@ impl<R: Copy> O<R> {
                 name: f(*name),
                 max_bytes: f(*max_bytes),
             },
+            O::FileReadBytes { name, max_bytes } => O::FileReadBytes {
+                name: f(*name),
+                max_bytes: f(*max_bytes),
+            },
             O::ReadLine(v) => O::ReadLine(f(*v)),
             O::StringByteAt { value, index } => O::StringByteAt {
                 value: f(*value),
@@ -133,6 +137,15 @@ impl<R: Copy> I<R> {
             } => I::FileWriteNew {
                 name: f(*name),
                 text: f(*text),
+                max_bytes: f(*max_bytes),
+            },
+            I::FileWriteBytesNew {
+                name,
+                bytes,
+                max_bytes,
+            } => I::FileWriteBytesNew {
+                name: f(*name),
+                bytes: f(*bytes),
                 max_bytes: f(*max_bytes),
             },
             I::Flush => I::Flush,

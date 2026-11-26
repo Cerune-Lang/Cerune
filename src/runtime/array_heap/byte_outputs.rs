@@ -1,5 +1,5 @@
 //! 上限分を起動前に確保し、短いバイト結果を追加確保せず配列へ確定します。
-//! 共通IRの子プロセス命令への接続は後続です。
+//! ファイル読取りと子プロセスの標準出力・標準エラーに使います。
 use super::{ArrayError, ArrayHeap, ArrayValue, Result};
 
 /// 未公開の2配列を所有します。確定せずに戻ると、部分的な初期化も取り消します。
@@ -9,6 +9,20 @@ pub(crate) struct ReservedByteOutputs<'a, T: Clone> {
 }
 
 impl<T: Clone> ArrayHeap<T> {
+    pub(crate) fn finish_byte_array(
+        &mut self,
+        array: &ArrayValue<T>,
+        bytes: &[u8],
+        from_byte: impl FnMut(u8) -> T,
+    ) {
+        self.validate(array)
+            .expect("reserved array belongs to this heap");
+        let mut storage = array.storage.borrow_mut();
+        assert!(storage.alive && storage.owners == 1 && storage.values.is_empty());
+        assert!(bytes.len() <= storage.length);
+        storage.values.extend(bytes.iter().copied().map(from_byte));
+        storage.length = bytes.len();
+    }
     pub(crate) fn reserve_byte_outputs(
         &mut self,
         stdout: u64,
@@ -29,7 +43,7 @@ impl<T: Clone> ArrayHeap<T> {
         })
     }
 
-    fn discard_unpublished(&mut self, array: &ArrayValue<T>) {
+    pub(crate) fn discard_unpublished(&mut self, array: &ArrayValue<T>) {
         // この所有物はguardの外へ出ておらず、他の論理的な所有者はいません。
         array.storage.borrow_mut().owners = 0;
         self.free(array).expect("unpublished array reservation");
@@ -61,11 +75,7 @@ impl<T: Clone> ReservedByteOutputs<'_, T> {
             return Err(ArrayError::IndexOutOfBounds);
         }
         for (array, bytes) in arrays.iter().zip(bytes) {
-            for &byte in bytes {
-                self.heap.initialize(array, from_byte(byte))?;
-            }
-            let mut storage = array.storage.borrow_mut();
-            storage.length = storage.values.len();
+            self.heap.finish_byte_array(array, bytes, &mut from_byte);
         }
         Ok(self.arrays.take().unwrap())
     }

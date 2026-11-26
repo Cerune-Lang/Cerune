@@ -306,6 +306,23 @@ impl<'a> Builder<'a> {
                     o,
                 );
             }
+            S::FileWriteBytesNew {
+                name,
+                bytes,
+                max_bytes,
+            } => {
+                let name = self.expr(name)?;
+                let bytes = self.expr(bytes)?;
+                let max_bytes = self.expr(max_bytes)?;
+                self.emit(
+                    InstructionKind::FileWriteBytesNew {
+                        name,
+                        bytes,
+                        max_bytes,
+                    },
+                    o,
+                );
+            }
             S::Flush => self.emit(InstructionKind::Flush, o),
             S::Print { value } => {
                 let value = self.expr(value)?;
@@ -607,6 +624,10 @@ impl<'a> Builder<'a> {
                 }
             }
             E::FileReadText { name, max_bytes } => Operation::FileReadText {
+                name: self.expr(name)?,
+                max_bytes: self.expr(max_bytes)?,
+            },
+            E::FileReadBytes { name, max_bytes } => Operation::FileReadBytes {
                 name: self.expr(name)?,
                 max_bytes: self.expr(max_bytes)?,
             },

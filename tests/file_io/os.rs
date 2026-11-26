@@ -44,6 +44,33 @@ const ROUTES: &[&[&str]] = &[
     &["run-vm"],
 ];
 #[test]
+fn cli_binary_elf_example_reads_and_saves_the_actual_object() {
+    let object = cerune_lang::compile_to_native_object(
+        include_str!("../../examples/recursion/factorial.ceru"),
+        cerune_lang::codegen::x86_64::Target::X86_64UnknownLinuxGnu,
+        false,
+    )
+    .unwrap();
+    for route in ROUTES {
+        let temp = Temp::new();
+        fs::write(temp.0.join("input.o"), &object).unwrap();
+        let out = run(
+            &temp,
+            include_str!("../../examples/files/elf_header.ceru"),
+            route,
+            Some(&temp.0),
+        );
+        assert!(
+            out.status.success(),
+            "{route:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert_eq!(out.stdout, b"1\n1\n0\n");
+        assert_eq!(fs::read(temp.0.join("copy.o")).unwrap(), object);
+    }
+}
+
+#[test]
 fn binary_files_round_trip_a_native_elf_object() {
     use cerune_lang::{
         codegen::x86_64::Target, compile_to_native_object, ir::NodeId, source::Span,

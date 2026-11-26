@@ -243,7 +243,13 @@ fn visit(
         if import.path.starts_with("std:") {
             if !matches!(
                 import.path.as_str(),
-                "std:io" | "std:env" | "std:num" | "std:fs" | "std:process" | "std:process::run"
+                "std:io"
+                    | "std:env"
+                    | "std:num"
+                    | "std:fs"
+                    | "std:fs::bytes"
+                    | "std:process"
+                    | "std:process::run"
             ) {
                 return Err(Diagnostic::new(
                     format!("unknown standard module `{}`", import.path),
@@ -271,6 +277,7 @@ fn visit(
                         include_str!("standard/process_run.ceru"),
                     ),
                     "std:process" => ("std:process", include_str!("standard/process.ceru")),
+                    "std:fs::bytes" => ("std:fs::bytes", include_str!("standard/fs_bytes.ceru")),
                     "std:fs" => ("std:fs", include_str!("standard/fs.ceru")),
                     "std:io" => ("std:io", include_str!("standard/io.ceru")),
                     "std:env" => ("std:env", include_str!("standard/env.ceru")),
@@ -283,6 +290,12 @@ fn visit(
                     if let lexer::TokenKind::Identifier(name) = &mut token.kind {
                         let internal = match (identifier, name.as_str()) {
                             ("std:process::run", "__cerune_process_run") => Some("$process_run"),
+                            ("std:fs::bytes", "__cerune_file_read_bytes") => {
+                                Some("$file_read_bytes")
+                            }
+                            ("std:fs::bytes", "__cerune_file_write_bytes_new") => {
+                                Some("$file_write_bytes_new")
+                            }
                             ("std:fs", "__cerune_file_read_text") => Some("$file_read_text"),
                             ("std:fs", "__cerune_file_write_new") => Some("$file_write_new"),
                             ("std:io", "__cerune_read_line_utf8") => Some("$read_line"),

@@ -1,8 +1,7 @@
 //! 配列の領域と論理的な所有を管理します。要素のコピー・解放順は共通IRが決めます。
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
-// 共通IR命令への接続に先立ち、実行時の予約契約を検証しています。
-#[allow(dead_code)]
 pub(crate) mod byte_outputs;
+pub(crate) mod io_values;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ArrayError {
     AllocationSizeOverflow,

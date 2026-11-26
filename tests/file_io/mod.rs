@@ -2,6 +2,7 @@ use cerune_lang as language;
 use cerune_lang::runtime::files::*;
 use cerune_lang::{bytecode, ir, ir_executor, mir, mir_executor, modules, ssa_executor, vm};
 use std::io::{self, Write};
+mod binary;
 mod support;
 mod wat;
 use support::*;

@@ -350,23 +350,27 @@ impl Builder<'_> {
                 else {
                     unreachable!("parser only creates call statements from calls")
                 };
-                if name == "$file_write_new" {
-                    StatementKind::FileWriteNew {
-                        name: self.build_expr(
-                            &arguments[0],
-                            Some(semantic::Type::String),
-                            &bindings,
-                        )?,
-                        text: self.build_expr(
-                            &arguments[1],
-                            Some(semantic::Type::String),
-                            &bindings,
-                        )?,
-                        max_bytes: self.build_expr(
-                            &arguments[2],
-                            Some(semantic::Type::Integer(IntegerType::I64)),
-                            &bindings,
-                        )?,
+                if matches!(name.as_str(), "$file_write_new" | "$file_write_bytes_new") {
+                    let file_name =
+                        self.build_expr(&arguments[0], Some(semantic::Type::String), &bindings)?;
+                    let payload = self.build_expr(&arguments[1], None, &bindings)?;
+                    let max_bytes = self.build_expr(
+                        &arguments[2],
+                        Some(semantic::Type::Integer(IntegerType::I64)),
+                        &bindings,
+                    )?;
+                    if name == "$file_write_bytes_new" {
+                        StatementKind::FileWriteBytesNew {
+                            name: file_name,
+                            bytes: payload,
+                            max_bytes,
+                        }
+                    } else {
+                        StatementKind::FileWriteNew {
+                            name: file_name,
+                            text: payload,
+                            max_bytes,
+                        }
                     }
                 } else {
                     let (function_id, arguments) =
@@ -474,22 +478,23 @@ impl Builder<'_> {
     }
 
     // ファイル用の一時値を、全ての再帰的な式のstack frameへ積まないよう分けます。
-    fn build_file_read_text(
+    fn build_file_read(
         &self,
+        binary: bool,
         arguments: &[ast::Expr],
         bindings: &Bindings,
     ) -> Result<ExprKind, Diagnostic> {
-        Ok(ExprKind::FileReadText {
-            name: Box::new(self.build_expr(
-                &arguments[0],
-                Some(semantic::Type::String),
-                bindings,
-            )?),
-            max_bytes: Box::new(self.build_expr(
-                &arguments[1],
-                Some(semantic::Type::Integer(IntegerType::I64)),
-                bindings,
-            )?),
+        let name =
+            Box::new(self.build_expr(&arguments[0], Some(semantic::Type::String), bindings)?);
+        let max_bytes = Box::new(self.build_expr(
+            &arguments[1],
+            Some(semantic::Type::Integer(IntegerType::I64)),
+            bindings,
+        )?);
+        Ok(if binary {
+            ExprKind::FileReadBytes { name, max_bytes }
+        } else {
+            ExprKind::FileReadText { name, max_bytes }
         })
     }
 
@@ -613,7 +618,9 @@ impl Builder<'_> {
             } if name == "$process_run" => self.build_process_run(arguments, bindings)?,
             ast::ExprKind::Call {
                 name, arguments, ..
-            } if name == "$file_read_text" => self.build_file_read_text(arguments, bindings)?,
+            } if matches!(name.as_str(), "$file_read_text" | "$file_read_bytes") => {
+                self.build_file_read(name == "$file_read_bytes", arguments, bindings)?
+            }
             ast::ExprKind::Call {
                 name, arguments, ..
             } if name == "$read_line" => ExprKind::ReadLine {

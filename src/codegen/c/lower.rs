@@ -112,6 +112,7 @@ fn collect_array_assignment_types(program: &cerune_ir::Program) -> Vec<Type> {
                 cerune_ir::StatementKind::Binding { .. }
                 | cerune_ir::StatementKind::StringManage { .. }
                 | cerune_ir::StatementKind::Write { .. }
+                | cerune_ir::StatementKind::FileWriteBytesNew { .. }
                 | cerune_ir::StatementKind::FileWriteNew { .. }
                 | cerune_ir::StatementKind::Flush
                 | cerune_ir::StatementKind::Print { .. }
@@ -267,6 +268,9 @@ fn lower_statement(statement: &cerune_ir::Statement) -> Statement {
             kind: crate::codegen::display::kind(&value.ty, *quoted),
             value: lower_expr(value),
         },
+        cerune_ir::StatementKind::FileWriteBytesNew { .. } => {
+            unreachable!("binary file I/O checked before lowering")
+        }
         cerune_ir::StatementKind::FileWriteNew {
             name,
             text,
@@ -446,6 +450,9 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
         cerune_ir::ExprKind::ProcessRun { request } => ExprKind::ProcessRun {
             request: Box::new(lower_expr(request)),
         },
+        cerune_ir::ExprKind::FileReadBytes { .. } => {
+            unreachable!("binary file I/O checked before lowering")
+        }
         cerune_ir::ExprKind::FileReadText { name, max_bytes } => ExprKind::FileReadText {
             name: Box::new(lower_expr(name)),
             max_bytes: Box::new(lower_expr(max_bytes)),
@@ -660,7 +667,11 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
                     visit_expr(value, types);
                 }
             }
-            cerune_ir::ExprKind::FileReadText {
+            cerune_ir::ExprKind::FileReadBytes {
+                name: base,
+                max_bytes: index,
+            }
+            | cerune_ir::ExprKind::FileReadText {
                 name: base,
                 max_bytes: index,
             }
@@ -713,6 +724,11 @@ fn collect_array_types(program: &cerune_ir::Program) -> Vec<Type> {
             cerune_ir::StatementKind::FileWriteNew {
                 name,
                 text,
+                max_bytes,
+            }
+            | cerune_ir::StatementKind::FileWriteBytesNew {
+                name,
+                bytes: text,
                 max_bytes,
             } => {
                 for value in [name, text, max_bytes] {
