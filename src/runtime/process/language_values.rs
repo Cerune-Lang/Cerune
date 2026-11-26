@@ -3,7 +3,7 @@ use super::{Backend, Origin, Outcome, Processes, Request, ReservationError, repo
 use crate::{
     ir,
     runtime::{
-        array_heap::{ArrayError, ArrayHeap, ArrayValue, byte_outputs::ReservedByteOutputs},
+        array_heap::{ArrayError, ArrayHeap, byte_outputs::ReservedByteOutputs},
         string_heap::StringValue,
     },
     types::IntegerType,
@@ -31,19 +31,12 @@ impl From<report_value::Error> for Error {
         Self::Report(value)
     }
 }
-#[derive(Clone, Copy)]
-pub(crate) enum Element {
-    Byte,
-    String,
-}
+use crate::runtime::array_heap::io_values::ArrayIoValue;
+pub(crate) use crate::runtime::array_heap::io_values::Element;
 
-/// 2種類の既存値表現の読取りと、確保済みバイト配列の受渡しだけを共有します。
-pub(crate) trait Value: report_value::Value + Clone {
+pub(crate) trait Value: report_value::Value + ArrayIoValue {
     fn fields(&self, id: ir::TypeId) -> Option<&[Self]>;
     fn text(&self) -> Option<&StringValue>;
-    fn unsigned(&self, ty: IntegerType) -> Option<u64>;
-    fn array(&self, element: Element) -> Option<&ArrayValue<Self>>;
-    fn byte_array(storage: ArrayValue<Self>) -> Self;
 }
 impl Value for crate::runtime::value::Value {
     fn fields(&self, id: ir::TypeId) -> Option<&[Self]> {
@@ -58,32 +51,6 @@ impl Value for crate::runtime::value::Value {
             _ => None,
         }
     }
-    fn unsigned(&self, ty: IntegerType) -> Option<u64> {
-        match self {
-            Self::Number(crate::runtime::numeric::Number::Integer(n, t))
-                if *t == ty && ty.contains(*n) =>
-            {
-                u64::try_from(*n).ok()
-            }
-            _ => None,
-        }
-    }
-    fn array(&self, expected: Element) -> Option<&ArrayValue<Self>> {
-        let ty = match expected {
-            Element::Byte => ir::Type::Integer(IntegerType::U8),
-            Element::String => ir::Type::String,
-        };
-        match self {
-            Self::DynamicArray { element, storage } if *element == ty => Some(storage),
-            _ => None,
-        }
-    }
-    fn byte_array(storage: ArrayValue<Self>) -> Self {
-        Self::DynamicArray {
-            element: ir::Type::Integer(IntegerType::U8),
-            storage,
-        }
-    }
 }
 impl Value for crate::vm::Value {
     fn fields(&self, id: ir::TypeId) -> Option<&[Self]> {
@@ -96,28 +63,6 @@ impl Value for crate::vm::Value {
         match self {
             Self::String(s) => Some(s),
             _ => None,
-        }
-    }
-    fn unsigned(&self, ty: IntegerType) -> Option<u64> {
-        match self {
-            Self::Integer(n, t) if *t == ty && ty.contains(*n) => u64::try_from(*n).ok(),
-            _ => None,
-        }
-    }
-    fn array(&self, expected: Element) -> Option<&ArrayValue<Self>> {
-        let ty = match expected {
-            Element::Byte => crate::bytecode::Type::Integer(IntegerType::U8),
-            Element::String => crate::bytecode::Type::String,
-        };
-        match self {
-            Self::DynamicArray { element, storage } if *element == ty => Some(storage),
-            _ => None,
-        }
-    }
-    fn byte_array(storage: ArrayValue<Self>) -> Self {
-        Self::DynamicArray {
-            element: crate::bytecode::Type::Integer(IntegerType::U8),
-            storage,
         }
     }
 }
@@ -197,9 +142,7 @@ impl<'d, 'h, V: Value> PreparedOutcome<'d, 'h, V> {
         let report = self.report.finish(&outcome.report)?;
         let [stdout, stderr] = self
             .outputs
-            .finish([&outcome.stdout, &outcome.stderr], |b| {
-                V::integer(i128::from(b), IntegerType::U8)
-            })?;
+            .finish([&outcome.stdout, &outcome.stderr], V::byte)?;
         self.fields.push(report);
         self.fields.push(V::byte_array(stdout));
         self.fields.push(V::byte_array(stderr));

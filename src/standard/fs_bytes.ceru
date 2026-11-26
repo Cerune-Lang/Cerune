@@ -1,0 +1,7 @@
+pub fn read_bytes(name: string, max_bytes: i64) -> [u8] {
+    return __cerune_file_read_bytes(name, max_bytes);
+}
+
+pub fn write_bytes_new(name: string, bytes: [u8], max_bytes: i64) -> void {
+    __cerune_file_write_bytes_new(name, bytes, max_bytes);
+}

@@ -311,6 +311,19 @@ fn emit_statement(statement: &Statement, indent: usize, program: &Program, outpu
             emit_expr(max_bytes, program, output);
             writeln!(output, ")").unwrap();
         }
+        StatementKind::FileWriteBytesNew {
+            name,
+            bytes,
+            max_bytes,
+        } => {
+            write!(output, "{prefix}{node}file.write_bytes_new(").unwrap();
+            emit_expr(name, program, output);
+            output.push_str(", ");
+            emit_expr(bytes, program, output);
+            output.push_str(", ");
+            emit_expr(max_bytes, program, output);
+            writeln!(output, ")").unwrap();
+        }
         StatementKind::Flush => {
             writeln!(output, "{prefix}{node}flush.stdout").unwrap();
         }
@@ -500,6 +513,13 @@ fn emit_expr(expr: &Expr, program: &Program, output: &mut String) {
         }
         ExprKind::FileReadText { name, max_bytes } => {
             output.push_str("file.read_text.utf8(");
+            emit_expr(name, program, output);
+            output.push_str(", ");
+            emit_expr(max_bytes, program, output);
+            output.push(')');
+        }
+        ExprKind::FileReadBytes { name, max_bytes } => {
+            output.push_str("file.read_bytes(");
             emit_expr(name, program, output);
             output.push_str(", ");
             emit_expr(max_bytes, program, output);

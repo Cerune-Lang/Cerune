@@ -205,18 +205,30 @@ impl<B: Backend> Files<B> {
         origin: Origin,
         operation: Operation,
     ) -> Result<(), Failure> {
+        let details = Details::new(operation, max_bytes, Some(bytes.len() as u64), origin);
+        self.write_prepared(name, details, bytes.len(), || Ok(bytes))
+    }
+
+    fn write_prepared<T: AsRef<[u8]>>(
+        &mut self,
+        name: &str,
+        mut details: Details,
+        length: usize,
+        prepare: impl FnOnce() -> Result<T, Code>,
+    ) -> Result<(), Failure> {
         if let Some(failure) = self.failure {
             return Err(failure);
         }
-        let mut details = Details::new(operation, max_bytes, Some(bytes.len() as u64), origin);
         let result = (|| {
-            self.validate(name, max_bytes)?;
-            if bytes.len() as u64 > max_bytes as u64 {
+            self.validate(name, details.limit)?;
+            if length as u64 > details.limit as u64 {
                 return Err(Code::LimitExceeded);
             }
+            details.phase = Phase::Reserve;
+            let bytes = prepare()?;
             let mut handle = self.open(name, &mut details)?;
             details.phase = Phase::Write;
-            let result = write(&mut handle, bytes, &mut details);
+            let result = write(&mut handle, bytes.as_ref(), &mut details);
             close(handle, result, &mut details)
         })();
         self.complete(details, result)
@@ -347,5 +359,7 @@ fn close(handle: impl Handle, result: Result<(), Code>, details: &mut Details) -
 #[cfg(test)]
 mod tests;
 
+mod binary;
+pub(crate) use binary::{byte_storage, read_array, write_array};
 mod access;
 pub(crate) use access::{Access, unconfigured};

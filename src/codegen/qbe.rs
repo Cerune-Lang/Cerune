@@ -123,6 +123,7 @@ fn emit_configured(
     call_limit: Option<std::num::NonZeroU32>,
     with_trace: bool,
 ) -> Result<String, Diagnostic> {
+    super::support::reject_binary_files(program, "QBE")?;
     if target.is_none()
         && let Some(span) = program.first_process_span()
     {

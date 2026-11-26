@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime::array_heap::ArrayValue;
 use report_value::Value as ReportValue;
 use std::time::Duration;
 

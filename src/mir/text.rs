@@ -207,6 +207,9 @@ fn operation<R: Copy + std::fmt::Display>(op: &Operation<R>) -> String {
         Operation::FileReadText { name, max_bytes } => {
             format!("file.read_text.utf8 {} {}", value(*name), value(*max_bytes))
         }
+        Operation::FileReadBytes { name, max_bytes } => {
+            format!("file.read_bytes {} {}", value(*name), value(*max_bytes))
+        }
         Operation::ReadLine(v) => format!("input.read_line.utf8 {}", value(*v)),
         Operation::StringByteAt { value: v, index } => {
             format!("string.byte_at {} {}", value(*v), value(*index))
@@ -252,6 +255,16 @@ pub(super) fn instruction<R: Copy + std::fmt::Display>(i: &InstructionKind<R>) -
             "file.write_new.utf8 {} {} {}",
             value(*name),
             value(*text),
+            value(*max_bytes)
+        ),
+        InstructionKind::FileWriteBytesNew {
+            name,
+            bytes,
+            max_bytes,
+        } => format!(
+            "file.write_bytes_new {} {} {}",
+            value(*name),
+            value(*bytes),
             value(*max_bytes)
         ),
         InstructionKind::Flush => "flush.stdout".into(),

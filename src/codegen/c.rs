@@ -61,6 +61,7 @@ fn configured(
     limit: Option<std::num::NonZeroU32>,
     trace: bool,
 ) -> Result<String, Diagnostic> {
+    super::support::reject_binary_files(program, "C")?;
     if target.is_none()
         && let Some(span) = program.first_process_span()
     {

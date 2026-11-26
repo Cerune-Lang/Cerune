@@ -747,6 +747,48 @@ fn native_build(bytes: &[u8], object: bool) -> Option<(std::path::PathBuf, std::
     );
     Some((dir, exe))
 }
+#[test]
+fn native_binary_elf_and_array_budget_match_the_executors() {
+    let object = cerune_lang::compile_to_native_object(
+        include_str!("../../examples/recursion/factorial.ceru"),
+        cerune_lang::codegen::x86_64::Target::X86_64UnknownLinuxGnu,
+        false,
+    )
+    .unwrap();
+    for route in [Route::Native(false), Route::Native(true)] {
+        let p = hir(include_str!("../../examples/files/elf_header.ceru"));
+        let emitted = route.emit(&p, Default::default());
+        let Some((dir, exe)) = route.build(&emitted, "-O2", &[]) else {
+            return;
+        };
+        let root = dir.join("root");
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("input.o"), &object).unwrap();
+        let out = connected(&dir, &exe, &root);
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert_eq!(out.stdout, b"1\n1\n0\n");
+        assert_eq!(fs::read(root.join("copy.o")).unwrap(), object);
+        compare(&p, &connected(&dir, &exe, &root), &root);
+        assert_eq!(fs::read(root.join("copy.o")).unwrap(), object);
+        fs::remove_dir_all(dir).unwrap();
+
+        let mut budget =
+            hir(r#"import "std:fs::bytes" as fs; print(7); print(fs::read_bytes("missing",4));"#);
+        budget.array_heap_limit = 31;
+        let emitted = route.emit(&budget, Default::default());
+        let (dir, exe) = route.build(&emitted, "-O2", &[]).unwrap();
+        let out = connected(&dir, &exe, &dir);
+        compare(&budget, &out, &dir);
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("phase=reserve code=budget-exceeded")
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+}
 mod native_asm_tests {
     cases!(super::Route::Native(false));
 }

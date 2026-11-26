@@ -62,6 +62,11 @@ fn string_statement(statement: &Statement) -> Option<Span> {
             text: start,
             max_bytes: end,
         }
+        | StatementKind::FileWriteBytesNew {
+            name: length,
+            bytes: start,
+            max_bytes: end,
+        }
         | StatementKind::ArrayRangeCheck { length, start, end } => string_expr(length)
             .or_else(|| string_expr(start))
             .or_else(|| string_expr(end)),
@@ -159,6 +164,10 @@ fn string_expr(expr: &Expr) -> Option<Span> {
             index: right,
         }
         | ExprKind::FileReadText {
+            name: left,
+            max_bytes: right,
+        }
+        | ExprKind::FileReadBytes {
             name: left,
             max_bytes: right,
         }

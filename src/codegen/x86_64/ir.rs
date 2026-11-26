@@ -52,6 +52,17 @@ pub struct Module {
 }
 
 impl Module {
+    pub(super) fn uses_binary_files(&self) -> bool {
+        self.instructions
+            .iter()
+            .chain(self.functions.iter().flat_map(|f| &f.instructions))
+            .any(|i| {
+                matches!(
+                    i,
+                    Instruction::FileReadBytes { .. } | Instruction::FileWriteBytesNew { .. }
+                )
+            })
+    }
     /// Whether generation includes file operations, including uncalled functions.
     pub fn uses_file_io(&self) -> bool {
         self.instructions
@@ -60,7 +71,10 @@ impl Module {
             .any(|i| {
                 matches!(
                     i,
-                    Instruction::FileReadText { .. } | Instruction::FileWriteNew { .. }
+                    Instruction::FileReadText { .. }
+                        | Instruction::FileWriteNew { .. }
+                        | Instruction::FileReadBytes { .. }
+                        | Instruction::FileWriteBytesNew { .. }
                 )
             })
     }
@@ -177,6 +191,13 @@ pub enum Instruction {
     ArgumentCount,
     ArgumentGet,
     ReadLine,
+    FileReadBytes {
+        name_offset: isize,
+    },
+    FileWriteBytesNew {
+        name_offset: isize,
+        bytes_offset: isize,
+    },
     FileReadText {
         name_offset: isize,
     },

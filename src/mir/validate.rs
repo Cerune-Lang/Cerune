@@ -301,6 +301,16 @@ fn operation(p: &Program, f: &Function, op: &Operation, dst: &T, o: Origin) -> R
             same(ty(*max_bytes)?, &I64)?;
             same(dst, &T::String)
         }
+        Operation::FileReadBytes { name, max_bytes } => {
+            same(ty(*name)?, &T::String)?;
+            same(ty(*max_bytes)?, &I64)?;
+            same(
+                dst,
+                &T::DynamicArray {
+                    element: Box::new(T::Integer(IntegerType::U8)),
+                },
+            )
+        }
         Operation::ArgumentCount => same(dst, &I64),
         Operation::ArgumentGet(value) | Operation::ReadLine(value) => {
             same(ty(*value)?, &I64)?;
@@ -399,6 +409,22 @@ fn instruction(p: &Program, f: &Function, i: &Instruction) -> Result<(), Error> 
             require(local(f, *text, o)? == &T::String, "file text type", o)?;
             require(local(f, *max_bytes, o)? == &I64, "file limit type", o)
         }
+        InstructionKind::FileWriteBytesNew {
+            name,
+            bytes,
+            max_bytes,
+        } => {
+            require(local(f, *name, o)? == &T::String, "file name type", o)?;
+            require(
+                local(f, *bytes, o)?
+                    == &T::DynamicArray {
+                        element: Box::new(T::Integer(IntegerType::U8)),
+                    },
+                "file byte array type",
+                o,
+            )?;
+            require(local(f, *max_bytes, o)? == &I64, "file limit type", o)
+        }
         InstructionKind::Flush => Ok(()),
         InstructionKind::Output { value, quoted, .. } => {
             let t = local(f, *value, o)?;
@@ -446,6 +472,10 @@ pub(super) fn operation_reads(op: &Operation) -> Vec<LocalId> {
             index: right,
         }
         | Operation::Binary { left, right, .. }
+        | Operation::FileReadBytes {
+            name: left,
+            max_bytes: right,
+        }
         | Operation::FileReadText {
             name: left,
             max_bytes: right,
@@ -484,6 +514,11 @@ pub(super) fn reads(i: &InstructionKind) -> Vec<LocalId> {
             text,
             max_bytes,
         } => vec![*name, *text, *max_bytes],
+        InstructionKind::FileWriteBytesNew {
+            name,
+            bytes,
+            max_bytes,
+        } => vec![*name, *bytes, *max_bytes],
         InstructionKind::Flush => vec![],
         InstructionKind::Output { value, .. }
         | InstructionKind::ArrayRetain { value }

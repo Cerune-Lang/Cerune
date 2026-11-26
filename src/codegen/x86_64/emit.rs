@@ -60,7 +60,7 @@ pub(super) fn build_configured(
         super::files::connection::append(&mut output);
     }
     if super::files::used(module) {
-        super::files::append(&mut output);
+        super::files::append(&mut output, module.uses_binary_files());
     }
     if process {
         super::process::append(&mut output, module, files);
@@ -324,16 +324,27 @@ fn emit_instruction(
         Instruction::ProcessRun { .. } => {
             super::process::emit(output, module, instruction, reporter)
         }
-        Instruction::FileReadText { name_offset } => {
+        Instruction::FileReadText { name_offset } | Instruction::FileReadBytes { name_offset } => {
             output.emit(
                 Opcode::Mov64,
                 [address(5, None, *name_offset as i128), r64(10)],
             );
-            reporter.file(false, output);
+            reporter.file(
+                if matches!(instruction, Instruction::FileReadBytes { .. }) {
+                    "cerune_file_read_bytes"
+                } else {
+                    "cerune_file_read_text"
+                },
+                output,
+            );
         }
         Instruction::FileWriteNew {
             name_offset,
             text_offset,
+        }
+        | Instruction::FileWriteBytesNew {
+            name_offset,
+            bytes_offset: text_offset,
         } => {
             output.emit(
                 Opcode::Mov64,
@@ -343,7 +354,14 @@ fn emit_instruction(
                 Opcode::Mov64,
                 [address(5, None, *text_offset as i128), r64(9)],
             );
-            reporter.file(true, output);
+            reporter.file(
+                if matches!(instruction, Instruction::FileWriteBytesNew { .. }) {
+                    "cerune_file_write_bytes_new"
+                } else {
+                    "cerune_file_write_new"
+                },
+                output,
+            );
         }
         Instruction::Flush => reporter.flush(output),
         Instruction::ArrayAllocate { .. }

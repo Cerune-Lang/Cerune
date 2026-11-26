@@ -357,6 +357,9 @@ impl Lowerer<'_> {
                 });
                 false
             }
+            cerune_ir::StatementKind::FileWriteBytesNew { .. } => {
+                unreachable!("binary file I/O checked before lowering")
+            }
             cerune_ir::StatementKind::FileWriteNew {
                 name,
                 text,
@@ -744,6 +747,9 @@ impl Lowerer<'_> {
                     ty: Type::Named(outcome_type),
                     operand: Operand::Temp(dest),
                 }
+            }
+            cerune_ir::ExprKind::FileReadBytes { .. } => {
+                unreachable!("binary file I/O checked before lowering")
             }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 let name = self.lower_expr(name).operand;
@@ -1249,6 +1255,7 @@ fn collect_slots(
             cerune_ir::StatementKind::Assignment { .. }
             | cerune_ir::StatementKind::StringManage { .. }
             | cerune_ir::StatementKind::Write { .. }
+            | cerune_ir::StatementKind::FileWriteBytesNew { .. }
             | cerune_ir::StatementKind::FileWriteNew { .. }
             | cerune_ir::StatementKind::Flush
             | cerune_ir::StatementKind::Print { .. }

@@ -1,6 +1,21 @@
 use super::*;
 /// 実行器への接続。文字列本文のコピーや観測callbackを挟みません。
 pub(crate) trait Access {
+    fn read_binary(
+        &mut self,
+        name: &str,
+        limit: i64,
+        origin: Origin,
+        reserve: &mut dyn FnMut(usize) -> Result<(), Code>,
+    ) -> Result<Vec<u8>, Failure>;
+    fn write_binary(
+        &mut self,
+        name: &str,
+        length: usize,
+        limit: i64,
+        origin: Origin,
+        encode: &mut dyn FnMut() -> Result<Vec<u8>, Code>,
+    ) -> Result<(), Failure>;
     fn read_value(
         &mut self,
         heap: &mut crate::runtime::string_heap::StringHeap,
@@ -17,6 +32,33 @@ pub(crate) trait Access {
     ) -> Result<(), Failure>;
 }
 impl<B: Backend> Access for Files<B> {
+    fn read_binary(
+        &mut self,
+        name: &str,
+        limit: i64,
+        origin: Origin,
+        reserve: &mut dyn FnMut(usize) -> Result<(), Code>,
+    ) -> Result<Vec<u8>, Failure> {
+        if let Some(e) = self.failure {
+            return Err(e);
+        }
+        let mut details = Details::new(Operation::ReadBytes, limit, None, origin);
+        let result = self
+            .read_contents(name, u64::MAX, &mut details, reserve)
+            .map(|(bytes, ())| bytes);
+        self.complete(details, result)
+    }
+    fn write_binary(
+        &mut self,
+        name: &str,
+        length: usize,
+        limit: i64,
+        origin: Origin,
+        encode: &mut dyn FnMut() -> Result<Vec<u8>, Code>,
+    ) -> Result<(), Failure> {
+        let details = Details::new(Operation::WriteBytesNew, limit, Some(length as u64), origin);
+        self.write_prepared(name, details, length, encode)
+    }
     fn read_value(
         &mut self,
         heap: &mut crate::runtime::string_heap::StringHeap,

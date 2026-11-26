@@ -49,7 +49,11 @@ Rust の `Files<B>` で ELF オブジェクトを複製するには、`read_byte
 
 診断の操作名は `read-bytes` と `write-bytes-new` です。名前の検査、同名ファイルの保護、短い転送の継続、失敗時の NodeId とソース位置にはテキスト入出力と同じ処理を使います。[実ファイルの試験](../../tests/file_io/os.rs)では `factorial.ceru` から生成した x86-64 ELF64 オブジェクトのヘッダを読み、別名で保存したファイルを元の全バイトと照合します。
 
-Cerune ソースから呼べる `std:fs` 関数は次節のテキスト用2関数です。バイナリ入出力をソースから使うには、動的配列 `[u8]` の所有と使用量の管理を共通IR命令に接続し、各実行器と生成経路で照合する作業が残っています。[#243](https://github.com/Cerune-Lang/Cerune/issues/243)
+Cerune ソースでは `import "std:fs::bytes" as fs;` と書き、`fs::read_bytes(name, max_bytes) -> [u8]` と `fs::write_bytes_new(name, bytes, max_bytes) -> void` を使います。標準モジュールの宣言と出自は `emit-sources` で、命令 `file.read_bytes` と `file.write_bytes_new` は HIR・MIR・SSA・バイトコードで確認できます。従来の `std:fs` はテキスト操作を提供します。
+
+読取りはファイルを開く前に、上限の要素数だけ動的配列を予約します。各 `u8` が配列の使用量に占めるのは8バイトです。たとえば上限4で1バイトを読んだ場合、配列長は1、予約した使用量は32バイトで、配列の解放時に戻ります。残量不足なら `phase=reserve code=budget-exceeded` で停止します。保存時は長さと上限を検査し、バイト列を用意してから新規作成します。
+
+HIR・MIR・SSA・VM と Native は [ELFヘッダの実行例](../../examples/files/README.md) に対応しています。Native は Windows/Linux x86-64 向けに同じ MIR から ASM または Object を生成します。OS との転送には連続したバイトを使い、読取りと close の成功後、各バイトを配列の8バイト要素に格納します。保存時は各要素を1バイトに詰めてからファイルを作成します。C・LLVM・QBE・WAT のバイナリ入出力は実装予定です。これらの生成先でバイナリ用モジュールを使うと、コンパイラが標準ソースの該当位置を示します。[#243](https://github.com/Cerune-Lang/Cerune/issues/243)
 
 ## 公開APIと実行器への接続
 

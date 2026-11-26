@@ -484,6 +484,8 @@ impl Resolver<'_> {
                     "$read_line"
                         | "$process_run"
                         | "$file_read_text"
+                        | "$file_read_bytes"
+                        | "$file_write_bytes_new"
                         | "$file_write_new"
                         | "$arg_count"
                         | "$arg_get"

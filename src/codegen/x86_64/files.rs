@@ -4,6 +4,7 @@ use super::ir::Instruction;
 use super::ir::Module;
 use super::machine::{EntryKind, Linkage, Opcode, Operand, Section, r32, r64};
 use super::program::{NativeProgram, address};
+mod bytes;
 pub(super) mod connection;
 mod names;
 #[cfg(test)]
@@ -14,7 +15,7 @@ pub(super) fn used(m: &Module) -> bool {
 }
 // 入口: rax=上限、r10=名前、r9=本文、r11=出自。戻り値: rax=文字列またはunit。
 // 呼出し前RSPを16byte整列し、先頭128byteを両ABIの外部引数に使います。
-const FRAME: i128 = 840;
+const FRAME: i128 = 856;
 const NAME: i128 = 128;
 const TEXT: i128 = 136;
 const LIMIT: i128 = 144;
@@ -35,7 +36,10 @@ const DECIMAL: i128 = 256;
 const PROBE: i128 = 288;
 const POINTER: i128 = 296;
 const OPERATION: i128 = 304;
-const BUFFER: i128 = 320;
+const BINARY: i128 = 312;
+const BUFFER: i128 = 320; // 512 bytes for the diagnostic record
+const ARRAY: i128 = 832;
+const DATA: i128 = 840;
 fn slot(n: i128) -> Operand {
     address(4, None, n)
 }
@@ -112,7 +116,7 @@ fn fail(o: &mut NativeProgram, code: &str, to: &str) {
     pointer(o, code, CODE);
     branch(o, Opcode::Jump, to);
 }
-pub(super) fn append(o: &mut NativeProgram) {
+pub(super) fn append(o: &mut NativeProgram, binary: bool) {
     o.push(EntryKind::Section(Section::ReadOnlyData));
     for s in [
         "invalid-limit",
@@ -147,6 +151,8 @@ pub(super) fn append(o: &mut NativeProgram) {
         "decode",
         "read-text",
         "write-new",
+        "read-bytes",
+        "write-bytes-new",
     ] {
         o.label(&format!(".Lfile_text_{}", s.replace('-', "_")));
         o.push(EntryKind::CString(s.into()));
@@ -157,28 +163,44 @@ pub(super) fn append(o: &mut NativeProgram) {
     o.push(EntryKind::CString("%llu".into()));
     o.push(EntryKind::Section(Section::Text));
     names::append(o);
-    for write in [false, true] {
-        o.label(if write {
-            "cerune_file_write_new"
-        } else {
-            "cerune_file_read_text"
-        });
+    for (entry, operation, write, bytes) in [
+        ("cerune_file_read_text", "read-text", false, false),
+        ("cerune_file_write_new", "write-new", true, false),
+        ("cerune_file_read_bytes", "read-bytes", false, true),
+        ("cerune_file_write_bytes_new", "write-bytes-new", true, true),
+    ] {
+        if bytes && !binary {
+            continue;
+        }
+        o.label(entry);
         o.emit(Opcode::Sub64, [imm(FRAME), r64(4)]);
         mov(o, r64(0), slot(LIMIT));
         mov(o, r64(10), slot(NAME));
         mov(o, r64(11), slot(ORIGIN));
         mov(o, imm(i128::from(write)), slot(MODE));
+        if binary {
+            mov(o, imm(i128::from(bytes)), slot(BINARY));
+        }
         if write {
             mov(o, r64(9), slot(TEXT));
-            mov(o, address(9, None, 0), r64(0));
+            if bytes {
+                call(o, "cerune_array_length", &[slot(TEXT)]);
+            } else {
+                o.emit(Opcode::Lea64, [address(9, None, 8), r64(1)]);
+                mov(o, r64(1), slot(DATA));
+                mov(o, address(9, None, 0), r64(0));
+            }
             mov(o, r64(0), slot(LENGTH));
         } else {
             mov(o, imm(-1), slot(LENGTH));
         }
-        pointer(o, if write { "write-new" } else { "read-text" }, OPERATION);
+        pointer(o, operation, OPERATION);
         branch(o, Opcode::Jump, "begin");
     }
     label(o, "begin");
+    if binary {
+        mov(o, imm(0), slot(ARRAY));
+    }
     for n in [OWNER, CODE, TRANSFER] {
         mov(o, imm(0), slot(n));
     }
@@ -199,6 +221,9 @@ pub(super) fn append(o: &mut NativeProgram) {
     compare(o, slot(MODE), 0);
     branch(o, Opcode::JumpNe, "write_validate");
     pointer(o, "reserve", PHASE);
+    if binary {
+        bytes::if_binary(o, "bytes_reserve");
+    }
     let heap = local(o, ".Lcerune_heap_limit");
     mov(o, heap, r64(0));
     let live = local(o, ".Lcerune_heap_live");
@@ -212,6 +237,8 @@ pub(super) fn append(o: &mut NativeProgram) {
     o.emit(Opcode::Test64, [r64(0), r64(0)]);
     branch(o, Opcode::JumpE, "allocation");
     mov(o, r64(0), slot(OWNER));
+    o.emit(Opcode::Lea64, [address(0, None, 24), r64(1)]);
+    mov(o, r64(1), slot(DATA));
     mov(o, slot(LIMIT), r64(0));
     let live = local(o, ".Lcerune_heap_live");
     o.emit(Opcode::Add64, [r64(0), live]);
@@ -220,6 +247,9 @@ pub(super) fn append(o: &mut NativeProgram) {
     mov(o, slot(LENGTH), r64(0));
     o.emit(Opcode::Cmp64, [slot(LIMIT), r64(0)]);
     branch(o, Opcode::JumpA, "limit_before_open");
+    if binary {
+        bytes::if_binary(o, "bytes_pack");
+    }
     label(o, "open");
     pointer(o, "open", PHASE);
     mov(o, slot(NAME), r64(0));
@@ -253,8 +283,7 @@ pub(super) fn append(o: &mut NativeProgram) {
     mov(o, imm(4096), r64(0));
     label(o, "read_size");
     mov(o, r64(0), slot(REQUEST));
-    mov(o, slot(OWNER), r64(0));
-    o.emit(Opcode::Add64, [imm(24), r64(0)]);
+    mov(o, slot(DATA), r64(0));
     o.emit(Opcode::Add64, [slot(TRANSFER), r64(0)]);
     mov(o, r64(0), slot(POINTER));
     branch(o, Opcode::Jump, "read_call");
@@ -290,8 +319,7 @@ pub(super) fn append(o: &mut NativeProgram) {
     o.emit(Opcode::Sub64, [slot(TRANSFER), r64(0)]);
     branch(o, Opcode::JumpE, "close");
     mov(o, r64(0), slot(REQUEST));
-    mov(o, slot(TEXT), r64(0));
-    o.emit(Opcode::Add64, [imm(8), r64(0)]);
+    mov(o, slot(DATA), r64(0));
     o.emit(Opcode::Add64, [slot(TRANSFER), r64(0)]);
     mov(o, r64(0), slot(POINTER));
     call(
@@ -325,6 +353,9 @@ pub(super) fn append(o: &mut NativeProgram) {
     branch(o, Opcode::JumpNe, "failure");
     compare(o, slot(MODE), 0);
     branch(o, Opcode::JumpNe, "write_done");
+    if binary {
+        bytes::if_binary(o, "bytes_finish");
+    }
     pointer(o, "decode", PHASE);
     mov(o, slot(OWNER), r64(2));
     o.emit(Opcode::Add64, [imm(24), r64(2)]);
@@ -357,6 +388,9 @@ pub(super) fn append(o: &mut NativeProgram) {
     o.emit(Opcode::Lea64, [empty, r64(0)]);
     branch(o, Opcode::Jump, "return");
     label(o, "write_done");
+    if binary {
+        bytes::if_binary(o, "bytes_return");
+    }
     mov(o, imm(0), r64(0));
     label(o, "return");
     o.emit(Opcode::Add64, [imm(FRAME), r64(4)]);
@@ -399,10 +433,16 @@ pub(super) fn append(o: &mut NativeProgram) {
         label(o, label_name);
         fail(o, code, dest);
     }
-    diagnostic(o);
+    if binary {
+        bytes::append(o);
+    }
+    diagnostic(o, binary);
 }
-fn diagnostic(o: &mut NativeProgram) {
+fn diagnostic(o: &mut NativeProgram, binary: bool) {
     label(o, "failure");
+    if binary {
+        bytes::if_binary(o, "bytes_cleanup");
+    }
     compare(o, slot(OWNER), 0);
     branch(o, Opcode::JumpE, "format");
     mov(o, slot(LIMIT), r64(0));

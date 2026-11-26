@@ -84,10 +84,15 @@ pub fn lower_with_argument_limits(
                     Kind::Output { .. } => module.uses_write = true,
                     Kind::StringManage { .. }
                     | Kind::Assign {
-                        value: Op::StringConcat { .. } | Op::ReadLine(_) | Op::FileReadText { .. },
+                        value:
+                            Op::StringConcat { .. }
+                            | Op::ReadLine(_)
+                            | Op::FileReadText { .. }
+                            | Op::FileReadBytes { .. },
                         ..
                     }
-                    | Kind::FileWriteNew { .. } => {
+                    | Kind::FileWriteNew { .. }
+                    | Kind::FileWriteBytesNew { .. } => {
                         module.string_heap_limit = Some(program.string_heap_limit)
                     }
                     _ => {}
@@ -450,6 +455,17 @@ impl Lowerer<'_> {
     }
     fn instruction(&mut self, k: &Kind) {
         match k {
+            Kind::FileWriteBytesNew {
+                name,
+                bytes,
+                max_bytes,
+            } => {
+                self.load(*max_bytes);
+                self.push(Instruction::FileWriteBytesNew {
+                    name_offset: self.offset(*name),
+                    bytes_offset: self.offset(*bytes),
+                });
+            }
             Kind::FileWriteNew {
                 name,
                 text,
@@ -735,6 +751,12 @@ impl Lowerer<'_> {
                     outcome_type: *outcome_type,
                 });
                 return;
+            }
+            Op::FileReadBytes { name, max_bytes } => {
+                self.load(*max_bytes);
+                self.push(Instruction::FileReadBytes {
+                    name_offset: self.offset(*name),
+                });
             }
             Op::FileReadText { name, max_bytes } => {
                 self.load(*max_bytes);

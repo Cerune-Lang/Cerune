@@ -1,0 +1,22 @@
+import "std:fs::bytes" as fs;
+
+fn little_endian(data: [u8], offset: i64, width: i64) -> u64 {
+    mut value: u64 = 0;
+    mut i: i64 = width;
+    while i > 0 {
+        i = i - 1;
+        value = (value << 8) | u64(data[offset + i]);
+    }
+    return value;
+}
+
+object: [u8] = fs::read_bytes("input.o", 65536);
+if array_len(object) >= 64 && object[0] == 127 && object[1] == 69
+    && object[2] == 76 && object[3] == 70 && object[4] == 2 && object[5] == 1 {
+    print(little_endian(object, 16, 2)); // e_type
+    print(little_endian(object, 20, 4)); // e_version
+    print(little_endian(object, 24, 8)); // e_entry
+    fs::write_bytes_new("copy.o", object, 65536);
+} else {
+    print("expected a little-endian ELF64 header");
+}

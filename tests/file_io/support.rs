@@ -34,7 +34,12 @@ impl Backend for Memory {
     type Handle = MemoryHandle;
     fn open(&mut self, name: &str, operation: Operation) -> Result<MemoryHandle, OpenError> {
         let mut s = self.0.borrow_mut();
-        s.calls.push(format!("open:{operation:?}:{name}"));
+        let mode = if operation.creates_file() {
+            "create"
+        } else {
+            "read"
+        };
+        s.calls.push(format!("open:{mode}:{name}"));
         if let Some(error) = s.open_error {
             return Err(error);
         }

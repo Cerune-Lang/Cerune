@@ -612,6 +612,11 @@ fn statement_operand(s: &Statement, index: usize) -> Option<&Expr> {
             text: start,
             max_bytes: end,
         }
+        | S::FileWriteBytesNew {
+            name: length,
+            bytes: start,
+            max_bytes: end,
+        }
         | S::ArrayRangeCheck { length, start, end } => [length, start, end].get(index).copied(),
         S::Call { arguments, .. } => arguments.get(index),
         S::Flush => None,
@@ -633,6 +638,10 @@ fn expression_operand(e: &Expr, index: usize) -> Option<&Expr> {
         | E::FieldAccess { base: value, .. }
         | E::Unary { value, .. } => (index == 0).then_some(value),
         E::FileReadText {
+            name: left,
+            max_bytes: right,
+        }
+        | E::FileReadBytes {
             name: left,
             max_bytes: right,
         }

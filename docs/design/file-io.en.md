@@ -49,7 +49,11 @@ Rust callers can copy an ELF object by passing the bytes returned by `Files<B>::
 
 Diagnostics identify the operations as `read-bytes` and `write-bytes-new`. Both use the text operations' filename checks, exclusive creation for writes, short-transfer handling, NodeId and source span. The [real-file test](../../tests/file_io/os.rs) reads the header of an x86-64 ELF64 object generated from `factorial.ceru` and compares the saved copy byte for byte with the original.
 
-Cerune source can call the two text functions in the next section. Exposing binary I/O still requires connecting dynamic `[u8]` ownership and usage accounting to common IR instructions and comparing results across executors and generated code. [#243](https://github.com/Cerune-Lang/Cerune/issues/243)
+In Cerune source, `import "std:fs::bytes" as fs;` exposes `fs::read_bytes(name, max_bytes) -> [u8]` and `fs::write_bytes_new(name, bytes, max_bytes) -> void`. Inspect the declarations and their source with `emit-sources` and the operations `file.read_bytes` and `file.write_bytes_new` in HIR, MIR, SSA and bytecode. The existing `std:fs` module provides the text operations.
+
+Before opening the file, the reader reserves a dynamic array for the maximum element count. Each `u8` occupies eight bytes of the array allowance. Reading one byte with a limit of four returns a length of one and keeps 32 bytes reserved until the array is freed. Insufficient allowance stops at `phase=reserve code=budget-exceeded`. Saving validates the length and packs the bytes before exclusive creation.
+
+HIR, MIR, SSA, VM and Native run the [ELF header example](../../examples/files/README.en.md). Native generates assembly or objects for Windows/Linux x86-64 from MIR. It transfers contiguous bytes to and from the OS. After a successful read and close it stores each byte in an eight-byte array slot. A write packs those slots into bytes before creating the file. Binary file I/O for C, LLVM, QBE and WAT is pending. Requesting these routes with the binary module produces a diagnostic at the standard source location. [#243](https://github.com/Cerune-Lang/Cerune/issues/243)
 
 ## Public API and executor connections
 

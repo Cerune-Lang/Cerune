@@ -504,6 +504,26 @@ impl Executor<'_, '_> {
                         origin: None,
                     })?;
             }
+            S::FileWriteBytesNew { .. } => {
+                let name = operand(values)?.string()?;
+                let bytes = operand(values)?;
+                let limit = operand(values)?.integer(IntegerType::I64)? as i64;
+                files::write_array(
+                    self.files,
+                    &name.borrow_text(),
+                    files::byte_storage(&bytes)
+                        .ok_or_else(|| Fault::invalid("file write expects [u8]"))?,
+                    limit,
+                    files::Origin {
+                        node_id: s.id,
+                        span: s.span,
+                    },
+                )
+                .map_err(|f| Fault {
+                    kind: ErrorKind::Files(Box::new(f)),
+                    origin: None,
+                })?;
+            }
             S::ArrayInitialize { .. } => {
                 let Value::DynamicArray { element, storage } = operand(values)? else {
                     return Err(Fault::invalid("array initialize"));
@@ -728,6 +748,24 @@ impl Executor<'_, '_> {
                         origin: None,
                     })?;
                 Value::String(value)
+            }
+            E::FileReadBytes { .. } => {
+                let name = operand(values)?.string()?;
+                let limit = operand(values)?.integer(IntegerType::I64)? as i64;
+                files::read_array(
+                    self.files,
+                    &mut self.arrays,
+                    &name.borrow_text(),
+                    limit,
+                    files::Origin {
+                        node_id: e.id,
+                        span: e.span,
+                    },
+                )
+                .map_err(|f| Fault {
+                    kind: ErrorKind::Files(Box::new(f)),
+                    origin: None,
+                })?
             }
             E::ReadLine { .. } => {
                 let limit = operand(values)?.integer(IntegerType::I64)? as i64;

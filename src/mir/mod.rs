@@ -136,6 +136,11 @@ pub enum InstructionKind<R = LocalId> {
         text: R,
         max_bytes: R,
     },
+    FileWriteBytesNew {
+        name: R,
+        bytes: R,
+        max_bytes: R,
+    },
     Flush,
     Output {
         value: R,
@@ -224,6 +229,10 @@ pub enum Operation<R = LocalId> {
         outcome_type: ir::TypeId,
     },
     FileReadText {
+        name: R,
+        max_bytes: R,
+    },
+    FileReadBytes {
         name: R,
         max_bytes: R,
     },

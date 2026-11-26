@@ -2,6 +2,31 @@
 
 [日本語](README.md)
 
+## Read an ELF64 header
+
+[elf_header.ceru](elf_header.ceru) uses `std:fs::bytes` to read `input.o`. It checks the minimum 64-byte header size, ELF magic, class and byte order, decodes 16-, 32- and 64-bit little-endian fields, and saves every byte to `copy.o`.
+
+```sh
+mkdir elf-sample
+cargo run --quiet -- emit-obj examples/recursion/factorial.ceru --target x86_64-unknown-linux-gnu -o elf-sample/input.o
+cargo run --quiet -- run examples/files/elf_header.ceru --file-root elf-sample
+```
+
+The output gives the object type (1 = ET_REL), version (1) and entry address (0). An input shorter than 64 bytes prints a message and returns. To compare routes, place the same input in a fresh directory for each run.
+
+On Linux x86-64, compile and run the same example through Native. An exit status of zero from `cmp` confirms that every byte matches.
+
+```sh
+mkdir elf-native
+cp elf-sample/input.o elf-native/input.o
+cargo run --quiet -- emit-obj examples/files/elf_header.ceru --target x86_64-unknown-linux-gnu -o elf-native/reader.o
+clang elf-native/reader.o -o elf-native/reader
+./elf-native/reader --cerune-runtime-v1 --file-root elf-native --
+cmp elf-native/input.o elf-native/copy.o
+```
+
+## Save and read back text
+
 [roundtrip.ceru](roundtrip.ceru) saves Japanese text, NUL, CR/LF, and combining characters, then prints readback equality and byte length. Expected output is true followed by 16.
 
 Prepare an empty directory on Windows/Linux and run the example.

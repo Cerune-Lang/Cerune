@@ -237,6 +237,8 @@ fn emit_instruction(
     }
     match instruction {
         Instruction::ProcessRun { .. }
+        | Instruction::FileReadBytes { .. }
+        | Instruction::FileWriteBytesNew { .. }
         | Instruction::FileReadText { .. }
         | Instruction::FileWriteNew { .. } => {
             panic!("file operations were added after the reference emitter was frozen")

@@ -472,6 +472,9 @@ impl LoweringContext<'_> {
                     },
                 });
             }
+            cerune_ir::StatementKind::FileWriteBytesNew { .. } => {
+                unreachable!("binary file I/O checked before lowering")
+            }
             cerune_ir::StatementKind::FileWriteNew {
                 name,
                 text,
@@ -906,6 +909,9 @@ impl LoweringContext<'_> {
                     type_id: outcome.0,
                     address: Address::Frame(destination),
                 }
+            }
+            cerune_ir::ExprKind::FileReadBytes { .. } => {
+                unreachable!("binary file I/O checked before lowering")
             }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 self.lower_expr(name, instructions);
@@ -1706,6 +1712,7 @@ fn collect_locations(
             cerune_ir::StatementKind::Assignment { .. }
             | cerune_ir::StatementKind::StringManage { .. }
             | cerune_ir::StatementKind::Write { .. }
+            | cerune_ir::StatementKind::FileWriteBytesNew { .. }
             | cerune_ir::StatementKind::FileWriteNew { .. }
             | cerune_ir::StatementKind::Flush
             | cerune_ir::StatementKind::Print { .. }
