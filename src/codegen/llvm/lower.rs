@@ -357,8 +357,20 @@ impl Lowerer<'_> {
                 });
                 false
             }
-            cerune_ir::StatementKind::FileWriteBytesNew { .. } => {
-                unreachable!("binary file I/O checked before lowering")
+            cerune_ir::StatementKind::FileWriteBytesNew {
+                name,
+                bytes,
+                max_bytes,
+            } => {
+                let name = self.lower_expr(name).operand;
+                let bytes = self.lower_expr(bytes).operand;
+                let max_bytes = self.lower_expr(max_bytes).operand;
+                self.push(Instruction::FileWriteBytesNew {
+                    name,
+                    bytes,
+                    max_bytes,
+                });
+                false
             }
             cerune_ir::StatementKind::FileWriteNew {
                 name,
@@ -748,8 +760,19 @@ impl Lowerer<'_> {
                     operand: Operand::Temp(dest),
                 }
             }
-            cerune_ir::ExprKind::FileReadBytes { .. } => {
-                unreachable!("binary file I/O checked before lowering")
+            cerune_ir::ExprKind::FileReadBytes { name, max_bytes } => {
+                let name = self.lower_expr(name).operand;
+                let max_bytes = self.lower_expr(max_bytes).operand;
+                let dest = self.next_temp();
+                self.push(Instruction::FileReadBytes {
+                    dest,
+                    name,
+                    max_bytes,
+                });
+                Value {
+                    ty: expr.ty.clone().into(),
+                    operand: Operand::Temp(dest),
+                }
             }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 let name = self.lower_expr(name).operand;

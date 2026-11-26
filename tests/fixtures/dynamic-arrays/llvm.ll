@@ -276,6 +276,29 @@ budget:
   %over = icmp ugt i64 %bytes, %available
   br i1 %over, label %limit.fail, label %empty.check
 empty.check:
+  %result = call %cerune.array @cerune.array.try.storage(i64 %length, i64 %bytes, i64 %physical.bytes, i64 %live)
+  %owner = extractvalue %cerune.array %result, 0
+  %null = icmp eq ptr %owner, null
+  %nonempty = icmp ne i64 %length, 0
+  %failed = and i1 %null, %nonempty
+  br i1 %failed, label %allocation.fail, label %done
+done:
+  ret %cerune.array %result
+length.fail:
+  call void @cerune.runtime.fail(ptr %failure, i64 16)
+  unreachable
+size.fail:
+  call void @cerune.runtime.fail(ptr %failure, i64 12)
+  unreachable
+limit.fail:
+  call void @cerune.runtime.fail(ptr %failure, i64 13)
+  unreachable
+allocation.fail:
+  call void @cerune.runtime.fail(ptr %failure, i64 14)
+  unreachable
+}
+define internal %cerune.array @cerune.array.try.storage(i64 %length, i64 %bytes, i64 %physical.bytes, i64 %live) {
+entry:
   %empty = icmp eq i64 %length, 0
   br i1 %empty, label %zero, label %allocate.owner
 zero:
@@ -306,18 +329,8 @@ initialize:
   %result.owner = insertvalue %cerune.array poison, ptr %owner, 0
   %result = insertvalue %cerune.array %result.owner, i64 %length, 1
   ret %cerune.array %result
-length.fail:
-  call void @cerune.runtime.fail(ptr %failure, i64 16)
-  unreachable
-size.fail:
-  call void @cerune.runtime.fail(ptr %failure, i64 12)
-  unreachable
-limit.fail:
-  call void @cerune.runtime.fail(ptr %failure, i64 13)
-  unreachable
 allocation.fail:
-  call void @cerune.runtime.fail(ptr %failure, i64 14)
-  unreachable
+  ret %cerune.array zeroinitializer
 }
 define internal void @cerune.array.retain.owner(%cerune.array %value) {
 entry:

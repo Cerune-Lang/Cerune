@@ -518,13 +518,12 @@ macro_rules! cases {
         }
     };
 }
-#[test]
-fn generated_c_binary_eof_probe_and_array_lifetime() {
+fn binary_eof_probe_and_array_lifetime(route: Route) {
     let program = hir(r#"import "std:fs::bytes" as fs;
         fs::write_bytes_new("empty", fs::read_bytes("x", 0), 0);
         print("created");"#);
-    let emitted = Route::C.emit(&program, Default::default());
-    let Some((dir, exe)) = Route::C.build(&emitted, "-O2", &[]) else {
+    let emitted = route.emit(&program, Default::default());
+    let Some((dir, exe)) = route.build(&emitted, "-O2", &[]) else {
         return;
     };
     fs::write(dir.join("x"), [0xff]).unwrap();
@@ -548,8 +547,8 @@ fn generated_c_binary_eof_probe_and_array_lifetime() {
             print(data[0]); i = i + 1;
         }"#);
     program.array_heap_limit = 64;
-    let emitted = Route::C.emit(&program, Default::default());
-    let (dir, exe) = Route::C.build(&emitted, "-O2", &[]).unwrap();
+    let emitted = route.emit(&program, Default::default());
+    let (dir, exe) = route.build(&emitted, "-O2", &[]).unwrap();
     fs::write(dir.join("x"), [0xff]).unwrap();
     let out = connected(&dir, &exe, &dir);
     compare(&program, &out, &dir);
@@ -560,6 +559,10 @@ fn generated_c_binary_eof_probe_and_array_lifetime() {
 mod c_tests {
     cases!(super::Route::C);
     #[test]
+    fn binary_eof_probe_and_array_lifetime() {
+        super::binary_eof_probe_and_array_lifetime(super::Route::C);
+    }
+    #[test]
     fn binary_elf_and_array_budget() {
         super::binary_elf_and_array_budget_match_the_executors(super::Route::C);
     }
@@ -569,6 +572,14 @@ mod qbe_tests {
 }
 mod llvm_tests {
     cases!(super::Route::Llvm);
+    #[test]
+    fn binary_eof_probe_and_array_lifetime() {
+        super::binary_eof_probe_and_array_lifetime(super::Route::Llvm);
+    }
+    #[test]
+    fn binary_elf_and_array_budget() {
+        super::binary_elf_and_array_budget_match_the_executors(super::Route::Llvm);
+    }
 }
 
 fn root_handle_survives_move_and_composes_with_stdin_arguments(route: Route) {

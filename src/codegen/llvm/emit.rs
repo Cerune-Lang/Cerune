@@ -409,6 +409,14 @@ fn emit_instruction(
             writeln!(output, "  {} = call %cerune.string @cerune.files.read_text(%cerune.string {}, i64 {}, ptr {})",
                 temp(*dest), operand(*name), operand(*max_bytes), super::files::origin_name(origin)).unwrap();
         }
+        Instruction::FileReadBytes {
+            dest,
+            name,
+            max_bytes,
+        } => {
+            writeln!(output, "  {} = call %cerune.array @cerune.files.read_bytes(%cerune.string {}, i64 {}, ptr {})",
+                temp(*dest), operand(*name), operand(*max_bytes), super::files::origin_name(origin)).unwrap();
+        }
         Instruction::FileWriteNew {
             name,
             text,
@@ -416,6 +424,14 @@ fn emit_instruction(
         } => {
             writeln!(output, "  call void @cerune.files.write_new(%cerune.string {}, %cerune.string {}, i64 {}, ptr {})",
                 operand(*name), operand(*text), operand(*max_bytes), super::files::origin_name(origin)).unwrap();
+        }
+        Instruction::FileWriteBytesNew {
+            name,
+            bytes,
+            max_bytes,
+        } => {
+            writeln!(output, "  call void @cerune.files.write_bytes_new(%cerune.string {}, %cerune.array {}, i64 {}, ptr {})",
+                operand(*name), operand(*bytes), operand(*max_bytes), super::files::origin_name(origin)).unwrap();
         }
         Instruction::ReadLine { dest, max_bytes } => {
             writeln!(

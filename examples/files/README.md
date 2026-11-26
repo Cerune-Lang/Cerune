@@ -25,6 +25,17 @@ clang -std=c11 -O2 elf-c/reader.c -lm -o elf-c/reader
 cmp elf-c/input.o elf-c/copy.o
 ```
 
+生成LLVMを試す場合も、同じ `input.o` を使います。Linux x86-64 では次のようにターゲットを指定します。
+
+```sh
+mkdir elf-llvm
+cp elf-sample/input.o elf-llvm/input.o
+cargo run --quiet -- emit-llvm examples/files/elf_header.ceru --target x86_64-unknown-linux-gnu -o elf-llvm/reader.ll
+clang --target=x86_64-unknown-linux-gnu -O2 elf-llvm/reader.ll -lm -o elf-llvm/reader
+./elf-llvm/reader --cerune-runtime-v1 --file-root elf-llvm --
+cmp elf-llvm/input.o elf-llvm/copy.o
+```
+
 Linux x86-64 で同じ例を Native 実行するには、次のコマンドを使います。`cmp` の終了コード0は全バイトの一致を表します。
 
 ```sh

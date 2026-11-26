@@ -153,9 +153,19 @@ pub enum Instruction {
         name: Operand,
         max_bytes: Operand,
     },
+    FileReadBytes {
+        dest: Temp,
+        name: Operand,
+        max_bytes: Operand,
+    },
     FileWriteNew {
         name: Operand,
         text: Operand,
+        max_bytes: Operand,
+    },
+    FileWriteBytesNew {
+        name: Operand,
+        bytes: Operand,
         max_bytes: Operand,
     },
     ReadLine {
