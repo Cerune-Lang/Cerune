@@ -39,8 +39,10 @@ impl Backend for Memory {
             return Err(error);
         }
         match operation {
-            Operation::ReadText if !s.files.contains_key(name) => return Err(OpenError::NotFound),
-            Operation::WriteNew => {
+            Operation::ReadText | Operation::ReadBytes if !s.files.contains_key(name) => {
+                return Err(OpenError::NotFound);
+            }
+            Operation::WriteNew | Operation::WriteBytesNew => {
                 if s.files.contains_key(name) {
                     return Err(OpenError::AlreadyExists);
                 }
@@ -205,6 +207,97 @@ fn round_trip_preserves_bytes_and_exclusive_creation() {
     assert_eq!(e.details.created, Created::No);
     assert_eq!(e.details.cleanup, Cleanup::NotAttempted);
     assert_eq!(m.0.borrow().files["日本語.txt"], text.as_bytes());
+}
+
+#[test]
+fn binary_round_trip_preserves_every_byte_and_reports_eof() {
+    let all: Vec<u8> = (0..=255).collect();
+    for bytes in [all.as_slice(), b"".as_slice()] {
+        let m = Memory::default();
+        m.0.borrow_mut()
+            .writes
+            .extend([Step::Count(1), Step::Interrupted]);
+        m.0.borrow_mut()
+            .reads
+            .extend([Step::Interrupted, Step::Count(2)]);
+        let mut f = Files::with_trace_limit(m.clone(), 3);
+        let size = bytes.len() as i64;
+        f.write_bytes_new("sample.bin", bytes, size, origin())
+            .unwrap();
+        assert_eq!(m.0.borrow().files["sample.bin"], bytes);
+        assert_eq!(
+            f.read_bytes("sample.bin", size, size as u64, origin())
+                .unwrap(),
+            bytes
+        );
+        let read = f.events()[1].details;
+        assert_eq!(read.operation, Operation::ReadBytes);
+        assert_eq!(read.phase, Phase::Close);
+        assert_eq!(read.requested, Some(size as u64));
+        assert_eq!(read.transferred, size as u64);
+        let error = f
+            .write_bytes_new("sample.bin", b"x", 1, origin())
+            .unwrap_err();
+        assert_eq!(error.code, Code::AlreadyExists);
+        assert_eq!(error.details.created, Created::No);
+        assert_eq!(m.0.borrow().files["sample.bin"], bytes);
+    }
+}
+
+#[test]
+fn binary_read_reports_consumed_prefix_and_reservation_failure() {
+    for (available, steps, phase, code, consumed) in [
+        (1, vec![], Phase::Reserve, Code::BudgetExceeded, 0),
+        (2, vec![], Phase::Read, Code::LimitExceeded, 3),
+        (
+            2,
+            vec![Step::Count(1), Step::Fail],
+            Phase::Read,
+            Code::ReadFailed,
+            1,
+        ),
+    ] {
+        let m = input(&[0xff, 0, 0x80]);
+        m.0.borrow_mut().reads.extend(steps);
+        let mut f = Files::new(m.clone());
+        let e = f
+            .read_bytes("日本語.txt", 2, available, origin())
+            .unwrap_err();
+        assert_eq!(
+            (e.code, e.details.phase, e.details.transferred),
+            (code, phase, consumed)
+        );
+        assert_eq!(e.details.origin, origin());
+        assert_eq!(e.details.requested, None);
+        assert!(e.record().contains("operation=read-bytes"));
+        assert_eq!(m.0.borrow().calls.is_empty(), phase == Phase::Reserve);
+        assert_eq!(f.write_bytes_new("later.bin", b"", 0, origin()), Err(e));
+        assert!(!m.0.borrow().files.contains_key("later.bin"));
+    }
+}
+
+#[test]
+fn binary_write_reports_confirmed_prefix_and_checks_limit_before_creation() {
+    for (limit, code, transferred) in [(1, Code::LimitExceeded, 0), (3, Code::WriteFailed, 2)] {
+        let m = Memory::default();
+        m.0.borrow_mut().writes.extend([Step::Count(2), Step::Fail]);
+        let mut f = Files::new(m.clone());
+        let e = f
+            .write_bytes_new("out.bin", &[0xff, 0, 0x80], limit, origin())
+            .unwrap_err();
+        assert_eq!((e.code, e.details.transferred), (code, transferred));
+        assert_eq!(e.details.requested, Some(3));
+        assert!(e.record().contains("operation=write-bytes-new"));
+        let s = m.0.borrow();
+        if limit == 1 {
+            assert!(s.calls.is_empty());
+            assert!(!s.files.contains_key("out.bin"));
+        } else {
+            assert_eq!(s.files["out.bin"], [0xff, 0]);
+            assert_eq!(e.details.created, Created::Yes);
+            assert_eq!(e.details.cleanup, Cleanup::Closed);
+        }
+    }
 }
 
 #[test]

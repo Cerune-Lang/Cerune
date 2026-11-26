@@ -38,6 +38,19 @@ phase is validate/reserve/open/read/write/close/decode; created is no/yes/unknow
 cargo test --lib runtime::files
 ```
 
+## Reading and creating binary files
+
+Rust callers can copy an ELF object by passing the bytes returned by `Files<B>::read_bytes` directly to `write_bytes_new`. Every byte keeps its original position, including NUL, `FF`, CR and LF.
+
+| Operation | Caller supplies | Result and observation |
+| --- | --- | --- |
+| `read_bytes(name, max_bytes, available_bytes, origin)` | File size limit and bytes available for the read buffer | Reserves the limit before opening. Returns a `Vec<u8>` of the actual length after EOF and successful close. At the limit, probes one more byte. If present, that byte counts towards the consumed total and the operation fails |
+| `write_bytes_new(name, bytes, max_bytes, origin)` | Payload and size limit | Checks the length before exclusive creation. A partial write failure leaves the new file in place and records how many bytes the connection accepted |
+
+Diagnostics identify the operations as `read-bytes` and `write-bytes-new`. Both use the text operations' filename checks, exclusive creation for writes, short-transfer handling, NodeId and source span. The [real-file test](../../tests/file_io/os.rs) reads the header of an x86-64 ELF64 object generated from `factorial.ceru` and compares the saved copy byte for byte with the original.
+
+Cerune source can call the two text functions in the next section. Exposing binary I/O still requires connecting dynamic `[u8]` ownership and usage accounting to common IR instructions and comparing results across executors and generated code. [#243](https://github.com/Cerune-Lang/Cerune/issues/243)
+
 ## Public API and executor connections
 
 Save generated text to a new file, read it back, and compare it with the original value. Preserve UTF-8, NUL, CR/LF, and combining characters exactly; do not normalize, translate newlines, or remove a BOM.

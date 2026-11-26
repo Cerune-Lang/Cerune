@@ -223,7 +223,7 @@ pub(super) fn connect(path: &Path) -> Result<File, ConnectError> {
 }
 pub(super) fn open(root: &File, name: &str, operation: Operation) -> Result<File, OpenError> {
     let mut name: Vec<u16> = name.encode_utf16().collect();
-    let create = operation == Operation::WriteNew;
+    let create = operation.creates_file();
     let file = open_nt(root.as_raw_handle(), &mut name, false, create)?;
     // 排他的create成功は新しい通常ファイルです。作成後の失敗を未作成と偽りません。
     if !create && attributes(&file)? & (REPARSE | DIRECTORY) != 0 {

@@ -114,31 +114,61 @@ impl<B: Backend> Files<B> {
             return Err(failure);
         }
         let mut details = Details::new(Operation::ReadText, max_bytes, None, origin);
-        let result = (|| {
-            self.validate(name, max_bytes)?;
-            details.phase = Phase::Reserve;
-            if max_bytes as u64 > available_bytes {
-                return Err(Code::BudgetExceeded);
-            }
-            let limit = max_bytes as usize;
-            let prepared = prepare(limit)?;
-            #[cfg(test)]
-            if std::mem::take(&mut self.fail_allocation) {
-                return Err(Code::AllocationFailed);
-            }
-            let mut bytes = Vec::new();
-            bytes
-                .try_reserve_exact(limit)
-                .map_err(|_| Code::AllocationFailed)?;
-            let mut handle = self.open(name, &mut details)?;
-            details.phase = Phase::Read;
-            let result = read(&mut handle, &mut bytes, limit, &mut details);
-            close(handle, result, &mut details)?;
-            details.phase = Phase::Decode;
-            let text = String::from_utf8(bytes).map_err(|_| Code::InvalidUtf8)?;
-            Ok((text, prepared))
-        })();
+        let result = self
+            .read_contents(name, available_bytes, &mut details, prepare)
+            .and_then(|(bytes, prepared)| {
+                details.phase = Phase::Decode;
+                let text = String::from_utf8(bytes).map_err(|_| Code::InvalidUtf8)?;
+                Ok((text, prepared))
+            });
         self.complete(details, result)
+    }
+
+    /// Read raw bytes within the caller's available byte allowance.
+    pub fn read_bytes(
+        &mut self,
+        name: &str,
+        max_bytes: i64,
+        available_bytes: u64,
+        origin: Origin,
+    ) -> Result<Vec<u8>, Failure> {
+        if let Some(failure) = self.failure {
+            return Err(failure);
+        }
+        let mut details = Details::new(Operation::ReadBytes, max_bytes, None, origin);
+        let result = self
+            .read_contents(name, available_bytes, &mut details, |_| Ok(()))
+            .map(|(bytes, ())| bytes);
+        self.complete(details, result)
+    }
+
+    fn read_contents<T>(
+        &mut self,
+        name: &str,
+        available_bytes: u64,
+        details: &mut Details,
+        prepare: impl FnOnce(usize) -> Result<T, Code>,
+    ) -> Result<(Vec<u8>, T), Code> {
+        self.validate(name, details.limit)?;
+        details.phase = Phase::Reserve;
+        if details.limit as u64 > available_bytes {
+            return Err(Code::BudgetExceeded);
+        }
+        let limit = details.limit as usize;
+        let prepared = prepare(limit)?;
+        #[cfg(test)]
+        if std::mem::take(&mut self.fail_allocation) {
+            return Err(Code::AllocationFailed);
+        }
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(limit)
+            .map_err(|_| Code::AllocationFailed)?;
+        let mut handle = self.open(name, details)?;
+        details.phase = Phase::Read;
+        let result = read(&mut handle, &mut bytes, limit, details);
+        close(handle, result, details)?;
+        Ok((bytes, prepared))
     }
 
     pub fn write_new(
@@ -148,23 +178,45 @@ impl<B: Backend> Files<B> {
         max_bytes: i64,
         origin: Origin,
     ) -> Result<(), Failure> {
+        self.write_contents(
+            name,
+            text.as_bytes(),
+            max_bytes,
+            origin,
+            Operation::WriteNew,
+        )
+    }
+
+    pub fn write_bytes_new(
+        &mut self,
+        name: &str,
+        bytes: &[u8],
+        max_bytes: i64,
+        origin: Origin,
+    ) -> Result<(), Failure> {
+        self.write_contents(name, bytes, max_bytes, origin, Operation::WriteBytesNew)
+    }
+
+    fn write_contents(
+        &mut self,
+        name: &str,
+        bytes: &[u8],
+        max_bytes: i64,
+        origin: Origin,
+        operation: Operation,
+    ) -> Result<(), Failure> {
         if let Some(failure) = self.failure {
             return Err(failure);
         }
-        let mut details = Details::new(
-            Operation::WriteNew,
-            max_bytes,
-            Some(text.len() as u64),
-            origin,
-        );
+        let mut details = Details::new(operation, max_bytes, Some(bytes.len() as u64), origin);
         let result = (|| {
             self.validate(name, max_bytes)?;
-            if text.len() as u64 > max_bytes as u64 {
+            if bytes.len() as u64 > max_bytes as u64 {
                 return Err(Code::LimitExceeded);
             }
             let mut handle = self.open(name, &mut details)?;
             details.phase = Phase::Write;
-            let result = write(&mut handle, text.as_bytes(), &mut details);
+            let result = write(&mut handle, bytes, &mut details);
             close(handle, result, &mut details)
         })();
         self.complete(details, result)
@@ -187,7 +239,7 @@ impl<B: Backend> Files<B> {
             .open(name, details.operation)
         {
             Ok(handle) => {
-                if details.operation == Operation::WriteNew {
+                if details.operation.creates_file() {
                     details.created = Created::Yes;
                 }
                 Ok(handle)
@@ -198,7 +250,7 @@ impl<B: Backend> Files<B> {
                 OpenError::UnsupportedTarget => Code::UnsupportedTarget,
                 OpenError::Failed => Code::OpenFailed,
                 OpenError::InvalidResponse => {
-                    if details.operation == Operation::WriteNew {
+                    if details.operation.creates_file() {
                         details.created = Created::Unknown;
                     }
                     Code::InvalidResponse

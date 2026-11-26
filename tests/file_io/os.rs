@@ -44,6 +44,41 @@ const ROUTES: &[&[&str]] = &[
     &["run-vm"],
 ];
 #[test]
+fn binary_files_round_trip_a_native_elf_object() {
+    use cerune_lang::{
+        codegen::x86_64::Target, compile_to_native_object, ir::NodeId, source::Span,
+    };
+    let object = compile_to_native_object(
+        include_str!("../../examples/recursion/factorial.ceru"),
+        Target::X86_64UnknownLinuxGnu,
+        false,
+    )
+    .unwrap();
+    let temp = Temp::new();
+    fs::write(temp.0.join("factorial.o"), &object).unwrap();
+    let origin = Origin {
+        node_id: NodeId(7),
+        span: Span::new(10, 22),
+    };
+    let mut files = Files::new(Directory::open(&temp.0).unwrap());
+    let limit = object.len() as i64;
+    let bytes = files
+        .read_bytes("factorial.o", limit, limit as u64, origin)
+        .unwrap();
+    assert_eq!(&bytes[..6], b"\x7fELF\x02\x01"); // ELF64, little-endian
+    assert_eq!(u16::from_le_bytes(bytes[16..18].try_into().unwrap()), 1); // ET_REL
+    assert_eq!(u16::from_le_bytes(bytes[18..20].try_into().unwrap()), 62); // x86-64
+    assert_eq!(bytes, object);
+    files
+        .write_bytes_new("copy.o", &bytes, limit, origin)
+        .unwrap();
+    assert_eq!(fs::read(temp.0.join("copy.o")).unwrap(), object);
+    let collision = files.write_bytes_new("copy.o", b"", 0, origin).unwrap_err();
+    assert_eq!(collision.code, Code::AlreadyExists);
+    assert_eq!(fs::read(temp.0.join("copy.o")).unwrap(), object);
+}
+
+#[test]
 fn cli_roundtrip_example_and_exclusive_create_match_all_routes() {
     for route in ROUTES {
         let temp = Temp::new();
