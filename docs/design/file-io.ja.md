@@ -38,6 +38,19 @@ phaseはvalidate／reserve／open／read／write／close／decode、createdはno
 cargo test --lib runtime::files
 ```
 
+## バイナリファイルの読取りと新規保存
+
+Rust の `Files<B>` で ELF オブジェクトを複製するには、`read_bytes` の戻り値をそのまま `write_bytes_new` に渡します。NUL、`FF`、CR/LF を含む全バイトが元の順序で保存されます。
+
+| 操作 | 呼出し側が指定する量 | 結果と記録 |
+| --- | --- | --- |
+| `read_bytes(name, max_bytes, available_bytes, origin)` | ファイルサイズの上限と、読取り先に使えるバイト数 | 開く前に上限分を予約し、EOF と close 成功後に実際に読んだ長さの `Vec<u8>` を返す。上限ちょうどなら追加の1バイトを要求し、データがあればその1バイトも消費数に含めて停止する |
+| `write_bytes_new(name, bytes, max_bytes, origin)` | 保存するバイト列とサイズ上限 | 長さを検査してから新規作成する。途中で失敗した場合、ファイルにはそれまでに書けたバイトが残り、診断にはそのバイト数が残る |
+
+診断の操作名は `read-bytes` と `write-bytes-new` です。名前の検査、同名ファイルの保護、短い転送の継続、失敗時の NodeId とソース位置にはテキスト入出力と同じ処理を使います。[実ファイルの試験](../../tests/file_io/os.rs)では `factorial.ceru` から生成した x86-64 ELF64 オブジェクトのヘッダを読み、別名で保存したファイルを元の全バイトと照合します。
+
+Cerune ソースから呼べる `std:fs` 関数は次節のテキスト用2関数です。バイナリ入出力をソースから使うには、動的配列 `[u8]` の所有と使用量の管理を共通IR命令に接続し、各実行器と生成経路で照合する作業が残っています。[#243](https://github.com/Cerune-Lang/Cerune/issues/243)
+
 ## 公開APIと実行器への接続
 
 生成したテキストを新しいファイルに保存し、読み戻した文字列を元の値と比較します。内容のUTF-8・NUL・CR/LF・結合文字をそのまま保持し、正規化・改行変換・BOM除去をしません。

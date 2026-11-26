@@ -39,8 +39,10 @@ impl Backend for Memory {
             return Err(error);
         }
         match operation {
-            Operation::ReadText if !s.files.contains_key(name) => return Err(OpenError::NotFound),
-            Operation::WriteNew => {
+            Operation::ReadText | Operation::ReadBytes if !s.files.contains_key(name) => {
+                return Err(OpenError::NotFound);
+            }
+            Operation::WriteNew | Operation::WriteBytesNew => {
                 if s.files.contains_key(name) {
                     return Err(OpenError::AlreadyExists);
                 }

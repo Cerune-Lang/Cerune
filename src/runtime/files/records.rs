@@ -4,6 +4,16 @@ use super::Origin;
 pub enum Operation {
     ReadText,
     WriteNew,
+    ReadBytes,
+    WriteBytesNew,
+}
+impl Operation {
+    pub const fn creates_file(self) -> bool {
+        match self {
+            Self::ReadText | Self::ReadBytes => false,
+            Self::WriteNew | Self::WriteBytesNew => true,
+        }
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase {
@@ -113,6 +123,8 @@ impl Failure {
         let operation = match d.operation {
             Operation::ReadText => "read-text",
             Operation::WriteNew => "write-new",
+            Operation::ReadBytes => "read-bytes",
+            Operation::WriteBytesNew => "write-bytes-new",
         };
         let phase = match d.phase {
             Phase::Validate => "validate",

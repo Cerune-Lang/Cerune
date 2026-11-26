@@ -48,7 +48,7 @@ pub(super) fn connect(path: &Path) -> Result<File, ConnectError> {
 }
 pub(super) fn open(root: &File, name: &str, operation: Operation) -> Result<File, OpenError> {
     let name = CString::new(name).map_err(|_| OpenError::Failed)?;
-    if operation == Operation::WriteNew {
+    if operation.creates_file() {
         // 検査と作成を分けず、既存の名前には一切書き込みません。
         let fd = unsafe {
             libc::openat(
