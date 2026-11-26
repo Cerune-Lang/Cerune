@@ -22,6 +22,7 @@ pub(super) fn emit_with_trace(module: &Module, trace: bool) -> String {
     let module = &emission;
     let mut output = String::new();
     let support = required_support(module);
+    let binary_files = support.binary_files;
     let files = support.files;
     let processes = !support.processes.is_empty();
     let process_types = support.processes.clone();
@@ -142,6 +143,9 @@ pub(super) fn emit_with_trace(module: &Module, trace: bool) -> String {
     }
     if let Some(limit) = module.array_heap_limit {
         output.push_str(&super::array::support(limit));
+    }
+    if binary_files {
+        output.push_str(super::files::BINARY);
     }
     if writes {
         output.push_str(&super::output::support(strings));
@@ -351,16 +355,28 @@ fn emit_statement(
     let prefix = "    ".repeat(indent);
 
     match statement {
-        Statement::FileWriteNew {
+        Statement::FileWriteBytesNew {
+            origin,
+            name,
+            bytes: text,
+            max_bytes,
+        }
+        | Statement::FileWriteNew {
             origin,
             name,
             text,
             max_bytes,
         } => {
             writeln!(output, "{prefix}{{").unwrap();
+            let (helper, payload_type) = if matches!(statement, Statement::FileWriteBytesNew { .. })
+            {
+                ("cerune_file_write_bytes_new", "cerune_dynamic_array")
+            } else {
+                ("cerune_file_write_new", "cerune_string")
+            };
             for (kind, local, value) in [
                 ("cerune_string", "file_name", name),
-                ("cerune_string", "file_text", text),
+                (payload_type, "file_data", text),
                 ("int64_t", "file_limit", max_bytes),
             ] {
                 write!(output, "{prefix}    {kind} {local} = ").unwrap();
@@ -369,7 +385,7 @@ fn emit_statement(
             }
             write!(
                 output,
-                "{prefix}    cerune_file_write_new(file_name, file_text, file_limit"
+                "{prefix}    {helper}(file_name, file_data, file_limit"
             )
             .unwrap();
             super::failure::argument(*origin, output);
@@ -805,8 +821,13 @@ fn emit_expr(expr: &Expr, module: &Emission<'_>, output: &mut String) {
             super::failure::argument(expr.origin, output);
             output.push(')');
         }
-        ExprKind::FileReadText { name, max_bytes } => {
-            output.push_str("cerune_file_read_text(");
+        ExprKind::FileReadBytes { name, max_bytes }
+        | ExprKind::FileReadText { name, max_bytes } => {
+            output.push_str(if matches!(expr.kind, ExprKind::FileReadBytes { .. }) {
+                "cerune_file_read_bytes("
+            } else {
+                "cerune_file_read_text("
+            });
             emit_expr(name, module, output);
             output.push_str(", ");
             emit_expr(max_bytes, module, output);
@@ -1142,6 +1163,7 @@ fn emit_expr(expr: &Expr, module: &Emission<'_>, output: &mut String) {
 struct RuntimeSupport {
     processes: Vec<(usize, usize)>,
     files: bool,
+    binary_files: bool,
     arguments: bool,
     input: bool,
     string_byte_at: bool,
@@ -1194,7 +1216,9 @@ impl RuntimeSupport {
                 self.arguments = true;
                 self.include_expr(index);
             }
-            ExprKind::FileReadText { name, max_bytes } => {
+            ExprKind::FileReadBytes { name, max_bytes }
+            | ExprKind::FileReadText { name, max_bytes } => {
+                self.binary_files |= matches!(expr.kind, ExprKind::FileReadBytes { .. });
                 self.files = true;
                 self.include_expr(name);
                 self.include_expr(max_bytes);
@@ -1304,12 +1328,19 @@ impl RuntimeSupport {
 
     fn include_statement(&mut self, statement: &Statement) {
         match statement {
-            Statement::FileWriteNew {
+            Statement::FileWriteBytesNew {
+                name,
+                bytes: text,
+                max_bytes,
+                ..
+            }
+            | Statement::FileWriteNew {
                 name,
                 text,
                 max_bytes,
                 ..
             } => {
+                self.binary_files |= matches!(statement, Statement::FileWriteBytesNew { .. });
                 self.files = true;
                 for value in [name, text, max_bytes] {
                     self.include_expr(value);
@@ -1660,7 +1691,9 @@ fn array_element_name(element: &Type, module: &Module) -> String {
 
 fn statement_uses_bool(statement: &Statement) -> bool {
     match statement {
-        Statement::FileWriteNew { .. } | Statement::Flush { .. } => false,
+        Statement::FileWriteBytesNew { .. }
+        | Statement::FileWriteNew { .. }
+        | Statement::Flush { .. } => false,
         Statement::ArrayInitialize { array, value } => {
             array.ty == Type::Bool || value.ty == Type::Bool
         }

@@ -518,8 +518,51 @@ macro_rules! cases {
         }
     };
 }
+#[test]
+fn generated_c_binary_eof_probe_and_array_lifetime() {
+    let program = hir(r#"import "std:fs::bytes" as fs;
+        fs::write_bytes_new("empty", fs::read_bytes("x", 0), 0);
+        print("created");"#);
+    let emitted = Route::C.emit(&program, Default::default());
+    let Some((dir, exe)) = Route::C.build(&emitted, "-O2", &[]) else {
+        return;
+    };
+    fs::write(dir.join("x"), [0xff]).unwrap();
+    let out = connected(&dir, &exe, &dir);
+    compare(&program, &out, &dir);
+    assert!(String::from_utf8_lossy(&out.stderr).contains("transferred=1"));
+    assert!(!dir.join("empty").exists());
+    fs::write(dir.join("x"), []).unwrap();
+    let out = connected(&dir, &exe, &dir);
+    assert!(out.status.success(), "{out:?}");
+    assert_eq!(out.stdout, b"created\n");
+    assert_eq!(fs::read(dir.join("empty")).unwrap(), b"");
+    fs::remove_dir_all(dir).unwrap();
+
+    let mut program = hir(r#"import "std:fs::bytes" as fs;
+        mut i: i64 = 0;
+        while i < 8 {
+            data: [u8] = fs::read_bytes("x",4);
+            mut copy: [u8] = data;
+            copy[0] = 55;
+            print(data[0]); i = i + 1;
+        }"#);
+    program.array_heap_limit = 64;
+    let emitted = Route::C.emit(&program, Default::default());
+    let (dir, exe) = Route::C.build(&emitted, "-O2", &[]).unwrap();
+    fs::write(dir.join("x"), [0xff]).unwrap();
+    let out = connected(&dir, &exe, &dir);
+    compare(&program, &out, &dir);
+    assert_eq!(out.stdout, b"255\n".repeat(8));
+    fs::remove_dir_all(dir).unwrap();
+}
+
 mod c_tests {
     cases!(super::Route::C);
+    #[test]
+    fn binary_elf_and_array_budget() {
+        super::binary_elf_and_array_budget_match_the_executors(super::Route::C);
+    }
 }
 mod qbe_tests {
     cases!(super::Route::Qbe);
@@ -747,51 +790,54 @@ fn native_build(bytes: &[u8], object: bool) -> Option<(std::path::PathBuf, std::
     );
     Some((dir, exe))
 }
-#[test]
-fn native_binary_elf_and_array_budget_match_the_executors() {
+fn binary_elf_and_array_budget_match_the_executors(route: Route) {
     let object = cerune_lang::compile_to_native_object(
         include_str!("../../examples/recursion/factorial.ceru"),
         cerune_lang::codegen::x86_64::Target::X86_64UnknownLinuxGnu,
         false,
     )
     .unwrap();
-    for route in [Route::Native(false), Route::Native(true)] {
-        let p = hir(include_str!("../../examples/files/elf_header.ceru"));
-        let emitted = route.emit(&p, Default::default());
-        let Some((dir, exe)) = route.build(&emitted, "-O2", &[]) else {
-            return;
-        };
-        let root = dir.join("root");
-        fs::create_dir(&root).unwrap();
-        fs::write(root.join("input.o"), &object).unwrap();
-        let out = connected(&dir, &exe, &root);
-        assert!(
-            out.status.success(),
-            "{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        assert_eq!(out.stdout, b"1\n1\n0\n");
-        assert_eq!(fs::read(root.join("copy.o")).unwrap(), object);
-        compare(&p, &connected(&dir, &exe, &root), &root);
-        assert_eq!(fs::read(root.join("copy.o")).unwrap(), object);
-        fs::remove_dir_all(dir).unwrap();
+    let p = hir(include_str!("../../examples/files/elf_header.ceru"));
+    let emitted = route.emit(&p, Default::default());
+    let Some((dir, exe)) = route.build(&emitted, "-O2", &[]) else {
+        return;
+    };
+    let root = dir.join("root");
+    fs::create_dir(&root).unwrap();
+    fs::write(root.join("input.o"), &object).unwrap();
+    let out = connected(&dir, &exe, &root);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(out.stdout, b"1\n1\n0\n");
+    assert_eq!(fs::read(root.join("copy.o")).unwrap(), object);
+    compare(&p, &connected(&dir, &exe, &root), &root);
+    assert_eq!(fs::read(root.join("copy.o")).unwrap(), object);
+    fs::remove_dir_all(dir).unwrap();
 
-        let mut budget =
-            hir(r#"import "std:fs::bytes" as fs; print(7); print(fs::read_bytes("missing",4));"#);
-        budget.array_heap_limit = 31;
-        let emitted = route.emit(&budget, Default::default());
-        let (dir, exe) = route.build(&emitted, "-O2", &[]).unwrap();
-        let out = connected(&dir, &exe, &dir);
-        compare(&budget, &out, &dir);
-        assert!(
-            String::from_utf8_lossy(&out.stderr).contains("phase=reserve code=budget-exceeded")
-        );
-        fs::remove_dir_all(dir).unwrap();
-    }
+    let mut budget =
+        hir(r#"import "std:fs::bytes" as fs; print(7); print(fs::read_bytes("missing",4));"#);
+    budget.array_heap_limit = 31;
+    let emitted = route.emit(&budget, Default::default());
+    let (dir, exe) = route.build(&emitted, "-O2", &[]).unwrap();
+    let out = connected(&dir, &exe, &dir);
+    compare(&budget, &out, &dir);
+    assert!(String::from_utf8_lossy(&out.stderr).contains("phase=reserve code=budget-exceeded"));
+    fs::remove_dir_all(dir).unwrap();
 }
 mod native_asm_tests {
     cases!(super::Route::Native(false));
+    #[test]
+    fn binary_elf_and_array_budget() {
+        super::binary_elf_and_array_budget_match_the_executors(super::Route::Native(false));
+    }
 }
 mod native_object_tests {
     cases!(super::Route::Native(true));
+    #[test]
+    fn binary_elf_and_array_budget() {
+        super::binary_elf_and_array_budget_match_the_executors(super::Route::Native(true));
+    }
 }

@@ -16,30 +16,42 @@ typedef struct cerune_dynamic_array {
 } cerune_dynamic_array;
 
 static uint64_t cerune_array_live_bytes;
-static cerune_dynamic_array cerune_array_allocate_elements(
-    int64_t length, uint64_t width, size_t element_size, const char *origin) {
-    if (length < 0) cerune_runtime_fail("array-length-out-of-range", origin);
+static uint64_t cerune_array_available_bytes(void) {
+    return UINT64_C(@LIMIT@) - cerune_array_live_bytes;
+}
+static const char *cerune_array_try_allocate(
+    int64_t length, uint64_t width, size_t element_size, cerune_dynamic_array *out) {
+    *out = (cerune_dynamic_array){NULL, 0};
+    if (length < 0) return "array-length-out-of-range";
     if ((width && (uint64_t)length > (uint64_t)INT64_MAX / width) ||
         (element_size && (uint64_t)length > (uint64_t)SIZE_MAX / element_size) ||
         (element_size && (uint64_t)length > (uint64_t)PTRDIFF_MAX / element_size))
-        cerune_runtime_fail("allocation-size-overflow", origin);
+        return "allocation-size-overflow";
     uint64_t bytes = (uint64_t)length * width;
-    if (bytes > UINT64_C(@LIMIT@) - cerune_array_live_bytes)
-        cerune_runtime_fail("allocation-limit-exceeded", origin);
-    if (!length) return (cerune_dynamic_array){NULL, 0};
+    if (bytes > cerune_array_available_bytes())
+        return "allocation-limit-exceeded";
+    if (!length) return NULL;
     cerune_array_owner *owner = malloc(sizeof(cerune_array_owner));
-    if (!owner) cerune_runtime_fail("allocation-failed", origin);
+    if (!owner) return "allocation-failed";
     size_t physical_bytes = (size_t)length * element_size;
     owner->data = malloc(physical_bytes ? physical_bytes : 1);
     if (!owner->data) {
         free(owner);
-        cerune_runtime_fail("allocation-failed", origin);
+        return "allocation-failed";
     }
     owner->references = 1;
     owner->bytes = bytes;
     owner->initialized = 0;
     cerune_array_live_bytes += bytes;
-    return (cerune_dynamic_array){owner, length};
+    *out = (cerune_dynamic_array){owner, length};
+    return NULL;
+}
+static cerune_dynamic_array cerune_array_allocate_elements(
+    int64_t length, uint64_t width, size_t element_size, const char *origin) {
+    cerune_dynamic_array array;
+    const char *code = cerune_array_try_allocate(length, width, element_size, &array);
+    if (code) cerune_runtime_fail(code, origin);
+    return array;
 }
 static void cerune_array_retain_owner(cerune_dynamic_array value) {
     if (!value.owner) return;

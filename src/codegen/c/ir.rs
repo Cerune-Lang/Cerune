@@ -63,6 +63,12 @@ pub struct FieldDefinition {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
+    FileWriteBytesNew {
+        origin: Origin,
+        name: Expr,
+        bytes: Expr,
+        max_bytes: Expr,
+    },
     FileWriteNew {
         origin: Origin,
         name: Expr,
@@ -190,6 +196,10 @@ impl From<&crate::ir::Expr> for Origin {
 pub enum ExprKind {
     ProcessRun {
         request: Box<Expr>,
+    },
+    FileReadBytes {
+        name: Box<Expr>,
+        max_bytes: Box<Expr>,
     },
     FileReadText {
         name: Box<Expr>,

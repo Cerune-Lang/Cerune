@@ -268,9 +268,19 @@ fn lower_statement(statement: &cerune_ir::Statement) -> Statement {
             kind: crate::codegen::display::kind(&value.ty, *quoted),
             value: lower_expr(value),
         },
-        cerune_ir::StatementKind::FileWriteBytesNew { .. } => {
-            unreachable!("binary file I/O checked before lowering")
-        }
+        cerune_ir::StatementKind::FileWriteBytesNew {
+            name,
+            bytes,
+            max_bytes,
+        } => Statement::FileWriteBytesNew {
+            origin: super::ir::Origin {
+                node_id: statement.id,
+                span: statement.span,
+            },
+            name: lower_expr(name),
+            bytes: lower_expr(bytes),
+            max_bytes: lower_expr(max_bytes),
+        },
         cerune_ir::StatementKind::FileWriteNew {
             name,
             text,
@@ -450,9 +460,10 @@ fn lower_expr_unchecked(expr: &cerune_ir::Expr) -> Expr {
         cerune_ir::ExprKind::ProcessRun { request } => ExprKind::ProcessRun {
             request: Box::new(lower_expr(request)),
         },
-        cerune_ir::ExprKind::FileReadBytes { .. } => {
-            unreachable!("binary file I/O checked before lowering")
-        }
+        cerune_ir::ExprKind::FileReadBytes { name, max_bytes } => ExprKind::FileReadBytes {
+            name: Box::new(lower_expr(name)),
+            max_bytes: Box::new(lower_expr(max_bytes)),
+        },
         cerune_ir::ExprKind::FileReadText { name, max_bytes } => ExprKind::FileReadText {
             name: Box::new(lower_expr(name)),
             max_bytes: Box::new(lower_expr(max_bytes)),
