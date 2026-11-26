@@ -59,6 +59,24 @@ clang elf-native/reader.o -o elf-native/reader
 cmp elf-native/input.o elf-native/copy.o
 ```
 
+## Follow an ELF64 relocation to its symbol
+
+[elf_relocation.ceru](elf_relocation.ceru) reads the first entry of the first nonempty `SHT_RELA` section in the `elf-sample/input.o` created above. Its `sh_info` identifies the section to modify and its `sh_link` identifies the symbol table. The symbol table in turn points to the string table containing the referenced name.
+
+```sh
+cargo run --quiet -- run examples/files/elf_relocation.ceru --file-root elf-sample
+readelf -W -S -s -r elf-sample/input.o
+```
+
+| Sample output | Compare with `readelf` |
+| --- | --- |
+| `[3, 1, 4]` | Section indices for `.rela.text`, its target `.text`, and `.symtab` |
+| `[18, 2, 127]` | Offset `0x12` in the target, type `R_X86_64_PC32`, symbol index 127 |
+| `-4` | Signed addend used in the address calculation |
+| `[115, 116, 100, 101, 114, 114]` | The six bytes spelling the symbol name `stderr` |
+
+The example reads little-endian x86-64 `ET_REL` files up to 64 KiB with ordinary section indices and `SHT_SYMTAB`. Indices and names depend on the input. A table outside the file or a missing name terminator produces a message identifying the affected field.
+
 ## Save and read back text
 
 [roundtrip.ceru](roundtrip.ceru) saves Japanese text, NUL, CR/LF, and combining characters, then prints readback equality and byte length. Expected output is true followed by 16.

@@ -15,7 +15,7 @@ Normal examples are the `.ceru` files in this directory.
 | [arguments](arguments/README.en.md) | Program arguments, empty values, UTF-8 bytes and seed selection; all existing routes |
 | [formatting](formatting/README.en.md) | Optional let, infer omission, formatting, prefix policies and execution comparisons |
 | [integer_parsing](integer_parsing/README.en.md) | Explicit i64 parsing, invalid syntax and range errors |
-| [files](files/README.en.md) | New-file creation/readback in explicit Windows/Linux directories across four executors |
+| [files](files/README.en.md) | Save and read back text, inspect and copy an ELF object, and follow a relocation to its symbol name |
 | [stdin](stdin/README.en.md) | Actual stdin lines/blank lines/EOF, prompt flush, UTF-8 byte counts; compared across routes |
 | [io_protocol](io_protocol/README.en.md) | Output/evaluation order, explicit flush, and scripted input; distinguish EOF, empty lines, and failure (no stdin) |
 | [ir_stages](ir_stages/README.en.md) | Execute short circuits, loops, and calls; observe HIR→MIR→LIR→Native lowering and target-specific ABI |
