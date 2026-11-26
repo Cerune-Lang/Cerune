@@ -14,6 +14,17 @@ cargo run --quiet -- run examples/files/elf_header.ceru --file-root elf-sample
 
 結果は順に、オブジェクトの種類（1 = ET_REL）、版（1）、入口アドレス（0）です。64バイトに満たない入力ではメッセージを表示して終了します。経路を比較するときは、各ディレクトリに同じ `input.o` を置いてください。
 
+Linux x86-64 で同じ例を Native 実行するには、次のコマンドを使います。`cmp` の終了コード0は全バイトの一致を表します。
+
+```sh
+mkdir elf-native
+cp elf-sample/input.o elf-native/input.o
+cargo run --quiet -- emit-obj examples/files/elf_header.ceru --target x86_64-unknown-linux-gnu -o elf-native/reader.o
+clang elf-native/reader.o -o elf-native/reader
+./elf-native/reader --cerune-runtime-v1 --file-root elf-native --
+cmp elf-native/input.o elf-native/copy.o
+```
+
 ## テキストを保存して読み戻す
 
 [roundtrip.ceru](roundtrip.ceru)は日本語・NUL・CR/LF・結合文字を保存し、読戻し結果の一致とバイト数を表示します。期待する出力はtrue、16です。

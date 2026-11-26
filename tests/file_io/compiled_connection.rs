@@ -98,7 +98,7 @@ static FILE *trace(void) { FILE *f=fopen("host-trace.txt","ab"); if(!f) abort();
 static void save(void) { FILE *f=fopen("host-bytes.bin","wb"); if(!f) abort(); if(fwrite(data,1,(size_t)length,f)!=length) abort(); if(fclose(f)) abort(); }
 int32_t cerune_file_host_configured(void) { return configured; }
 int32_t cerune_file_host_open(const unsigned char *name, uint64_t n, int32_t write, int64_t *handle) {
-    FILE *f=trace(); fprintf(f,"open:%s:%.*s\n",write?"WriteNew":"ReadText",(int)n,name); fclose(f);
+    FILE *f=trace(); fprintf(f,"open:%s:%.*s\n",write?"create":"read",(int)n,name); fclose(f);
     if(open_error) return open_error;
     if(write && exists) return 2;
     if(!write && !exists) return 1;

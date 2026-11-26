@@ -76,17 +76,6 @@ pub fn lower_with_argument_limits(
             for i in &b.instructions {
                 match &i.kind {
                     Kind::Assign {
-                        value: Op::FileReadBytes { .. },
-                        ..
-                    }
-                    | Kind::FileWriteBytesNew { .. } => {
-                        let message = "Native binary file I/O is not supported yet";
-                        return Err(match i.origin.source() {
-                            Some(o) => crate::diagnostic::Diagnostic::new(message, o.span),
-                            None => crate::diagnostic::Diagnostic::without_span(message),
-                        });
-                    }
-                    Kind::Assign {
                         value: Op::ArgumentCount | Op::ArgumentGet(_) | Op::ProcessRun { .. },
                         ..
                     } => {
@@ -95,10 +84,15 @@ pub fn lower_with_argument_limits(
                     Kind::Output { .. } => module.uses_write = true,
                     Kind::StringManage { .. }
                     | Kind::Assign {
-                        value: Op::StringConcat { .. } | Op::ReadLine(_) | Op::FileReadText { .. },
+                        value:
+                            Op::StringConcat { .. }
+                            | Op::ReadLine(_)
+                            | Op::FileReadText { .. }
+                            | Op::FileReadBytes { .. },
                         ..
                     }
-                    | Kind::FileWriteNew { .. } => {
+                    | Kind::FileWriteNew { .. }
+                    | Kind::FileWriteBytesNew { .. } => {
                         module.string_heap_limit = Some(program.string_heap_limit)
                     }
                     _ => {}
@@ -461,8 +455,16 @@ impl Lowerer<'_> {
     }
     fn instruction(&mut self, k: &Kind) {
         match k {
-            Kind::FileWriteBytesNew { .. } => {
-                unreachable!("binary file I/O checked before lowering")
+            Kind::FileWriteBytesNew {
+                name,
+                bytes,
+                max_bytes,
+            } => {
+                self.load(*max_bytes);
+                self.push(Instruction::FileWriteBytesNew {
+                    name_offset: self.offset(*name),
+                    bytes_offset: self.offset(*bytes),
+                });
             }
             Kind::FileWriteNew {
                 name,
@@ -750,7 +752,12 @@ impl Lowerer<'_> {
                 });
                 return;
             }
-            Op::FileReadBytes { .. } => unreachable!("binary file I/O checked before lowering"),
+            Op::FileReadBytes { name, max_bytes } => {
+                self.load(*max_bytes);
+                self.push(Instruction::FileReadBytes {
+                    name_offset: self.offset(*name),
+                });
+            }
             Op::FileReadText { name, max_bytes } => {
                 self.load(*max_bytes);
                 self.push(Instruction::FileReadText {

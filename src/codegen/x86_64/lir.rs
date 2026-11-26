@@ -126,6 +126,8 @@ fn body(
                 | Instruction::ArgumentCount
                 | Instruction::ArgumentGet
                 | Instruction::ReadLine
+                | Instruction::FileReadBytes { .. }
+                | Instruction::FileWriteBytesNew { .. }
                 | Instruction::FileReadText { .. }
                 | Instruction::FileWriteNew { .. }
                 | Instruction::Flush
@@ -289,10 +291,14 @@ fn body(
                     return Err(fail("process request and outcome overlap"));
                 }
             }
-            FileReadText { name_offset } => stack(*name_offset, 1)?,
+            FileReadBytes { name_offset } | FileReadText { name_offset } => stack(*name_offset, 1)?,
             FileWriteNew {
                 name_offset,
                 text_offset,
+            }
+            | FileWriteBytesNew {
+                name_offset,
+                bytes_offset: text_offset,
             } => {
                 stack(*name_offset, 1)?;
                 stack(*text_offset, 1)?;
@@ -460,6 +466,8 @@ fn body(
                 | ArgumentCount
                 | ArgumentGet
                 | ReadLine
+                | FileReadBytes { .. }
+                | FileWriteBytesNew { .. }
                 | FileReadText { .. }
                 | FileWriteNew { .. }
                 | StringConcat { .. }
@@ -471,6 +479,8 @@ fn body(
         if matches!(
             i,
             ProcessRun { .. }
+                | FileReadBytes { .. }
+                | FileWriteBytesNew { .. }
                 | ArrayAllocate { .. }
                 | ArrayRangeCheck { .. }
                 | DynamicArrayAddress { .. }

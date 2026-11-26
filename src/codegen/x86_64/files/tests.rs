@@ -337,6 +337,40 @@ fn native_files_validation_limits_and_utf8_match_four_executors() {
     }
 }
 #[test]
+fn binary_transfers_match_executor_progress_cleanup_and_reservations() {
+    const READ: &str =
+        r#"import "std:fs::bytes" as fs; print(7); print(fs::read_bytes("x",4)); print(8);"#;
+    const WRITE: &str = r#"import "std:fs::bytes" as fs; print(7); data: [u8] = array_copy([255u8,0u8,13u8,10u8]); fs::write_bytes_new("x",data,4); print(8);"#;
+    for route in ["asm", "object"] {
+        for (source, case) in [
+            (READ, Case::read(&[255, 0, 13, 10])),
+            (WRITE, Case::write()),
+        ] {
+            for steps in [
+                vec![Step::Count(1), Step::Interrupted, Step::Count(2)],
+                vec![Step::Count(1), Step::Fail],
+                vec![Step::Count(1), Step::Invalid],
+                vec![Step::Zero],
+            ] {
+                let mut injected = case.clone();
+                injected.steps = steps;
+                if !compare(source, "x", &injected, route, None) {
+                    return;
+                }
+            }
+            let mut failed_close = case;
+            failed_close.close_error = true;
+            compare(source, "x", &failed_close, route, None);
+        }
+        compare(READ, "x", &Case::read(&[0xff; 5]), route, None);
+        compare(READ, "x", &Case::read(&[]), route, None);
+        let zero =
+            r#"import "std:fs::bytes" as fs; fs::write_bytes_new("x", fs::read_bytes("x",0), 0);"#;
+        compare(zero, "x", &Case::read(&[]), route, None);
+    }
+}
+
+#[test]
 fn native_files_evaluation_short_circuit_recursion_and_owned_copies() {
     let source = r#"import "std:fs" as fs;
         fn name()->string { print(1); return "x"; }
@@ -502,7 +536,14 @@ fn native_files_lir_requires_origin_frame_and_heap() {
 
 #[test]
 fn native_files_read_failures_release_reserved_storage() {
-    let source = r#"import "std:fs" as fs; print(7); print(fs::read_text("x",3)); print(8);"#;
+    for source in [
+        r#"import "std:fs" as fs; print(7); print(fs::read_text("x",3)); print(8);"#,
+        r#"import "std:fs::bytes" as fs; print(7); print(fs::read_bytes("x",3)); print(8);"#,
+    ] {
+        check_read_storage(source);
+    }
+}
+fn check_read_storage(source: &str) {
     let p = hir(source);
     let mut native = artifact(&p, target());
     for s in &mut native.program.symbols {
