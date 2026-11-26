@@ -48,19 +48,6 @@ pub(super) fn reject_arguments(
     Ok(())
 }
 
-pub(super) fn reject_binary_files(
-    program: &crate::ir::Program,
-    backend: &str,
-) -> Result<(), crate::diagnostic::Diagnostic> {
-    if let Some(span) = program.first_binary_file_span() {
-        return Err(crate::diagnostic::Diagnostic::new(
-            format!("{backend} binary file I/O is not supported yet"),
-            span,
-        ));
-    }
-    Ok(())
-}
-
 pub(super) fn reject_files(
     program: &crate::ir::Program,
     backend: &str,

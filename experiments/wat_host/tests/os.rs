@@ -108,6 +108,19 @@ fn compare_program(p: language::ir::Program, initial: &[(&str, &[u8])], configur
     assert_eq!(p, before);
 }
 #[test]
+fn real_binary_elf_copy_matches_four_executors() {
+    let source = include_str!("../../../examples/files/elf_header.ceru");
+    let object = language::compile_to_native_object(
+        include_str!("../../../examples/recursion/factorial.ceru"),
+        language::codegen::x86_64::Target::X86_64UnknownLinuxGnu,
+        false,
+    )
+    .unwrap();
+    compare(source, &[("input.o", &object)], true);
+    compare(source, &[("input.o", &object), ("copy.o", b"keep")], true);
+    compare(source, &[("input.o", &object[..63])], true);
+}
+#[test]
 fn real_roundtrip_empty_unicode_and_exclusive_create_match_executors() {
     compare(
         include_str!("../../../examples/files/roundtrip.ceru"),

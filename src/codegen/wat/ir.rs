@@ -26,6 +26,7 @@ pub struct Module {
     pub array_heap_limit: Option<u64>,
     pub uses_input: bool,
     pub uses_files: bool,
+    pub uses_binary_files: bool,
     pub uses_write: bool,
     pub uses_flush: bool,
     pub uses_strings: bool,
@@ -84,6 +85,8 @@ pub enum Instruction {
     },
     FileReadText,
     FileWriteNew,
+    FileReadBytes,
+    FileWriteBytesNew,
     StringByteAt,
     StringConcat,
     StringManage {

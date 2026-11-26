@@ -2,7 +2,7 @@
 
 [English](wat-file-host.en.md)
 
-**状態：emit-watのstd:fsと版付きhost接続を実装済み。Windows/Linuxの実OS参照hostも検証済みです。**
+**状態：emit-watの `std:fs`・`std:fs::bytes` と版付きhost接続を実装済み。Windows/Linuxの実OS参照hostも検証済みです。**
 [共通ファイル契約](file-io.ja.md)の読取り・新規保存を接続します。既存の共通IR・名前規則・UTF-8・使用量上限・停止方針は変えません。生成WATの意味処理を独立したメモリ接続で4実行器と比較しています。実OS接続は独立した参照hostで検証しています。
 
 ## 責務と選択理由
@@ -31,7 +31,7 @@ hostはinstanceごとに接続・handle・準備中の名前を保持します�
 | file_write_v1 | (i32 handle, i64 bits, i32 count) → i32 | count=1〜8を渡し、受理数または失敗を返す |
 | file_close_v1 | (i32 handle) → i32 | handleを一度だけ消費。0=成功、それ以外=close失敗 |
 
-bitsは下位バイトから順に使います。符号付きi64の符号を文字データとして解釈せず、64ビットの並びを保持します。末尾の不要ビットは無視します。UTF-8の途中・NUL・CR/LF・結合文字・不正UTF-8もバイトとして保持し、hostで正規化や置換をしません。内容のUTF-8検証は生成WATの責務です。
+bitsは下位バイトから順に使います。符号付きi64の符号を文字データとして解釈せず、64ビットの並びを保持します。末尾の不要ビットは無視します。UTF-8の途中・NUL・CR/LF・結合文字・不正UTF-8もバイトとして保持し、hostで正規化や置換をしません。`read_text` は生成WATでUTF-8を検査します。`read_bytes` は各バイトをそのまま `[u8]` の要素として返します。
 
 ### 名前の準備とopen
 
@@ -83,7 +83,7 @@ file-v1のwrite requestedはソース操作の本文全長であり、8へ縮め
 
 ## 停止・観測・互換性
 
-生成WATにFileReadText／FileWriteNew、名前・上限検査、転送、所有、NodeId/SourceId/Spanを残します。失敗時は既存のflush_stdout_v1へ先行出力を渡し、write_error_byteでfile-v1を配送してunreachableで停止します。本文・名前・OSエラー文は診断へ含めません。診断配送はbest effortで、二次的な失敗で主診断を変更しません。
+生成WATに`FileReadText`・`FileWriteNew`・`FileReadBytes`・`FileWriteBytesNew`、名前・上限検査、転送、所有、NodeId/SourceId/Spanを残します。失敗時は既存のflush_stdout_v1へ先行出力を渡し、write_error_byteでfile-v1を配送してunreachableで停止します。本文・名前・OSエラー文は診断へ含めません。診断配送はbest effortで、二次的な失敗で主診断を変更しません。
 
 成功操作の共通観測APIは今回追加しません。試験hostのeventsはコピーを返す読取り専用記録であり、記録の有無・容量は転送を変更しません。応答注入設定は開始前にコピーする別の試験制御です。
 
@@ -98,7 +98,9 @@ WAT libraryは純粋な公開関数を対象とする既存の制限を維持し
 
 ## 実装・検証と残件
 
-[生成処理](../../src/codegen/wat/files.rs)は共通IRのFileReadText／FileWriteNewを直接WATへ展開します。既存の文字列allocatorとUTF-8検査を共有し、readはopen前に上限分を予約します。失敗・空内容では解放し、成功時は使用量と長さを実長へ調整して所有を返します。mainの再実行は最初に拒否し、引数やファイルを再読取りしません。
+[生成処理](../../src/codegen/wat/files.rs)は共通IRの`FileReadText`・`FileWriteNew`・`FileReadBytes`・`FileWriteBytesNew`を直接WATへ展開します。テキストの読取りでは既存の文字列allocatorとUTF-8検査を使い、open前に上限分を予約します。失敗・空内容では解放し、成功時は使用量と長さを実長へ調整して所有を返します。mainの再実行は最初に拒否し、引数やファイルを再読取りしません。
+
+`read_bytes` は、指定した上限の要素数 × 8 バイトを配列用に予約してからファイルを開きます。読取りと close に成功すると、実際に読んだ要素数を配列の長さに設定します。予約した使用量は配列の解放時に戻ります。`write_bytes_new` は各要素を1バイトに詰める作業領域を用意してからファイルを新規作成します。どちらも上の7個の import を使います。
 
 [比較テスト](../../tests/file_io/wat.rs)は独立したメモリ接続で4実行器と出力・file-v1全文・残存内容・close回数を比較します。名前、空・0・ちょうど・+1、4096を超える転送、不正UTF-8、部分転送、割込み、0進行、不正応答、closeとの複合失敗、使用量上限、評価順・短絡・再帰・コピーと反復後の解放を含みます。物理memory.grow失敗は試験用memory上限を指定し、使用量上限の失敗とは別に、open前のallocation-failedを確認します。標準入力・引数・flushとの併用、旧hostでの必須import欠落、未使用関数にもimportが必要なことも検証します。
 
@@ -113,7 +115,7 @@ NodeとWABTが必要です。CIのWindows/Linux/macOS WAT jobではCERUNE_TEST_N
 
 ## 実OS参照host
 
-[experiments/wat_host](../../experiments/wat_host/README.md)に独立したRust crateを追加しました。Wasmi 2.0.0をそのcrateだけで使い、既存のruntime::files::DirectoryでWindows/Linuxの作業範囲・排他的作成・リンク拒否を共有します。OS操作をNodeの通常パスopenへ置き換えません。WATはemit-onlyのままです。
+[experiments/wat_host](../../experiments/wat_host/README.md)に独立したRust crateを追加しました。Wasmi 2.0.2をそのcrateだけで使い、既存のruntime::files::DirectoryでWindows/Linuxの作業範囲・排他的作成・リンク拒否を共有します。OS操作をNodeの通常パスopenへ置き換えません。WATはemit-onlyのままです。
 
 --file-rootで実行前にrootを開き、--以降の引数をプログラムへ渡します。host設定は実行制御であり、観測APIではありません。ファイル転送は最大8バイトの値だけを使い、検査・所有・再試行・UTF-8・file-v1は生成WATに残します。標準入力・引数・数値や複合値表示・flushの既存importも接続します。浮動小数点整形は実行器の純粋関数を共有します。
 

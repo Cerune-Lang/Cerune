@@ -114,7 +114,7 @@ fn elf_example_reads_fields_and_copies_the_actual_object_on_each_route() {
 }
 
 #[test]
-fn binary_module_is_observable_and_compiled_routes_report_the_missing_operation() {
+fn binary_operations_are_visible_in_ir_bytecode_and_generated_wat() {
     use std::process::Command;
     let binary = env!("CARGO_BIN_EXE_cerune");
     let source = "examples/files/elf_header.ceru";
@@ -137,12 +137,17 @@ fn binary_module_is_observable_and_compiled_routes_report_the_missing_operation(
         .args(["emit-wat", source])
         .output()
         .unwrap();
-    let err = String::from_utf8(out.stderr).unwrap();
-    assert!(!out.status.success() && out.stdout.is_empty());
     assert!(
-        err.contains("binary file I/O") && err.contains("std:fs::bytes"),
-        "{err}"
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
     );
+    let wat = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        wat.contains("call $cerune_file_read_bytes")
+            && wat.contains("call $cerune_file_write_bytes_new")
+    );
+    assert!(!wat.contains("(export \"memory\""));
 }
 
 #[test]

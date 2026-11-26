@@ -1,6 +1,7 @@
 //! 値渡しのhost接続と、出自を保持するファイル操作です。
 use super::ir::{Instruction, Module, Origin};
 use std::fmt::Write;
+mod bytes;
 mod names;
 mod transfer;
 
@@ -19,33 +20,34 @@ fn text(value: &str, out: &mut String) {
     }
 }
 pub(super) fn located(instruction: &Instruction, origin: Origin, name: &str, out: &mut String) {
-    let read = matches!(instruction, Instruction::FileReadText);
+    let (read, helper, operation) = match instruction {
+        Instruction::FileReadText => (true, "cerune_file_read", "read-text"),
+        Instruction::FileReadBytes => (true, "cerune_file_read_bytes", "read-bytes"),
+        Instruction::FileWriteNew => (false, "cerune_file_write", "write-new"),
+        Instruction::FileWriteBytesNew => (false, "cerune_file_write_bytes_new", "write-bytes-new"),
+        _ => unreachable!("expected file instruction"),
+    };
     writeln!(
         out,
         "  (func ${name} (param $name i32) {} (param $limit i64) {}\n    (local $value i32)",
-        if read { "" } else { "(param $text i32)" },
+        if read { "" } else { "(param $payload i32)" },
         if read { "(result i32)" } else { "" }
     )
     .unwrap();
     out.push_str("    local.get $name\n");
     if !read {
-        out.push_str("    local.get $text\n");
+        out.push_str("    local.get $payload\n");
     }
     out.push_str("    local.get $limit\n");
-    out.push_str(if read {
-        "    call $cerune_file_read\n    local.set $value\n"
-    } else {
-        "    call $cerune_file_write\n"
-    });
+    writeln!(out, "    call ${helper}").unwrap();
+    if read {
+        out.push_str("    local.set $value\n");
+    }
     out.push_str(
         "    (if (global.get $cerune_file_code) (then\n      call $flush_stdout_v1\n      drop\n",
     );
     text(
-        if read {
-            "cerune: file-v1 operation=read-text phase="
-        } else {
-            "cerune: file-v1 operation=write-new phase="
-        },
+        &format!("cerune: file-v1 operation={operation} phase="),
         out,
     );
     out.push_str("      (call $cerune_file_phase_text (global.get $cerune_file_phase))\n");
@@ -129,6 +131,17 @@ pub(super) fn support(module: &Module, out: &mut String) {
             out.push_str("    ))\n");
         }
         out.push_str("  )\n");
+    }
+    if module.uses_binary_files {
+        out.push_str(
+            &bytes::SOURCE.replace(
+                "@LIMIT@",
+                &module
+                    .array_heap_limit
+                    .expect("binary file array heap")
+                    .to_string(),
+            ),
+        );
     }
     names::emit(out);
     out.push_str(&transfer::SOURCE.replace("@EMPTY@", &(module.string_heap_start - 8).to_string()));

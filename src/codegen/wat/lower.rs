@@ -82,6 +82,7 @@ pub fn lower(program: &cerune_ir::Program) -> Module {
         string_heap_limit: crate::codegen::support::string_heap_limit(program),
         uses_input: program.first_input_span().is_some(),
         uses_files: program.first_file_span().is_some(),
+        uses_binary_files: program.first_binary_file_span().is_some(),
         uses_write: uses_output,
         uses_flush: crate::codegen::support::first_flush_span(program).is_some(),
         uses_strings: crate::codegen::support::first_string_span(program).is_some(),
@@ -472,8 +473,21 @@ impl LoweringContext<'_> {
                     },
                 });
             }
-            cerune_ir::StatementKind::FileWriteBytesNew { .. } => {
-                unreachable!("binary file I/O checked before lowering")
+            cerune_ir::StatementKind::FileWriteBytesNew {
+                name,
+                bytes,
+                max_bytes,
+            } => {
+                self.lower_expr(name, instructions);
+                self.lower_expr(bytes, instructions);
+                self.lower_expr(max_bytes, instructions);
+                instructions.push(Instruction::Located {
+                    origin: Origin {
+                        node_id: statement.id,
+                        span: statement.span,
+                    },
+                    instruction: Box::new(Instruction::FileWriteBytesNew),
+                });
             }
             cerune_ir::StatementKind::FileWriteNew {
                 name,
@@ -910,8 +924,11 @@ impl LoweringContext<'_> {
                     address: Address::Frame(destination),
                 }
             }
-            cerune_ir::ExprKind::FileReadBytes { .. } => {
-                unreachable!("binary file I/O checked before lowering")
+            cerune_ir::ExprKind::FileReadBytes { name, max_bytes } => {
+                self.lower_expr(name, instructions);
+                self.lower_expr(max_bytes, instructions);
+                instructions.push(Instruction::FileReadBytes.at(expr));
+                Value::Scalar(Type::DynamicArray)
             }
             cerune_ir::ExprKind::FileReadText { name, max_bytes } => {
                 self.lower_expr(name, instructions);

@@ -66,7 +66,6 @@ fn emit_configured(
     call_limit: Option<std::num::NonZeroU32>,
     with_trace: bool,
 ) -> Result<String, Diagnostic> {
-    super::support::reject_binary_files(program, "WAT")?;
     if let Some(span) = program.first_argument_span()
         && limits.max_count > i64::MAX as u64
     {
