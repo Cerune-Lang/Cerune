@@ -133,7 +133,7 @@ fn binary_module_is_observable_and_compiled_routes_report_the_missing_operation(
         let ir = String::from_utf8(out.stdout).unwrap();
         assert!(ir.contains("file.read_bytes") && ir.contains("file.write_bytes_new"));
     }
-    for command in ["emit-llvm", "emit-qbe", "emit-wat"] {
+    for command in ["emit-qbe", "emit-wat"] {
         let mut cmd = Command::new(binary);
         cmd.args([command, source]);
         if matches!(command, "emit-llvm" | "emit-qbe") {

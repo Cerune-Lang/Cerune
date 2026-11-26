@@ -1,4 +1,5 @@
 //! ファイル操作の意味をLLVMへ展開します。明示ターゲットのOS接続と試験接続を分離します。
+mod bytes;
 mod connection;
 pub(super) mod entry;
 mod names;
@@ -7,21 +8,27 @@ mod tests;
 mod transfer;
 use super::{
     Target,
-    ir::{Instruction, Module, Origin},
+    ir::{Instruction, LocatedInstruction, Module, Origin},
 };
 use std::fmt::Write;
 
-pub(super) fn used(module: &Module) -> bool {
+fn file_instructions(module: &Module) -> impl Iterator<Item = &LocatedInstruction> {
     module
         .instructions
         .iter()
         .chain(module.functions.iter().flat_map(|f| &f.instructions))
-        .any(|i| {
+        .filter(|i| {
             matches!(
                 i.instruction,
-                Instruction::FileReadText { .. } | Instruction::FileWriteNew { .. }
+                Instruction::FileReadText { .. }
+                    | Instruction::FileWriteNew { .. }
+                    | Instruction::FileReadBytes { .. }
+                    | Instruction::FileWriteBytesNew { .. }
             )
         })
+}
+pub(super) fn used(module: &Module) -> bool {
+    file_instructions(module).next().is_some()
 }
 pub(super) fn origin_name(origin: Origin) -> String {
     let Origin::Source { node_id, span } = origin else {
@@ -48,16 +55,13 @@ fn data(out: &mut String, name: &str, text: &str) {
 }
 pub(super) fn emit_support(module: &Module, out: &mut String) {
     let mut origins = Vec::new();
-    for i in module
-        .instructions
-        .iter()
-        .chain(module.functions.iter().flat_map(|f| &f.instructions))
-    {
-        if matches!(
+    let mut binary = false;
+    for i in file_instructions(module) {
+        binary |= matches!(
             i.instruction,
-            Instruction::FileReadText { .. } | Instruction::FileWriteNew { .. }
-        ) && !origins.contains(&i.origin)
-        {
+            Instruction::FileReadBytes { .. } | Instruction::FileWriteBytesNew { .. }
+        );
+        if !origins.contains(&i.origin) {
             origins.push(i.origin);
         }
     }
@@ -81,6 +85,8 @@ pub(super) fn emit_support(module: &Module, out: &mut String) {
         );
     }
     for word in [
+        "read-bytes",
+        "write-bytes-new",
         "read-text",
         "write-new",
         "validate",
@@ -163,6 +169,17 @@ pub(super) fn emit_support(module: &Module, out: &mut String) {
         "@LIMIT@",
         &module.string_heap_limit.expect("file heap").to_string(),
     ));
+    if binary {
+        out.push_str(
+            &bytes::SOURCE.replace(
+                "@ARRAY_LIMIT@",
+                &module
+                    .array_heap_limit
+                    .expect("binary file array heap")
+                    .to_string(),
+            ),
+        );
+    }
 }
 const FAILURE: &str = r#"
 define internal void @cerune.files.fail(ptr %operation, ptr %phase, ptr %code, i64 %limit, i1 %requested.known, i64 %requested, i64 %transferred, i1 %known, ptr %created, ptr %cleanup, ptr %origin) noreturn {

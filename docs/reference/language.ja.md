@@ -505,7 +505,7 @@ HIR・MIR・SSA・VM・CLI・生成C・LLVM・QBE・WAT・Nativeに対応して�
 
 `import "std:fs" as fs;`で`fs::read_text(name, max_bytes) -> string`と`fs::write_new(name, text, max_bytes) -> void`を使えます。UTF-8全文の上限は0〜2147483647バイトで、既存ファイルを上書きしません。内容のNUL・CR/LF・結合文字を保持し、異常は位置付き診断で停止します。
 
-バイナリファイルには `import "std:fs::bytes" as fs;` を使います。`fs::read_bytes(name, max_bytes)` は `[u8]` を返し、`fs::write_bytes_new(name, bytes, max_bytes)` は全バイトを新規保存します。HIR・MIR・SSA・VM、Windows/Linux の生成C、Windows/Linux x86-64 の Native で実行できます。[ELF ヘッダを読む例](../../examples/files/README.md)
+バイナリファイルには `import "std:fs::bytes" as fs;` を使います。`fs::read_bytes(name, max_bytes)` は `[u8]` を返し、`fs::write_bytes_new(name, bytes, max_bytes)` は全バイトを新規保存します。HIR・MIR・SSA・VM、Windows/Linux の生成C、Windows/Linux x86-64 の LLVM・Native で実行できます。[ELF ヘッダを読む例](../../examples/files/README.md)
 
 **HIR・MIR・SSA・VMで、Rust APIの明示接続またはWindows/LinuxのCLI `--file-root <directory>`を使います。生成C・LLVM・QBE・NativeもWindows/Linuxで対応します。WATは版付きhost経由で対応し、Windows/Linuxの[実OS参照host](../../experiments/wat_host/README.md)も利用できます。** 接続未設定は`unconfigured`で停止します。[契約と接続API](../design/file-io.ja.md)・[実行例](../../examples/files/README.md)を参照してください。
 

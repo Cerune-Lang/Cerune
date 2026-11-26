@@ -25,6 +25,17 @@ clang -std=c11 -O2 elf-c/reader.c -lm -o elf-c/reader
 cmp elf-c/input.o elf-c/copy.o
 ```
 
+For generated LLVM, use the same input and specify the target explicitly. On Linux x86-64:
+
+```sh
+mkdir elf-llvm
+cp elf-sample/input.o elf-llvm/input.o
+cargo run --quiet -- emit-llvm examples/files/elf_header.ceru --target x86_64-unknown-linux-gnu -o elf-llvm/reader.ll
+clang --target=x86_64-unknown-linux-gnu -O2 elf-llvm/reader.ll -lm -o elf-llvm/reader
+./elf-llvm/reader --cerune-runtime-v1 --file-root elf-llvm --
+cmp elf-llvm/input.o elf-llvm/copy.o
+```
+
 On Linux x86-64, compile and run the same example through Native. An exit status of zero from `cmp` confirms that every byte matches.
 
 ```sh

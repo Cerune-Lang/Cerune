@@ -262,6 +262,40 @@ fn llvm_files_example_and_transfer_failures_match_four_executors() {
     }
 }
 #[test]
+fn llvm_binary_file_transfers_match_four_executors() {
+    let read = r#"import "std:fs::bytes" as fs; print(7); print(fs::read_bytes("x",3)); print(8);"#;
+    let write = r#"import "std:fs::bytes" as fs; print(7); fs::write_bytes_new("x",array_copy([255u8,0u8,128u8]),3); print(8);"#;
+    let payload = [0xff, 0, 0x80];
+    let program = hir(read);
+    let error = super::super::emit_llvm(&program).unwrap_err();
+    assert_eq!(error.primary_span(), program.first_file_span());
+    assert!(
+        error
+            .message()
+            .contains("file I/O requires an explicit --target")
+    );
+    for opt in ["-O0", "-O2"] {
+        for (source, base) in [(read, Case::read(&payload)), (write, Case::write())] {
+            for (steps, close_error) in [
+                (vec![Step::Interrupted, Step::Count(1)], false),
+                (vec![Step::Count(1), Step::Fail], true),
+                (vec![Step::Count(1), Step::Invalid], false),
+                (vec![Step::Count(1), Step::Zero], false),
+                (vec![], true),
+            ] {
+                let case = Case {
+                    steps,
+                    close_error,
+                    ..base.clone()
+                };
+                if !compare(source, "x", &case, opt, None) {
+                    return;
+                }
+            }
+        }
+    }
+}
+#[test]
 fn llvm_files_validation_limits_and_utf8_match_four_executors() {
     for opt in ["-O0", "-O2"] {
         for (bytes, limit) in [
@@ -425,60 +459,84 @@ fn llvm_files_large_transfers_preserve_chunk_requests_and_eof_probe() {
 }
 #[test]
 fn llvm_files_allocation_failure_precedes_open_and_redacts_input() {
+    use super::super::ir::Instruction;
     use crate::runtime::files::{
         Cleanup, Code, Created, Details, Failure, Operation, Origin, Phase,
     };
-    let p = hir(
-        r#"import "std:fs" as fs; print(7); print(fs::read_text("private-name",3)); print(8);"#,
-    );
-    let module = lower(&p);
-    let origin = module
-        .instructions
-        .iter()
-        .chain(module.functions.iter().flat_map(|f| &f.instructions))
-        .find(|i| {
-            matches!(
-                i.instruction,
-                super::super::ir::Instruction::FileReadText { .. }
-            )
-        })
-        .unwrap()
-        .origin;
-    let super::super::ir::Origin::Source { node_id, span } = origin else {
-        panic!()
-    };
-    let failure = Failure {
-        code: Code::AllocationFailed,
-        details: Details {
-            operation: Operation::ReadText,
-            phase: Phase::Reserve,
-            limit: 3,
-            requested: None,
-            transferred: 0,
-            progress_known: true,
-            created: Created::No,
-            cleanup: Cleanup::NotAttempted,
-            origin: Origin { node_id, span },
-        },
-    };
-    // LLVM内の確保だけを失敗させます。試験接続やプロセス起動の確保には影響しません。
-    let text = artifact(&p, target(), true).replace("@malloc(", "@cerune_test_malloc(");
-    let host = Case::read(b"abc").host()
-        + "\nvoid *cerune_test_malloc(uint64_t n) { (void)n; return NULL; }\n";
-    for opt in ["-O0", "-O2"] {
-        let Some((dir, exe)) = build(&text, Some(&host), opt, target()) else {
-            return;
+    for (source, operation, allocation_size) in [
+        (
+            r#"import "std:fs" as fs; print(7); print(fs::read_text("private-name",3));"#,
+            Operation::ReadText,
+            27,
+        ),
+        (
+            r#"import "std:fs::bytes" as fs; print(7); print(fs::read_bytes("private-name",3));"#,
+            Operation::ReadBytes,
+            24,
+        ),
+        (
+            r#"import "std:fs::bytes" as fs; print(7); fs::write_bytes_new("private-name",array_copy([1u8,2u8,3u8]),3);"#,
+            Operation::WriteBytesNew,
+            3,
+        ),
+    ] {
+        let p = hir(source);
+        let module = lower(&p);
+        let origin = module
+            .instructions
+            .iter()
+            .chain(module.functions.iter().flat_map(|f| &f.instructions))
+            .find(|i| {
+                matches!(
+                    (&i.instruction, operation),
+                    (Instruction::FileReadText { .. }, Operation::ReadText)
+                        | (Instruction::FileReadBytes { .. }, Operation::ReadBytes)
+                        | (
+                            Instruction::FileWriteBytesNew { .. },
+                            Operation::WriteBytesNew
+                        )
+                )
+            })
+            .unwrap()
+            .origin;
+        let super::super::ir::Origin::Source { node_id, span } = origin else {
+            panic!()
         };
-        let out = process::bounded_output(
-            Command::new(exe).current_dir(&dir),
-            &dir,
-            "llvm-files-allocation",
-            Duration::from_secs(10),
-        )
-        .unwrap();
-        check_result(&out, Err((failure, "7\n".into())));
-        assert!(!dir.join("host-trace.txt").exists());
-        fs::remove_dir_all(dir).unwrap();
+        let failure = Failure {
+            code: Code::AllocationFailed,
+            details: Details {
+                operation,
+                phase: Phase::Reserve,
+                limit: 3,
+                requested: (operation == Operation::WriteBytesNew).then_some(3),
+                transferred: 0,
+                progress_known: true,
+                created: Created::No,
+                cleanup: Cleanup::NotAttempted,
+                origin: Origin { node_id, span },
+            },
+        };
+        // LLVM内の確保だけを失敗させます。試験接続やプロセス起動の確保には影響しません。
+        let text = artifact(&p, target(), true).replace("@malloc(", "@cerune_test_malloc(");
+        let host = Case::read(b"abc").host()
+            + &format!(
+                "\n#include <stdlib.h>\nvoid *cerune_test_malloc(uint64_t n) {{ return n == {allocation_size} ? NULL : malloc(n); }}\n"
+            );
+        for opt in ["-O0", "-O2"] {
+            let Some((dir, exe)) = build(&text, Some(&host), opt, target()) else {
+                return;
+            };
+            let out = process::bounded_output(
+                Command::new(exe).current_dir(&dir),
+                &dir,
+                "llvm-files-allocation",
+                Duration::from_secs(10),
+            )
+            .unwrap();
+            check_result(&out, Err((failure, "7\n".into())));
+            assert!(!dir.join("host-trace.txt").exists());
+            fs::remove_dir_all(dir).unwrap();
+        }
     }
 }
 
